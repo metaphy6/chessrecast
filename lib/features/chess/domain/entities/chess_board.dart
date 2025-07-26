@@ -5,6 +5,7 @@ import '../enums/game_status.dart';
 import 'position.dart';
 import 'chess_piece.dart';
 import 'chess_move.dart';
+import '../../../../core/constants/game_types.dart';
 
 class ChessBoard extends Equatable {
   final List<ChessPiece> pieces;
@@ -18,6 +19,9 @@ class ChessBoard extends Equatable {
   final int halfMoveClock;
   final int fullMoveNumber;
   final List<ChessMove> moveHistory;
+  final GameType gameType;
+  final bool whiteHasPromotedKing;
+  final bool blackHasPromotedKing;
 
   const ChessBoard({
     required this.pieces,
@@ -31,10 +35,13 @@ class ChessBoard extends Equatable {
     this.halfMoveClock = 0,
     this.fullMoveNumber = 1,
     this.moveHistory = const [],
+    this.gameType = GameType.classic,
+    this.whiteHasPromotedKing = false,
+    this.blackHasPromotedKing = false,
   });
 
   /// Creates the initial chess board setup
-  factory ChessBoard.initial() {
+  factory ChessBoard.initial({GameType gameType = GameType.classic}) {
     final pieces = <ChessPiece>[];
 
     // Add pawns
@@ -84,7 +91,7 @@ class ChessBoard extends Equatable {
       );
     }
 
-    return ChessBoard(pieces: pieces);
+    return ChessBoard(pieces: pieces, gameType: gameType);
   }
 
   /// Gets the piece at the specified position
@@ -181,6 +188,15 @@ class ChessBoard extends Equatable {
   }
 
   List<ChessMove> _getPawnMoves(ChessPiece pawn) {
+    // Check game type for special pawn behavior
+    if (gameType == GameType.royalPawns) {
+      return _getRoyalPawnMoves(pawn);
+    } else if (gameType == GameType.shiftyPawns) {
+      return _getShiftyPawnMoves(pawn);
+    } else if (gameType == GameType.heir) {
+      return _getHeirPawnMoves(pawn);
+    }
+
     final moves = <ChessMove>[];
     final direction = pawn.color == PieceColor.white ? 1 : -1;
     final startRow = pawn.color == PieceColor.white ? 1 : 6;
@@ -233,6 +249,540 @@ class ChessBoard extends Equatable {
         // En passant
         if (capturePos == enPassantTarget) {
           // The captured pawn is on the same row as the attacking pawn
+          final capturedPawn = getPieceAt(
+            Position(pawn.position.row, capturePos.col),
+          );
+          if (capturedPawn != null && capturedPawn.type == PieceType.pawn) {
+            print(
+              '🎯 En passant capture found! Attacking: ${pawn.position.algebraic} → ${capturePos.algebraic}, Captured: ${capturedPawn.position.algebraic}',
+            );
+            moves.add(
+              ChessMove.enPassant(
+                from: pawn.position,
+                to: capturePos,
+                piece: pawn,
+                capturedPiece: capturedPawn,
+              ),
+            );
+          }
+        }
+      }
+    }
+
+    return moves;
+  }
+
+  /// Gets available promotion pieces based on game mode and player state
+  List<String> getPromotionPieces(
+    PieceColor color, {
+    Position? promotionPosition,
+  }) {
+    if (gameType == GameType.heir) {
+      // Check if player currently has a king
+      final hasKing = getKing(color) != null;
+
+      // NEW RULE: If king is already captured, next promotion can only be King
+      if (!hasKing) {
+        final hasPromotedKing = color == PieceColor.white
+            ? whiteHasPromotedKing
+            : blackHasPromotedKing;
+
+        // If they haven't promoted a king yet, they can only promote to King
+        if (!hasPromotedKing) {
+          // CHESS RULE: Check if King promotion would result in immediate check
+          if (promotionPosition != null &&
+              _wouldKingPromotionBeInCheck(color, promotionPosition)) {
+            print(
+              '👑 HEIR MODE: ${color.name} cannot promote to King - would be in check at ${promotionPosition.algebraic}',
+            );
+            return []; // No valid promotion pieces - move should be illegal
+          }
+          print(
+            '👑 HEIR MODE: ${color.name} has no king - can only promote to King',
+          );
+          return ['K']; // Only King promotion allowed
+        }
+      }
+
+      // If player has a king, check if they can still promote to King
+      final hasPromotedKing = color == PieceColor.white
+          ? whiteHasPromotedKing
+          : blackHasPromotedKing;
+      if (!hasPromotedKing) {
+        final availablePieces = ['Q', 'R', 'B', 'N'];
+        // Check if King promotion would be safe
+        if (promotionPosition == null ||
+            !_wouldKingPromotionBeInCheck(color, promotionPosition)) {
+          availablePieces.add('K');
+        } else {
+          print(
+            '👑 HEIR MODE: ${color.name} cannot promote to King - would be in check at ${promotionPosition.algebraic}',
+          );
+        }
+        return availablePieces; // Include King as option only if safe
+      }
+    }
+    return ['Q', 'R', 'B', 'N']; // Standard promotion pieces
+  }
+
+  /// Checks if promoting a pawn to King at the given position would result in immediate check
+  bool _wouldKingPromotionBeInCheck(PieceColor color, Position position) {
+    // Create a temporary board with a King at the promotion position
+    final newPieces = List<ChessPiece>.from(pieces);
+
+    // Add the promoted King to the test position
+    newPieces.add(
+      ChessPiece(type: PieceType.king, color: color, position: position),
+    );
+
+    // Create temporary board with the new King
+    final tempBoard = copyWith(pieces: newPieces);
+
+    // Check if this new King would be under attack
+    final wouldBeInCheck = tempBoard.isPositionUnderAttack(
+      position,
+      color.opposite,
+    );
+
+    print(
+      '🔍 KING PROMOTION CHECK: ${color.name} King at ${position.algebraic} would be ${wouldBeInCheck ? "IN CHECK" : "SAFE"}',
+    );
+
+    return wouldBeInCheck;
+  }
+
+  /// Heir mode: Regular pawn moves with special King promotion rules
+  List<ChessMove> _getHeirPawnMoves(ChessPiece pawn) {
+    final moves = <ChessMove>[];
+    final direction = pawn.color == PieceColor.white ? 1 : -1;
+    final startRow = pawn.color == PieceColor.white ? 1 : 6;
+
+    print(
+      '👑 HEIR PAWN: ${pawn.position.algebraic} - Standard pawn moves with King promotion option',
+    );
+
+    // Forward move (one square)
+    final oneStep = pawn.position.offset(direction, 0);
+    if (oneStep.isValid && getPieceAt(oneStep) == null) {
+      // Check for promotion
+      final lastRank = pawn.color == PieceColor.white ? 7 : 0;
+      if (oneStep.row == lastRank) {
+        // Add promotion moves with special King option for Heir mode
+        for (final promotionPiece in getPromotionPieces(
+          pawn.color,
+          promotionPosition: oneStep,
+        )) {
+          print(
+            '👑 HEIR PAWN promotion move: ${pawn.position.algebraic} → ${oneStep.algebraic} = $promotionPiece',
+          );
+          moves.add(
+            ChessMove.promotion(
+              from: pawn.position,
+              to: oneStep,
+              piece: pawn,
+              promotionPiece: promotionPiece,
+            ),
+          );
+        }
+      } else {
+        // Regular forward move
+        moves.add(
+          ChessMove.simple(from: pawn.position, to: oneStep, piece: pawn),
+        );
+      }
+
+      // Two-step move from starting position
+      if (pawn.position.row == startRow) {
+        final twoStep = pawn.position.offset(direction * 2, 0);
+        if (twoStep.isValid && getPieceAt(twoStep) == null) {
+          moves.add(
+            ChessMove.simple(from: pawn.position, to: twoStep, piece: pawn),
+          );
+        }
+      }
+    }
+
+    // Diagonal captures
+    for (final colOffset in [-1, 1]) {
+      final capturePos = pawn.position.offset(direction, colOffset);
+      if (capturePos.isValid) {
+        final targetPiece = getPieceAt(capturePos);
+        if (targetPiece != null && targetPiece.color != pawn.color) {
+          // Check for promotion when capturing
+          final lastRank = pawn.color == PieceColor.white ? 7 : 0;
+          if (capturePos.row == lastRank) {
+            // Add promotion captures with special King option for Heir mode
+            for (final promotionPiece in getPromotionPieces(
+              pawn.color,
+              promotionPosition: capturePos,
+            )) {
+              print(
+                '👑 HEIR PAWN promotion capture: ${pawn.position.algebraic} → ${capturePos.algebraic} = $promotionPiece',
+              );
+              moves.add(
+                ChessMove.promotion(
+                  from: pawn.position,
+                  to: capturePos,
+                  piece: pawn,
+                  capturedPiece: targetPiece,
+                  promotionPiece: promotionPiece,
+                ),
+              );
+            }
+          } else {
+            // Regular capture
+            moves.add(
+              ChessMove.simple(
+                from: pawn.position,
+                to: capturePos,
+                piece: pawn,
+                capturedPiece: targetPiece,
+              ),
+            );
+          }
+        }
+
+        // En passant
+        if (capturePos == enPassantTarget) {
+          // The captured pawn is on the same row as the attacking pawn
+          final capturedPawn = getPieceAt(
+            Position(pawn.position.row, capturePos.col),
+          );
+          if (capturedPawn != null && capturedPawn.type == PieceType.pawn) {
+            print(
+              '🎯 En passant capture found! Attacking: ${pawn.position.algebraic} → ${capturePos.algebraic}, Captured: ${capturedPawn.position.algebraic}',
+            );
+            moves.add(
+              ChessMove.enPassant(
+                from: pawn.position,
+                to: capturePos,
+                piece: pawn,
+                capturedPiece: capturedPawn,
+              ),
+            );
+          }
+        }
+      }
+    }
+
+    return moves;
+  }
+
+  /// Royal Pawns mode: Pawns can move AND capture like kings in all directions
+  List<ChessMove> _getRoyalPawnMoves(ChessPiece pawn) {
+    final moves = <ChessMove>[];
+
+    print(
+      '� ROYAL PAWN: ${pawn.position.algebraic} can move and capture like a king!',
+    );
+
+    // Debug en passant target - always print
+    print(
+      '🎯 EN PASSANT DEBUG: Target = ${enPassantTarget?.algebraic ?? "NULL"}, Checking pawn at ${pawn.position.algebraic}',
+    );
+
+    if (enPassantTarget != null) {
+      print(
+        '🎯 EN PASSANT: Current target = ${enPassantTarget!.algebraic}, Checking pawn at ${pawn.position.algebraic}',
+      );
+    }
+
+    // ROYAL PAWN: King-like moves (one square in any direction)
+    // This replaces ALL normal pawn movement - pawns move exactly like kings
+    final kingMoves = [
+      [-1, -1], [-1, 0], [-1, 1], // up-left, up, up-right
+      [0, -1], [0, 1], // left, right
+      [1, -1], [1, 0], [1, 1], // down-left, down, down-right
+    ];
+
+    for (final moveOffset in kingMoves) {
+      final newPos = pawn.position.offset(moveOffset[0], moveOffset[1]);
+      if (!newPos.isValid) continue;
+
+      final targetPiece = getPieceAt(newPos);
+
+      // Debug: Log each direction being checked
+      String direction = "";
+      if (moveOffset[0] == -1 && moveOffset[1] == -1) {
+        direction = "up-left";
+      } else if (moveOffset[0] == -1 && moveOffset[1] == 0)
+        direction = "up";
+      else if (moveOffset[0] == -1 && moveOffset[1] == 1)
+        direction = "up-right";
+      else if (moveOffset[0] == 0 && moveOffset[1] == -1)
+        direction = "left";
+      else if (moveOffset[0] == 0 && moveOffset[1] == 1)
+        direction = "right";
+      else if (moveOffset[0] == 1 && moveOffset[1] == -1)
+        direction = "down-left";
+      else if (moveOffset[0] == 1 && moveOffset[1] == 0)
+        direction = "down";
+      else if (moveOffset[0] == 1 && moveOffset[1] == 1)
+        direction = "down-right";
+
+      print(
+        '🔍 ROYAL PAWN ${pawn.position.algebraic} checking $direction to ${newPos.algebraic}: ${targetPiece?.toString() ?? "EMPTY"}',
+      );
+
+      // Check if this move is valid
+      if (targetPiece == null) {
+        // Empty square - can move
+        print('✅ ROYAL PAWN can move $direction to ${newPos.algebraic}');
+
+        // Check for promotion when moving to the last rank
+        final lastRank = pawn.color == PieceColor.white ? 7 : 0;
+        if (newPos.row == lastRank) {
+          // Add promotion moves (queen, rook, bishop, knight)
+          for (final promotionPiece in ['Q', 'R', 'B', 'N']) {
+            print(
+              '👑 ROYAL PAWN promotion move: ${pawn.position.algebraic} → ${newPos.algebraic} = $promotionPiece',
+            );
+            moves.add(
+              ChessMove.promotion(
+                from: pawn.position,
+                to: newPos,
+                piece: pawn,
+                promotionPiece: promotionPiece,
+              ),
+            );
+          }
+        } else {
+          // Regular move
+          moves.add(
+            ChessMove.simple(from: pawn.position, to: newPos, piece: pawn),
+          );
+        }
+      } else if (targetPiece.color != pawn.color) {
+        // Enemy piece - can capture (like a king)
+        print(
+          '⚔️ ROYAL PAWN can capture $direction: ${targetPiece.toString()} at ${newPos.algebraic}',
+        );
+
+        // Check for promotion when capturing on the last rank
+        final lastRank = pawn.color == PieceColor.white ? 7 : 0;
+        if (newPos.row == lastRank) {
+          // Add promotion captures (queen, rook, bishop, knight)
+          for (final promotionPiece in ['Q', 'R', 'B', 'N']) {
+            print(
+              '👑 ROYAL PAWN promotion capture: ${pawn.position.algebraic} → ${newPos.algebraic} = $promotionPiece',
+            );
+            moves.add(
+              ChessMove.promotion(
+                from: pawn.position,
+                to: newPos,
+                piece: pawn,
+                capturedPiece: targetPiece,
+                promotionPiece: promotionPiece,
+              ),
+            );
+          }
+        } else {
+          // Regular capture
+          moves.add(
+            ChessMove.simple(
+              from: pawn.position,
+              to: newPos,
+              piece: pawn,
+              capturedPiece: targetPiece,
+            ),
+          );
+        }
+      } else {
+        print(
+          '🚫 ROYAL PAWN blocked by friendly piece $direction: ${targetPiece.toString()} at ${newPos.algebraic}',
+        );
+      }
+    }
+
+    // Handle en passant separately if needed
+    if (enPassantTarget != null) {
+      // Check if this pawn can capture en passant
+      final enPassantRow = pawn.color == PieceColor.white
+          ? 5
+          : 2; // 6th rank for white, 3rd rank for black
+      if (pawn.position.row == enPassantRow) {
+        final colDiff = (enPassantTarget!.col - pawn.position.col).abs();
+        if (colDiff == 1 &&
+            enPassantTarget!.row ==
+                pawn.position.row + (pawn.color == PieceColor.white ? 1 : -1)) {
+          final capturedPawn = getPieceAt(
+            Position(pawn.position.row, enPassantTarget!.col),
+          );
+          if (capturedPawn != null &&
+              capturedPawn.type == PieceType.pawn &&
+              capturedPawn.color != pawn.color) {
+            print(
+              '🎯 En passant capture found! Attacking: ${pawn.position.algebraic} → ${enPassantTarget!.algebraic}, Captured: ${capturedPawn.position.algebraic}',
+            );
+            moves.add(
+              ChessMove.enPassant(
+                from: pawn.position,
+                to: enPassantTarget!,
+                piece: pawn,
+                capturedPiece: capturedPawn,
+              ),
+            );
+          }
+        }
+      }
+    }
+
+    return moves;
+  }
+
+  /// Shifty Pawns mode: Pawns can move like kings but capture like regular pawns
+  List<ChessMove> _getShiftyPawnMoves(ChessPiece pawn) {
+    final moves = <ChessMove>[];
+    final direction = pawn.color == PieceColor.white ? 1 : -1;
+
+    print(
+      '🔄 SHIFTY PAWN: ${pawn.position.algebraic} can move like a king but capture like a regular pawn!',
+    );
+
+    // Debug en passant target - always print
+    print(
+      '🎯 EN PASSANT DEBUG: Target = ${enPassantTarget?.algebraic ?? "NULL"}, Checking pawn at ${pawn.position.algebraic}',
+    );
+
+    if (enPassantTarget != null) {
+      print(
+        '🎯 EN PASSANT: Current target = ${enPassantTarget!.algebraic}, Checking pawn at ${pawn.position.algebraic}',
+      );
+    }
+
+    // SHIFTY PAWN: King-like movement (one square in any direction) for MOVEMENT ONLY
+    final kingMoves = [
+      [-1, -1], [-1, 0], [-1, 1], // up-left, up, up-right
+      [0, -1], [0, 1], // left, right
+      [1, -1], [1, 0], [1, 1], // down-left, down, down-right
+    ];
+
+    for (final moveOffset in kingMoves) {
+      final newPos = pawn.position.offset(moveOffset[0], moveOffset[1]);
+      if (!newPos.isValid) continue;
+
+      final targetPiece = getPieceAt(newPos);
+
+      // Debug: Log each direction being checked
+      String directionName = "";
+      if (moveOffset[0] == -1 && moveOffset[1] == -1) {
+        directionName = "up-left";
+      } else if (moveOffset[0] == -1 && moveOffset[1] == 0)
+        directionName = "up";
+      else if (moveOffset[0] == -1 && moveOffset[1] == 1)
+        directionName = "up-right";
+      else if (moveOffset[0] == 0 && moveOffset[1] == -1)
+        directionName = "left";
+      else if (moveOffset[0] == 0 && moveOffset[1] == 1)
+        directionName = "right";
+      else if (moveOffset[0] == 1 && moveOffset[1] == -1)
+        directionName = "down-left";
+      else if (moveOffset[0] == 1 && moveOffset[1] == 0)
+        directionName = "down";
+      else if (moveOffset[0] == 1 && moveOffset[1] == 1)
+        directionName = "down-right";
+
+      print(
+        '🔍 SHIFTY PAWN ${pawn.position.algebraic} checking $directionName to ${newPos.algebraic}: ${targetPiece?.toString() ?? "EMPTY"}',
+      );
+
+      // For shifty pawns: can move to any empty square (like a king)
+      if (targetPiece == null) {
+        print('✅ SHIFTY PAWN can move $directionName to ${newPos.algebraic}');
+
+        // Check for promotion when moving to the last rank
+        final lastRank = pawn.color == PieceColor.white ? 7 : 0;
+        if (newPos.row == lastRank) {
+          // Add promotion moves (queen, rook, bishop, knight)
+          for (final promotionPiece in ['Q', 'R', 'B', 'N']) {
+            print(
+              '👑 SHIFTY PAWN promotion move: ${pawn.position.algebraic} → ${newPos.algebraic} = $promotionPiece',
+            );
+            moves.add(
+              ChessMove.promotion(
+                from: pawn.position,
+                to: newPos,
+                piece: pawn,
+                promotionPiece: promotionPiece,
+              ),
+            );
+          }
+        } else {
+          // Regular move
+          moves.add(
+            ChessMove.simple(from: pawn.position, to: newPos, piece: pawn),
+          );
+        }
+      }
+      // BUT can only capture like a regular pawn (handled separately below)
+    }
+
+    // SHIFTY PAWN SPECIAL: Two-square forward move from starting position
+    final startRow = pawn.color == PieceColor.white ? 1 : 6;
+    if (pawn.position.row == startRow) {
+      // Check if pawn can move 2 squares forward
+      final twoSquarePos = pawn.position.offset(direction * 2, 0);
+      if (twoSquarePos.isValid && getPieceAt(twoSquarePos) == null) {
+        // Only allow if one square forward is also empty (already checked above in king moves)
+        final oneSquarePos = pawn.position.offset(direction, 0);
+        if (getPieceAt(oneSquarePos) == null) {
+          print(
+            '🚀 SHIFTY PAWN can move 2 squares forward from starting position: ${pawn.position.algebraic} → ${twoSquarePos.algebraic}',
+          );
+          moves.add(
+            ChessMove.simple(
+              from: pawn.position,
+              to: twoSquarePos,
+              piece: pawn,
+            ),
+          );
+        }
+      }
+    }
+
+    // REGULAR PAWN CAPTURES: Only diagonal forward captures and en passant
+    for (final colOffset in [-1, 1]) {
+      final capturePos = pawn.position.offset(direction, colOffset);
+      if (capturePos.isValid) {
+        final targetPiece = getPieceAt(capturePos);
+        if (targetPiece != null && targetPiece.color != pawn.color) {
+          print(
+            '⚔️ SHIFTY PAWN can capture diagonally: ${targetPiece.toString()} at ${capturePos.algebraic}',
+          );
+
+          // Check for promotion when capturing on the last rank
+          final lastRank = pawn.color == PieceColor.white ? 7 : 0;
+          if (capturePos.row == lastRank) {
+            // Add promotion captures (queen, rook, bishop, knight)
+            for (final promotionPiece in ['Q', 'R', 'B', 'N']) {
+              print(
+                '👑 SHIFTY PAWN promotion capture: ${pawn.position.algebraic} → ${capturePos.algebraic} = $promotionPiece',
+              );
+              moves.add(
+                ChessMove.promotion(
+                  from: pawn.position,
+                  to: capturePos,
+                  piece: pawn,
+                  capturedPiece: targetPiece,
+                  promotionPiece: promotionPiece,
+                ),
+              );
+            }
+          } else {
+            // Regular capture
+            moves.add(
+              ChessMove.simple(
+                from: pawn.position,
+                to: capturePos,
+                piece: pawn,
+                capturedPiece: targetPiece,
+              ),
+            );
+          }
+        }
+
+        // En passant
+        if (capturePos == enPassantTarget) {
           final capturedPawn = getPieceAt(
             Position(pawn.position.row, capturePos.col),
           );
@@ -529,6 +1079,50 @@ class ChessBoard extends Equatable {
     return true;
   }
 
+  /// Checks if the game should end in Heir mode
+  bool isHeirGameEnd(PieceColor color) {
+    if (gameType != GameType.heir) return false;
+
+    final kings = pieces
+        .where((p) => p.type == PieceType.king && p.color == color)
+        .toList();
+    final pawns = pieces
+        .where((p) => p.type == PieceType.pawn && p.color == color)
+        .toList();
+
+    print(
+      '🔍 HEIR MODE: Checking game end for $color: ${kings.length} kings, ${pawns.length} pawns',
+    );
+
+    final hasPromotedKing = color == PieceColor.white
+        ? whiteHasPromotedKing
+        : blackHasPromotedKing;
+
+    // If there are no kings left (king was just captured/mated)
+    if (kings.isEmpty) {
+      if (hasPromotedKing) {
+        // Second (promoted) king was captured/mated - game ends immediately
+        print('🏁 HEIR MODE: Second king mated for $color - Game Over!');
+        return true;
+      } else if (pawns.isEmpty) {
+        // First king captured/mated and no pawns to promote - game ends immediately
+        print(
+          '🏁 HEIR MODE: First king mated and no pawns left for $color - Game Over!',
+        );
+        return true;
+      } else {
+        // First king captured/mated but pawns available for promotion - continue
+        print(
+          '👑 HEIR MODE: First king mated but pawns available for promotion for $color - Game continues!',
+        );
+        return false;
+      }
+    }
+
+    // If there are still kings, the game continues
+    return false;
+  }
+
   /// Makes a move for validation purposes (preserves en passant target)
   ChessBoard _makeMoveForValidation(ChessMove move) {
     print(
@@ -632,7 +1226,46 @@ class ChessBoard extends Equatable {
     }
 
     // Add the piece to its new position
-    newPieces.add(move.piece.movedTo(move.to));
+    if (move.isPromotion) {
+      // Handle pawn promotion - create the promoted piece
+      PieceType promotedType;
+      switch (move.promotionPiece) {
+        case 'Q':
+          promotedType = PieceType.queen;
+          break;
+        case 'R':
+          promotedType = PieceType.rook;
+          break;
+        case 'B':
+          promotedType = PieceType.bishop;
+          break;
+        case 'N':
+          promotedType = PieceType.knight;
+          break;
+        case 'K':
+          promotedType = PieceType.king;
+          print(
+            '🔥 HEIR MODE: Promoting pawn to KING at ${move.to.algebraic}!',
+          );
+          break;
+        default:
+          promotedType = PieceType.queen; // Default fallback
+      }
+
+      newPieces.add(
+        ChessPiece(
+          type: promotedType,
+          color: move.piece.color,
+          position: move.to,
+        ),
+      );
+      print(
+        '👑 Promotion: ${move.piece.color} pawn → ${move.promotionPiece} at ${move.to.algebraic}',
+      );
+    } else {
+      // Regular move
+      newPieces.add(move.piece.movedTo(move.to));
+    }
 
     // Handle castling - move the rook as well
     if (move.isCastling) {
@@ -738,6 +1371,22 @@ class ChessBoard extends Equatable {
       }
     }
 
+    // Track king promotions for Heir mode
+    bool newWhiteHasPromotedKing = whiteHasPromotedKing;
+    bool newBlackHasPromotedKing = blackHasPromotedKing;
+
+    if (gameType == GameType.heir &&
+        move.isPromotion &&
+        move.promotionPiece == 'K') {
+      if (move.piece.color == PieceColor.white) {
+        newWhiteHasPromotedKing = true;
+        print('👑 HEIR MODE: White has promoted a pawn to King!');
+      } else {
+        newBlackHasPromotedKing = true;
+        print('👑 HEIR MODE: Black has promoted a pawn to King!');
+      }
+    }
+
     return copyWith(
       pieces: newPieces,
       currentPlayer: currentPlayer.opposite,
@@ -747,6 +1396,8 @@ class ChessBoard extends Equatable {
       whiteCanCastleQueenside: newWhiteCanCastleQueenside,
       blackCanCastleKingside: newBlackCanCastleKingside,
       blackCanCastleQueenside: newBlackCanCastleQueenside,
+      whiteHasPromotedKing: newWhiteHasPromotedKing,
+      blackHasPromotedKing: newBlackHasPromotedKing,
     );
   }
 
@@ -763,6 +1414,9 @@ class ChessBoard extends Equatable {
     int? halfMoveClock,
     int? fullMoveNumber,
     List<ChessMove>? moveHistory,
+    GameType? gameType,
+    bool? whiteHasPromotedKing,
+    bool? blackHasPromotedKing,
   }) {
     return ChessBoard(
       pieces: pieces ?? this.pieces,
@@ -780,6 +1434,9 @@ class ChessBoard extends Equatable {
       halfMoveClock: halfMoveClock ?? this.halfMoveClock,
       fullMoveNumber: fullMoveNumber ?? this.fullMoveNumber,
       moveHistory: moveHistory ?? this.moveHistory,
+      gameType: gameType ?? this.gameType,
+      whiteHasPromotedKing: whiteHasPromotedKing ?? this.whiteHasPromotedKing,
+      blackHasPromotedKing: blackHasPromotedKing ?? this.blackHasPromotedKing,
     );
   }
 
@@ -796,5 +1453,8 @@ class ChessBoard extends Equatable {
     halfMoveClock,
     fullMoveNumber,
     moveHistory,
+    gameType,
+    whiteHasPromotedKing,
+    blackHasPromotedKing,
   ];
 }

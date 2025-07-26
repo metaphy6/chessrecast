@@ -9,23 +9,44 @@ class ChessGamePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.find<ChessController>();
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Chess Recast',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Chess Recast',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                fontSize: 18,
+              ),
+            ),
+            Text(
+              controller.gameType.displayName,
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
         ),
         backgroundColor: Colors.brown.shade800,
         elevation: 4,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Get.offAllNamed('/'),
+          tooltip: 'Back to Game Selection',
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => Get.find<ChessController>().resetGame(),
+            onPressed: () => controller.resetGame(),
             tooltip: 'New Game',
           ),
           IconButton(
             icon: const Icon(Icons.undo, color: Colors.white),
-            onPressed: () => Get.find<ChessController>().undoLastMove(),
+            onPressed: () => controller.undoLastMove(),
             tooltip: 'Undo Move',
           ),
         ],
