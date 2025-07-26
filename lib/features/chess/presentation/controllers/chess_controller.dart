@@ -1,14 +1,20 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../domain/entities/chess_board.dart';
 import '../../domain/entities/chess_move.dart';
+import '../../domain/entities/chess_piece.dart';
 import '../../domain/entities/position.dart';
 import '../../domain/services/chess_game_service.dart';
 import '../../domain/enums/piece_color.dart';
 import '../../domain/enums/piece_type.dart';
 import '../../domain/enums/game_status.dart';
+import '../../../../core/constants/game_types.dart';
 
 class ChessController extends GetxController {
   final ChessGameService _gameService = ChessGameService();
+
+  // Game type
+  late final GameType gameType;
 
   // Reactive variables
   final Rx<ChessBoard> _board = ChessBoard.initial().obs;
@@ -30,7 +36,16 @@ class ChessController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+
+    // Get game type from route arguments
+    final args = Get.arguments as Map<String, dynamic>?;
+    gameType = args?['gameType'] ?? GameType.classic;
+
+    // Initialize board with the correct game type
+    _board.value = ChessBoard.initial(gameType: gameType);
+
     print('DEBUG: ChessController.onInit() called');
+    print('🎮 Game Type: ${gameType.displayName}');
     print('DEBUG: Initial board has ${board.pieces.length} pieces');
     _updateStatusMessage();
   }
@@ -124,6 +139,16 @@ class ChessController extends GetxController {
         '🎯 Target piece: ${capturedPiece?.type.name ?? 'EMPTY'} ${capturedPiece?.color.name ?? 'N/A'}',
       );
 
+      // Check if this is a pawn promotion move
+      if (piece.type == PieceType.pawn) {
+        final lastRank = piece.color == PieceColor.white ? 7 : 0;
+        if (to.row == lastRank) {
+          print('👑 Pawn promotion detected! Showing promotion dialog...');
+          _showPromotionDialog(from, to, piece, capturedPiece);
+          return;
+        }
+      }
+
       final move = ChessMove.simple(
         from: from,
         to: to,
@@ -191,6 +216,107 @@ class ChessController extends GetxController {
     _deselectPiece();
   }
 
+  /// Shows a promotion dialog for pawn promotion
+  void _showPromotionDialog(
+    Position from,
+    Position to,
+    ChessPiece piece,
+    ChessPiece? capturedPiece,
+  ) {
+    // Get available promotion pieces based on game mode
+    final availablePieces = _getAvailablePromotionPieces(piece.color, to);
+
+    // Handle case where no promotion pieces are available (King would be in check)
+    if (availablePieces.isEmpty) {
+      print('❌ No valid promotion pieces available - move is illegal');
+      _showMessage('Cannot promote - King would be in check!');
+      return;
+    }
+
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Pawn Promotion'),
+        content: const Text('Choose a piece to promote your pawn:'),
+        actions: availablePieces.map((promotionPiece) {
+          final pieceName = _getPromotionPieceName(promotionPiece);
+          return TextButton(
+            onPressed: () {
+              Get.back(); // Close dialog
+              _executePromotionMove(
+                from,
+                to,
+                piece,
+                capturedPiece,
+                promotionPiece,
+              );
+            },
+            child: Text(pieceName),
+          );
+        }).toList(),
+      ),
+      barrierDismissible: false, // Must choose a piece
+    );
+  }
+
+  /// Gets available promotion pieces based on game mode and player state
+  List<String> _getAvailablePromotionPieces(
+    PieceColor color,
+    Position promotionPosition,
+  ) {
+    // Use the board's method which includes check validation for King promotion
+    return board.getPromotionPieces(
+      color,
+      promotionPosition: promotionPosition,
+    );
+  }
+
+  /// Gets the display name for a promotion piece
+  String _getPromotionPieceName(String piece) {
+    switch (piece) {
+      case 'Q':
+        return 'Queen';
+      case 'R':
+        return 'Rook';
+      case 'B':
+        return 'Bishop';
+      case 'N':
+        return 'Knight';
+      case 'K':
+        return 'King';
+      default:
+        return 'Unknown';
+    }
+  }
+
+  /// Executes a promotion move
+  void _executePromotionMove(
+    Position from,
+    Position to,
+    ChessPiece piece,
+    ChessPiece? capturedPiece,
+    String promotionPiece,
+  ) {
+    print(
+      '👑 Executing promotion move: ${from.algebraic} → ${to.algebraic} = $promotionPiece',
+    );
+
+    final promotionMove = ChessMove.promotion(
+      from: from,
+      to: to,
+      piece: piece,
+      capturedPiece: capturedPiece,
+      promotionPiece: promotionPiece,
+    );
+
+    if (_gameService.isValidMove(board, promotionMove)) {
+      print('✅ Promotion move is valid, executing...');
+      makeMove(promotionMove);
+    } else {
+      print('❌ Promotion move validation failed');
+      _showMessage('Invalid promotion move!');
+    }
+  }
+
   /// Makes a move and updates the board state
   void makeMove(ChessMove move) {
     print('🎮 makeMove called: ${move.algebraicNotation}');
@@ -229,14 +355,56 @@ class ChessController extends GetxController {
       case GameStatus.checkmate:
         final winnerName = winner.toString().toUpperCase();
         _statusMessage.value = 'Checkmate! $winnerName wins!';
+        // Show winner declaration snackbar
+        _showWinnerSnackbar(winnerName);
         break;
       case GameStatus.stalemate:
         _statusMessage.value = 'Stalemate! Game is a draw.';
+        // Show draw snackbar
+        _showDrawSnackbar('Stalemate');
         break;
       case GameStatus.draw:
         _statusMessage.value = 'Game is a draw.';
+        // Show draw snackbar
+        _showDrawSnackbar('Draw');
         break;
     }
+  }
+
+  /// Shows a winner declaration snackbar
+  void _showWinnerSnackbar(String winnerColor) {
+    Get.snackbar(
+      '🏆 Game Over!',
+      '$winnerColor Wins!',
+      duration: const Duration(seconds: 5),
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: winnerColor.toLowerCase() == 'white'
+          ? Colors.blue.shade100
+          : Colors.grey.shade800,
+      colorText: winnerColor.toLowerCase() == 'white'
+          ? Colors.blue.shade900
+          : Colors.white,
+      icon: const Icon(Icons.emoji_events, color: Colors.amber),
+      shouldIconPulse: true,
+      margin: const EdgeInsets.all(16),
+      borderRadius: 12,
+    );
+  }
+
+  /// Shows a draw declaration snackbar
+  void _showDrawSnackbar(String drawType) {
+    Get.snackbar(
+      '🤝 Game Over!',
+      '$drawType - It\'s a tie!',
+      duration: const Duration(seconds: 4),
+      snackPosition: SnackPosition.TOP,
+      backgroundColor: Colors.orange.shade100,
+      colorText: Colors.orange.shade900,
+      icon: const Icon(Icons.handshake, color: Colors.orange),
+      shouldIconPulse: true,
+      margin: const EdgeInsets.all(16),
+      borderRadius: 12,
+    );
   }
 
   /// Shows a temporary message
@@ -254,7 +422,7 @@ class ChessController extends GetxController {
 
   /// Resets the game to the initial state
   void resetGame() {
-    _board.value = ChessBoard.initial();
+    _board.value = ChessBoard.initial(gameType: gameType);
     _deselectPiece();
     _updateStatusMessage();
   }

@@ -3,6 +3,8 @@ import '../entities/chess_move.dart';
 import '../entities/position.dart';
 import '../enums/game_status.dart';
 import '../enums/piece_color.dart';
+import '../enums/piece_type.dart';
+import '../../../../core/constants/game_types.dart';
 
 class ChessGameService {
   /// Validates if a move is legal in the current board state
@@ -25,6 +27,11 @@ class ChessGameService {
 
   /// Updates the game status based on the current board state
   ChessBoard _updateGameStatus(ChessBoard board) {
+    // Special handling for Heir mode
+    if (board.gameType == GameType.heir) {
+      return _updateHeirGameStatus(board);
+    }
+
     final currentPlayerInCheck = board.isKingInCheck(board.currentPlayer);
     final hasValidMoves = _hasValidMoves(board);
 
@@ -52,6 +59,118 @@ class ChessGameService {
     }
 
     return board.copyWith(gameStatus: newStatus);
+  }
+
+  /// Updates game status specifically for Heir mode
+  ChessBoard _updateHeirGameStatus(ChessBoard board) {
+    final currentPlayerInCheck = board.isKingInCheck(board.currentPlayer);
+    final hasValidMoves = _hasValidMoves(board);
+
+    GameStatus newStatus;
+    ChessBoard updatedBoard = board;
+
+    // Check for immediate game end conditions in Heir mode
+    // If a player has no king AND no pawns, they lose immediately
+    for (final color in [PieceColor.white, PieceColor.black]) {
+      final kings = board.pieces
+          .where((p) => p.type == PieceType.king && p.color == color)
+          .toList();
+      final pawns = board.pieces
+          .where((p) => p.type == PieceType.pawn && p.color == color)
+          .toList();
+
+      if (kings.isEmpty && pawns.isEmpty) {
+        print(
+          '🏁 HEIR MODE: ${color.name} has no king and no pawns - Game Over! ${color.opposite.name} wins!',
+        );
+        return board.copyWith(gameStatus: GameStatus.checkmate);
+      }
+    }
+
+    if (currentPlayerInCheck && !hasValidMoves) {
+      // Current player's king is checkmated
+      print('👑 HEIR MODE: ${board.currentPlayer.name} King is checkmated');
+
+      // Check if this should end the game immediately based on new Heir rules
+      final playerWhoLostKing = board.currentPlayer;
+      final hasPromotedKing = playerWhoLostKing == PieceColor.white
+          ? board.whiteHasPromotedKing
+          : board.blackHasPromotedKing;
+
+      final pawns = board.pieces
+          .where(
+            (p) => p.type == PieceType.pawn && p.color == playerWhoLostKing,
+          )
+          .toList();
+
+      if (hasPromotedKing) {
+        // Second (promoted) king is mated - game ends immediately (like regular checkmate)
+        print(
+          '🏁 HEIR MODE: Second king mated for ${playerWhoLostKing.name} - Game Over!',
+        );
+        newStatus = GameStatus.checkmate;
+        updatedBoard = board; // No need to remove king, game ends
+      } else if (pawns.isEmpty) {
+        // First king mated and no pawns to promote - game ends immediately
+        print(
+          '🏁 HEIR MODE: First king mated and no pawns left for ${playerWhoLostKing.name} - Game Over!',
+        );
+        newStatus = GameStatus.checkmate;
+        updatedBoard = board; // No need to remove king, game ends
+      } else {
+        // First king mated but pawns available - remove king and continue
+        print(
+          '🗡️ HEIR MODE: First king mated but pawns available - removing king and continuing',
+        );
+
+        final king = board.getKing(board.currentPlayer);
+        if (king != null) {
+          print(
+            '�️ HEIR MODE: Removing ${board.currentPlayer.name} king from ${king.position}',
+          );
+
+          // Create a new pieces list with the king removed
+          final newPieces = board.pieces
+              .where((piece) => piece != king)
+              .toList();
+
+          updatedBoard = board.copyWith(
+            pieces: newPieces,
+            // Keep currentPlayer unchanged - they get to continue after losing their king
+          );
+
+          print(
+            '🔄 HEIR MODE: ${board.currentPlayer.name} continues their turn after losing king, board now has ${newPieces.length} pieces',
+          );
+        }
+
+        newStatus = GameStatus
+            .ongoing; // Continue the game - player can move without king
+      }
+    } else if (currentPlayerInCheck) {
+      newStatus = GameStatus.check;
+    } else if (!hasValidMoves) {
+      newStatus = GameStatus.stalemate;
+    } else {
+      newStatus = GameStatus.ongoing;
+
+      // Also check if the game should end for the other player
+      final otherPlayer = board.currentPlayer.opposite;
+      final otherPlayerGameEnd = board.isHeirGameEnd(otherPlayer);
+      if (otherPlayerGameEnd) {
+        print('🏁 HEIR MODE: Game ends for ${otherPlayer.name}');
+        newStatus = GameStatus.checkmate; // Current player wins
+      }
+    }
+
+    // Check for draw conditions
+    if (_isDrawByInsufficientMaterial(updatedBoard) ||
+        _isDrawByRepetition(updatedBoard) ||
+        _isDrawByFiftyMoveRule(updatedBoard)) {
+      newStatus = GameStatus.draw;
+    }
+
+    return updatedBoard.copyWith(gameStatus: newStatus);
   }
 
   /// Checks if the current player has any valid moves
