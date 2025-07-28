@@ -11,6 +11,10 @@ enum GameType {
   heir(
     'Heir',
     'Kings can be captured when mated. Pawns can promote to King once. Game ends when second King is mated or King is mated with no pawns left.',
+  ),
+  supremeQueen(
+    'Supreme Queen',
+    'Pawns cannot promote to Queen. Capturing the opponent\'s Queen wins the game immediately.',
   );
 
   const GameType(this.displayName, this.description);

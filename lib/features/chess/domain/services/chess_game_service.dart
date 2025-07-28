@@ -19,6 +19,18 @@ class ChessGameService {
       throw ArgumentError('Invalid move: $move');
     }
 
+    // Check for Queen capture in Supreme Queen mode before making the move
+    if (board.gameType == GameType.supremeQueen && move.capturedPiece != null) {
+      if (move.capturedPiece!.type == PieceType.queen) {
+        print(
+          '👑 SUPREME QUEEN: Queen captured! ${move.piece.color.name} wins immediately!',
+        );
+        // Make the move first, then set game as won
+        var newBoard = board.makeMove(move);
+        return newBoard.copyWith(gameStatus: GameStatus.checkmate);
+      }
+    }
+
     var newBoard = board.makeMove(move);
     newBoard = _updateGameStatus(newBoard);
 
@@ -30,6 +42,11 @@ class ChessGameService {
     // Special handling for Heir mode
     if (board.gameType == GameType.heir) {
       return _updateHeirGameStatus(board);
+    }
+
+    // Special handling for Supreme Queen mode
+    if (board.gameType == GameType.supremeQueen) {
+      return _updateSupremeQueenGameStatus(board);
     }
 
     final currentPlayerInCheck = board.isKingInCheck(board.currentPlayer);
@@ -171,6 +188,39 @@ class ChessGameService {
     }
 
     return updatedBoard.copyWith(gameStatus: newStatus);
+  }
+
+  /// Updates game status specifically for Supreme Queen mode
+  ChessBoard _updateSupremeQueenGameStatus(ChessBoard board) {
+    final currentPlayerInCheck = board.isKingInCheck(board.currentPlayer);
+    final hasValidMoves = _hasValidMoves(board);
+
+    GameStatus newStatus;
+
+    // Supreme Queen mode follows regular chess rules for check/mate/stalemate
+    // Queen capture ending is handled in executeMove() before this method is called
+    if (currentPlayerInCheck) {
+      if (hasValidMoves) {
+        newStatus = GameStatus.check;
+      } else {
+        newStatus = GameStatus.checkmate;
+      }
+    } else {
+      if (hasValidMoves) {
+        newStatus = GameStatus.ongoing;
+      } else {
+        newStatus = GameStatus.stalemate;
+      }
+    }
+
+    // Check for draw conditions
+    if (_isDrawByInsufficientMaterial(board) ||
+        _isDrawByRepetition(board) ||
+        _isDrawByFiftyMoveRule(board)) {
+      newStatus = GameStatus.draw;
+    }
+
+    return board.copyWith(gameStatus: newStatus);
   }
 
   /// Checks if the current player has any valid moves
