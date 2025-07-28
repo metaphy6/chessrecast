@@ -215,9 +215,29 @@ class ChessBoard extends Equatable {
     // Forward move
     final oneStep = pawn.position.offset(direction, 0);
     if (oneStep.isValid && getPieceAt(oneStep) == null) {
-      moves.add(
-        ChessMove.simple(from: pawn.position, to: oneStep, piece: pawn),
-      );
+      // Check for promotion
+      final lastRank = pawn.color == PieceColor.white ? 7 : 0;
+      if (oneStep.row == lastRank) {
+        // Add promotion moves
+        for (final promotionPiece in getPromotionPieces(
+          pawn.color,
+          promotionPosition: oneStep,
+        )) {
+          moves.add(
+            ChessMove.promotion(
+              from: pawn.position,
+              to: oneStep,
+              piece: pawn,
+              promotionPiece: promotionPiece,
+            ),
+          );
+        }
+      } else {
+        // Regular forward move
+        moves.add(
+          ChessMove.simple(from: pawn.position, to: oneStep, piece: pawn),
+        );
+      }
 
       // Two-step move from starting position
       if (pawn.position.row == startRow) {
@@ -236,14 +256,35 @@ class ChessBoard extends Equatable {
       if (capturePos.isValid) {
         final targetPiece = getPieceAt(capturePos);
         if (targetPiece != null && targetPiece.color != pawn.color) {
-          moves.add(
-            ChessMove.simple(
-              from: pawn.position,
-              to: capturePos,
-              piece: pawn,
-              capturedPiece: targetPiece,
-            ),
-          );
+          // Check for promotion when capturing
+          final lastRank = pawn.color == PieceColor.white ? 7 : 0;
+          if (capturePos.row == lastRank) {
+            // Add promotion captures
+            for (final promotionPiece in getPromotionPieces(
+              pawn.color,
+              promotionPosition: capturePos,
+            )) {
+              moves.add(
+                ChessMove.promotion(
+                  from: pawn.position,
+                  to: capturePos,
+                  piece: pawn,
+                  capturedPiece: targetPiece,
+                  promotionPiece: promotionPiece,
+                ),
+              );
+            }
+          } else {
+            // Regular capture
+            moves.add(
+              ChessMove.simple(
+                from: pawn.position,
+                to: capturePos,
+                piece: pawn,
+                capturedPiece: targetPiece,
+              ),
+            );
+          }
         }
 
         // En passant
@@ -322,6 +363,13 @@ class ChessBoard extends Equatable {
         return availablePieces; // Include King as option only if safe
       }
     }
+
+    if (gameType == GameType.supremeQueen) {
+      // Supreme Queen: Pawns cannot promote to Queen
+      print('👑 SUPREME QUEEN: No Queen promotion allowed - only R, B, N');
+      return ['R', 'B', 'N']; // No Queen promotion
+    }
+
     return ['Q', 'R', 'B', 'N']; // Standard promotion pieces
   }
 
@@ -532,8 +580,11 @@ class ChessBoard extends Equatable {
         // Check for promotion when moving to the last rank
         final lastRank = pawn.color == PieceColor.white ? 7 : 0;
         if (newPos.row == lastRank) {
-          // Add promotion moves (queen, rook, bishop, knight)
-          for (final promotionPiece in ['Q', 'R', 'B', 'N']) {
+          // Add promotion moves
+          for (final promotionPiece in getPromotionPieces(
+            pawn.color,
+            promotionPosition: newPos,
+          )) {
             print(
               '👑 ROYAL PAWN promotion move: ${pawn.position.algebraic} → ${newPos.algebraic} = $promotionPiece',
             );
@@ -561,8 +612,11 @@ class ChessBoard extends Equatable {
         // Check for promotion when capturing on the last rank
         final lastRank = pawn.color == PieceColor.white ? 7 : 0;
         if (newPos.row == lastRank) {
-          // Add promotion captures (queen, rook, bishop, knight)
-          for (final promotionPiece in ['Q', 'R', 'B', 'N']) {
+          // Add promotion captures
+          for (final promotionPiece in getPromotionPieces(
+            pawn.color,
+            promotionPosition: newPos,
+          )) {
             print(
               '👑 ROYAL PAWN promotion capture: ${pawn.position.algebraic} → ${newPos.algebraic} = $promotionPiece',
             );
@@ -693,8 +747,11 @@ class ChessBoard extends Equatable {
         // Check for promotion when moving to the last rank
         final lastRank = pawn.color == PieceColor.white ? 7 : 0;
         if (newPos.row == lastRank) {
-          // Add promotion moves (queen, rook, bishop, knight)
-          for (final promotionPiece in ['Q', 'R', 'B', 'N']) {
+          // Add promotion moves
+          for (final promotionPiece in getPromotionPieces(
+            pawn.color,
+            promotionPosition: newPos,
+          )) {
             print(
               '👑 SHIFTY PAWN promotion move: ${pawn.position.algebraic} → ${newPos.algebraic} = $promotionPiece',
             );
@@ -753,8 +810,11 @@ class ChessBoard extends Equatable {
           // Check for promotion when capturing on the last rank
           final lastRank = pawn.color == PieceColor.white ? 7 : 0;
           if (capturePos.row == lastRank) {
-            // Add promotion captures (queen, rook, bishop, knight)
-            for (final promotionPiece in ['Q', 'R', 'B', 'N']) {
+            // Add promotion captures
+            for (final promotionPiece in getPromotionPieces(
+              pawn.color,
+              promotionPosition: capturePos,
+            )) {
               print(
                 '👑 SHIFTY PAWN promotion capture: ${pawn.position.algebraic} → ${capturePos.algebraic} = $promotionPiece',
               );
