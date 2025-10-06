@@ -160,26 +160,26 @@ class ChessBoard extends Equatable {
 
     // For a knight move, one diff is 1 and the other is 2
     if (rowDiff == 1 && colDiff == 2) {
-      // Horizontal corridor (2 column difference)
-      // The zone is the 2 squares between the knights on the same rows
+      // Vertical corridor (2 column difference)
+      // The zone is the 2 squares between the knights on the same rows (different columns)
       final minCol = col1 < col2 ? col1 : col2;
       final middleCol = minCol + 1; // The column between the knights
 
       zone.add(Position(row1, middleCol));
       zone.add(Position(row2, middleCol));
       print(
-        '🔍 ZONE CALC: Horizontal corridor - added ${Position(row1, middleCol).algebraic}, ${Position(row2, middleCol).algebraic}',
+        '🔍 ZONE CALC: Vertical corridor - added ${Position(row1, middleCol).algebraic}, ${Position(row2, middleCol).algebraic}',
       );
     } else if (rowDiff == 2 && colDiff == 1) {
-      // Vertical corridor (2 row difference)
-      // The zone is the 2 squares between the knights on the same columns
+      // Horizontal corridor (2 row difference)
+      // The zone is the 2 squares between the knights on the same columns (different rows)
       final minRow = row1 < row2 ? row1 : row2;
       final middleRow = minRow + 1; // The row between the knights
 
       zone.add(Position(middleRow, col1));
       zone.add(Position(middleRow, col2));
       print(
-        '🔍 ZONE CALC: Vertical corridor - added ${Position(middleRow, col1).algebraic}, ${Position(middleRow, col2).algebraic}',
+        '🔍 ZONE CALC: Horizontal corridor - added ${Position(middleRow, col1).algebraic}, ${Position(middleRow, col2).algebraic}',
       );
     } else {
       print(
@@ -213,11 +213,12 @@ class ChessBoard extends Equatable {
       return zone.any((pos) => pos == piece.position);
     }).toList();
 
-    if (entangledPieces.isEmpty) return null;
-
-    print(
-      '🕸️ SNARE: ${entangledPieces.length} piece(s) entangled by ${color.name} knights: ${entangledPieces.map((p) => '${p.color.name} ${p.type.name} at ${p.position.algebraic}').join(", ")}',
-    );
+    // IMPORTANT: Return info even if zone is empty - we still need to intercept moves!
+    if (entangledPieces.isNotEmpty) {
+      print(
+        '🕸️ SNARE: ${entangledPieces.length} piece(s) entangled by ${color.name} knights: ${entangledPieces.map((p) => '${p.color.name} ${p.type.name} at ${p.position.algebraic}').join(", ")}',
+      );
+    }
 
     return {
       'knights': knights,
@@ -357,26 +358,114 @@ class ChessBoard extends Equatable {
     }).toList();
 
     // SNARE MODE: Filter out moves INTO entangle zones (pieces can't voluntarily enter)
+    // AND intercept moves that PASS THROUGH entangle zones (piece gets captured in zone)
     if (gameType == GameType.snare) {
-      return safeMoves.where((move) {
-        // Check if the destination is in any entangle zone
+      final filteredMoves = <ChessMove>[];
+
+      for (final move in safeMoves) {
+        // Check all entangle zones
+        bool moveIntercepted = false;
+
         for (final color in [PieceColor.white, PieceColor.black]) {
           final info = getEntangleInfo(color);
           if (info != null) {
             final zone = info['zone'] as List<Position>;
+
+            // Check if destination is in the zone
             if (zone.any((pos) => pos == move.to)) {
               print(
                 '🕸️ SNARE: Move BLOCKED - cannot voluntarily enter entangle zone at ${move.to.algebraic}',
               );
-              return false; // Block this move
+              moveIntercepted = true;
+              break;
+            }
+
+            // Check if the move PASSES THROUGH the entangle zone
+            print(
+              '🔍 PATH CHECK: Testing move ${move.from.algebraic} → ${move.to.algebraic} against zone ${zone.map((p) => p.algebraic).join(", ")}',
+            );
+            final pathThroughZone = _getPathThroughZone(
+              move.from,
+              move.to,
+              zone,
+            );
+            if (pathThroughZone != null) {
+              print(
+                '🕸️ SNARE: Move INTERCEPTED - piece passes through entangle zone, captured at ${pathThroughZone.algebraic}!',
+              );
+              // Create a modified move that ends at the first zone square instead
+              final interceptedMove = ChessMove.simple(
+                from: move.from,
+                to: pathThroughZone,
+                piece: move.piece,
+                capturedPiece: move.capturedPiece,
+              );
+              filteredMoves.add(interceptedMove);
+              moveIntercepted = true;
+              break;
             }
           }
         }
-        return true; // Allow this move
-      }).toList();
+
+        if (!moveIntercepted) {
+          filteredMoves.add(move);
+        }
+      }
+
+      return filteredMoves;
     }
 
     return safeMoves;
+  }
+
+  /// SNARE MODE: Checks if a move passes through an entangle zone
+  /// Returns the first zone position encountered, or null if path doesn't cross zone
+  Position? _getPathThroughZone(
+    Position from,
+    Position to,
+    List<Position> zone,
+  ) {
+    // Get all positions along the path from 'from' to 'to'
+    final path = _getPathBetween(from, to);
+
+    // Check if any position in the path (excluding start and end) is in the zone
+    for (final pos in path) {
+      if (pos != from && zone.contains(pos)) {
+        return pos; // Return the first zone square encountered
+      }
+    }
+
+    return null;
+  }
+
+  /// Helper: Gets all positions along a straight line path (for rook, bishop, queen moves)
+  List<Position> _getPathBetween(Position from, Position to) {
+    final path = <Position>[];
+
+    final rowDiff = to.row - from.row;
+    final colDiff = to.col - from.col;
+
+    // Determine direction
+    final rowStep = rowDiff == 0 ? 0 : (rowDiff > 0 ? 1 : -1);
+    final colStep = colDiff == 0 ? 0 : (colDiff > 0 ? 1 : -1);
+
+    // Only works for straight lines (rook/bishop/queen moves)
+    if (rowStep == 0 && colStep == 0) return path;
+    if (rowStep != 0 && colStep != 0 && rowDiff.abs() != colDiff.abs())
+      return path;
+
+    int currentRow = from.row;
+    int currentCol = from.col;
+
+    // Walk from start to end
+    while (currentRow != to.row || currentCol != to.col) {
+      path.add(Position(currentRow, currentCol));
+      currentRow += rowStep;
+      currentCol += colStep;
+    }
+    path.add(to); // Add final position
+
+    return path;
   }
 
   /// SNARE MODE: Gets valid moves for an entangled piece
