@@ -15,6 +15,10 @@ enum GameType {
   supremeQueen(
     'Supreme Queen',
     'Pawns cannot promote to Queen. Capturing the opponent\'s Queen wins the game immediately.',
+  ),
+  snare(
+    'Snare',
+    'Knight-focused variant: Two knights create "entangle zones" that trap pieces. Last knight becomes revengeful. No promotions if all knights lost.',
   );
 
   const GameType(this.displayName, this.description);

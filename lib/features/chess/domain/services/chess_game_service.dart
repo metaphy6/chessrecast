@@ -31,6 +31,38 @@ class ChessGameService {
       }
     }
 
+    // SNARE MODE: Check for revengeful knight capture BEFORE making the move
+    if (board.gameType == GameType.snare && move.capturedPiece != null) {
+      if (move.capturedPiece!.type == PieceType.knight) {
+        final capturedKnightColor = move.capturedPiece!.color;
+        final defendingKnights = board.getKnights(capturedKnightColor);
+
+        // If this is the last knight of that color, activate revenge
+        if (defendingKnights.length == 1 &&
+            defendingKnights[0].position == move.capturedPiece!.position) {
+          print(
+            '⚡ SNARE: Last ${capturedKnightColor.name} knight captured at ${move.to.algebraic}!',
+          );
+          print(
+            '⚡ SNARE: REVENGEFUL KNIGHT - Both pieces destroyed! Turn returns to ${capturedKnightColor.name}',
+          );
+
+          // Remove both the knight and the capturing piece
+          final newPieces = board.pieces.where((piece) {
+            return piece.position != move.from && // Remove capturer
+                piece.position != move.to; // Remove knight
+          }).toList();
+
+          // Return board with both pieces removed but turn goes back to the knight's owner
+          return board.copyWith(
+            pieces: newPieces,
+            currentPlayer: capturedKnightColor, // Turn returns to knight owner
+            moveHistory: [...board.moveHistory, move],
+          );
+        }
+      }
+    }
+
     var newBoard = board.makeMove(move);
     newBoard = _updateGameStatus(newBoard);
 
@@ -47,6 +79,11 @@ class ChessGameService {
     // Special handling for Supreme Queen mode
     if (board.gameType == GameType.supremeQueen) {
       return _updateSupremeQueenGameStatus(board);
+    }
+
+    // Special handling for Snare mode
+    if (board.gameType == GameType.snare) {
+      return _updateSnareGameStatus(board);
     }
 
     final currentPlayerInCheck = board.isKingInCheck(board.currentPlayer);
@@ -199,6 +236,46 @@ class ChessGameService {
 
     // Supreme Queen mode follows regular chess rules for check/mate/stalemate
     // Queen capture ending is handled in executeMove() before this method is called
+    if (currentPlayerInCheck) {
+      if (hasValidMoves) {
+        newStatus = GameStatus.check;
+      } else {
+        newStatus = GameStatus.checkmate;
+      }
+    } else {
+      if (hasValidMoves) {
+        newStatus = GameStatus.ongoing;
+      } else {
+        newStatus = GameStatus.stalemate;
+      }
+    }
+
+    // Check for draw conditions
+    if (_isDrawByInsufficientMaterial(board) ||
+        _isDrawByRepetition(board) ||
+        _isDrawByFiftyMoveRule(board)) {
+      newStatus = GameStatus.draw;
+    }
+
+    return board.copyWith(gameStatus: newStatus);
+  }
+
+  /// SNARE MODE: Updates game status with entangled King detection
+  ChessBoard _updateSnareGameStatus(ChessBoard board) {
+    // Check if current player's King is entangled (instant mate)
+    if (board.isKingEntangled(board.currentPlayer)) {
+      print(
+        '🕸️ SNARE: ${board.currentPlayer.name} King is ENTANGLED - CHECKMATE!',
+      );
+      return board.copyWith(gameStatus: GameStatus.checkmate);
+    }
+
+    // Otherwise, use standard chess rules
+    final currentPlayerInCheck = board.isKingInCheck(board.currentPlayer);
+    final hasValidMoves = _hasValidMoves(board);
+
+    GameStatus newStatus;
+
     if (currentPlayerInCheck) {
       if (hasValidMoves) {
         newStatus = GameStatus.check;
