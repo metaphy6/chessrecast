@@ -119,6 +119,167 @@ class ChessBoard extends Equatable {
     }
   }
 
+  /// SNARE MODE: Gets the knights of the specified color
+  List<ChessPiece> getKnights(PieceColor color) {
+    return pieces
+        .where(
+          (piece) => piece.type == PieceType.knight && piece.color == color,
+        )
+        .toList();
+  }
+
+  /// SNARE MODE: Checks if two knights defend each other (creating an entangle zone)
+  bool _areKnightsDefending(ChessPiece knight1, ChessPiece knight2) {
+    // Check if knight1 can attack knight2's position
+    if (!knight1.canAttack(knight2.position, pieces)) return false;
+    // Check if knight2 can attack knight1's position
+    if (!knight2.canAttack(knight1.position, pieces)) return false;
+    return true;
+  }
+
+  /// SNARE MODE: Gets the entangle zone positions between two defending knights
+  List<Position> _getEntangleZone(ChessPiece knight1, ChessPiece knight2) {
+    // The entangle zone consists of the 2 squares that lie on a straight line
+    // (horizontal or vertical) between the two knights
+    // Example: c2 and d4 → zone is c3 and d3 (vertical line on column c and d)
+
+    final zone = <Position>[];
+
+    final row1 = knight1.position.row;
+    final col1 = knight1.position.col;
+    final row2 = knight2.position.row;
+    final col2 = knight2.position.col;
+
+    print(
+      '🔍 ZONE CALC: ${knight1.position.algebraic} (row=$row1, col=$col1) + ${knight2.position.algebraic} (row=$row2, col=$col2)',
+    );
+
+    // Determine if knights form a vertical or horizontal corridor
+    final rowDiff = (row1 - row2).abs();
+    final colDiff = (col1 - col2).abs();
+
+    // For a knight move, one diff is 1 and the other is 2
+    if (rowDiff == 1 && colDiff == 2) {
+      // Horizontal corridor (2 column difference)
+      // The zone is the 2 squares between the knights on the same rows
+      final minCol = col1 < col2 ? col1 : col2;
+      final middleCol = minCol + 1; // The column between the knights
+
+      zone.add(Position(row1, middleCol));
+      zone.add(Position(row2, middleCol));
+      print(
+        '🔍 ZONE CALC: Horizontal corridor - added ${Position(row1, middleCol).algebraic}, ${Position(row2, middleCol).algebraic}',
+      );
+    } else if (rowDiff == 2 && colDiff == 1) {
+      // Vertical corridor (2 row difference)
+      // The zone is the 2 squares between the knights on the same columns
+      final minRow = row1 < row2 ? row1 : row2;
+      final middleRow = minRow + 1; // The row between the knights
+
+      zone.add(Position(middleRow, col1));
+      zone.add(Position(middleRow, col2));
+      print(
+        '🔍 ZONE CALC: Vertical corridor - added ${Position(middleRow, col1).algebraic}, ${Position(middleRow, col2).algebraic}',
+      );
+    } else {
+      print(
+        '🔍 ZONE CALC: Invalid knight position for entangle - rowDiff=$rowDiff, colDiff=$colDiff',
+      );
+    }
+
+    print(
+      '🕸️ SNARE: Entangle zone between ${knight1.position.algebraic} and ${knight2.position.algebraic}: ${zone.isEmpty ? "EMPTY!" : zone.map((p) => p.algebraic).join(", ")}',
+    );
+
+    return zone;
+  }
+
+  /// SNARE MODE: Gets all entangled pieces for a given color
+  Map<String, dynamic>? getEntangleInfo(PieceColor color) {
+    if (gameType != GameType.snare) return null;
+
+    final knights = getKnights(color);
+    if (knights.length != 2) return null;
+
+    // Check if the two knights defend each other
+    if (!_areKnightsDefending(knights[0], knights[1])) return null;
+
+    // Get the entangle zone
+    final zone = _getEntangleZone(knights[0], knights[1]);
+    if (zone.isEmpty) return null;
+
+    // Find all pieces in the entangle zone
+    final entangledPieces = pieces.where((piece) {
+      return zone.any((pos) => pos == piece.position);
+    }).toList();
+
+    if (entangledPieces.isEmpty) return null;
+
+    print(
+      '🕸️ SNARE: ${entangledPieces.length} piece(s) entangled by ${color.name} knights: ${entangledPieces.map((p) => '${p.color.name} ${p.type.name} at ${p.position.algebraic}').join(", ")}',
+    );
+
+    return {
+      'knights': knights,
+      'zone': zone,
+      'entangledPieces': entangledPieces,
+    };
+  }
+
+  /// SNARE MODE: Checks if a piece is currently entangled
+  bool isPieceEntangled(ChessPiece piece) {
+    if (gameType != GameType.snare) return false;
+
+    print(
+      '🔍 ENTANGLE CHECK: Checking if ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic} is entangled',
+    );
+
+    // Check both colors' knights for entanglement
+    for (final color in [PieceColor.white, PieceColor.black]) {
+      final info = getEntangleInfo(color);
+      if (info != null) {
+        final entangledPieces = info['entangledPieces'] as List<ChessPiece>;
+        print(
+          '🔍 ENTANGLE CHECK: ${color.name} knights have ${entangledPieces.length} entangled pieces',
+        );
+
+        for (final p in entangledPieces) {
+          print(
+            '🔍   - ${p.color.name} ${p.type.name} at ${p.position.algebraic}',
+          );
+          if (p.position == piece.position) {
+            print(
+              '✅ MATCH FOUND: Piece at ${piece.position.algebraic} IS ENTANGLED',
+            );
+            return true;
+          }
+        }
+      } else {
+        print(
+          '🔍 ENTANGLE CHECK: ${color.name} knights have no entangle info (null)',
+        );
+      }
+    }
+    print('❌ NO MATCH: Piece at ${piece.position.algebraic} is NOT entangled');
+    return false;
+  }
+
+  /// SNARE MODE: Gets the entangle zone positions that trap this piece
+  List<Position>? getEntangleZoneForPiece(ChessPiece piece) {
+    if (gameType != GameType.snare) return null;
+
+    for (final color in [PieceColor.white, PieceColor.black]) {
+      final info = getEntangleInfo(color);
+      if (info != null) {
+        final entangledPieces = info['entangledPieces'] as List<ChessPiece>;
+        if (entangledPieces.any((p) => p.position == piece.position)) {
+          return info['zone'] as List<Position>;
+        }
+      }
+    }
+    return null;
+  }
+
   /// Checks if the specified position is under attack by the specified color
   bool isPositionUnderAttack(Position position, PieceColor attackingColor) {
     final attackingPieces = getPiecesOfColor(attackingColor);
@@ -133,14 +294,30 @@ class ChessBoard extends Equatable {
       return false;
     }
 
+    // SNARE MODE: Entangled King is automatically in checkmate
+    if (gameType == GameType.snare && isPieceEntangled(king)) {
+      print('�️ SNARE: ${kingColor.name} King is ENTANGLED - CHECKMATE!');
+      return true; // Entangled king = mate
+    }
+
     print(
-      '🔍 DEBUG: Checking if $kingColor king at ${king.position} is in check',
+      '�🔍 DEBUG: Checking if $kingColor king at ${king.position} is in check',
     );
     final inCheck = isPositionUnderAttack(king.position, kingColor.opposite);
     print(
       '🔍 DEBUG: King at ${king.position} is ${inCheck ? 'IN CHECK' : 'SAFE'}',
     );
     return inCheck;
+  }
+
+  /// SNARE MODE: Checks if the king is entangled (instant mate condition)
+  bool isKingEntangled(PieceColor kingColor) {
+    if (gameType != GameType.snare) return false;
+
+    final king = getKing(kingColor);
+    if (king == null) return false;
+
+    return isPieceEntangled(king);
   }
 
   /// Gets all valid moves for a piece at the specified position
@@ -150,10 +327,21 @@ class ChessBoard extends Equatable {
       return [];
     }
 
+    print(
+      '🎯 GET VALID MOVES: ${piece.color.name} ${piece.type.name} at ${position.algebraic}, gameType = $gameType',
+    );
+
+    // SNARE MODE: Handle entangled pieces
+    if (gameType == GameType.snare && isPieceEntangled(piece)) {
+      print('🕸️ SNARE: Piece IS ENTANGLED - using _getEntangledPieceMoves()');
+      return _getEntangledPieceMoves(piece);
+    }
+
+    print('📋 Using normal _getPotentialMoves() for ${piece.type.name}');
     final potentialMoves = _getPotentialMoves(piece);
 
     // Filter out moves that would put own king in check
-    return potentialMoves.where((move) {
+    final safeMoves = potentialMoves.where((move) {
       print(
         '🔍 DEBUG: Validating king safety for move: ${move.from} → ${move.to}, isEnPassant: ${move.isEnPassant}',
       );
@@ -167,6 +355,149 @@ class ChessBoard extends Equatable {
       }
       return !kingInCheck;
     }).toList();
+
+    // SNARE MODE: Filter out moves INTO entangle zones (pieces can't voluntarily enter)
+    if (gameType == GameType.snare) {
+      return safeMoves.where((move) {
+        // Check if the destination is in any entangle zone
+        for (final color in [PieceColor.white, PieceColor.black]) {
+          final info = getEntangleInfo(color);
+          if (info != null) {
+            final zone = info['zone'] as List<Position>;
+            if (zone.any((pos) => pos == move.to)) {
+              print(
+                '🕸️ SNARE: Move BLOCKED - cannot voluntarily enter entangle zone at ${move.to.algebraic}',
+              );
+              return false; // Block this move
+            }
+          }
+        }
+        return true; // Allow this move
+      }).toList();
+    }
+
+    return safeMoves;
+  }
+
+  /// SNARE MODE: Gets valid moves for an entangled piece
+  List<ChessMove> _getEntangledPieceMoves(ChessPiece piece) {
+    final moves = <ChessMove>[];
+    final entangleZone = getEntangleZoneForPiece(piece);
+    if (entangleZone == null) return moves;
+
+    // Count how many pieces are in the entangle (including this one)
+    final entangledPieces = pieces.where((p) {
+      return entangleZone.any((pos) => pos == p.position);
+    }).toList();
+
+    print(
+      '🕸️ SNARE: Entangled piece ${piece.type.name} at ${piece.position.algebraic}, ${entangledPieces.length} total entangled',
+    );
+
+    // RULE: If only 1 piece entangled, it can move within the zone
+    if (entangledPieces.length == 1) {
+      // Can move within the entangle zone (to other empty squares in the zone)
+      for (final zonePos in entangleZone) {
+        if (zonePos != piece.position) {
+          final targetPiece = getPieceAt(zonePos);
+          if (targetPiece == null) {
+            print('🕸️ SNARE: Can move within zone to ${zonePos.algebraic}');
+            moves.add(
+              ChessMove.simple(from: piece.position, to: zonePos, piece: piece),
+            );
+          }
+        }
+      }
+    }
+
+    // RULE: ALL entangled pieces can escape via king-like moves (one square in 8 directions)
+    // This applies whether there's 1 piece or multiple pieces entangled
+    print('🕸️ SNARE: Checking escape moves (king-like one square moves)');
+
+    final escapeOffsets = [
+      [-1, -1],
+      [-1, 0],
+      [-1, 1],
+      [0, -1],
+      [0, 1],
+      [1, -1],
+      [1, 0],
+      [1, 1],
+    ];
+
+    for (final offset in escapeOffsets) {
+      final newPos = piece.position.offset(offset[0], offset[1]);
+      if (!newPos.isValid) continue;
+
+      // Can't escape to a position still in the entangle zone
+      if (entangleZone.any((pos) => pos == newPos)) {
+        print('🕸️ SNARE: ${newPos.algebraic} is still in zone, skip');
+        continue;
+      }
+
+      final targetPiece = getPieceAt(newPos);
+
+      // Can move to empty square or capture enemy piece
+      if (targetPiece == null) {
+        print('🕸️ SNARE: Can escape to ${newPos.algebraic}');
+        moves.add(
+          ChessMove.simple(from: piece.position, to: newPos, piece: piece),
+        );
+      } else if (targetPiece.color != piece.color) {
+        print(
+          '🕸️ SNARE: Can escape and capture ${targetPiece.type.name} at ${newPos.algebraic}',
+        );
+        moves.add(
+          ChessMove.simple(
+            from: piece.position,
+            to: newPos,
+            piece: piece,
+            capturedPiece: targetPiece,
+          ),
+        );
+      } else {
+        print('🕸️ SNARE: ${newPos.algebraic} blocked by friendly piece');
+      }
+    }
+
+    // RULE: Entangled pieces of opposite colors can capture each other
+    // They can only capture pieces adjacent to them (one square away)
+    if (entangledPieces.length >= 2) {
+      for (final entangledTarget in entangledPieces) {
+        if (entangledTarget.color != piece.color) {
+          // Check if the target is one square away (king-like capture)
+          final rowDiff = (entangledTarget.position.row - piece.position.row)
+              .abs();
+          final colDiff = (entangledTarget.position.col - piece.position.col)
+              .abs();
+
+          if (rowDiff <= 1 && colDiff <= 1 && (rowDiff > 0 || colDiff > 0)) {
+            print(
+              '🕸️ SNARE: Can capture entangled enemy ${entangledTarget.type.name} at ${entangledTarget.position.algebraic}',
+            );
+            moves.add(
+              ChessMove.simple(
+                from: piece.position,
+                to: entangledTarget.position,
+                piece: piece,
+                capturedPiece: entangledTarget,
+              ),
+            );
+          }
+        }
+      }
+    }
+
+    // Filter out moves that would put own king in check
+    final validMoves = moves.where((move) {
+      final boardAfterMove = _makeMoveForValidation(move);
+      return !boardAfterMove.isKingInCheck(currentPlayer);
+    }).toList();
+
+    print(
+      '🕸️ SNARE: Total valid moves for entangled piece: ${validMoves.length}',
+    );
+    return validMoves;
   }
 
   /// Gets all potential moves for a piece (without checking for king safety)
@@ -368,6 +699,24 @@ class ChessBoard extends Equatable {
       // Supreme Queen: Pawns cannot promote to Queen
       print('👑 SUPREME QUEEN: No Queen promotion allowed - only R, B, N');
       return ['R', 'B', 'N']; // No Queen promotion
+    }
+
+    if (gameType == GameType.snare) {
+      // Snare: Knight promotion restrictions
+      final knights = getKnights(color);
+
+      if (knights.isEmpty) {
+        // No knights left - NO PROMOTIONS ALLOWED
+        print(
+          '🕸️ SNARE: ${color.name} has no knights - NO PROMOTIONS ALLOWED',
+        );
+        return []; // Pawns become passive pieces
+      } else if (knights.length == 1) {
+        // Only 1 knight - MUST promote to Knight (max 2 knights allowed)
+        print('🕸️ SNARE: ${color.name} has 1 knight - MUST promote to Knight');
+        return ['N']; // Only knight promotion
+      }
+      // If 2 knights exist, use standard promotions
     }
 
     return ['Q', 'R', 'B', 'N']; // Standard promotion pieces

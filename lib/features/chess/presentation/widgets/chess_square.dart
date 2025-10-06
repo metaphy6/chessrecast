@@ -22,8 +22,18 @@ class ChessSquare extends StatelessWidget {
       final piece = controller.getPieceSymbol(position);
       final pieceColor = controller.getPieceColor(position);
 
+      // SNARE MODE: Check if this square is in an entangle zone
+      final isEntangleZone = controller.isPositionInEntangleZone(position);
+      final hasEntangledPiece =
+          piece != null && controller.isPieceEntangled(position);
+
       return Material(
-        color: _getSquareColor(isLight, isSelected, isValidMove),
+        color: _getSquareColor(
+          isLight,
+          isSelected,
+          isValidMove,
+          isEntangleZone,
+        ),
         child: InkWell(
           splashColor: Colors.blue.withOpacity(0.3),
           highlightColor: Colors.blue.withOpacity(0.1),
@@ -41,9 +51,35 @@ class ChessSquare extends StatelessWidget {
                 ? BoxDecoration(
                     border: Border.all(color: Colors.blue, width: 3),
                   )
+                : hasEntangledPiece
+                ? BoxDecoration(
+                    border: Border.all(color: Colors.purple.shade700, width: 3),
+                  )
                 : null,
             child: Stack(
               children: [
+                // Entangle zone indicator
+                if (isEntangleZone && piece == null)
+                  Center(
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: Colors.purple.withValues(alpha: 0.3),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.purple.shade600,
+                          width: 2,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.warning_amber_rounded,
+                        size: 16,
+                        color: Colors.purple.shade900,
+                      ),
+                    ),
+                  ),
+
                 // Valid move indicator
                 if (isValidMove)
                   Center(
@@ -90,6 +126,21 @@ class ChessSquare extends StatelessWidget {
                     ),
                   ),
 
+                // Entangled piece indicator overlay
+                if (hasEntangledPiece)
+                  Positioned(
+                    bottom: 2,
+                    right: 2,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.shade800,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.link, size: 12, color: Colors.white),
+                    ),
+                  ),
+
                 // Coordinate labels (for debugging)
                 if (_shouldShowCoordinates())
                   Positioned(
@@ -112,13 +163,23 @@ class ChessSquare extends StatelessWidget {
     });
   }
 
-  Color _getSquareColor(bool isLight, bool isSelected, bool isValidMove) {
+  Color _getSquareColor(
+    bool isLight,
+    bool isSelected,
+    bool isValidMove,
+    bool isEntangleZone,
+  ) {
     if (isSelected) {
       return Colors.yellow.shade300;
     }
 
     if (isValidMove) {
       return isLight ? Colors.lightGreen.shade200 : Colors.green.shade400;
+    }
+
+    // SNARE MODE: Entangle zone gets a purple tint
+    if (isEntangleZone) {
+      return isLight ? Colors.purple.shade100 : Colors.purple.shade400;
     }
 
     // Better chess board colors with higher contrast

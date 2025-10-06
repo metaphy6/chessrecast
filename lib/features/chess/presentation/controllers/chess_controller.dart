@@ -464,4 +464,31 @@ class ChessController extends GetxController {
     // For now, return empty list
     return [];
   }
+
+  /// SNARE MODE: Checks if a position is in an entangle zone
+  bool isPositionInEntangleZone(Position position) {
+    if (gameType != GameType.snare) return false;
+
+    // Check both colors for entangle zones
+    for (final color in [PieceColor.white, PieceColor.black]) {
+      final info = board.getEntangleInfo(color);
+      if (info != null) {
+        final zone = info['zone'] as List<Position>;
+        if (zone.any((pos) => pos == position)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  /// SNARE MODE: Checks if a piece at this position is entangled
+  bool isPieceEntangled(Position position) {
+    if (gameType != GameType.snare) return false;
+
+    final piece = board.getPieceAt(position);
+    if (piece == null) return false;
+
+    return board.isPieceEntangled(piece);
+  }
 }
