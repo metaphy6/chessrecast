@@ -342,7 +342,16 @@ class ChessBoard extends Equatable {
     final potentialMoves = _getPotentialMoves(piece);
 
     // Filter out moves that would put own king in check
+    // SNARE MODE: Suicide is legal - allow moves that put own king in check
     final safeMoves = potentialMoves.where((move) {
+      // In Snare mode, suicide is legal - don't filter out king safety
+      if (gameType == GameType.snare) {
+        print(
+          '🕸️ SNARE: Suicide allowed - skipping king safety check for move ${move.from} → ${move.to}',
+        );
+        return true; // Allow all moves, including suicide
+      }
+
       print(
         '🔍 DEBUG: Validating king safety for move: ${move.from} → ${move.to}, isEnPassant: ${move.isEnPassant}',
       );
@@ -373,11 +382,58 @@ class ChessBoard extends Equatable {
 
             // Check if destination is in the zone
             if (zone.any((pos) => pos == move.to)) {
+              final targetPiece = getPieceAt(move.to);
+
+              // RULE: Pieces can only ENTER entangle zones if they're moving from an ADJACENT square
+              // Calculate if the starting position is adjacent to the destination
+              final rowDiff = (move.to.row - move.from.row).abs();
+              final colDiff = (move.to.col - move.from.col).abs();
+              final isAdjacentMove = (rowDiff <= 1 && colDiff <= 1);
+
+              // Check if the piece is already inside the zone (moving within zone)
+              final isAlreadyInZone = zone.any((pos) => pos == move.from);
+
+              if (!isAdjacentMove && !isAlreadyInZone) {
+                print(
+                  '🕸️ SNARE: Move BLOCKED - ${piece.color.name} ${piece.type.name} cannot enter entangle zone at ${move.to.algebraic} from ${move.from.algebraic} (must be adjacent to zone square)',
+                );
+                moveIntercepted = true;
+                break;
+              }
+
+              // RULE: Anyone can move to EMPTY squares in entangle zones
+              if (targetPiece == null) {
+                print(
+                  '🕸️ SNARE: Move ALLOWED - ${piece.color.name} ${piece.type.name} entering empty ${color.name} entangle zone at ${move.to.algebraic}',
+                );
+                continue; // Empty square, allow entry (piece will become entangled)
+              }
+
+              // RULE: Anyone can capture entangled enemy pieces
+              final entangledPieces =
+                  info['entangledPieces'] as List<ChessPiece>?;
+              final isTargetEntangled =
+                  entangledPieces != null &&
+                  entangledPieces.any(
+                    (entangledPiece) =>
+                        entangledPiece.position == move.to &&
+                        entangledPiece.color != piece.color,
+                  );
+
+              if (isTargetEntangled) {
+                print(
+                  '🕸️ SNARE: Move ALLOWED - capturing entangled ${targetPiece.type.name} at ${move.to.algebraic}',
+                );
+                continue; // Can capture entangled enemy pieces
+              }
+
+              // If there's a piece at the destination that's NOT entangled,
+              // normal capture rules apply (handled by regular move validation)
+              // We don't block here - let normal game rules handle it
               print(
-                '🕸️ SNARE: Move BLOCKED - cannot voluntarily enter entangle zone at ${move.to.algebraic}',
+                '🕸️ SNARE: Zone occupied by non-entangled piece - normal capture rules apply',
               );
-              moveIntercepted = true;
-              break;
+              continue;
             }
 
             // Check if the move PASSES THROUGH the entangle zone
@@ -533,17 +589,31 @@ class ChessBoard extends Equatable {
           ChessMove.simple(from: piece.position, to: newPos, piece: piece),
         );
       } else if (targetPiece.color != piece.color) {
-        print(
-          '🕸️ SNARE: Can escape and capture ${targetPiece.type.name} at ${newPos.algebraic}',
+        // RULE: Entangled pieces CANNOT capture the defending knights
+        final defendingKnights = getKnights(targetPiece.color);
+        final isDefendingKnight = defendingKnights.any(
+          (knight) =>
+              knight.position == targetPiece.position &&
+              _areKnightsDefending(defendingKnights[0], defendingKnights[1]),
         );
-        moves.add(
-          ChessMove.simple(
-            from: piece.position,
-            to: newPos,
-            piece: piece,
-            capturedPiece: targetPiece,
-          ),
-        );
+
+        if (isDefendingKnight) {
+          print(
+            '🕸️ SNARE: ${newPos.algebraic} blocked - cannot capture defending knight!',
+          );
+        } else {
+          print(
+            '🕸️ SNARE: Can escape and capture ${targetPiece.type.name} at ${newPos.algebraic}',
+          );
+          moves.add(
+            ChessMove.simple(
+              from: piece.position,
+              to: newPos,
+              piece: piece,
+              capturedPiece: targetPiece,
+            ),
+          );
+        }
       } else {
         print('🕸️ SNARE: ${newPos.algebraic} blocked by friendly piece');
       }
@@ -577,16 +647,12 @@ class ChessBoard extends Equatable {
       }
     }
 
-    // Filter out moves that would put own king in check
-    final validMoves = moves.where((move) {
-      final boardAfterMove = _makeMoveForValidation(move);
-      return !boardAfterMove.isKingInCheck(currentPlayer);
-    }).toList();
-
+    // SNARE MODE: Suicide is legal - don't filter out moves that put king in check
+    // In Snare, players can legally move into positions that result in their king being mated
     print(
-      '🕸️ SNARE: Total valid moves for entangled piece: ${validMoves.length}',
+      '🕸️ SNARE: Total moves for entangled piece (suicide allowed): ${moves.length}',
     );
-    return validMoves;
+    return moves;
   }
 
   /// Gets all potential moves for a piece (without checking for king safety)
@@ -1885,7 +1951,8 @@ class ChessBoard extends Equatable {
       }
     }
 
-    return copyWith(
+    // Create the new board state first
+    final newBoard = copyWith(
       pieces: newPieces,
       currentPlayer: currentPlayer.opposite,
       moveHistory: [...moveHistory, move],
@@ -1897,6 +1964,41 @@ class ChessBoard extends Equatable {
       whiteHasPromotedKing: newWhiteHasPromotedKing,
       blackHasPromotedKing: newBlackHasPromotedKing,
     );
+
+    // SNARE MODE: Check immediately if ANY king is entangled after the move
+    if (gameType == GameType.snare) {
+      print('🔍 IMMEDIATE CHECK: Player who moved = ${currentPlayer.name}');
+
+      // Check if the player who JUST MOVED made a suicide move (their own king entangled)
+      final playerWhoMovedKingEntangled = newBoard.isKingEntangled(
+        currentPlayer,
+      );
+      print(
+        '🔍 IMMEDIATE CHECK: ${currentPlayer.name} king entangled? $playerWhoMovedKingEntangled',
+      );
+      if (playerWhoMovedKingEntangled) {
+        print(
+          '🕸️ SNARE: ${currentPlayer.name} King is ENTANGLED - CHECKMATE!',
+        );
+        return newBoard.copyWith(gameStatus: GameStatus.checkmate);
+      }
+
+      // Check if the opponent's king is entangled
+      final opponentKingEntangled = newBoard.isKingEntangled(
+        currentPlayer.opposite,
+      );
+      print(
+        '🔍 IMMEDIATE CHECK: ${currentPlayer.opposite.name} king entangled? $opponentKingEntangled',
+      );
+      if (opponentKingEntangled) {
+        print(
+          '🕸️ SNARE: ${currentPlayer.opposite.name} King is ENTANGLED - CHECKMATE!',
+        );
+        return newBoard.copyWith(gameStatus: GameStatus.checkmate);
+      }
+    }
+
+    return newBoard;
   }
 
   /// Creates a copy of the board with updated properties

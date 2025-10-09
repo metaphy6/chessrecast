@@ -262,6 +262,11 @@ class ChessGameService {
 
   /// SNARE MODE: Updates game status with entangled King detection
   ChessBoard _updateSnareGameStatus(ChessBoard board) {
+    // If game is already over (e.g., immediate checkmate from makeMove), don't overwrite
+    if (board.gameStatus != GameStatus.ongoing) {
+      return board;
+    }
+
     // Check if current player's King is entangled (instant mate)
     if (board.isKingEntangled(board.currentPlayer)) {
       print(
@@ -374,6 +379,18 @@ class ChessGameService {
   /// Gets the winner of the game (returns null if game is not over or is a draw)
   PieceColor? getWinner(ChessBoard board) {
     if (board.gameStatus == GameStatus.checkmate) {
+      // SNARE MODE: Check which king is actually entangled
+      if (board.gameType == GameType.snare) {
+        // Check white's king
+        if (board.isKingEntangled(PieceColor.white)) {
+          return PieceColor.black; // Black wins
+        }
+        // Check black's king
+        if (board.isKingEntangled(PieceColor.black)) {
+          return PieceColor.white; // White wins
+        }
+      }
+
       return board
           .currentPlayer
           .opposite; // The player who is NOT in checkmate wins
