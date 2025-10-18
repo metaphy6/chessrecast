@@ -39,8 +39,7 @@ class ChessSquare extends StatelessWidget {
           onTap: () {
             try {
               controller.onSquareSelected(position);
-            } catch (e) {
-            }
+            } catch (e) {}
           },
           child: Container(
             decoration: isSelected
@@ -178,7 +177,7 @@ class ChessSquare extends StatelessWidget {
       return isLight ? Colors.purple.shade100 : Colors.purple.shade400;
     }
 
-    // Better chess board colors with higher contrast
+    // Classic chess board colors
     return isLight ? Colors.grey.shade200 : Colors.brown.shade600;
   }
 

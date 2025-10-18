@@ -17,13 +17,38 @@ class ChessGamePage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Chess Recast',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                fontSize: 18,
-              ),
+            Row(
+              children: [
+                const Text(
+                  'Chess Recast',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    fontSize: 18,
+                  ),
+                ),
+                if (controller.isDevBoard) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.shade600,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'DEV',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
             Text(
               controller.gameType.displayName,
@@ -39,15 +64,28 @@ class ChessGamePage extends StatelessWidget {
           tooltip: 'Back to Game Selection',
         ),
         actions: [
+          Obx(
+            () => IconButton(
+              icon: const Icon(Icons.undo, color: Colors.white),
+              onPressed: controller.canUndo
+                  ? () => controller.undoLastMove()
+                  : null,
+              tooltip: 'Undo Move',
+            ),
+          ),
+          Obx(
+            () => IconButton(
+              icon: const Icon(Icons.redo, color: Colors.white),
+              onPressed: controller.canRedo
+                  ? () => controller.redoMove()
+                  : null,
+              tooltip: 'Redo Move',
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () => controller.resetGame(),
             tooltip: 'New Game',
-          ),
-          IconButton(
-            icon: const Icon(Icons.undo, color: Colors.white),
-            onPressed: () => controller.undoLastMove(),
-            tooltip: 'Undo Move',
           ),
         ],
       ),

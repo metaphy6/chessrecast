@@ -8,6 +8,7 @@ class ChessController extends GetxController {
 
   // Game type
   late final GameType gameType;
+  late final bool isDevBoard;
 
   // Reactive variables
   final Rx<ChessBoard> _board = ChessBoard.initial().obs;
@@ -15,11 +16,17 @@ class ChessController extends GetxController {
   final Rxn<Position> _selectedPosition = Rxn<Position>();
   final RxString _statusMessage = ''.obs;
 
+  // Move history for undo/redo
+  final RxList<ChessBoard> _boardHistory = <ChessBoard>[].obs;
+  final RxInt _historyIndex = (-1).obs;
+
   // Getters
   ChessBoard get board => _board.value;
   List<Position> get validMoves => _validMoves;
   Position? get selectedPosition => _selectedPosition.value;
   String get statusMessage => _statusMessage.value;
+  bool get canUndo => _historyIndex.value > 0;
+  bool get canRedo => _historyIndex.value < _boardHistory.length - 1;
 
   PieceColor get currentPlayer => board.currentPlayer;
   GameStatus get gameStatus => board.gameStatus;
@@ -33,9 +40,77 @@ class ChessController extends GetxController {
     // Get game type from route arguments
     final args = Get.arguments as Map<String, dynamic>?;
     gameType = args?['gameType'] ?? GameType.classic;
+    isDevBoard = args?['isDevBoard'] ?? false;
 
-    // Initialize board with the correct game type
-    _board.value = ChessBoard.initial(gameType: gameType);
+    // Check if custom board setup is provided
+    if (args?['customBoard'] != null &&
+        args?['customBoard'] is List<ChessPiece>) {
+      final customPieces = args!['customBoard'] as List<ChessPiece>;
+      final customCurrentPlayer =
+          args['currentPlayer'] as PieceColor? ?? PieceColor.white;
+
+      // Determine castling rights based on piece positions
+      final whiteKingOnStart = customPieces.any(
+        (p) =>
+            p.type == PieceType.king &&
+            p.color == PieceColor.white &&
+            p.position == Position(0, 4),
+      );
+      final blackKingOnStart = customPieces.any(
+        (p) =>
+            p.type == PieceType.king &&
+            p.color == PieceColor.black &&
+            p.position == Position(7, 4),
+      );
+      final whiteKingsideRookOnStart = customPieces.any(
+        (p) =>
+            p.type == PieceType.rook &&
+            p.color == PieceColor.white &&
+            p.position == Position(0, 7),
+      );
+      final whiteQueensideRookOnStart = customPieces.any(
+        (p) =>
+            p.type == PieceType.rook &&
+            p.color == PieceColor.white &&
+            p.position == Position(0, 0),
+      );
+      final blackKingsideRookOnStart = customPieces.any(
+        (p) =>
+            p.type == PieceType.rook &&
+            p.color == PieceColor.black &&
+            p.position == Position(7, 7),
+      );
+      final blackQueensideRookOnStart = customPieces.any(
+        (p) =>
+            p.type == PieceType.rook &&
+            p.color == PieceColor.black &&
+            p.position == Position(7, 0),
+      );
+
+      var customBoard = ChessBoard(
+        pieces: customPieces,
+        gameType: gameType,
+        currentPlayer: customCurrentPlayer,
+        whiteCanCastleKingside: whiteKingOnStart && whiteKingsideRookOnStart,
+        whiteCanCastleQueenside: whiteKingOnStart && whiteQueensideRookOnStart,
+        blackCanCastleKingside: blackKingOnStart && blackKingsideRookOnStart,
+        blackCanCastleQueenside: blackKingOnStart && blackQueensideRookOnStart,
+        gameStatus: GameStatus.ongoing,
+        moveHistory: const [],
+      );
+
+      // Evaluate the initial game status for the custom board
+      customBoard = _gameOrchestrator.updateGameStatus(customBoard);
+      _board.value = customBoard;
+    } else {
+      // Initialize board with the correct game type
+      _board.value = ChessBoard.initial(gameType: gameType);
+    }
+
+    // Initialize history with starting position
+    _boardHistory.add(_board.value);
+    _historyIndex.value = 0;
+
     _updateStatusMessage();
   }
 
@@ -47,8 +122,7 @@ class ChessController extends GetxController {
     if (_selectedPosition.value == null) {
       if (piece != null && piece.color == currentPlayer && !isGameOver) {
         _selectPiece(position);
-      } else {
-      }
+      } else {}
       return;
     }
 
@@ -241,7 +315,6 @@ class ChessController extends GetxController {
     ChessPiece? capturedPiece,
     String promotionPiece,
   ) {
-
     final promotionMove = ChessMove.promotion(
       from: from,
       to: to,
@@ -262,14 +335,21 @@ class ChessController extends GetxController {
     try {
       final newBoard = _gameOrchestrator.executeMove(board, move);
       _board.value = newBoard;
+
+      // Add to history - clear any forward history if we're not at the end
+      if (_historyIndex.value < _boardHistory.length - 1) {
+        _boardHistory.removeRange(
+          _historyIndex.value + 1,
+          _boardHistory.length,
+        );
+      }
+      _boardHistory.add(newBoard);
+      _historyIndex.value = _boardHistory.length - 1;
+
       _updateStatusMessage();
 
       // Force UI update for GetBuilder widgets
       update();
-
-      // Show move notification
-      final moveNotation = move.algebraicNotation;
-      _showMessage('Move: $moveNotation');
     } catch (e) {
       _showMessage('Invalid move: ${e.toString()}');
     }
@@ -357,17 +437,37 @@ class ChessController extends GetxController {
   /// Resets the game to the initial state
   void resetGame() {
     _board.value = ChessBoard.initial(gameType: gameType);
+    _boardHistory.clear();
+    _boardHistory.add(_board.value);
+    _historyIndex.value = 0;
     _deselectPiece();
     _updateStatusMessage();
   }
 
   /// Undoes the last move
   void undoLastMove() {
-    if (board.moveHistory.isEmpty) return;
+    if (!canUndo) {
+      return;
+    }
 
-    // For now, we'll implement a simple undo by rebuilding the board
-    // In a more sophisticated implementation, you'd maintain a history stack
-    _showMessage('Undo functionality will be implemented in a future update');
+    _historyIndex.value--;
+    _board.value = _boardHistory[_historyIndex.value];
+    _deselectPiece();
+    _updateStatusMessage();
+    update();
+  }
+
+  /// Redoes the last undone move
+  void redoMove() {
+    if (!canRedo) {
+      return;
+    }
+
+    _historyIndex.value++;
+    _board.value = _boardHistory[_historyIndex.value];
+    _deselectPiece();
+    _updateStatusMessage();
+    update();
   }
 
   /// Gets the piece at a specific position

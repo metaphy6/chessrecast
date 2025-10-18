@@ -8,9 +8,7 @@ class ChessBoardWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(
-        16.0,
-      ), // Increased from 8.0 for bigger board
+      padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.brown.shade800, width: 4),
         borderRadius: BorderRadius.circular(8),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../board/exporter.dart';
 import '../controllers/options_controller.dart';
+import '../constants.dart';
 
 class StartPage extends StatelessWidget {
   const StartPage({super.key});
@@ -119,6 +120,22 @@ class StartPage extends StatelessWidget {
                   ),
                 );
               }),
+              if (AppConstants.enableDevBoard) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () => Get.toNamed('/dev-board'),
+                  icon: const Icon(Icons.bug_report),
+                  label: const Text('Dev Board Setup'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    side: BorderSide(color: Colors.purple.shade600, width: 2),
+                    foregroundColor: Colors.purple.shade600,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
