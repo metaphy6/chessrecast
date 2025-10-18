@@ -1,3 +1,10 @@
 {
-    "cmake.sourceDirectory": "C:/code/Flutter/chessrecast/linux"
+    "cmake.sourceDirectory": "C:/code/Flutter/chessrecast/linux",
+    "spellright.language": [
+        "en"
+    ],
+    "spellright.documentTypes": [
+        "latex",
+        "plaintext"
+    ]
 }
