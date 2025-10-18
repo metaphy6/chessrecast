@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'struct/routes.dart';
-import 'struct/constants/app_constants.dart';
+import 'routes.dart';
+import 'constants.dart';
 
 void main() {
   runApp(const ChessRecastApp());
