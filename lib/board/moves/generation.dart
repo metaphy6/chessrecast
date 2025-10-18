@@ -1,11 +1,13 @@
 import '../enums/piece_color.dart';
 import '../enums/piece_type.dart';
+import '../enums/modes.dart';
 import '../models/position.dart';
 import '../models/piece.dart';
 import '../models/move.dart';
 import '../models/board.dart';
 import '../queries.dart';
 import 'validation.dart';
+import '../../modes/snare.dart';
 
 /// Extension for move generation operations
 extension MoveGeneration on ChessBoard {
@@ -17,10 +19,29 @@ extension MoveGeneration on ChessBoard {
     }
     final potentialMoves = _getPotentialMoves(piece);
 
-    // Filter out moves that would put own king in check
-    final safeMoves = potentialMoves.where((move) {
+    // Apply game mode specific move filtering first
+    var filteredByGameMode = potentialMoves;
+    if (gameType == GameType.snare) {
+      final snareMode = SnareMode();
+      filteredByGameMode = snareMode.filterMoves(potentialMoves, piece, this);
+      print(
+        '🕸️ BOARD: Snare mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
+      );
+    }
+
+    // Filter out moves that would put own king in check (unless game mode allows suicide)
+    final safeMoves = filteredByGameMode.where((move) {
       final boardAfterMove = makeMoveForValidation(move);
       final kingInCheck = boardAfterMove.isKingInCheck(currentPlayer);
+      
+      // Snare mode allows suicide moves (king moving into danger)
+      if (gameType == GameType.snare && piece.type == PieceType.king) {
+        print(
+          '🕸️ BOARD: Snare mode - allowing king move to ${move.to.algebraic} even if in check (suicide move)',
+        );
+        return true; // Allow the move even if it puts king in check
+      }
+      
       if (kingInCheck) {
       } else {
       }

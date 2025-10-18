@@ -1,4 +1,5 @@
 import '../board/exporter.dart';
+import '../modes/snare.dart';
 
 class ChessGameOrchestrator {
   /// Validates if a move is legal in the current board state
@@ -23,13 +24,13 @@ class ChessGameOrchestrator {
     }
 
     var newBoard = board.makeMove(move);
-    newBoard = _updateGameStatus(newBoard);
+    newBoard = updateGameStatus(newBoard);
 
     return newBoard;
   }
 
   /// Updates the game status based on the current board state
-  ChessBoard _updateGameStatus(ChessBoard board) {
+  ChessBoard updateGameStatus(ChessBoard board) {
     // Special handling for Heir mode
     if (board.gameType == GameType.heir) {
       return _updateHeirGameStatus(board);
@@ -125,7 +126,6 @@ class ChessGameOrchestrator {
 
         final king = board.getKing(board.currentPlayer);
         if (king != null) {
-
           // Create a new pieces list with the king removed
           final newPieces = board.pieces
               .where((piece) => piece != king)
@@ -198,7 +198,29 @@ class ChessGameOrchestrator {
       return board;
     }
 
-    // Use standard chess rules
+    final snareMode = SnareMode();
+    
+    // Check if EITHER king is entangled (instant checkmate)
+    // Note: We check both kings because after a move, the turn switches
+    // If white moves into entangle, it's now black's turn, but white is the one who's mated
+    if (snareMode.isKingEntangled(board.currentPlayer, board)) {
+      print(
+        '🕸️ SNARE ORCHESTRATOR: ${board.currentPlayer.name} King is ENTANGLED - CHECKMATE!',
+      );
+      return board.copyWith(gameStatus: GameStatus.checkmate);
+    }
+    
+    // Also check the opponent's king (who just moved)
+    if (snareMode.isKingEntangled(board.currentPlayer.opposite, board)) {
+      print(
+        '🕸️ SNARE ORCHESTRATOR: ${board.currentPlayer.opposite.name} King is ENTANGLED - CHECKMATE!',
+      );
+      // The player who just moved their king into entangle loses
+      // Game is checkmate, current player wins
+      return board.copyWith(gameStatus: GameStatus.checkmate);
+    }
+
+    // Use standard chess rules for check/stalemate
     final currentPlayerInCheck = board.isKingInCheck(board.currentPlayer);
     final hasValidMoves = _hasValidMoves(board);
 
