@@ -507,8 +507,9 @@ class ChessBoard extends Equatable {
 
     // Only works for straight lines (rook/bishop/queen moves)
     if (rowStep == 0 && colStep == 0) return path;
-    if (rowStep != 0 && colStep != 0 && rowDiff.abs() != colDiff.abs())
+    if (rowStep != 0 && colStep != 0 && rowDiff.abs() != colDiff.abs()) {
       return path;
+    }
 
     int currentRow = from.row;
     int currentCol = from.col;
