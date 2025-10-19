@@ -8,16 +8,29 @@ import '../models/board.dart';
 import '../queries.dart';
 import 'validation.dart';
 import '../../modes/snare.dart';
+import '../../modes/diamonds.dart';
+import '../../modes/teleport.dart';
 
 /// Extension for move generation operations
 extension MoveGeneration on ChessBoard {
   /// Gets all valid moves for a piece at the specified position
   List<ChessMove> getValidMovesFor(Position position) {
     final piece = getPieceAt(position);
+
+    print('🔍 MOVE GEN: Clicked ${position.algebraic}');
+    print(
+      '🔍 MOVE GEN: Piece: ${piece != null ? "${piece.color.name} ${piece.type.name}" : "NONE"}',
+    );
+    print('🔍 MOVE GEN: Current player: ${currentPlayer.name}');
+    print('🔍 MOVE GEN: Game type: ${gameType.name}');
+
     if (piece == null || piece.color != currentPlayer) {
+      print('🔍 MOVE GEN: ❌ Returning empty - wrong turn or no piece');
       return [];
     }
+
     final potentialMoves = _getPotentialMoves(piece);
+    print('🔍 MOVE GEN: Potential moves generated: ${potentialMoves.length}');
 
     // Apply game mode specific move filtering first
     var filteredByGameMode = potentialMoves;
@@ -27,13 +40,33 @@ extension MoveGeneration on ChessBoard {
       print(
         '🕸️ BOARD: Snare mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
+    } else if (gameType == GameType.diamonds) {
+      final diamondsMode = DiamondsMode();
+      filteredByGameMode = diamondsMode.filterMoves(
+        potentialMoves,
+        piece,
+        this,
+      );
+      print(
+        '💎 BOARD: Diamonds mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
+      );
+    } else if (gameType == GameType.teleport) {
+      final teleportMode = TeleportMode();
+      filteredByGameMode = teleportMode.filterMoves(
+        potentialMoves,
+        piece,
+        this,
+      );
+      print(
+        '🔄 BOARD: Teleport mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
+      );
     }
 
     // Filter out moves that would put own king in check (unless game mode allows suicide)
     final safeMoves = filteredByGameMode.where((move) {
       final boardAfterMove = makeMoveForValidation(move);
       final kingInCheck = boardAfterMove.isKingInCheck(currentPlayer);
-      
+
       // Snare mode allows suicide moves (king moving into danger)
       if (gameType == GameType.snare && piece.type == PieceType.king) {
         print(
@@ -41,13 +74,13 @@ extension MoveGeneration on ChessBoard {
         );
         return true; // Allow the move even if it puts king in check
       }
-      
+
       if (kingInCheck) {
-      } else {
-      }
+      } else {}
       return !kingInCheck;
     }).toList();
 
+    print('🔍 MOVE GEN: Final safe moves: ${safeMoves.length}');
     return safeMoves;
   }
 
@@ -76,8 +109,7 @@ extension MoveGeneration on ChessBoard {
 
     // Debug en passant target - always print
 
-    if (enPassantTarget != null) {
-    }
+    if (enPassantTarget != null) {}
 
     // Forward move
     final oneStep = pawn.position.offset(direction, 0);
@@ -182,6 +214,12 @@ extension MoveGeneration on ChessBoard {
     PieceColor color, {
     Position? promotionPosition,
   }) {
+    // Check for Diamonds mode - only bishops allowed
+    if (gameType == GameType.diamonds) {
+      print('💎 BOARD: Diamonds mode - restricting promotion to Bishop only');
+      return ['B']; // Only bishop promotion in Diamonds mode
+    }
+
     return ['Q', 'R', 'B', 'N']; // Standard promotion pieces
   }
 
@@ -331,46 +369,48 @@ extension MoveGeneration on ChessBoard {
       }
     }
 
-    // Add castling moves if conditions are met
-    if (king.color == PieceColor.white) {
-      // White kingside castling (O-O)
-      if (whiteCanCastleKingside && canCastleKingside(king.color)) {
-        final castleMove = ChessMove.castling(
-          from: king.position,
-          to: Position(0, 6), // g1
-          piece: king,
-        );
-        moves.add(castleMove);
-      }
+    // Add castling moves if conditions are met (not in Teleport mode)
+    if (gameType != GameType.teleport) {
+      if (king.color == PieceColor.white) {
+        // White kingside castling (O-O)
+        if (whiteCanCastleKingside && canCastleKingside(king.color)) {
+          final castleMove = ChessMove.castling(
+            from: king.position,
+            to: Position(0, 6), // g1
+            piece: king,
+          );
+          moves.add(castleMove);
+        }
 
-      // White queenside castling (O-O-O)
-      if (whiteCanCastleQueenside && canCastleQueenside(king.color)) {
-        final castleMove = ChessMove.castling(
-          from: king.position,
-          to: Position(0, 2), // c1
-          piece: king,
-        );
-        moves.add(castleMove);
-      }
-    } else {
-      // Black kingside castling (O-O)
-      if (blackCanCastleKingside && canCastleKingside(king.color)) {
-        final castleMove = ChessMove.castling(
-          from: king.position,
-          to: Position(7, 6), // g8
-          piece: king,
-        );
-        moves.add(castleMove);
-      }
+        // White queenside castling (O-O-O)
+        if (whiteCanCastleQueenside && canCastleQueenside(king.color)) {
+          final castleMove = ChessMove.castling(
+            from: king.position,
+            to: Position(0, 2), // c1
+            piece: king,
+          );
+          moves.add(castleMove);
+        }
+      } else {
+        // Black kingside castling (O-O)
+        if (blackCanCastleKingside && canCastleKingside(king.color)) {
+          final castleMove = ChessMove.castling(
+            from: king.position,
+            to: Position(7, 6), // g8
+            piece: king,
+          );
+          moves.add(castleMove);
+        }
 
-      // Black queenside castling (O-O-O)
-      if (blackCanCastleQueenside && canCastleQueenside(king.color)) {
-        final castleMove = ChessMove.castling(
-          from: king.position,
-          to: Position(7, 2), // c8
-          piece: king,
-        );
-        moves.add(castleMove);
+        // Black queenside castling (O-O-O)
+        if (blackCanCastleQueenside && canCastleQueenside(king.color)) {
+          final castleMove = ChessMove.castling(
+            from: king.position,
+            to: Position(7, 2), // c8
+            piece: king,
+          );
+          moves.add(castleMove);
+        }
       }
     }
 

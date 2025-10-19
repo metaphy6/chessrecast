@@ -1,17 +1,65 @@
 import '../board/exporter.dart';
 import '../modes/snare.dart';
+import '../modes/teleport.dart';
 
 class ChessGameOrchestrator {
   /// Validates if a move is legal in the current board state
   bool isValidMove(ChessBoard board, ChessMove move) {
+    print('🎯 ORCHESTRATOR: isValidMove called');
+    print(
+      '🎯 ORCHESTRATOR: Checking ${move.piece.type.name} from ${move.from.algebraic} to ${move.to.algebraic}',
+    );
+    print(
+      '🎯 ORCHESTRATOR: Move capturedPiece: ${move.capturedPiece != null ? move.capturedPiece!.type.name : "null"}',
+    );
+    print('🎯 ORCHESTRATOR: Game type: ${board.gameType.name}');
+
     final validMoves = board.getValidMovesFor(move.from);
-    return validMoves.any((validMove) => validMove == move);
+    print(
+      '🎯 ORCHESTRATOR: Found ${validMoves.length} valid moves for this piece',
+    );
+
+    // For teleport mode, we need special comparison because the controller
+    // sets capturedPiece to the rook, but the generated move has capturedPiece: null
+    if (board.gameType == GameType.teleport &&
+        move.piece.type == PieceType.king) {
+      print('🎯 ORCHESTRATOR: Using teleport-specific validation');
+      final isValid = validMoves.any(
+        (validMove) =>
+            validMove.from == move.from &&
+            validMove.to == move.to &&
+            validMove.piece.type == move.piece.type,
+      );
+      print('🎯 ORCHESTRATOR: Teleport validation result: $isValid');
+      return isValid;
+    }
+
+    final isValid = validMoves.any((validMove) => validMove == move);
+    print('🎯 ORCHESTRATOR: Standard validation result: $isValid');
+    return isValid;
   }
 
   /// Executes a move and returns the new board state
   ChessBoard executeMove(ChessBoard board, ChessMove move) {
     if (!isValidMove(board, move)) {
       throw ArgumentError('Invalid move: $move');
+    }
+
+    // Check for Teleport mode special move (king-rook swap)
+    if (board.gameType == GameType.teleport) {
+      print(
+        '🔄 ORCHESTRATOR: Teleport mode detected, checking for special move',
+      );
+      final teleportMode = TeleportMode();
+      final teleportBoard = teleportMode.handleSpecialMove(board, move);
+      print(
+        '🔄 ORCHESTRATOR: handleSpecialMove returned: ${teleportBoard != null ? "NEW BOARD" : "NULL"}',
+      );
+      if (teleportBoard != null) {
+        print('🔄 ORCHESTRATOR: Updating game status with teleported board');
+        return updateGameStatus(teleportBoard);
+      }
+      print('🔄 ORCHESTRATOR: Falling through to standard move execution');
     }
 
     // Check for Queen capture in Supreme Queen mode before making the move
@@ -199,7 +247,7 @@ class ChessGameOrchestrator {
     }
 
     final snareMode = SnareMode();
-    
+
     // Check if EITHER king is entangled (instant checkmate)
     // Note: We check both kings because after a move, the turn switches
     // If white moves into entangle, it's now black's turn, but white is the one who's mated
@@ -209,7 +257,7 @@ class ChessGameOrchestrator {
       );
       return board.copyWith(gameStatus: GameStatus.checkmate);
     }
-    
+
     // Also check the opponent's king (who just moved)
     if (snareMode.isKingEntangled(board.currentPlayer.opposite, board)) {
       print(

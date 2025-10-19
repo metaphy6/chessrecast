@@ -19,6 +19,14 @@ enum GameType {
   snare(
     'Snare',
     'Knight-focused variant: Two knights create "entangle zones" that trap pieces. Last knight becomes revengeful. No promotions if all knights lost.',
+  ),
+  diamonds(
+    'Diamonds',
+    'Bishop-focused variant: Bishops move diagonally but capture in a diamond pattern (8 squares around them). Pawns can only promote to Bishops.',
+  ),
+  teleport(
+    'Teleport',
+    'Kings and rooks can swap positions when aligned on the same rank or file. Castling is disabled.',
   );
 
   const GameType(this.displayName, this.description);
