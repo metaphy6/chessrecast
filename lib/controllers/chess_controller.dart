@@ -133,7 +133,17 @@ class ChessController extends GetxController {
     }
 
     // If another piece of the same color is clicked, select it
-    if (piece != null && piece.color == currentPlayer) {
+    // EXCEPTION: In Teleport mode, if king is selected and clicking a rook, attempt move instead
+    final selectedPiece = board.getPieceAt(_selectedPosition.value!);
+    final isTeleportMove =
+        board.gameType == GameType.teleport &&
+        selectedPiece != null &&
+        selectedPiece.type == PieceType.king &&
+        piece != null &&
+        piece.type == PieceType.rook &&
+        piece.color == currentPlayer;
+
+    if (piece != null && piece.color == currentPlayer && !isTeleportMove) {
       _selectPiece(position);
       return;
     }
@@ -163,13 +173,24 @@ class ChessController extends GetxController {
 
   /// Attempts to make a move from the selected position to the target position
   void _attemptMove(Position from, Position to) {
+    print(
+      '🎯 CONTROLLER: _attemptMove called from ${from.algebraic} to ${to.algebraic}',
+    );
     try {
       final piece = board.getPieceAt(from);
       if (piece == null) {
+        print('🎯 CONTROLLER: No piece at from position, returning');
         return;
       }
+      print(
+        '🎯 CONTROLLER: Moving piece: ${piece.color.name} ${piece.type.name}',
+      );
 
       final capturedPiece = board.getPieceAt(to);
+      print(
+        '🎯 CONTROLLER: Target square has: ${capturedPiece != null ? "${capturedPiece.color.name} ${capturedPiece.type.name}" : "EMPTY"}',
+      );
+      print('🎯 CONTROLLER: Game type: ${board.gameType.name}');
 
       // Check if this is a pawn promotion move
       if (piece.type == PieceType.pawn) {
@@ -189,6 +210,9 @@ class ChessController extends GetxController {
 
       // Check if this should be an en passant move
       ChessMove finalMove = move;
+      print(
+        '🎯 CONTROLLER: Initial move created with capturedPiece: ${capturedPiece != null ? "${capturedPiece.type.name}" : "null"}',
+      );
 
       // If it's a pawn move and matches en passant conditions, create en passant move
       if (piece.type == PieceType.pawn &&
@@ -224,12 +248,35 @@ class ChessController extends GetxController {
         }
       }
 
+      // Check if this should be a teleport move (king moving to friendly rook in Teleport mode)
+      if (board.gameType == GameType.teleport &&
+          piece.type == PieceType.king &&
+          capturedPiece != null &&
+          capturedPiece.type == PieceType.rook &&
+          capturedPiece.color == piece.color) {
+        print(
+          '🔄 CONTROLLER: ✅ Detected teleport move, creating teleport move object',
+        );
+        // Create a teleport move without capturedPiece (the rook is not captured, it swaps)
+        finalMove = ChessMove.simple(
+          from: from,
+          to: to,
+          piece: piece,
+          capturedPiece: null, // Don't set capturedPiece for teleport
+        );
+        print('🔄 CONTROLLER: Created finalMove with capturedPiece: null');
+      }
+
+      print('🎯 CONTROLLER: Validating move...');
       if (_gameOrchestrator.isValidMove(board, finalMove)) {
+        print('🎯 CONTROLLER: ✅ Move is valid, calling makeMove');
         makeMove(finalMove);
       } else {
+        print('🎯 CONTROLLER: ❌ Move is INVALID');
         _showMessage('Invalid move!');
       }
     } catch (e) {
+      print('🎯 CONTROLLER: ❌ Exception: ${e.toString()}');
       _showMessage('Error: ${e.toString()}');
     }
 
@@ -332,8 +379,16 @@ class ChessController extends GetxController {
 
   /// Makes a move and updates the board state
   void makeMove(ChessMove move) {
+    print(
+      '🎯 CONTROLLER: makeMove called for ${move.piece.type.name} from ${move.from.algebraic} to ${move.to.algebraic}',
+    );
+    print(
+      '🎯 CONTROLLER: Move capturedPiece: ${move.capturedPiece != null ? move.capturedPiece!.type.name : "null"}',
+    );
     try {
+      print('🎯 CONTROLLER: Calling orchestrator.executeMove');
       final newBoard = _gameOrchestrator.executeMove(board, move);
+      print('🎯 CONTROLLER: ✅ executeMove returned new board');
       _board.value = newBoard;
 
       // Add to history - clear any forward history if we're not at the end
@@ -350,7 +405,9 @@ class ChessController extends GetxController {
 
       // Force UI update for GetBuilder widgets
       update();
+      print('🎯 CONTROLLER: ✅ Board updated successfully');
     } catch (e) {
+      print('🎯 CONTROLLER: ❌ makeMove exception: ${e.toString()}');
       _showMessage('Invalid move: ${e.toString()}');
     }
   }
