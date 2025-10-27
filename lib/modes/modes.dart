@@ -7,3 +7,4 @@ export 'royal_pawns.dart';
 export 'shifty_pawns.dart';
 export 'diamonds.dart';
 export 'teleport.dart';
+export 'friendly_fire.dart';

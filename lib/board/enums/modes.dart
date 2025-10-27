@@ -27,6 +27,10 @@ enum GameType {
   teleport(
     'Teleport',
     'Kings and rooks can swap positions when aligned on the same rank or file. Castling is disabled.',
+  ),
+  friendlyFire(
+    'Friendly Fire',
+    'Players can capture their own pieces (except the king and unmoved pieces). You cannot put yourself in check or checkmate.',
   );
 
   const GameType(this.displayName, this.description);

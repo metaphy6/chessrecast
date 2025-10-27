@@ -134,6 +134,7 @@ class ChessController extends GetxController {
 
     // If another piece of the same color is clicked, select it
     // EXCEPTION: In Teleport mode, if king is selected and clicking a rook, attempt move instead
+    // EXCEPTION: In Friendly Fire mode, if clicking a friendly piece, attempt capture instead
     final selectedPiece = board.getPieceAt(_selectedPosition.value!);
     final isTeleportMove =
         board.gameType == GameType.teleport &&
@@ -143,7 +144,17 @@ class ChessController extends GetxController {
         piece.type == PieceType.rook &&
         piece.color == currentPlayer;
 
-    if (piece != null && piece.color == currentPlayer && !isTeleportMove) {
+    final isFriendlyFireCapture =
+        board.gameType == GameType.friendlyFire &&
+        selectedPiece != null &&
+        piece != null &&
+        piece.color == currentPlayer &&
+        piece.type != PieceType.king; // Can't capture own king
+
+    if (piece != null &&
+        piece.color == currentPlayer &&
+        !isTeleportMove &&
+        !isFriendlyFireCapture) {
       _selectPiece(position);
       return;
     }
@@ -211,7 +222,7 @@ class ChessController extends GetxController {
       // Check if this should be an en passant move
       ChessMove finalMove = move;
       print(
-        '🎯 CONTROLLER: Initial move created with capturedPiece: ${capturedPiece != null ? "${capturedPiece.type.name}" : "null"}',
+        '🎯 CONTROLLER: Initial move created with capturedPiece: ${capturedPiece != null ? capturedPiece.type.name : "null"}',
       );
 
       // If it's a pawn move and matches en passant conditions, create en passant move

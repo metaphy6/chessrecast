@@ -10,6 +10,7 @@ import 'validation.dart';
 import '../../modes/snare.dart';
 import '../../modes/diamonds.dart';
 import '../../modes/teleport.dart';
+import '../../modes/friendly_fire.dart';
 
 /// Extension for move generation operations
 extension MoveGeneration on ChessBoard {
@@ -59,6 +60,16 @@ extension MoveGeneration on ChessBoard {
       );
       print(
         '🔄 BOARD: Teleport mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
+      );
+    } else if (gameType == GameType.friendlyFire) {
+      final friendlyFireMode = FriendlyFireMode();
+      filteredByGameMode = friendlyFireMode.filterMoves(
+        potentialMoves,
+        piece,
+        this,
+      );
+      print(
+        '🔥 BOARD: Friendly Fire mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     }
 
