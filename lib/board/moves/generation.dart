@@ -11,6 +11,7 @@ import '../../modes/snare.dart';
 import '../../modes/diamonds.dart';
 import '../../modes/teleport.dart';
 import '../../modes/friendly_fire.dart';
+import '../../modes/kings_battle.dart';
 
 /// Extension for move generation operations
 extension MoveGeneration on ChessBoard {
@@ -70,6 +71,16 @@ extension MoveGeneration on ChessBoard {
       );
       print(
         '🔥 BOARD: Friendly Fire mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
+      );
+    } else if (gameType == GameType.kingsBattle) {
+      final kingsBattleMode = KingsBattleMode();
+      filteredByGameMode = kingsBattleMode.filterMoves(
+        potentialMoves,
+        piece,
+        this,
+      );
+      print(
+        '👑 BOARD: Kings Battle mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     }
 

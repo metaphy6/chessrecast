@@ -1,6 +1,7 @@
 import '../board/exporter.dart';
 import '../modes/snare.dart';
 import '../modes/teleport.dart';
+import '../modes/kings_battle.dart';
 
 class ChessGameOrchestrator {
   /// Validates if a move is legal in the current board state
@@ -60,6 +61,23 @@ class ChessGameOrchestrator {
         return updateGameStatus(teleportBoard);
       }
       print('🔄 ORCHESTRATOR: Falling through to standard move execution');
+    }
+
+    // Check for Kings' Battle mode special moves (King's Kill or pawn promotion)
+    if (board.gameType == GameType.kingsBattle) {
+      print(
+        '👑 ORCHESTRATOR: Kings Battle mode detected, checking for special move',
+      );
+      final kingsBattleMode = KingsBattleMode();
+      final kingsBattleBoard = kingsBattleMode.handleSpecialMove(board, move);
+      print(
+        '👑 ORCHESTRATOR: handleSpecialMove returned: ${kingsBattleBoard != null ? "NEW BOARD (BONUS MOVE)" : "NULL"}',
+      );
+      if (kingsBattleBoard != null) {
+        print('👑 ORCHESTRATOR: Updating game status with Kings Battle board');
+        return updateGameStatus(kingsBattleBoard);
+      }
+      print('👑 ORCHESTRATOR: Falling through to standard move execution');
     }
 
     // Check for Queen capture in Supreme Queen mode before making the move

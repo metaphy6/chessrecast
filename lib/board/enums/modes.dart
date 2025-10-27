@@ -31,6 +31,10 @@ enum GameType {
   friendlyFire(
     'Friendly Fire',
     'Players can capture their own pieces (except the king and unmoved pieces). You cannot put yourself in check or checkmate.',
+  ),
+  kingsBattle(
+    'Kings\' Battle',
+    'Phase 1: Only kings and pawns can move. When a king captures a pawn (King\'s Kill), all pieces unlock and the capturer gets a bonus move. Pawn promotion also unlocks all pieces.',
   );
 
   const GameType(this.displayName, this.description);
