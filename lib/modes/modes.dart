@@ -8,3 +8,4 @@ export 'shifty_pawns.dart';
 export 'diamonds.dart';
 export 'teleport.dart';
 export 'friendly_fire.dart';
+export 'kings_battle.dart';
