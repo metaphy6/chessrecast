@@ -1,4 +1,5 @@
 import '../board/exporter.dart';
+import 'game_types.dart';
 import 'game_mode.dart';
 
 /// Save the Queen Mode: Queens start as prisoners and must escape to the other half

@@ -1,4 +1,5 @@
 export 'game_mode.dart';
+export 'game_types.dart';
 export 'classic.dart';
 export 'snare.dart';
 export 'heir.dart';

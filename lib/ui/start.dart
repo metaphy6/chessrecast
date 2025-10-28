@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../board/exporter.dart';
+import '../modes/game_types.dart';
 import '../controllers/options_controller.dart';
 import '../constants.dart';
 

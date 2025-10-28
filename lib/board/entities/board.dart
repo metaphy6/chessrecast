@@ -1,11 +1,11 @@
 import 'package:equatable/equatable.dart';
-import '../enums/piece_color.dart';
-import '../enums/piece_type.dart';
-import '../enums/game_status.dart';
+import '../types/piece_color.dart';
+import '../types/piece_type.dart';
+import '../types/game_status.dart';
 import 'position.dart';
 import 'piece.dart';
 import 'move.dart';
-import '../enums/modes.dart';
+import '../../modes/game_types.dart';
 
 /// Core ChessBoard class with state and basic operations
 class ChessBoard extends Equatable {

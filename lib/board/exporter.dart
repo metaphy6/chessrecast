@@ -1,18 +1,17 @@
 // Barrel export for all board functionality
 
-// Data models
-export 'models/position.dart';
-export 'models/piece.dart';
-export 'models/move.dart';
+// Core entities
+export 'entities/position.dart';
+export 'entities/piece.dart';
+export 'entities/move.dart';
 
-// Enums
-export 'enums/piece_color.dart';
-export 'enums/piece_type.dart';
-export 'enums/game_status.dart';
-export 'enums/modes.dart';
+// Types and enums
+export 'types/piece_color.dart';
+export 'types/piece_type.dart';
+export 'types/game_status.dart';
 
 // Chess board and operations
-export 'models/board.dart';
+export 'entities/board.dart';
 export 'queries.dart';
 
 // Move operations
