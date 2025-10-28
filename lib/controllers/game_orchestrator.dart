@@ -2,6 +2,7 @@ import '../board/exporter.dart';
 import '../modes/snare.dart';
 import '../modes/teleport.dart';
 import '../modes/kings_battle.dart';
+import '../modes/save_the_queen.dart';
 
 class ChessGameOrchestrator {
   /// Validates if a move is legal in the current board state
@@ -80,6 +81,25 @@ class ChessGameOrchestrator {
       print('👑 ORCHESTRATOR: Falling through to standard move execution');
     }
 
+    // Check for Save the Queen mode special moves (queen capture or return to prison)
+    if (board.gameType == GameType.saveTheQueen) {
+      print(
+        '👸 ORCHESTRATOR: Save the Queen mode detected, checking for special move',
+      );
+      final saveTheQueenMode = SaveTheQueenMode();
+      final saveTheQueenBoard = saveTheQueenMode.handleSpecialMove(board, move);
+      print(
+        '👸 ORCHESTRATOR: handleSpecialMove returned: ${saveTheQueenBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
+      );
+      if (saveTheQueenBoard != null) {
+        print(
+          '👸 ORCHESTRATOR: Updating game status with Save the Queen board',
+        );
+        return updateGameStatus(saveTheQueenBoard);
+      }
+      print('👸 ORCHESTRATOR: Falling through to standard move execution');
+    }
+
     // Check for Queen capture in Supreme Queen mode before making the move
     if (board.gameType == GameType.supremeQueen && move.capturedPiece != null) {
       if (move.capturedPiece!.type == PieceType.queen) {
@@ -97,6 +117,16 @@ class ChessGameOrchestrator {
 
   /// Updates the game status based on the current board state
   ChessBoard updateGameStatus(ChessBoard board) {
+    // If the game is already over (from special move handling), don't recalculate
+    if (board.gameStatus == GameStatus.checkmate ||
+        board.gameStatus == GameStatus.stalemate ||
+        board.gameStatus == GameStatus.draw) {
+      print(
+        '👸 ORCHESTRATOR: Game already ended with status: ${board.gameStatus}',
+      );
+      return board;
+    }
+
     // Special handling for Heir mode
     if (board.gameType == GameType.heir) {
       return _updateHeirGameStatus(board);

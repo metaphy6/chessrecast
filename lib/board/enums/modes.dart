@@ -35,6 +35,10 @@ enum GameType {
   kingsBattle(
     'Kings\' Battle',
     'Phase 1: Only kings and pawns can move. When a king captures a pawn (King\'s Kill), all pieces unlock and the capturer gets a bonus move. Pawn promotion also unlocks all pieces.',
+  ),
+  saveTheQueen(
+    'Save the Queen',
+    'Queens start as prisoners on opponent\'s side, moving like kings and unable to capture. Escape to your half to gain full power. Captured escaped queen = instant win!',
   );
 
   const GameType(this.displayName, this.description);

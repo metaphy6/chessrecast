@@ -76,20 +76,54 @@ class ChessBoard extends Equatable {
     ];
 
     for (int col = 0; col < 8; col++) {
-      pieces.add(
-        ChessPiece(
-          type: pieceOrder[col],
-          color: PieceColor.white,
-          position: Position(0, col),
-        ),
-      );
-      pieces.add(
-        ChessPiece(
-          type: pieceOrder[col],
-          color: PieceColor.black,
-          position: Position(7, col),
-        ),
-      );
+      // For Save the Queen mode, swap queen positions
+      if (gameType == GameType.saveTheQueen &&
+          pieceOrder[col] == PieceType.queen) {
+        // White queen goes to d8 (black's side)
+        pieces.add(
+          ChessPiece(
+            type: PieceType.queen,
+            color: PieceColor.white,
+            position: Position(7, col), // d8 (row 7, col 3)
+          ),
+        );
+        // Black queen goes to d1 (white's side)
+        pieces.add(
+          ChessPiece(
+            type: PieceType.queen,
+            color: PieceColor.black,
+            position: Position(0, col), // d1 (row 0, col 3)
+          ),
+        );
+      } else {
+        // Normal positioning for other pieces and other game modes
+        pieces.add(
+          ChessPiece(
+            type: pieceOrder[col],
+            color: PieceColor.white,
+            position: Position(0, col),
+          ),
+        );
+        pieces.add(
+          ChessPiece(
+            type: pieceOrder[col],
+            color: PieceColor.black,
+            position: Position(7, col),
+          ),
+        );
+      }
+    }
+
+    print(
+      '👸 BOARD INIT: Creating Save the Queen board with ${pieces.length} pieces',
+    );
+    if (gameType == GameType.saveTheQueen) {
+      // Debug: Print all piece positions
+      for (final piece in pieces) {
+        print(
+          '👸 BOARD INIT: ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
+        );
+      }
     }
 
     return ChessBoard(pieces: pieces, gameType: gameType);
