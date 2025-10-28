@@ -12,6 +12,7 @@ import '../../modes/diamonds.dart';
 import '../../modes/teleport.dart';
 import '../../modes/friendly_fire.dart';
 import '../../modes/kings_battle.dart';
+import '../../modes/save_the_queen.dart';
 
 /// Extension for move generation operations
 extension MoveGeneration on ChessBoard {
@@ -36,6 +37,11 @@ extension MoveGeneration on ChessBoard {
 
     // Apply game mode specific move filtering first
     var filteredByGameMode = potentialMoves;
+
+    print(
+      '🔍 MOVE GEN: About to apply game mode filtering for ${gameType.name}',
+    );
+
     if (gameType == GameType.snare) {
       final snareMode = SnareMode();
       filteredByGameMode = snareMode.filterMoves(potentialMoves, piece, this);
@@ -81,6 +87,16 @@ extension MoveGeneration on ChessBoard {
       );
       print(
         '👑 BOARD: Kings Battle mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
+      );
+    } else if (gameType == GameType.saveTheQueen) {
+      final saveTheQueenMode = SaveTheQueenMode();
+      filteredByGameMode = saveTheQueenMode.filterMoves(
+        potentialMoves,
+        piece,
+        this,
+      );
+      print(
+        '👸 BOARD: Save the Queen mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     }
 
@@ -240,6 +256,12 @@ extension MoveGeneration on ChessBoard {
     if (gameType == GameType.diamonds) {
       print('💎 BOARD: Diamonds mode - restricting promotion to Bishop only');
       return ['B']; // Only bishop promotion in Diamonds mode
+    }
+
+    // Check for Save the Queen mode - no queen promotion allowed
+    if (gameType == GameType.saveTheQueen) {
+      print('👸 BOARD: Save the Queen mode - no queen promotion allowed');
+      return ['R', 'B', 'N']; // Rook, Bishop, Knight only
     }
 
     return ['Q', 'R', 'B', 'N']; // Standard promotion pieces

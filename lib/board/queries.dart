@@ -10,6 +10,19 @@ extension BoardQueries on ChessBoard {
   bool isPositionUnderAttack(Position position, PieceColor attackingColor) {
     final attackingPieces = getPiecesOfColor(attackingColor);
     return attackingPieces.any((piece) {
+      // In Save the Queen mode, prisoner queens cannot attack
+      if (gameType == GameType.saveTheQueen && piece.type == PieceType.queen) {
+        // Check if queen is in opponent's half (still a prisoner)
+        final isInOwnHalf = piece.color == PieceColor.white
+            ? piece.position.row <=
+                  3 // White's own half is rows 0-3
+            : piece.position.row >= 4; // Black's own half is rows 4-7
+
+        if (!isInOwnHalf) {
+          return false; // Prisoner queens (in opponent's half) cannot give check or attack
+        }
+      }
+
       // Special handling for Diamonds mode bishops
       if (gameType == GameType.diamonds && piece.type == PieceType.bishop) {
         return _canBishopAttackInDiamondsMode(piece.position, position);
