@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../board/exporter.dart';
+import '../modes/game_types.dart';
 
 /// Development board setup page - allows custom piece placement and game mode testing
 class DevBoardSetupPage extends StatefulWidget {

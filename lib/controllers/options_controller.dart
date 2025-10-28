@@ -1,5 +1,5 @@
 import 'package:get/get.dart';
-import '../board/exporter.dart';
+import '../modes/game_types.dart';
 
 class OptionsController extends GetxController {
   final Rx<GameType> selectedGameType = GameType.classic.obs;

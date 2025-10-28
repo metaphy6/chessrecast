@@ -1,9 +1,9 @@
-import '../enums/piece_color.dart';
-import '../enums/piece_type.dart';
-import '../models/position.dart';
-import '../models/piece.dart';
-import '../models/move.dart';
-import '../models/board.dart';
+import '../types/piece_color.dart';
+import '../types/piece_type.dart';
+import '../entities/position.dart';
+import '../entities/piece.dart';
+import '../entities/move.dart';
+import '../entities/board.dart';
 import '../queries.dart';
 
 /// Extension for move validation operations

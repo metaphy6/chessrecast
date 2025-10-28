@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../board/exporter.dart';
 import '../controllers/chess_controller.dart';
+import '../constants.dart';
 
 class ChessSquare extends StatelessWidget {
   final Position position;
@@ -34,12 +35,17 @@ class ChessSquare extends StatelessWidget {
           isEntangleZone,
         ),
         child: InkWell(
-          splashColor: Colors.blue.withOpacity(0.3),
-          highlightColor: Colors.blue.withOpacity(0.1),
+          splashColor: Colors.blue.withValues(alpha: 0.3),
+          highlightColor: Colors.blue.withValues(alpha: 0.1),
           onTap: () {
             try {
               controller.onSquareSelected(position);
-            } catch (e) {}
+            } catch (e) {
+              // Log error during development, silent in production
+              if (AppConstants.enableDebugLogs) {
+                print('❌ Error selecting square ${position.algebraic}: $e');
+              }
+            }
           },
           child: Container(
             decoration: isSelected

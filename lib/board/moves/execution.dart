@@ -1,10 +1,10 @@
-import '../enums/piece_type.dart';
-import '../enums/piece_color.dart';
-import '../enums/modes.dart';
-import '../models/position.dart';
-import '../models/piece.dart';
-import '../models/move.dart';
-import '../models/board.dart';
+import '../types/piece_type.dart';
+import '../types/piece_color.dart';
+import '../../modes/game_types.dart';
+import '../entities/position.dart';
+import '../entities/piece.dart';
+import '../entities/move.dart';
+import '../entities/board.dart';
 
 /// Extension for move execution operations
 extension MoveExecution on ChessBoard {
@@ -96,10 +96,8 @@ extension MoveExecution on ChessBoard {
         // Set en passant target to the square the pawn passed over
         final targetRow = (move.from.row + move.to.row) ~/ 2;
         newEnPassantTarget = Position(targetRow, move.from.col);
-      } else {
-      }
-    } else {
-    }
+      } else {}
+    } else {}
 
     // Update castling rights based on piece movements
     bool newWhiteCanCastleKingside = whiteCanCastleKingside;

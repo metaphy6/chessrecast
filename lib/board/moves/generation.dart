@@ -1,10 +1,10 @@
-import '../enums/piece_color.dart';
-import '../enums/piece_type.dart';
-import '../enums/modes.dart';
-import '../models/position.dart';
-import '../models/piece.dart';
-import '../models/move.dart';
-import '../models/board.dart';
+import '../types/piece_color.dart';
+import '../types/piece_type.dart';
+import '../../modes/game_types.dart';
+import '../entities/position.dart';
+import '../entities/piece.dart';
+import '../entities/move.dart';
+import '../entities/board.dart';
 import '../queries.dart';
 import 'validation.dart';
 import '../../modes/snare.dart';

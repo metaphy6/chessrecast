@@ -1,4 +1,5 @@
 import '../board/exporter.dart';
+import '../modes/game_types.dart';
 import '../modes/snare.dart';
 import '../modes/teleport.dart';
 import '../modes/kings_battle.dart';

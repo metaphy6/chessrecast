@@ -1,8 +1,8 @@
-import 'enums/piece_color.dart';
-import 'enums/piece_type.dart';
-import 'enums/modes.dart';
-import 'models/position.dart';
-import 'models/board.dart';
+import 'types/piece_color.dart';
+import 'types/piece_type.dart';
+import '../modes/game_types.dart';
+import 'entities/position.dart';
+import 'entities/board.dart';
 
 /// Extension for board query operations
 extension BoardQueries on ChessBoard {
