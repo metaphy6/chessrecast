@@ -11,3 +11,4 @@ export 'teleport.dart';
 export 'friendly_fire.dart';
 export 'kings_battle.dart';
 export 'save_the_queen.dart';
+export 'save_the_king.dart';

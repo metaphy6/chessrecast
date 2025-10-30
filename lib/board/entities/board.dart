@@ -6,6 +6,7 @@ import 'position.dart';
 import 'piece.dart';
 import 'move.dart';
 import '../../modes/game_types.dart';
+import '../../modes/save_the_king.dart';
 
 /// Core ChessBoard class with state and basic operations
 class ChessBoard extends Equatable {
@@ -43,6 +44,11 @@ class ChessBoard extends Equatable {
 
   /// Creates the initial chess board setup
   factory ChessBoard.initial({GameType gameType = GameType.classic}) {
+    // Special handling for Save the King mode - uses custom initial setup
+    if (gameType == GameType.saveTheKing) {
+      return SaveTheKingMode.getInitialBoard();
+    }
+
     final pieces = <ChessPiece>[];
 
     // Add pawns
