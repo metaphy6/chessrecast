@@ -12,7 +12,7 @@ export 'types/game_status.dart';
 
 // Chess board and operations
 export 'entities/board.dart';
-export 'queries.dart';
+export 'entities/queries.dart';
 
 // Move operations
 export 'moves/generation.dart';

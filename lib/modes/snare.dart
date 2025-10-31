@@ -16,7 +16,7 @@ import 'game_mode.dart';
 /// - Suicide moves (putting own king in check/mate) are legal
 /// - When the last knight is captured, it's "revengeful" - both pieces are destroyed
 /// - Promotion restrictions: No knights = no promotions, 1 knight = must promote to knight
-class SnareMode extends GameMode {
+class Snare extends GameMode {
   /// SNARE MODE: Gets the knights of the specified color
   List<ChessPiece> getKnights(PieceColor color, ChessBoard board) {
     return board.pieces

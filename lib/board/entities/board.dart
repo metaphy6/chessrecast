@@ -5,7 +5,7 @@ import '../types/game_status.dart';
 import 'position.dart';
 import 'piece.dart';
 import 'move.dart';
-import '../../modes/game_types.dart';
+import '../../modes/modes_enum.dart';
 import '../../modes/save_the_king.dart';
 
 /// Core ChessBoard class with state and basic operations
@@ -21,7 +21,7 @@ class ChessBoard extends Equatable {
   final int halfMoveClock;
   final int fullMoveNumber;
   final List<ChessMove> moveHistory;
-  final GameType gameType;
+  final ModesEnum gameType;
   final bool whiteHasPromotedKing;
   final bool blackHasPromotedKing;
 
@@ -37,16 +37,16 @@ class ChessBoard extends Equatable {
     this.halfMoveClock = 0,
     this.fullMoveNumber = 1,
     this.moveHistory = const [],
-    this.gameType = GameType.classic,
+    this.gameType = ModesEnum.classic,
     this.whiteHasPromotedKing = false,
     this.blackHasPromotedKing = false,
   });
 
   /// Creates the initial chess board setup
-  factory ChessBoard.initial({GameType gameType = GameType.classic}) {
+  factory ChessBoard.initial({ModesEnum gameType = ModesEnum.classic}) {
     // Special handling for Save the King mode - uses custom initial setup
-    if (gameType == GameType.saveTheKing) {
-      return SaveTheKingMode.getInitialBoard();
+    if (gameType == ModesEnum.saveTheKing) {
+      return SaveTheKing.getInitialBoard();
     }
 
     final pieces = <ChessPiece>[];
@@ -83,7 +83,7 @@ class ChessBoard extends Equatable {
 
     for (int col = 0; col < 8; col++) {
       // For Save the Queen mode, swap queen positions
-      if (gameType == GameType.saveTheQueen &&
+      if (gameType == ModesEnum.saveTheQueen &&
           pieceOrder[col] == PieceType.queen) {
         // White queen goes to d8 (black's side)
         pieces.add(
@@ -123,7 +123,7 @@ class ChessBoard extends Equatable {
     print(
       '👸 BOARD INIT: Creating Save the Queen board with ${pieces.length} pieces',
     );
-    if (gameType == GameType.saveTheQueen) {
+    if (gameType == ModesEnum.saveTheQueen) {
       // Debug: Print all piece positions
       for (final piece in pieces) {
         print(
@@ -173,7 +173,7 @@ class ChessBoard extends Equatable {
     int? halfMoveClock,
     int? fullMoveNumber,
     List<ChessMove>? moveHistory,
-    GameType? gameType,
+    ModesEnum? gameType,
     bool? whiteHasPromotedKing,
     bool? blackHasPromotedKing,
   }) {

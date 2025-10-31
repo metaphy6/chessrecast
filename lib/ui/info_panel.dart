@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controllers/chess_controller.dart';
+import '../management/controller.dart';
 import '../board/exporter.dart';
 
 class InfoPanel extends StatelessWidget {
@@ -10,7 +10,7 @@ class InfoPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GetBuilder<ChessController>(
+    return GetBuilder<Controller>(
       builder: (controller) {
         final displayColor = isTopPanel ? PieceColor.black : PieceColor.white;
         final isCurrentPlayer = controller.currentPlayer == displayColor;

@@ -10,7 +10,7 @@ import 'game_mode.dart';
 /// - If a King is captured and the player has no pawns, they lose immediately
 /// - If the second (promoted) King is captured, the player loses immediately
 /// - King promotion must not result in immediate check
-class HeirMode extends GameMode {
+class Heir extends GameMode {
   /// Checks if promoting a pawn to King would result in immediate check
   bool _wouldKingPromotionBeInCheck(
     PieceColor color,

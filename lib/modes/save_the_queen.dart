@@ -1,5 +1,5 @@
 import '../board/exporter.dart';
-import 'game_types.dart';
+import 'modes_enum.dart';
 import 'game_mode.dart';
 
 /// Save the Queen Mode: Queens start as prisoners and must escape to the other half
@@ -25,7 +25,7 @@ import 'game_mode.dart';
 /// - Returns to initial position automatically
 /// - Pawns CANNOT promote to Queen
 /// - Regular checkmate still possible with other pieces
-class SaveTheQueenMode implements GameMode {
+class SaveTheQueen implements GameMode {
   // Initial queen positions (prisoners)
   static const Position whiteQueenPrison = Position(
     7,
@@ -323,6 +323,6 @@ class SaveTheQueenMode implements GameMode {
     // Black queen at d1 (0, 3)
 
     // Note: This might need special handling in board setup
-    return ChessBoard.initial(gameType: GameType.saveTheQueen);
+    return ChessBoard.initial(gameType: ModesEnum.saveTheQueen);
   }
 }

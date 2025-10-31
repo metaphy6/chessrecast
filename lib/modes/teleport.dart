@@ -9,7 +9,7 @@ import 'game_mode.dart';
 /// - Teleport swaps the positions of king and rook instantly
 /// - No castling is allowed in this mode
 /// - All other pieces move normally
-class TeleportMode extends GameMode {
+class Teleport extends GameMode {
   /// Gets all rooks of the specified color
   List<ChessPiece> getRooks(PieceColor color, ChessBoard board) {
     return board.pieces

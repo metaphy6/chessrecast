@@ -12,7 +12,7 @@ import 'game_mode.dart';
 /// 1. Pawns can move backward and capture diagonally (forward or backward)
 /// 2. Losing a rook results in immediate game loss
 /// 3. Rooks can only capture opponent rooks (cannot capture other pieces)
-class OtherSideMode extends GameMode {
+class OtherSide extends GameMode {
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
     // Check if a rook was captured - instant loss for the player who lost it

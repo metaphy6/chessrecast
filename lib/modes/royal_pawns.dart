@@ -9,7 +9,7 @@ import 'game_mode.dart';
 /// - Pawns can still do the two-square initial move from starting position
 /// - Standard promotion rules apply
 /// - En passant still works with standard diagonal captures
-class RoyalPawnsMode extends GameMode {
+class RoyalPawns extends GameMode {
   @override
   List<ChessMove>? getPawnMoves(ChessPiece pawn, ChessBoard board) {
     final moves = <ChessMove>[];

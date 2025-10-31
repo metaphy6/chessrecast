@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../board/exporter.dart';
-import '../modes/game_types.dart';
+import '../modes/modes_enum.dart';
 
 /// Development board setup page - allows custom piece placement and game mode testing
 class DevBoardSetupPage extends StatefulWidget {
@@ -12,7 +12,7 @@ class DevBoardSetupPage extends StatefulWidget {
 }
 
 class _DevBoardSetupPageState extends State<DevBoardSetupPage> {
-  GameType selectedGameType = GameType.classic;
+  ModesEnum selectedGameType = ModesEnum.classic;
   PieceColor currentTurnColor = PieceColor.white;
   List<ChessPiece> customPieces = [];
 
@@ -146,7 +146,7 @@ class _DevBoardSetupPageState extends State<DevBoardSetupPage> {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<GameType>(
+                child: DropdownButtonFormField<ModesEnum>(
                   value: selectedGameType,
                   decoration: const InputDecoration(
                     labelText: 'Game Mode',
@@ -154,7 +154,7 @@ class _DevBoardSetupPageState extends State<DevBoardSetupPage> {
                     filled: true,
                     fillColor: Colors.white,
                   ),
-                  items: GameType.values.map((type) {
+                  items: ModesEnum.values.map((type) {
                     return DropdownMenuItem(
                       value: type,
                       child: Text(type.displayName),
