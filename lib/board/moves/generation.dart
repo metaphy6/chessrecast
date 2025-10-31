@@ -1,3 +1,4 @@
+import 'package:chessrecast/debug.dart';
 import '../types/piece_color.dart';
 import '../types/piece_type.dart';
 import '../../modes/modes_enum.dart';
@@ -22,32 +23,32 @@ extension MoveGeneration on ChessBoard {
   List<ChessMove> getValidMovesFor(Position position) {
     final piece = getPieceAt(position);
 
-    print('🔍 MOVE GEN: Clicked ${position.algebraic}');
-    print(
+    printDebug('🔍 MOVE GEN: Clicked ${position.algebraic}');
+    printDebug(
       '🔍 MOVE GEN: Piece: ${piece != null ? "${piece.color.name} ${piece.type.name}" : "NONE"}',
     );
-    print('🔍 MOVE GEN: Current player: ${currentPlayer.name}');
-    print('🔍 MOVE GEN: Game type: ${gameType.name}');
+    printDebug('🔍 MOVE GEN: Current player: ${currentPlayer.name}');
+    printDebug('🔍 MOVE GEN: Game type: ${gameType.name}');
 
     if (piece == null || piece.color != currentPlayer) {
-      print('🔍 MOVE GEN: ❌ Returning empty - wrong turn or no piece');
+      printDebug('🔍 MOVE GEN: ❌ Returning empty - wrong turn or no piece');
       return [];
     }
 
     final potentialMoves = _getPotentialMoves(piece);
-    print('🔍 MOVE GEN: Potential moves generated: ${potentialMoves.length}');
+    printDebug('🔍 MOVE GEN: Potential moves generated: ${potentialMoves.length}');
 
     // Apply game mode specific move filtering first
     var filteredByGameMode = potentialMoves;
 
-    print(
+    printDebug(
       '🔍 MOVE GEN: About to apply game mode filtering for ${gameType.name}',
     );
 
     if (gameType == ModesEnum.snare) {
       final snareMode = Snare();
       filteredByGameMode = snareMode.filterMoves(potentialMoves, piece, this);
-      print(
+      printDebug(
         '🕸️ BOARD: Snare mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     } else if (gameType == ModesEnum.diamonds) {
@@ -57,7 +58,7 @@ extension MoveGeneration on ChessBoard {
         piece,
         this,
       );
-      print(
+      printDebug(
         '💎 BOARD: Diamonds mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     } else if (gameType == ModesEnum.teleport) {
@@ -67,7 +68,7 @@ extension MoveGeneration on ChessBoard {
         piece,
         this,
       );
-      print(
+      printDebug(
         '🔄 BOARD: Teleport mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     } else if (gameType == ModesEnum.friendlyFire) {
@@ -77,7 +78,7 @@ extension MoveGeneration on ChessBoard {
         piece,
         this,
       );
-      print(
+      printDebug(
         '🔥 BOARD: Friendly Fire mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     } else if (gameType == ModesEnum.kingsBattle) {
@@ -87,7 +88,7 @@ extension MoveGeneration on ChessBoard {
         piece,
         this,
       );
-      print(
+      printDebug(
         '👑 BOARD: Kings Battle mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     } else if (gameType == ModesEnum.saveTheQueen) {
@@ -97,7 +98,7 @@ extension MoveGeneration on ChessBoard {
         piece,
         this,
       );
-      print(
+      printDebug(
         '👸 BOARD: Save the Queen mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     } else if (gameType == ModesEnum.otherSide) {
@@ -107,7 +108,7 @@ extension MoveGeneration on ChessBoard {
         piece,
         this,
       );
-      print(
+      printDebug(
         '🏰 BOARD: Other Side mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     }
@@ -119,7 +120,7 @@ extension MoveGeneration on ChessBoard {
 
       // Snare mode allows suicide moves (king moving into danger)
       if (gameType == ModesEnum.snare && piece.type == PieceType.king) {
-        print(
+        printDebug(
           '🕸️ BOARD: Snare mode - allowing king move to ${move.to.algebraic} even if in check (suicide move)',
         );
         return true; // Allow the move even if it puts king in check
@@ -130,7 +131,7 @@ extension MoveGeneration on ChessBoard {
       return !kingInCheck;
     }).toList();
 
-    print('🔍 MOVE GEN: Final safe moves: ${safeMoves.length}');
+    printDebug('🔍 MOVE GEN: Final safe moves: ${safeMoves.length}');
     return safeMoves;
   }
 
@@ -272,19 +273,19 @@ extension MoveGeneration on ChessBoard {
   }) {
     // Check for Diamonds mode - only bishops allowed
     if (gameType == ModesEnum.diamonds) {
-      print('💎 BOARD: Diamonds mode - restricting promotion to Bishop only');
+      printDebug('💎 BOARD: Diamonds mode - restricting promotion to Bishop only');
       return ['B']; // Only bishop promotion in Diamonds mode
     }
 
     // Check for Save the Queen mode - no queen promotion allowed
     if (gameType == ModesEnum.saveTheQueen) {
-      print('👸 BOARD: Save the Queen mode - no queen promotion allowed');
+      printDebug('👸 BOARD: Save the Queen mode - no queen promotion allowed');
       return ['R', 'B', 'N']; // Rook, Bishop, Knight only
     }
 
     // Check for Save the King mode - can promote to King
     if (gameType == ModesEnum.saveTheKing) {
-      print('👑 BOARD: Save the King mode - checking King promotion options');
+      printDebug('👑 BOARD: Save the King mode - checking King promotion options');
       final saveTheKingMode = SaveTheKing();
       final options = saveTheKingMode.getPromotionPieces(
         color,
@@ -292,7 +293,7 @@ extension MoveGeneration on ChessBoard {
         promotionPosition: promotionPosition,
       );
       if (options != null) {
-        print('👑 BOARD: Save the King promotion options: $options');
+        printDebug('👑 BOARD: Save the King promotion options: $options');
         return options;
       }
     }

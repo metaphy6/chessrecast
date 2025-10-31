@@ -1,3 +1,4 @@
+import 'package:chessrecast/debug.dart';
 import '../board/exporter.dart';
 import 'game_mode.dart';
 
@@ -14,7 +15,7 @@ class RoyalPawns extends GameMode {
   List<ChessMove>? getPawnMoves(ChessPiece pawn, ChessBoard board) {
     final moves = <ChessMove>[];
 
-    print(
+    printDebug(
       '👑 ROYAL PAWN: ${pawn.position.algebraic} can move and capture like a king!',
     );
 
@@ -38,13 +39,13 @@ class RoyalPawns extends GameMode {
 
       if (targetPiece == null) {
         // Empty square - can move
-        print('✅ ROYAL PAWN can move to ${newPos.algebraic}');
+        printDebug('✅ ROYAL PAWN can move to ${newPos.algebraic}');
 
         final lastRank = pawn.color == PieceColor.white ? 7 : 0;
         if (newPos.row == lastRank) {
           // Add promotion moves
           for (final promotionPiece in ['Q', 'R', 'B', 'N']) {
-            print(
+            printDebug(
               '👑 ROYAL PAWN promotion move: ${pawn.position.algebraic} → ${newPos.algebraic} = $promotionPiece',
             );
             moves.add(
@@ -63,7 +64,7 @@ class RoyalPawns extends GameMode {
         }
       } else if (targetPiece.color != pawn.color) {
         // Enemy piece - can capture
-        print(
+        printDebug(
           '⚔️ ROYAL PAWN can capture: ${targetPiece.toString()} at ${newPos.algebraic}',
         );
 
@@ -71,7 +72,7 @@ class RoyalPawns extends GameMode {
         if (newPos.row == lastRank) {
           // Add promotion captures
           for (final promotionPiece in ['Q', 'R', 'B', 'N']) {
-            print(
+            printDebug(
               '👑 ROYAL PAWN promotion capture: ${pawn.position.algebraic} → ${newPos.algebraic} = $promotionPiece',
             );
             moves.add(
@@ -95,7 +96,7 @@ class RoyalPawns extends GameMode {
           );
         }
       } else {
-        print('🚫 ROYAL PAWN blocked by friendly piece at ${newPos.algebraic}');
+        printDebug('🚫 ROYAL PAWN blocked by friendly piece at ${newPos.algebraic}');
       }
     }
 
@@ -108,7 +109,7 @@ class RoyalPawns extends GameMode {
       if (twoSquarePos.isValid && board.getPieceAt(twoSquarePos) == null) {
         final oneSquarePos = pawn.position.offset(direction, 0);
         if (board.getPieceAt(oneSquarePos) == null) {
-          print(
+          printDebug(
             '🚀 ROYAL PAWN can move 2 squares forward from starting position',
           );
           moves.add(
@@ -136,7 +137,7 @@ class RoyalPawns extends GameMode {
           if (capturedPawn != null &&
               capturedPawn.type == PieceType.pawn &&
               capturedPawn.color != pawn.color) {
-            print('🎯 En passant capture found!');
+            printDebug('🎯 En passant capture found!');
             moves.add(
               ChessMove.enPassant(
                 from: pawn.position,

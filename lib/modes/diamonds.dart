@@ -1,3 +1,4 @@
+import 'package:chessrecast/debug.dart';
 import '../board/exporter.dart';
 import 'game_mode.dart';
 
@@ -49,7 +50,7 @@ class Diamonds extends GameMode {
       }
     }
 
-    print(
+    printDebug(
       '💎 DIAMONDS: Bishop at ${bishopPos.algebraic} diamond capture zone: ${capturePositions.map((p) => p.algebraic).join(", ")}',
     );
 
@@ -62,7 +63,7 @@ class Diamonds extends GameMode {
     ChessBoard board, {
     Position? promotionPosition,
   }) {
-    print('💎 DIAMONDS: Pawn promotion - ONLY Bishop allowed');
+    printDebug('💎 DIAMONDS: Pawn promotion - ONLY Bishop allowed');
     return ['B']; // Only allow bishop promotion
   }
 
@@ -77,11 +78,11 @@ class Diamonds extends GameMode {
       return moves; // Other pieces move normally
     }
 
-    print('💎 DIAMONDS: === FILTERING BISHOP MOVES ===');
-    print(
+    printDebug('💎 DIAMONDS: === FILTERING BISHOP MOVES ===');
+    printDebug(
       '💎 DIAMONDS: Bishop: ${piece.color.name} at ${piece.position.algebraic}',
     );
-    print('💎 DIAMONDS: Input moves count: ${moves.length}');
+    printDebug('💎 DIAMONDS: Input moves count: ${moves.length}');
 
     final filteredMoves = <ChessMove>[];
 
@@ -89,7 +90,7 @@ class Diamonds extends GameMode {
     for (final move in moves) {
       if (move.capturedPiece == null) {
         // Non-capture diagonal move - allowed
-        print(
+        printDebug(
           '💎 DIAMONDS: MOVE to ${move.to.algebraic} - ✓ ALLOWED (no capture)',
         );
         filteredMoves.add(move);
@@ -102,7 +103,7 @@ class Diamonds extends GameMode {
       final targetPiece = board.getPieceAt(capturePos);
       if (targetPiece != null && targetPiece.color != piece.color) {
         // Enemy piece in diamond zone - add capture move
-        print(
+        printDebug(
           '💎 DIAMONDS: CAPTURE to ${capturePos.algebraic} - ✓ ALLOWED (in diamond)',
         );
         filteredMoves.add(
@@ -116,8 +117,8 @@ class Diamonds extends GameMode {
       }
     }
 
-    print('💎 DIAMONDS: Output moves count: ${filteredMoves.length}');
-    print('💎 DIAMONDS: === END FILTERING ===');
+    printDebug('💎 DIAMONDS: Output moves count: ${filteredMoves.length}');
+    printDebug('💎 DIAMONDS: === END FILTERING ===');
 
     return filteredMoves;
   }

@@ -1,3 +1,4 @@
+import 'package:chessrecast/debug.dart';
 import 'package:equatable/equatable.dart';
 import '../types/piece_color.dart';
 import '../types/piece_type.dart';
@@ -120,13 +121,13 @@ class ChessBoard extends Equatable {
       }
     }
 
-    print(
+    printDebug(
       '👸 BOARD INIT: Creating Save the Queen board with ${pieces.length} pieces',
     );
     if (gameType == ModesEnum.saveTheQueen) {
       // Debug: Print all piece positions
       for (final piece in pieces) {
-        print(
+        printDebug(
           '👸 BOARD INIT: ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
         );
       }

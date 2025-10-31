@@ -1,3 +1,4 @@
+import 'package:chessrecast/debug.dart';
 import '../board/exporter.dart';
 import '../modes/modes_enum.dart';
 import '../modes/snare.dart';
@@ -10,23 +11,23 @@ import '../modes/other_side.dart';
 class Orchestrator {
   /// Validates if a move is legal in the current board state
   bool isValidMove(ChessBoard board, ChessMove move) {
-    print('🎯 ORCHESTRATOR: isValidMove called');
-    print(
+    printDebug('🎯 ORCHESTRATOR: isValidMove called');
+    printDebug(
       '🎯 ORCHESTRATOR: Checking ${move.piece.type.name} from ${move.from.algebraic} to ${move.to.algebraic}',
     );
-    print(
+    printDebug(
       '🎯 ORCHESTRATOR: Move capturedPiece: ${move.capturedPiece != null ? move.capturedPiece!.type.name : "null"}',
     );
-    print('🎯 ORCHESTRATOR: Game type: ${board.gameType.name}');
+    printDebug('🎯 ORCHESTRATOR: Game type: ${board.gameType.name}');
 
     final validMoves = board.getValidMovesFor(move.from);
-    print(
+    printDebug(
       '🎯 ORCHESTRATOR: Found ${validMoves.length} valid moves for this piece',
     );
 
     // Debug: Print all valid moves and their capturedPiece
     for (final validMove in validMoves) {
-      print(
+      printDebug(
         '🎯 ORCHESTRATOR: Valid move option: ${validMove.from.algebraic} -> ${validMove.to.algebraic}, capturedPiece: ${validMove.capturedPiece != null ? validMove.capturedPiece!.type.name : "null"}',
       );
     }
@@ -35,19 +36,19 @@ class Orchestrator {
     // sets capturedPiece to the rook, but the generated move has capturedPiece: null
     if (board.gameType == ModesEnum.teleport &&
         move.piece.type == PieceType.king) {
-      print('🎯 ORCHESTRATOR: Using teleport-specific validation');
+      printDebug('🎯 ORCHESTRATOR: Using teleport-specific validation');
       final isValid = validMoves.any(
         (validMove) =>
             validMove.from == move.from &&
             validMove.to == move.to &&
             validMove.piece.type == move.piece.type,
       );
-      print('🎯 ORCHESTRATOR: Teleport validation result: $isValid');
+      printDebug('🎯 ORCHESTRATOR: Teleport validation result: $isValid');
       return isValid;
     }
 
     final isValid = validMoves.any((validMove) => validMove == move);
-    print('🎯 ORCHESTRATOR: Standard validation result: $isValid');
+    printDebug('🎯 ORCHESTRATOR: Standard validation result: $isValid');
     return isValid;
   }
 
@@ -59,89 +60,89 @@ class Orchestrator {
 
     // Check for Teleport mode special move (king-rook swap)
     if (board.gameType == ModesEnum.teleport) {
-      print(
+      printDebug(
         '🔄 ORCHESTRATOR: Teleport mode detected, checking for special move',
       );
       final teleportMode = Teleport();
       final teleportBoard = teleportMode.handleSpecialMove(board, move);
-      print(
+      printDebug(
         '🔄 ORCHESTRATOR: handleSpecialMove returned: ${teleportBoard != null ? "NEW BOARD" : "NULL"}',
       );
       if (teleportBoard != null) {
-        print('🔄 ORCHESTRATOR: Updating game status with teleported board');
+        printDebug('🔄 ORCHESTRATOR: Updating game status with teleported board');
         return updateGameStatus(teleportBoard);
       }
-      print('🔄 ORCHESTRATOR: Falling through to standard move execution');
+      printDebug('🔄 ORCHESTRATOR: Falling through to standard move execution');
     }
 
     // Check for Kings' Battle mode special moves (King's Kill or pawn promotion)
     if (board.gameType == ModesEnum.kingsBattle) {
-      print(
+      printDebug(
         '👑 ORCHESTRATOR: Kings Battle mode detected, checking for special move',
       );
       final kingsBattleMode = KingsBattle();
       final kingsBattleBoard = kingsBattleMode.handleSpecialMove(board, move);
-      print(
+      printDebug(
         '👑 ORCHESTRATOR: handleSpecialMove returned: ${kingsBattleBoard != null ? "NEW BOARD (BONUS MOVE)" : "NULL"}',
       );
       if (kingsBattleBoard != null) {
-        print('👑 ORCHESTRATOR: Updating game status with Kings Battle board');
+        printDebug('👑 ORCHESTRATOR: Updating game status with Kings Battle board');
         return updateGameStatus(kingsBattleBoard);
       }
-      print('👑 ORCHESTRATOR: Falling through to standard move execution');
+      printDebug('👑 ORCHESTRATOR: Falling through to standard move execution');
     }
 
     // Check for Save the Queen mode special moves (queen capture or return to prison)
     if (board.gameType == ModesEnum.saveTheQueen) {
-      print(
+      printDebug(
         '👸 ORCHESTRATOR: Save the Queen mode detected, checking for special move',
       );
       final saveTheQueenMode = SaveTheQueen();
       final saveTheQueenBoard = saveTheQueenMode.handleSpecialMove(board, move);
-      print(
+      printDebug(
         '👸 ORCHESTRATOR: handleSpecialMove returned: ${saveTheQueenBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
       );
       if (saveTheQueenBoard != null) {
-        print(
+        printDebug(
           '👸 ORCHESTRATOR: Updating game status with Save the Queen board',
         );
         return updateGameStatus(saveTheQueenBoard);
       }
-      print('👸 ORCHESTRATOR: Falling through to standard move execution');
+      printDebug('👸 ORCHESTRATOR: Falling through to standard move execution');
     }
 
     // Check for Save the King mode special moves (queen capture or King promotion)
     if (board.gameType == ModesEnum.saveTheKing) {
-      print(
+      printDebug(
         '👑 ORCHESTRATOR: Save the King mode detected, checking for special move',
       );
       final saveTheKingMode = SaveTheKing();
       final saveTheKingBoard = saveTheKingMode.handleSpecialMove(board, move);
-      print(
+      printDebug(
         '👑 ORCHESTRATOR: handleSpecialMove returned: ${saveTheKingBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
       );
       if (saveTheKingBoard != null) {
-        print('👑 ORCHESTRATOR: Updating game status with Save the King board');
+        printDebug('👑 ORCHESTRATOR: Updating game status with Save the King board');
         return updateGameStatus(saveTheKingBoard);
       }
-      print('👑 ORCHESTRATOR: Falling through to standard move execution');
+      printDebug('👑 ORCHESTRATOR: Falling through to standard move execution');
     }
 
     // Check for Other Side mode special moves (rook capture or back rank reached)
     if (board.gameType == ModesEnum.otherSide) {
-      print(
+      printDebug(
         '🏰 ORCHESTRATOR: Other Side mode detected, checking for special move',
       );
       final otherSideMode = OtherSide();
       final otherSideBoard = otherSideMode.handleSpecialMove(board, move);
-      print(
+      printDebug(
         '🏰 ORCHESTRATOR: handleSpecialMove returned: ${otherSideBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
       );
       if (otherSideBoard != null) {
-        print('🏰 ORCHESTRATOR: Updating game status with Other Side board');
+        printDebug('🏰 ORCHESTRATOR: Updating game status with Other Side board');
         return updateGameStatus(otherSideBoard);
       }
-      print('🏰 ORCHESTRATOR: Falling through to standard move execution');
+      printDebug('🏰 ORCHESTRATOR: Falling through to standard move execution');
     }
 
     // Check for Queen capture in Supreme Queen mode before making the move
@@ -166,7 +167,7 @@ class Orchestrator {
     if (board.gameStatus == GameStatus.checkmate ||
         board.gameStatus == GameStatus.stalemate ||
         board.gameStatus == GameStatus.draw) {
-      print(
+      printDebug(
         '👸 ORCHESTRATOR: Game already ended with status: ${board.gameStatus}',
       );
       return board;
@@ -345,7 +346,7 @@ class Orchestrator {
     // Note: We check both kings because after a move, the turn switches
     // If white moves into entangle, it's now black's turn, but white is the one who's mated
     if (snareMode.isKingEntangled(board.currentPlayer, board)) {
-      print(
+      printDebug(
         '🕸️ SNARE ORCHESTRATOR: ${board.currentPlayer.name} King is ENTANGLED - CHECKMATE!',
       );
       return board.copyWith(gameStatus: GameStatus.checkmate);
@@ -353,7 +354,7 @@ class Orchestrator {
 
     // Also check the opponent's king (who just moved)
     if (snareMode.isKingEntangled(board.currentPlayer.opposite, board)) {
-      print(
+      printDebug(
         '🕸️ SNARE ORCHESTRATOR: ${board.currentPlayer.opposite.name} King is ENTANGLED - CHECKMATE!',
       );
       // The player who just moved their king into entangle loses

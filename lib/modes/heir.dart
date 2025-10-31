@@ -1,3 +1,4 @@
+import 'package:chessrecast/debug.dart';
 import '../board/exporter.dart';
 import 'game_mode.dart';
 
@@ -30,7 +31,7 @@ class Heir extends GameMode {
       color.opposite,
     );
 
-    print(
+    printDebug(
       '🔍 KING PROMOTION CHECK: ${color.name} King at ${position.algebraic} would be ${wouldBeInCheck ? "IN CHECK" : "SAFE"}',
     );
 
@@ -43,7 +44,7 @@ class Heir extends GameMode {
     final direction = pawn.color == PieceColor.white ? 1 : -1;
     final startRow = pawn.color == PieceColor.white ? 1 : 6;
 
-    print(
+    printDebug(
       '👑 HEIR PAWN: ${pawn.position.algebraic} - Standard pawn moves with King promotion option',
     );
 
@@ -59,7 +60,7 @@ class Heir extends GameMode {
           promotionPosition: oneStep,
         );
         for (final promotionPiece in promotionPieces!) {
-          print(
+          printDebug(
             '👑 HEIR PAWN promotion move: ${pawn.position.algebraic} → ${oneStep.algebraic} = $promotionPiece',
           );
           moves.add(
@@ -103,7 +104,7 @@ class Heir extends GameMode {
               promotionPosition: capturePos,
             );
             for (final promotionPiece in promotionPieces!) {
-              print(
+              printDebug(
                 '👑 HEIR PAWN promotion capture: ${pawn.position.algebraic} → ${capturePos.algebraic} = $promotionPiece',
               );
               moves.add(
@@ -134,7 +135,7 @@ class Heir extends GameMode {
             Position(pawn.position.row, capturePos.col),
           );
           if (capturedPawn != null && capturedPawn.type == PieceType.pawn) {
-            print(
+            printDebug(
               '🎯 En passant capture found! Attacking: ${pawn.position.algebraic} → ${capturePos.algebraic}',
             );
             moves.add(
@@ -171,12 +172,12 @@ class Heir extends GameMode {
         // Check if King promotion would be safe
         if (promotionPosition != null &&
             _wouldKingPromotionBeInCheck(color, promotionPosition, board)) {
-          print(
+          printDebug(
             '👑 HEIR MODE: ${color.name} cannot promote to King - would be in check',
           );
           return [];
         }
-        print(
+        printDebug(
           '👑 HEIR MODE: ${color.name} has no king - can only promote to King',
         );
         return ['K'];
@@ -194,7 +195,7 @@ class Heir extends GameMode {
           !_wouldKingPromotionBeInCheck(color, promotionPosition, board)) {
         availablePieces.add('K');
       } else {
-        print(
+        printDebug(
           '👑 HEIR MODE: ${color.name} cannot promote to King - would be in check',
         );
       }
@@ -213,7 +214,7 @@ class Heir extends GameMode {
         .where((p) => p.type == PieceType.pawn && p.color == color)
         .toList();
 
-    print(
+    printDebug(
       '🔍 HEIR MODE: Checking game end for $color: ${kings.length} kings, ${pawns.length} pawns',
     );
 
@@ -223,13 +224,13 @@ class Heir extends GameMode {
 
     if (kings.isEmpty) {
       if (hasPromotedKing) {
-        print('🏁 HEIR MODE: Second king mated for $color - Game Over!');
+        printDebug('🏁 HEIR MODE: Second king mated for $color - Game Over!');
         return true;
       } else if (pawns.isEmpty) {
-        print('🏁 HEIR MODE: First king mated and no pawns left - Game Over!');
+        printDebug('🏁 HEIR MODE: First king mated and no pawns left - Game Over!');
         return true;
       } else {
-        print(
+        printDebug(
           '👑 HEIR MODE: First king mated but pawns available - continues!',
         );
         return false;
@@ -255,7 +256,7 @@ class Heir extends GameMode {
           .toList();
 
       if (kings.isEmpty && pawns.isEmpty) {
-        print(
+        printDebug(
           '🏁 HEIR MODE: ${color.name} has no king and no pawns - Game Over!',
         );
         return GameStatus.checkmate;
@@ -276,10 +277,10 @@ class Heir extends GameMode {
           .toList();
 
       if (hasPromotedKing || pawns.isEmpty) {
-        print('🏁 HEIR MODE: Game ends for ${playerWhoLostKing.name}');
+        printDebug('🏁 HEIR MODE: Game ends for ${playerWhoLostKing.name}');
         return GameStatus.checkmate;
       } else {
-        print('👑 HEIR MODE: King mated but pawns available - continue');
+        printDebug('👑 HEIR MODE: King mated but pawns available - continue');
         // Remove the king and let the game continue
         final king = board.getKing(board.currentPlayer);
         if (king != null) {
