@@ -5,6 +5,7 @@ import '../modes/teleport.dart';
 import '../modes/kings_battle.dart';
 import '../modes/save_the_queen.dart';
 import '../modes/save_the_king.dart';
+import '../modes/other_side.dart';
 
 class ChessGameOrchestrator {
   /// Validates if a move is legal in the current board state
@@ -124,6 +125,23 @@ class ChessGameOrchestrator {
         return updateGameStatus(saveTheKingBoard);
       }
       print('👑 ORCHESTRATOR: Falling through to standard move execution');
+    }
+
+    // Check for Other Side mode special moves (rook capture or back rank reached)
+    if (board.gameType == GameType.otherSide) {
+      print(
+        '🏰 ORCHESTRATOR: Other Side mode detected, checking for special move',
+      );
+      final otherSideMode = OtherSideMode();
+      final otherSideBoard = otherSideMode.handleSpecialMove(board, move);
+      print(
+        '🏰 ORCHESTRATOR: handleSpecialMove returned: ${otherSideBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
+      );
+      if (otherSideBoard != null) {
+        print('🏰 ORCHESTRATOR: Updating game status with Other Side board');
+        return updateGameStatus(otherSideBoard);
+      }
+      print('🏰 ORCHESTRATOR: Falling through to standard move execution');
     }
 
     // Check for Queen capture in Supreme Queen mode before making the move
