@@ -132,7 +132,7 @@ Future versions may support:
 ## Move History
 
 ### Accessing Move History
-The move history is tracked internally in the ChessController:
+The move history is tracked internally in the Controller:
 - `_boardHistory`: List of all board states
 - `_historyIndex`: Current position in history
 
@@ -191,8 +191,8 @@ lib/
 ```
 
 ### State Management
-- **Move History**: Stored in `ChessController._boardHistory`
-- **History Index**: Tracked with `ChessController._historyIndex`
+- **Move History**: Stored in `Controller._boardHistory`
+- **History Index**: Tracked with `Controller._historyIndex`
 - **Reactive Updates**: Undo/redo buttons auto-enable/disable via Obx
 
 ### Custom Board Initialization
@@ -206,7 +206,7 @@ Get.toNamed('/game', arguments: {
 });
 ```
 
-The ChessController checks for `customBoard` in arguments and initializes accordingly.
+The Controller checks for `customBoard` in arguments and initializes accordingly.
 
 ## Future Enhancements
 

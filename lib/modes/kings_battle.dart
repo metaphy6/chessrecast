@@ -14,7 +14,7 @@ import 'game_mode.dart';
 /// - All pieces can move normally
 /// - Standard chess rules apply
 /// - Player who made King's Kill gets one bonus move immediately
-class KingsBattleMode implements GameMode {
+class KingsBattle implements GameMode {
   @override
   List<ChessMove> filterMoves(
     List<ChessMove> moves,

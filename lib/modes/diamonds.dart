@@ -10,7 +10,7 @@ import 'game_mode.dart';
 /// - For bishop at d4: Can capture at c3, d2, e3, f4, e5, d6, c5, b4
 /// - Near board edges, the diamond may be incomplete
 /// - Pawns can ONLY promote to Bishops
-class DiamondsMode extends GameMode {
+class Diamonds extends GameMode {
   /// Gets all bishops of the specified color
   List<ChessPiece> getBishops(PieceColor color, ChessBoard board) {
     return board.pieces

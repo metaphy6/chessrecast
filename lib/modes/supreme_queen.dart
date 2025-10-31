@@ -7,7 +7,7 @@ import 'game_mode.dart';
 /// - Capturing the opponent's Queen wins the game immediately
 /// - Pawns cannot promote to Queen (only R, B, N available)
 /// - Standard chess rules for check, checkmate, and stalemate still apply
-class SupremeQueenMode extends GameMode {
+class SupremeQueen extends GameMode {
   @override
   List<String>? getPromotionPieces(
     PieceColor color,

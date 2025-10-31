@@ -6,7 +6,7 @@ import 'game_mode.dart';
 /// - Cannot capture your own king
 /// - Cannot capture pieces that haven't moved yet (balancing restriction)
 /// - Cannot put yourself in check/checkmate
-class FriendlyFireMode implements GameMode {
+class FriendlyFire implements GameMode {
   @override
   List<ChessMove> filterMoves(
     List<ChessMove> moves,

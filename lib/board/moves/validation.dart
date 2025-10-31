@@ -4,7 +4,7 @@ import '../entities/position.dart';
 import '../entities/piece.dart';
 import '../entities/move.dart';
 import '../entities/board.dart';
-import '../queries.dart';
+import '../entities/queries.dart';
 
 /// Extension for move validation operations
 extension MoveValidation on ChessBoard {

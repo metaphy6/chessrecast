@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controllers/chess_controller.dart';
+import '../management/controller.dart';
 import 'board.dart';
 import 'info_panel.dart';
 
@@ -9,7 +9,7 @@ class ChessGamePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<ChessController>();
+    final controller = Get.find<Controller>();
 
     return Scaffold(
       appBar: AppBar(
@@ -156,7 +156,7 @@ class ChessGamePage extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           ElevatedButton.icon(
-            onPressed: () => Get.find<ChessController>().resetGame(),
+            onPressed: () => Get.find<Controller>().resetGame(),
             icon: const Icon(Icons.refresh),
             label: const Text('New Game'),
             style: ElevatedButton.styleFrom(
@@ -166,7 +166,7 @@ class ChessGamePage extends StatelessWidget {
             ),
           ),
           ElevatedButton.icon(
-            onPressed: () => Get.find<ChessController>().undoLastMove(),
+            onPressed: () => Get.find<Controller>().undoLastMove(),
             icon: const Icon(Icons.undo),
             label: const Text('Undo'),
             style: ElevatedButton.styleFrom(

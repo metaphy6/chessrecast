@@ -1,11 +1,11 @@
 import '../types/piece_color.dart';
 import '../types/piece_type.dart';
-import '../../modes/game_types.dart';
+import '../../modes/modes_enum.dart';
 import '../entities/position.dart';
 import '../entities/piece.dart';
 import '../entities/move.dart';
 import '../entities/board.dart';
-import '../queries.dart';
+import '../entities/queries.dart';
 import 'validation.dart';
 import '../../modes/snare.dart';
 import '../../modes/diamonds.dart';
@@ -44,14 +44,14 @@ extension MoveGeneration on ChessBoard {
       '🔍 MOVE GEN: About to apply game mode filtering for ${gameType.name}',
     );
 
-    if (gameType == GameType.snare) {
-      final snareMode = SnareMode();
+    if (gameType == ModesEnum.snare) {
+      final snareMode = Snare();
       filteredByGameMode = snareMode.filterMoves(potentialMoves, piece, this);
       print(
         '🕸️ BOARD: Snare mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
-    } else if (gameType == GameType.diamonds) {
-      final diamondsMode = DiamondsMode();
+    } else if (gameType == ModesEnum.diamonds) {
+      final diamondsMode = Diamonds();
       filteredByGameMode = diamondsMode.filterMoves(
         potentialMoves,
         piece,
@@ -60,8 +60,8 @@ extension MoveGeneration on ChessBoard {
       print(
         '💎 BOARD: Diamonds mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
-    } else if (gameType == GameType.teleport) {
-      final teleportMode = TeleportMode();
+    } else if (gameType == ModesEnum.teleport) {
+      final teleportMode = Teleport();
       filteredByGameMode = teleportMode.filterMoves(
         potentialMoves,
         piece,
@@ -70,8 +70,8 @@ extension MoveGeneration on ChessBoard {
       print(
         '🔄 BOARD: Teleport mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
-    } else if (gameType == GameType.friendlyFire) {
-      final friendlyFireMode = FriendlyFireMode();
+    } else if (gameType == ModesEnum.friendlyFire) {
+      final friendlyFireMode = FriendlyFire();
       filteredByGameMode = friendlyFireMode.filterMoves(
         potentialMoves,
         piece,
@@ -80,8 +80,8 @@ extension MoveGeneration on ChessBoard {
       print(
         '🔥 BOARD: Friendly Fire mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
-    } else if (gameType == GameType.kingsBattle) {
-      final kingsBattleMode = KingsBattleMode();
+    } else if (gameType == ModesEnum.kingsBattle) {
+      final kingsBattleMode = KingsBattle();
       filteredByGameMode = kingsBattleMode.filterMoves(
         potentialMoves,
         piece,
@@ -90,8 +90,8 @@ extension MoveGeneration on ChessBoard {
       print(
         '👑 BOARD: Kings Battle mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
-    } else if (gameType == GameType.saveTheQueen) {
-      final saveTheQueenMode = SaveTheQueenMode();
+    } else if (gameType == ModesEnum.saveTheQueen) {
+      final saveTheQueenMode = SaveTheQueen();
       filteredByGameMode = saveTheQueenMode.filterMoves(
         potentialMoves,
         piece,
@@ -100,8 +100,8 @@ extension MoveGeneration on ChessBoard {
       print(
         '👸 BOARD: Save the Queen mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
-    } else if (gameType == GameType.otherSide) {
-      final otherSideMode = OtherSideMode();
+    } else if (gameType == ModesEnum.otherSide) {
+      final otherSideMode = OtherSide();
       filteredByGameMode = otherSideMode.filterMoves(
         potentialMoves,
         piece,
@@ -118,7 +118,7 @@ extension MoveGeneration on ChessBoard {
       final kingInCheck = boardAfterMove.isKingInCheck(currentPlayer);
 
       // Snare mode allows suicide moves (king moving into danger)
-      if (gameType == GameType.snare && piece.type == PieceType.king) {
+      if (gameType == ModesEnum.snare && piece.type == PieceType.king) {
         print(
           '🕸️ BOARD: Snare mode - allowing king move to ${move.to.algebraic} even if in check (suicide move)',
         );
@@ -154,8 +154,8 @@ extension MoveGeneration on ChessBoard {
 
   List<ChessMove> _getPawnMoves(ChessPiece pawn) {
     // Check if the game mode has custom pawn moves
-    if (gameType == GameType.otherSide) {
-      final customMoves = OtherSideMode().getPawnMoves(pawn, this);
+    if (gameType == ModesEnum.otherSide) {
+      final customMoves = OtherSide().getPawnMoves(pawn, this);
       if (customMoves != null) return customMoves;
     }
 
@@ -271,21 +271,21 @@ extension MoveGeneration on ChessBoard {
     Position? promotionPosition,
   }) {
     // Check for Diamonds mode - only bishops allowed
-    if (gameType == GameType.diamonds) {
+    if (gameType == ModesEnum.diamonds) {
       print('💎 BOARD: Diamonds mode - restricting promotion to Bishop only');
       return ['B']; // Only bishop promotion in Diamonds mode
     }
 
     // Check for Save the Queen mode - no queen promotion allowed
-    if (gameType == GameType.saveTheQueen) {
+    if (gameType == ModesEnum.saveTheQueen) {
       print('👸 BOARD: Save the Queen mode - no queen promotion allowed');
       return ['R', 'B', 'N']; // Rook, Bishop, Knight only
     }
 
     // Check for Save the King mode - can promote to King
-    if (gameType == GameType.saveTheKing) {
+    if (gameType == ModesEnum.saveTheKing) {
       print('👑 BOARD: Save the King mode - checking King promotion options');
-      final saveTheKingMode = SaveTheKingMode();
+      final saveTheKingMode = SaveTheKing();
       final options = saveTheKingMode.getPromotionPieces(
         color,
         this,
@@ -447,7 +447,7 @@ extension MoveGeneration on ChessBoard {
     }
 
     // Add castling moves if conditions are met (not in Teleport mode)
-    if (gameType != GameType.teleport) {
+    if (gameType != ModesEnum.teleport) {
       if (king.color == PieceColor.white) {
         // White kingside castling (O-O)
         if (whiteCanCastleKingside && canCastleKingside(king.color)) {

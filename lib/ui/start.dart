@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../modes/game_types.dart';
-import '../controllers/options_controller.dart';
+import '../modes/modes_enum.dart';
+import '../management/options.dart';
 import '../constants.dart';
 
 class StartPage extends StatelessWidget {
@@ -30,9 +30,9 @@ class StartPage extends StatelessWidget {
               const SizedBox(height: 32),
               Expanded(
                 child: ListView.builder(
-                  itemCount: GameType.values.length,
+                  itemCount: ModesEnum.values.length,
                   itemBuilder: (context, index) {
-                    final gameType = GameType.values[index];
+                    final gameType = ModesEnum.values[index];
 
                     return Obx(() {
                       final isSelected =

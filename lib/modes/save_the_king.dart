@@ -1,6 +1,6 @@
 import '../board/exporter.dart';
 import 'game_mode.dart';
-import 'game_types.dart';
+import 'modes_enum.dart';
 
 /// Save the King Mode: Race to promote a pawn to King!
 ///
@@ -22,7 +22,7 @@ import 'game_types.dart';
 /// STARTING POSITION:
 /// White: Two queens on d1 and e1
 /// Black: Two queens on d8 and e8
-class SaveTheKingMode extends GameMode {
+class SaveTheKing extends GameMode {
   // Track halfmoves for 50-move draw rule (static to persist across instances)
   static int _halfmoveClock = 0;
 
@@ -298,7 +298,7 @@ class SaveTheKingMode extends GameMode {
       pieces: pieces,
       currentPlayer: PieceColor.white,
       gameStatus: GameStatus.ongoing,
-      gameType: GameType.saveTheKing,
+      gameType: ModesEnum.saveTheKing,
     );
   }
 }

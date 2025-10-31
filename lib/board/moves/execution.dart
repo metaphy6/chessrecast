@@ -1,6 +1,6 @@
 import '../types/piece_type.dart';
 import '../types/piece_color.dart';
-import '../../modes/game_types.dart';
+import '../../modes/modes_enum.dart';
 import '../entities/position.dart';
 import '../entities/piece.dart';
 import '../entities/move.dart';
@@ -155,7 +155,7 @@ extension MoveExecution on ChessBoard {
     bool newWhiteHasPromotedKing = whiteHasPromotedKing;
     bool newBlackHasPromotedKing = blackHasPromotedKing;
 
-    if (gameType == GameType.heir &&
+    if (gameType == ModesEnum.heir &&
         move.isPromotion &&
         move.promotionPiece == 'K') {
       if (move.piece.color == PieceColor.white) {
