@@ -14,6 +14,7 @@ import '../../modes/friendly_fire.dart';
 import '../../modes/kings_battle.dart';
 import '../../modes/save_the_queen.dart';
 import '../../modes/save_the_king.dart';
+import '../../modes/other_side.dart';
 
 /// Extension for move generation operations
 extension MoveGeneration on ChessBoard {
@@ -99,6 +100,16 @@ extension MoveGeneration on ChessBoard {
       print(
         '👸 BOARD: Save the Queen mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
+    } else if (gameType == GameType.otherSide) {
+      final otherSideMode = OtherSideMode();
+      filteredByGameMode = otherSideMode.filterMoves(
+        potentialMoves,
+        piece,
+        this,
+      );
+      print(
+        '🏰 BOARD: Other Side mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
+      );
     }
 
     // Filter out moves that would put own king in check (unless game mode allows suicide)
@@ -142,6 +153,12 @@ extension MoveGeneration on ChessBoard {
   }
 
   List<ChessMove> _getPawnMoves(ChessPiece pawn) {
+    // Check if the game mode has custom pawn moves
+    if (gameType == GameType.otherSide) {
+      final customMoves = OtherSideMode().getPawnMoves(pawn, this);
+      if (customMoves != null) return customMoves;
+    }
+
     final moves = <ChessMove>[];
     final direction = pawn.color == PieceColor.white ? 1 : -1;
     final startRow = pawn.color == PieceColor.white ? 1 : 6;

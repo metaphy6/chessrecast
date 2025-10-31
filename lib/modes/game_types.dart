@@ -4,9 +4,9 @@ enum GameType {
     'Royal Pawns',
     'Pawns can move and capture like kings in all directions',
   ),
-  shiftyPawns(
-    'Shifty Pawns',
-    'Pawns can move like kings but capture like regular pawns',
+  otherSide(
+    'Other Side',
+    'Race your rook to the opponent\'s back rank! Pawns can move backward. Rooks can only capture rooks. Losing a rook or reaching the back rank wins instantly.',
   ),
   heir(
     'Heir',
