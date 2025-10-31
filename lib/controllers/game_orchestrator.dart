@@ -4,6 +4,7 @@ import '../modes/snare.dart';
 import '../modes/teleport.dart';
 import '../modes/kings_battle.dart';
 import '../modes/save_the_queen.dart';
+import '../modes/save_the_king.dart';
 
 class ChessGameOrchestrator {
   /// Validates if a move is legal in the current board state
@@ -21,6 +22,13 @@ class ChessGameOrchestrator {
     print(
       '🎯 ORCHESTRATOR: Found ${validMoves.length} valid moves for this piece',
     );
+
+    // Debug: Print all valid moves and their capturedPiece
+    for (final validMove in validMoves) {
+      print(
+        '🎯 ORCHESTRATOR: Valid move option: ${validMove.from.algebraic} -> ${validMove.to.algebraic}, capturedPiece: ${validMove.capturedPiece != null ? validMove.capturedPiece!.type.name : "null"}',
+      );
+    }
 
     // For teleport mode, we need special comparison because the controller
     // sets capturedPiece to the rook, but the generated move has capturedPiece: null
@@ -99,6 +107,23 @@ class ChessGameOrchestrator {
         return updateGameStatus(saveTheQueenBoard);
       }
       print('👸 ORCHESTRATOR: Falling through to standard move execution');
+    }
+
+    // Check for Save the King mode special moves (queen capture or King promotion)
+    if (board.gameType == GameType.saveTheKing) {
+      print(
+        '👑 ORCHESTRATOR: Save the King mode detected, checking for special move',
+      );
+      final saveTheKingMode = SaveTheKingMode();
+      final saveTheKingBoard = saveTheKingMode.handleSpecialMove(board, move);
+      print(
+        '👑 ORCHESTRATOR: handleSpecialMove returned: ${saveTheKingBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
+      );
+      if (saveTheKingBoard != null) {
+        print('👑 ORCHESTRATOR: Updating game status with Save the King board');
+        return updateGameStatus(saveTheKingBoard);
+      }
+      print('👑 ORCHESTRATOR: Falling through to standard move execution');
     }
 
     // Check for Queen capture in Supreme Queen mode before making the move
