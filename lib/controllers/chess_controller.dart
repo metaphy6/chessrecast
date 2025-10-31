@@ -232,13 +232,17 @@ class ChessController extends GetxController {
           to == board.enPassantTarget &&
           capturedPiece == null) {
         // Find the captured pawn for en passant
+        // The captured pawn is one rank behind the en passant target square
+        final direction = piece.color == PieceColor.white ? -1 : 1;
         final capturedPawnPosition = Position(
-          from.row, // Same rank as attacking pawn
+          to.row + direction, // One rank behind the target square
           to.col, // Same file as target square
         );
         final capturedPawn = board.getPieceAt(capturedPawnPosition);
 
-        if (capturedPawn != null && capturedPawn.type == PieceType.pawn) {
+        if (capturedPawn != null &&
+            capturedPawn.type == PieceType.pawn &&
+            capturedPawn.color != piece.color) {
           finalMove = ChessMove.enPassant(
             from: from,
             to: to,
@@ -280,6 +284,9 @@ class ChessController extends GetxController {
       }
 
       print('🎯 CONTROLLER: Validating move...');
+      print(
+        '🎯 CONTROLLER: finalMove.capturedPiece before validation: ${finalMove.capturedPiece != null ? finalMove.capturedPiece!.type.name : "null"}',
+      );
       if (_gameOrchestrator.isValidMove(board, finalMove)) {
         print('🎯 CONTROLLER: ✅ Move is valid, calling makeMove');
         makeMove(finalMove);

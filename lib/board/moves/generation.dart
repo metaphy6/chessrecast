@@ -13,6 +13,7 @@ import '../../modes/teleport.dart';
 import '../../modes/friendly_fire.dart';
 import '../../modes/kings_battle.dart';
 import '../../modes/save_the_queen.dart';
+import '../../modes/save_the_king.dart';
 
 /// Extension for move generation operations
 extension MoveGeneration on ChessBoard {
@@ -262,6 +263,21 @@ extension MoveGeneration on ChessBoard {
     if (gameType == GameType.saveTheQueen) {
       print('👸 BOARD: Save the Queen mode - no queen promotion allowed');
       return ['R', 'B', 'N']; // Rook, Bishop, Knight only
+    }
+
+    // Check for Save the King mode - can promote to King
+    if (gameType == GameType.saveTheKing) {
+      print('👑 BOARD: Save the King mode - checking King promotion options');
+      final saveTheKingMode = SaveTheKingMode();
+      final options = saveTheKingMode.getPromotionPieces(
+        color,
+        this,
+        promotionPosition: promotionPosition,
+      );
+      if (options != null) {
+        print('👑 BOARD: Save the King promotion options: $options');
+        return options;
+      }
     }
 
     return ['Q', 'R', 'B', 'N']; // Standard promotion pieces

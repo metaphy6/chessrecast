@@ -1,5 +1,6 @@
 import '../board/exporter.dart';
 import 'game_mode.dart';
+import 'game_types.dart';
 
 /// Save the King Mode: Race to promote a pawn to King!
 ///
@@ -210,13 +211,13 @@ class SaveTheKingMode extends GameMode {
       ),
     );
 
-    // White pawns
+    // White pawns (rank 2)
     for (int file = 0; file < 8; file++) {
       pieces.add(
         ChessPiece(
           type: PieceType.pawn,
           color: PieceColor.white,
-          position: Position(file, 1),
+          position: Position(1, file), // row 1 = rank 2
         ),
       );
     }
@@ -279,13 +280,13 @@ class SaveTheKingMode extends GameMode {
       ),
     );
 
-    // Black pawns
+    // Black pawns (rank 7)
     for (int file = 0; file < 8; file++) {
       pieces.add(
         ChessPiece(
           type: PieceType.pawn,
           color: PieceColor.black,
-          position: Position(file, 6),
+          position: Position(6, file), // row 6 = rank 7
         ),
       );
     }
@@ -297,6 +298,7 @@ class SaveTheKingMode extends GameMode {
       pieces: pieces,
       currentPlayer: PieceColor.white,
       gameStatus: GameStatus.ongoing,
+      gameType: GameType.saveTheKing,
     );
   }
 }
