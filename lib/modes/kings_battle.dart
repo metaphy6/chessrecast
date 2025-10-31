@@ -1,3 +1,4 @@
+import 'package:chessrecast/debug.dart';
 import '../board/exporter.dart';
 import 'game_mode.dart';
 
@@ -21,19 +22,19 @@ class KingsBattle implements GameMode {
     ChessPiece piece,
     ChessBoard board,
   ) {
-    print('👑 KINGS BATTLE: === FILTERING MOVES ===');
-    print(
+    printDebug('👑 KINGS BATTLE: === FILTERING MOVES ===');
+    printDebug(
       '👑 KINGS BATTLE: Piece: ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
     );
-    print('👑 KINGS BATTLE: Phase: ${_getPhase(board)}');
+    printDebug('👑 KINGS BATTLE: Phase: ${_getPhase(board)}');
 
     // Check if we're in Phase 1 (before King's Kill)
     if (!_hasKingsKillHappened(board)) {
-      print('👑 KINGS BATTLE: PHASE 1 - Only kings and pawns can move');
+      printDebug('👑 KINGS BATTLE: PHASE 1 - Only kings and pawns can move');
 
       // In Phase 1, only kings and pawns can move
       if (piece.type != PieceType.king && piece.type != PieceType.pawn) {
-        print('👑 KINGS BATTLE: ❌ ${piece.type.name} cannot move in Phase 1');
+        printDebug('👑 KINGS BATTLE: ❌ ${piece.type.name} cannot move in Phase 1');
         return []; // Other pieces cannot move yet
       }
 
@@ -42,22 +43,22 @@ class KingsBattle implements GameMode {
         final filteredMoves = moves.where((move) {
           if (move.capturedPiece != null &&
               move.capturedPiece!.type == PieceType.king) {
-            print('👑 KINGS BATTLE: ❌ King cannot capture enemy king');
+            printDebug('👑 KINGS BATTLE: ❌ King cannot capture enemy king');
             return false;
           }
           return true;
         }).toList();
 
-        print('👑 KINGS BATTLE: King moves: ${filteredMoves.length}');
+        printDebug('👑 KINGS BATTLE: King moves: ${filteredMoves.length}');
         return filteredMoves;
       }
 
-      print('👑 KINGS BATTLE: Pawn moves: ${moves.length}');
+      printDebug('👑 KINGS BATTLE: Pawn moves: ${moves.length}');
       return moves; // Pawns can move normally
     }
 
     // Phase 2: All pieces can move normally
-    print('👑 KINGS BATTLE: PHASE 2 - All pieces can move');
+    printDebug('👑 KINGS BATTLE: PHASE 2 - All pieces can move');
     return moves;
   }
 
@@ -68,7 +69,7 @@ class KingsBattle implements GameMode {
         move.capturedPiece != null &&
         move.capturedPiece!.type == PieceType.pawn &&
         !_hasKingsKillHappened(board)) {
-      print(
+      printDebug(
         '👑 KINGS BATTLE: ⚔️ KING\'S KILL! ${move.piece.color.name} king captured pawn at ${move.to.algebraic}',
       );
 
@@ -82,7 +83,7 @@ class KingsBattle implements GameMode {
 
     // Check if this is a pawn promotion (also unlocks all pieces)
     if (move.isPromotion && !_hasKingsKillHappened(board)) {
-      print(
+      printDebug(
         '👑 KINGS BATTLE: 👑 PAWN PROMOTED! This unlocks all pieces like King\'s Kill',
       );
 
@@ -158,7 +159,7 @@ class KingsBattle implements GameMode {
   /// Marks that King's Kill happened and grants a bonus move
   /// This is done by NOT switching the current player
   ChessBoard _markKingsKillAndGrantBonusMove(ChessBoard board) {
-    print(
+    printDebug(
       '👑 KINGS BATTLE: 🎁 Granting bonus move to ${board.currentPlayer.opposite.name}',
     );
 

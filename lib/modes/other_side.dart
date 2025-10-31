@@ -1,3 +1,4 @@
+import 'package:chessrecast/debug.dart';
 import '../board/exporter.dart';
 import 'game_mode.dart';
 
@@ -18,7 +19,7 @@ class OtherSide extends GameMode {
     // Check if a rook was captured - instant loss for the player who lost it
     if (move.capturedPiece != null &&
         move.capturedPiece!.type == PieceType.rook) {
-      print('🏰 OTHER SIDE: Rook captured! Opponent wins!');
+      printDebug('🏰 OTHER SIDE: Rook captured! Opponent wins!');
       // Opponent wins by checkmate
       final newBoard = board.makeMove(move);
       return newBoard.copyWith(gameStatus: GameStatus.checkmate);
@@ -30,7 +31,7 @@ class OtherSide extends GameMode {
       final targetRank = movingColor == PieceColor.white ? 7 : 0; // Rank 8 or 1
 
       if (move.to.row == targetRank) {
-        print(
+        printDebug(
           '🏰 OTHER SIDE: Rook reached the back rank! ${movingColor.name} wins!',
         );
         final newBoard = board.makeMove(move);
@@ -45,7 +46,7 @@ class OtherSide extends GameMode {
   List<ChessMove>? getPawnMoves(ChessPiece pawn, ChessBoard board) {
     final moves = <ChessMove>[];
 
-    print(
+    printDebug(
       '🔄 OTHER SIDE PAWN: ${pawn.position.algebraic} can move forward/backward and capture diagonally in both directions',
     );
 
@@ -173,7 +174,7 @@ class OtherSide extends GameMode {
       return moves; // Other pieces use standard rules
     }
 
-    print(
+    printDebug(
       '🏰 OTHER SIDE: Filtering rook moves - can only capture opponent rooks',
     );
 
@@ -190,7 +191,7 @@ class OtherSide extends GameMode {
           move.capturedPiece!.color != piece.color;
 
       if (!canCapture) {
-        print(
+        printDebug(
           '🏰 OTHER SIDE: Blocking rook capture of ${move.capturedPiece!.type.name} at ${move.to.algebraic}',
         );
       }

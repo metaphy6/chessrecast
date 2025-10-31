@@ -1,3 +1,4 @@
+import 'package:chessrecast/debug.dart';
 import '../board/exporter.dart';
 import 'game_mode.dart';
 
@@ -13,8 +14,8 @@ class FriendlyFire implements GameMode {
     ChessPiece piece,
     ChessBoard board,
   ) {
-    print('🔥 FRIENDLY FIRE: === FILTERING MOVES ===');
-    print(
+    printDebug('🔥 FRIENDLY FIRE: === FILTERING MOVES ===');
+    printDebug(
       '🔥 FRIENDLY FIRE: Piece: ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
     );
 
@@ -33,18 +34,18 @@ class FriendlyFire implements GameMode {
           p.position != piece.position, // Can't capture self
     );
 
-    print(
+    printDebug(
       '🔥 FRIENDLY FIRE: Found ${friendlyPieces.length} friendly pieces that have moved',
     );
 
-    print(
+    printDebug(
       '🔥 FRIENDLY FIRE: Found ${friendlyPieces.length} friendly pieces that have moved',
     );
 
     for (final friendlyPiece in friendlyPieces) {
       final targetPosition = friendlyPiece.position;
 
-      print(
+      printDebug(
         '🔥 FRIENDLY FIRE: Checking if can reach ${friendlyPiece.type.name} at ${targetPosition.algebraic}',
       );
 
@@ -63,19 +64,19 @@ class FriendlyFire implements GameMode {
           (m) => m.from == friendlyFireMove.from && m.to == friendlyFireMove.to,
         )) {
           expandedMoves.add(friendlyFireMove);
-          print(
+          printDebug(
             '🔥 FRIENDLY FIRE: ✅ Can capture friendly ${friendlyPiece.type.name} at ${targetPosition.algebraic}',
           );
         }
       } else {
-        print(
+        printDebug(
           '🔥 FRIENDLY FIRE: ❌ Cannot reach ${friendlyPiece.type.name} at ${targetPosition.algebraic}',
         );
       }
     }
 
-    print('🔥 FRIENDLY FIRE: Total moves: ${expandedMoves.length}');
-    print('🔥 FRIENDLY FIRE: === END FILTERING ===');
+    printDebug('🔥 FRIENDLY FIRE: Total moves: ${expandedMoves.length}');
+    printDebug('🔥 FRIENDLY FIRE: === END FILTERING ===');
     return expandedMoves;
   }
 

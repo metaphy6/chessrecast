@@ -1,4 +1,5 @@
 import '../constants.dart';
+import '../debug.dart';
 
 /// Debug logging utility that respects the global debug flag
 ///
@@ -7,7 +8,7 @@ import '../constants.dart';
 void debugLog(Object? message, {String? tag}) {
   if (AppConstants.enableDebugLogs) {
     final prefix = tag != null ? '[$tag] ' : '[DEBUG] ';
-    print('$prefix$message');
+    printDebug('$prefix$message');
   }
 }
 
@@ -15,27 +16,27 @@ void debugLog(Object? message, {String? tag}) {
 void gameModeLog(Object? message, {String? mode}) {
   if (AppConstants.enableDebugLogs) {
     final prefix = mode != null ? '[MODE:$mode] ' : '[MODE] ';
-    print('$prefix$message');
+    printDebug('$prefix$message');
   }
 }
 
 /// Log for move validation and execution
 void moveLog(Object? message) {
   if (AppConstants.enableDebugLogs) {
-    print('[MOVE] $message');
+    printDebug('[MOVE] $message');
   }
 }
 
 /// Log for board state changes
 void boardLog(Object? message) {
   if (AppConstants.enableDebugLogs) {
-    print('[BOARD] $message');
+    printDebug('[BOARD] $message');
   }
 }
 
 /// Log for UI events
 void uiLog(Object? message) {
   if (AppConstants.enableDebugLogs) {
-    print('[UI] $message');
+    printDebug('[UI] $message');
   }
 }

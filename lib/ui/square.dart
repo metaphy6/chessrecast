@@ -1,3 +1,4 @@
+import 'package:chessrecast/debug.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../board/exporter.dart';
@@ -43,7 +44,7 @@ class ChessSquare extends StatelessWidget {
             } catch (e) {
               // Log error during development, silent in production
               if (AppConstants.enableDebugLogs) {
-                print('❌ Error selecting square ${position.algebraic}: $e');
+                printDebug('❌ Error selecting square ${position.algebraic}: $e');
               }
             }
           },

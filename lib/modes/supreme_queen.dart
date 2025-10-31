@@ -1,3 +1,4 @@
+import 'package:chessrecast/debug.dart';
 import '../board/exporter.dart';
 import 'game_mode.dart';
 
@@ -14,7 +15,7 @@ class SupremeQueen extends GameMode {
     ChessBoard board, {
     Position? promotionPosition,
   }) {
-    print('👑 SUPREME QUEEN: No Queen promotion allowed - only R, B, N');
+    printDebug('👑 SUPREME QUEEN: No Queen promotion allowed - only R, B, N');
     return ['R', 'B', 'N'];
   }
 
@@ -23,7 +24,7 @@ class SupremeQueen extends GameMode {
     // Check for Queen capture
     if (move.capturedPiece != null &&
         move.capturedPiece!.type == PieceType.queen) {
-      print(
+      printDebug(
         '👑 SUPREME QUEEN: Queen captured! ${move.piece.color.name} wins immediately!',
       );
       final newBoard = board.makeMove(move);

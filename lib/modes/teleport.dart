@@ -1,3 +1,4 @@
+import 'package:chessrecast/debug.dart';
 import '../board/exporter.dart';
 import 'game_mode.dart';
 
@@ -33,8 +34,8 @@ class Teleport extends GameMode {
       return moves; // Other pieces move normally
     }
 
-    print('🔄 TELEPORT: === FILTERING KING MOVES ===');
-    print(
+    printDebug('🔄 TELEPORT: === FILTERING KING MOVES ===');
+    printDebug(
       '🔄 TELEPORT: King: ${piece.color.name} at ${piece.position.algebraic}',
     );
 
@@ -44,7 +45,7 @@ class Teleport extends GameMode {
     final friendlyRooks = getRooks(piece.color, board);
     for (final rook in friendlyRooks) {
       if (_areAligned(piece.position, rook.position)) {
-        print(
+        printDebug(
           '🔄 TELEPORT: ✓ Can teleport with rook at ${rook.position.algebraic}',
         );
 
@@ -60,20 +61,20 @@ class Teleport extends GameMode {
       }
     }
 
-    print('🔄 TELEPORT: Total moves: ${filteredMoves.length}');
-    print('🔄 TELEPORT: === END FILTERING ===');
+    printDebug('🔄 TELEPORT: Total moves: ${filteredMoves.length}');
+    printDebug('🔄 TELEPORT: === END FILTERING ===');
 
     return filteredMoves;
   }
 
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
-    print('🔄 TELEPORT: handleSpecialMove called');
-    print('🔄 TELEPORT: Move piece: ${move.piece.type.name}');
-    print(
+    printDebug('🔄 TELEPORT: handleSpecialMove called');
+    printDebug('🔄 TELEPORT: Move piece: ${move.piece.type.name}');
+    printDebug(
       '🔄 TELEPORT: Move from: ${move.from.algebraic} to: ${move.to.algebraic}',
     );
-    print(
+    printDebug(
       '🔄 TELEPORT: Move capturedPiece: ${move.capturedPiece != null ? "${move.capturedPiece!.color.name} ${move.capturedPiece!.type.name}" : "NONE"}',
     );
 
@@ -82,7 +83,7 @@ class Teleport extends GameMode {
     // or it might not (from move generation)
     if (move.piece.type == PieceType.king) {
       final targetPiece = board.getPieceAt(move.to);
-      print(
+      printDebug(
         '🔄 TELEPORT: Target piece at ${move.to.algebraic}: ${targetPiece != null ? "${targetPiece.color.name} ${targetPiece.type.name}" : "NONE"}',
       );
 
@@ -99,7 +100,7 @@ class Teleport extends GameMode {
         // Use the target piece from board (more reliable than move.capturedPiece)
         final rookPiece = targetPiece!;
 
-        print(
+        printDebug(
           '🔄 TELEPORT: ✅ Executing teleport swap: king at ${move.from.algebraic} ↔ rook at ${move.to.algebraic}',
         );
 
@@ -120,12 +121,12 @@ class Teleport extends GameMode {
           moveHistory: [...board.moveHistory, move],
         );
 
-        print('🔄 TELEPORT: ✅ Teleport complete!');
+        printDebug('🔄 TELEPORT: ✅ Teleport complete!');
         return newBoard;
       }
     }
 
-    print('🔄 TELEPORT: Not a teleport move, returning null');
+    printDebug('🔄 TELEPORT: Not a teleport move, returning null');
     return null; // Not a teleport move, use standard handling
   }
 
