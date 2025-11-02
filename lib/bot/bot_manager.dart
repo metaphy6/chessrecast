@@ -6,6 +6,7 @@ import 'chess_bot.dart';
 import 'random_bot.dart';
 import 'greedy_bot.dart';
 import 'isolate_bot.dart';
+import 'strategic_bot.dart';
 
 /// Manages bot players and bot vs bot games
 class BotManager extends GetxController {
@@ -122,6 +123,8 @@ class BotManager extends GetxController {
         return RandomBot(name: name, color: color, thinkingDelayMs: 300);
       case BotType.greedy:
         return GreedyBot(name: name, color: color, thinkingDelayMs: 100);
+      case BotType.strategic:
+        return StrategicBot(name: name, color: color, thinkingDelayMs: 100);
       case BotType.isolate:
         return IsolateBot(name: name, color: color, thinkingDelayMs: 100);
     }
@@ -132,6 +135,7 @@ class BotManager extends GetxController {
 enum BotType {
   random,
   greedy,
+  strategic,
   isolate;
 
   String get displayName {
@@ -140,6 +144,8 @@ enum BotType {
         return 'Random Bot';
       case BotType.greedy:
         return 'Greedy Bot';
+      case BotType.strategic:
+        return 'Strategic Bot';
       case BotType.isolate:
         return 'Fast Bot';
     }
@@ -151,6 +157,8 @@ enum BotType {
         return 'Picks random moves';
       case BotType.greedy:
         return 'Smart tactical player - evaluates captures, development, and position';
+      case BotType.strategic:
+        return 'Expert player - opening book, tactics, position evaluation, caching';
       case BotType.isolate:
         return 'Quick random moves';
     }
