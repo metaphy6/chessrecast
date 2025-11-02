@@ -69,7 +69,9 @@ class Orchestrator {
         '🔄 ORCHESTRATOR: handleSpecialMove returned: ${teleportBoard != null ? "NEW BOARD" : "NULL"}',
       );
       if (teleportBoard != null) {
-        printDebug('🔄 ORCHESTRATOR: Updating game status with teleported board');
+        printDebug(
+          '🔄 ORCHESTRATOR: Updating game status with teleported board',
+        );
         return updateGameStatus(teleportBoard);
       }
       printDebug('🔄 ORCHESTRATOR: Falling through to standard move execution');
@@ -86,7 +88,9 @@ class Orchestrator {
         '👑 ORCHESTRATOR: handleSpecialMove returned: ${kingsBattleBoard != null ? "NEW BOARD (BONUS MOVE)" : "NULL"}',
       );
       if (kingsBattleBoard != null) {
-        printDebug('👑 ORCHESTRATOR: Updating game status with Kings Battle board');
+        printDebug(
+          '👑 ORCHESTRATOR: Updating game status with Kings Battle board',
+        );
         return updateGameStatus(kingsBattleBoard);
       }
       printDebug('👑 ORCHESTRATOR: Falling through to standard move execution');
@@ -122,7 +126,9 @@ class Orchestrator {
         '👑 ORCHESTRATOR: handleSpecialMove returned: ${saveTheKingBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
       );
       if (saveTheKingBoard != null) {
-        printDebug('👑 ORCHESTRATOR: Updating game status with Save the King board');
+        printDebug(
+          '👑 ORCHESTRATOR: Updating game status with Save the King board',
+        );
         return updateGameStatus(saveTheKingBoard);
       }
       printDebug('👑 ORCHESTRATOR: Falling through to standard move execution');
@@ -139,7 +145,9 @@ class Orchestrator {
         '🏰 ORCHESTRATOR: handleSpecialMove returned: ${otherSideBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
       );
       if (otherSideBoard != null) {
-        printDebug('🏰 ORCHESTRATOR: Updating game status with Other Side board');
+        printDebug(
+          '🏰 ORCHESTRATOR: Updating game status with Other Side board',
+        );
         return updateGameStatus(otherSideBoard);
       }
       printDebug('🏰 ORCHESTRATOR: Falling through to standard move execution');
@@ -163,6 +171,31 @@ class Orchestrator {
 
   /// Updates the game status based on the current board state
   ChessBoard updateGameStatus(ChessBoard board) {
+    // CRITICAL: Check if any king is missing (should never happen in most modes)
+    // Exceptions:
+    // - Heir mode: allows king captures, player can promote pawn to get new king
+    // - Save the King mode: starts with no kings, must promote to get one
+    if (board.gameType != ModesEnum.heir &&
+        board.gameType != ModesEnum.saveTheKing) {
+      final whiteKing = board.getKing(PieceColor.white);
+      final blackKing = board.getKing(PieceColor.black);
+
+      if (whiteKing == null) {
+        logError(
+          'ORCHESTRATOR',
+          'WHITE KING MISSING! Black wins by king capture (illegal state in ${board.gameType.name} mode)',
+        );
+        return board.copyWith(gameStatus: GameStatus.checkmate);
+      }
+      if (blackKing == null) {
+        logError(
+          'ORCHESTRATOR',
+          'BLACK KING MISSING! White wins by king capture (illegal state in ${board.gameType.name} mode)',
+        );
+        return board.copyWith(gameStatus: GameStatus.checkmate);
+      }
+    }
+
     // If the game is already over (from special move handling), don't recalculate
     if (board.gameStatus == GameStatus.checkmate ||
         board.gameStatus == GameStatus.stalemate ||

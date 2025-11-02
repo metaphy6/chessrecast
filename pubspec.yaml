@@ -40,6 +40,9 @@ dependencies:
   
   # Utility packages
   equatable: ^2.0.5
+  
+  # Logging
+  logger: ^2.4.0
 
 dev_dependencies:
   flutter_test:

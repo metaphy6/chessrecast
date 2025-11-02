@@ -1,14 +1,15 @@
 import 'package:chessrecast/debug.dart';
 import '../board/exporter.dart';
 import 'game_mode.dart';
+import 'modes_enum.dart';
 
 /// ROYAL PAWNS MODE: Pawns move and capture like Kings
 ///
 /// Rules:
 /// - Pawns can move one square in ANY direction (like a King)
 /// - Pawns can capture in ANY direction (like a King)
-/// - Pawns can still do the two-square initial move forward from starting position
 /// - Standard promotion rules apply when reaching the last rank
+/// - No two-square initial move
 /// - No en passant in this mode
 class RoyalPawns extends GameMode {
   @override
@@ -63,7 +64,16 @@ class RoyalPawns extends GameMode {
           );
         }
       } else if (targetPiece.color != pawn.color) {
-        // Enemy piece - can capture
+        // Enemy piece - can capture (but NOT the king, unless in Heir mode)
+        if (targetPiece.type == PieceType.king &&
+            board.gameType != ModesEnum.heir) {
+          // Cannot capture the king in most modes - this should be an illegal move
+          printDebug(
+            '👑 ROYAL PAWN cannot capture king at ${newPos.algebraic} - illegal move (except in Heir mode)',
+          );
+          continue; // Skip this move
+        }
+
         printDebug(
           '⚔️ ROYAL PAWN can capture: ${targetPiece.toString()} at ${newPos.algebraic}',
         );
@@ -102,29 +112,8 @@ class RoyalPawns extends GameMode {
       }
     }
 
-    // Two-square forward move from starting position
-    final startRow = pawn.color == PieceColor.white ? 1 : 6;
-    final direction = pawn.color == PieceColor.white ? 1 : -1;
-
-    if (pawn.position.row == startRow) {
-      final twoSquarePos = pawn.position.offset(direction * 2, 0);
-      if (twoSquarePos.isValid && board.getPieceAt(twoSquarePos) == null) {
-        final oneSquarePos = pawn.position.offset(direction, 0);
-        if (board.getPieceAt(oneSquarePos) == null) {
-          printDebug(
-            '🚀 ROYAL PAWN can move 2 squares forward from starting position',
-          );
-          moves.add(
-            ChessMove.simple(
-              from: pawn.position,
-              to: twoSquarePos,
-              piece: pawn,
-            ),
-          );
-        }
-      }
-    }
-
+    // Note: No two-square initial move in Royal Pawns mode
+    // Pawns move like kings (one square at a time in any direction)
     // Note: No en passant in Royal Pawns mode since pawns can capture in all directions
 
     return moves;

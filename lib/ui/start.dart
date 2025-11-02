@@ -120,10 +120,37 @@ class StartPage extends StatelessWidget {
                   ),
                 );
               }),
+              const SizedBox(height: 16),
+              // Bot vs Bot Button
+              OutlinedButton.icon(
+                onPressed: () {
+                  Get.toNamed(
+                    '/bot-setup',
+                    arguments: {'gameType': controller.selectedGameType.value},
+                  );
+                },
+                icon: const Icon(Icons.smart_toy),
+                label: const Text('🤖 Bot vs Bot'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: BorderSide(color: Colors.blue.shade600, width: 2),
+                  foregroundColor: Colors.blue.shade600,
+                ),
+              ),
               if (AppConstants.enableDevBoard) ...[
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
-                  onPressed: () => Get.toNamed('/dev-board'),
+                  onPressed: () {
+                    Get.toNamed(
+                      '/dev-board',
+                      arguments: {
+                        'gameType': controller.selectedGameType.value,
+                      },
+                    );
+                  },
                   icon: const Icon(Icons.bug_report),
                   label: const Text('Dev Board Setup'),
                   style: OutlinedButton.styleFrom(

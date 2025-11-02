@@ -118,6 +118,17 @@ extension MoveGeneration on ChessBoard {
 
     // Filter out moves that would put own king in check (unless game mode allows suicide)
     final safeMoves = filteredByGameMode.where((move) {
+      // CRITICAL: Never allow capturing the opponent's king
+      // Exception: Heir mode allows king captures as part of the game mechanics
+      if (move.capturedPiece != null &&
+          move.capturedPiece!.type == PieceType.king &&
+          gameType != ModesEnum.heir) {
+        printDebug(
+          '🚫 MOVE GEN: Blocking illegal king capture move: ${move.piece.type.name} ${move.from.algebraic} → ${move.to.algebraic}',
+        );
+        return false;
+      }
+
       final boardAfterMove = makeMoveForValidation(move);
       final kingInCheck = boardAfterMove.isKingInCheck(currentPlayer);
 
