@@ -81,25 +81,30 @@ class _DevBoardSetupPageState extends State<DevBoardSetupPage> {
     );
 
     if (!whiteKing || !blackKing) {
-      Get.snackbar(
-        'Invalid Board',
-        'Both white and black kings must be present',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red.shade100,
-      );
+      // Use post-frame callback to avoid calling snackbar during build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Get.snackbar(
+          'Invalid Board',
+          'Both white and black kings must be present',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade100,
+        );
+      });
       return;
     }
 
-    // Create custom board and navigate to game
-    Get.toNamed(
-      '/game',
-      arguments: {
-        'gameType': selectedGameType,
-        'customBoard': customPieces,
-        'currentPlayer': currentTurnColor,
-        'isDevBoard': true,
-      },
-    );
+    // Use post-frame callback to avoid navigation during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Get.toNamed(
+        '/game',
+        arguments: {
+          'gameType': selectedGameType,
+          'customBoard': customPieces,
+          'currentPlayer': currentTurnColor,
+          'isDevBoard': true,
+        },
+      );
+    });
   }
 
   @override

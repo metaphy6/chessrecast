@@ -12,9 +12,9 @@ class ChessSquare extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() {
-      final controller = Get.find<Controller>();
+    final controller = Get.find<Controller>();
 
+    return Obx(() {
       // In chess, a1 (0,0) should be a dark square
       // So when (row + col) is even, it should be dark
       final isLight = (position.row + position.col) % 2 != 0;
