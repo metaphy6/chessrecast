@@ -2,7 +2,7 @@ enum ModesEnum {
   classic('Classic Chess', 'Traditional chess with standard rules'),
   royalPawns(
     'Royal Pawns',
-    'Pawns move and capture like kings (one square in any direction). No two-square initial move. No en passant.',
+    'Pawns move and capture like kings (one square in any direction). Pawns cannot promote. No two-square initial move. No en passant.',
   ),
   otherSide(
     'Other Side',

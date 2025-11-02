@@ -8,7 +8,7 @@ import 'modes_enum.dart';
 /// Rules:
 /// - Pawns can move one square in ANY direction (like a King)
 /// - Pawns can capture in ANY direction (like a King)
-/// - Standard promotion rules apply when reaching the last rank
+/// - Pawns CANNOT promote (they remain pawns even on the last rank)
 /// - No two-square initial move
 /// - No en passant in this mode
 class RoyalPawns extends GameMode {
@@ -39,30 +39,12 @@ class RoyalPawns extends GameMode {
       final targetPiece = board.getPieceAt(newPos);
 
       if (targetPiece == null) {
-        // Empty square - can move
+        // Empty square - can move (no promotion in Royal Pawns mode)
         printDebug('✅ ROYAL PAWN can move to ${newPos.algebraic}');
 
-        final lastRank = pawn.color == PieceColor.white ? 7 : 0;
-        if (newPos.row == lastRank) {
-          // Add promotion moves
-          for (final promotionPiece in ['Q', 'R', 'B', 'N']) {
-            printDebug(
-              '👑 ROYAL PAWN promotion move: ${pawn.position.algebraic} → ${newPos.algebraic} = $promotionPiece',
-            );
-            moves.add(
-              ChessMove.promotion(
-                from: pawn.position,
-                to: newPos,
-                piece: pawn,
-                promotionPiece: promotionPiece,
-              ),
-            );
-          }
-        } else {
-          moves.add(
-            ChessMove.simple(from: pawn.position, to: newPos, piece: pawn),
-          );
-        }
+        moves.add(
+          ChessMove.simple(from: pawn.position, to: newPos, piece: pawn),
+        );
       } else if (targetPiece.color != pawn.color) {
         // Enemy piece - can capture (but NOT the king, unless in Heir mode)
         if (targetPiece.type == PieceType.king &&
@@ -78,33 +60,15 @@ class RoyalPawns extends GameMode {
           '⚔️ ROYAL PAWN can capture: ${targetPiece.toString()} at ${newPos.algebraic}',
         );
 
-        final lastRank = pawn.color == PieceColor.white ? 7 : 0;
-        if (newPos.row == lastRank) {
-          // Add promotion captures
-          for (final promotionPiece in ['Q', 'R', 'B', 'N']) {
-            printDebug(
-              '👑 ROYAL PAWN promotion capture: ${pawn.position.algebraic} → ${newPos.algebraic} = $promotionPiece',
-            );
-            moves.add(
-              ChessMove.promotion(
-                from: pawn.position,
-                to: newPos,
-                piece: pawn,
-                capturedPiece: targetPiece,
-                promotionPiece: promotionPiece,
-              ),
-            );
-          }
-        } else {
-          moves.add(
-            ChessMove.simple(
-              from: pawn.position,
-              to: newPos,
-              piece: pawn,
-              capturedPiece: targetPiece,
-            ),
-          );
-        }
+        // No promotion in Royal Pawns mode, even when capturing on last rank
+        moves.add(
+          ChessMove.simple(
+            from: pawn.position,
+            to: newPos,
+            piece: pawn,
+            capturedPiece: targetPiece,
+          ),
+        );
       } else {
         printDebug(
           '🚫 ROYAL PAWN blocked by friendly piece at ${newPos.algebraic}',
