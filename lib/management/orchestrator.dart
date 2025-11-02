@@ -443,6 +443,20 @@ class Orchestrator {
     final whitePieces = board.getPiecesOfColor(PieceColor.white);
     final blackPieces = board.getPiecesOfColor(PieceColor.black);
 
+    // Royal Pawns mode: special insufficient material rules
+    if (board.gameType == ModesEnum.royalPawns) {
+      return _isDrawByInsufficientMaterialRoyalPawns(whitePieces, blackPieces);
+    }
+
+    // Classic chess insufficient material rules
+    return _isDrawByInsufficientMaterialClassic(whitePieces, blackPieces);
+  }
+
+  /// Classic chess insufficient material rules
+  bool _isDrawByInsufficientMaterialClassic(
+    List<ChessPiece> whitePieces,
+    List<ChessPiece> blackPieces,
+  ) {
     // King vs King
     if (whitePieces.length == 1 && blackPieces.length == 1) {
       return true;
@@ -453,12 +467,101 @@ class Orchestrator {
         (whitePieces.length == 1 && blackPieces.length == 2)) {
       final allPieces = [...whitePieces, ...blackPieces];
       final nonKingPieces = allPieces
-          .where((p) => p.type.name != 'king')
+          .where((p) => p.type != PieceType.king)
           .toList();
 
       if (nonKingPieces.length == 1) {
         final piece = nonKingPieces.first;
-        if (piece.type.name == 'bishop' || piece.type.name == 'knight') {
+        if (piece.type == PieceType.bishop || piece.type == PieceType.knight) {
+          return true;
+        }
+      }
+    }
+
+    // King and Bishop vs King and Bishop (same color squares)
+    if (whitePieces.length == 2 && blackPieces.length == 2) {
+      final whiteBishops = whitePieces
+          .where((p) => p.type == PieceType.bishop)
+          .toList();
+      final blackBishops = blackPieces
+          .where((p) => p.type == PieceType.bishop)
+          .toList();
+
+      if (whiteBishops.length == 1 && blackBishops.length == 1) {
+        // Check if bishops are on same color squares
+        final whiteSquareColor =
+            (whiteBishops.first.position.row +
+                whiteBishops.first.position.col) %
+            2;
+        final blackSquareColor =
+            (blackBishops.first.position.row +
+                blackBishops.first.position.col) %
+            2;
+
+        if (whiteSquareColor == blackSquareColor) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /// Royal Pawns mode insufficient material rules
+  /// Pawns can't promote, so they're weaker. Apply relaxed rules.
+  bool _isDrawByInsufficientMaterialRoyalPawns(
+    List<ChessPiece> whitePieces,
+    List<ChessPiece> blackPieces,
+  ) {
+    final whitePawns = whitePieces
+        .where((p) => p.type == PieceType.pawn)
+        .length;
+    final blackPawns = blackPieces
+        .where((p) => p.type == PieceType.pawn)
+        .length;
+
+    final totalPieces = whitePieces.length + blackPieces.length;
+
+    // King vs King
+    if (totalPieces == 2) {
+      return true;
+    }
+
+    // Two kings and one pawn (K+P vs K)
+    if (totalPieces == 3) {
+      final totalPawns = whitePawns + blackPawns;
+      if (totalPawns == 1) {
+        return true; // One pawn can't force checkmate in Royal Pawns
+      }
+    }
+
+    // Two kings and two pawns - ONLY if each player has one pawn
+    // (K+P vs K+P is draw, but K+P+P vs K is not)
+    if (totalPieces == 4) {
+      if (whitePawns == 1 && blackPawns == 1) {
+        return true; // Each player has one pawn - insufficient material
+      }
+    }
+
+    // Classic insufficient material for non-pawn pieces still applies
+    final whiteNonPawns = whitePieces
+        .where((p) => p.type != PieceType.pawn)
+        .toList();
+    final blackNonPawns = blackPieces
+        .where((p) => p.type != PieceType.pawn)
+        .toList();
+
+    // If there are only kings and one minor piece, it's a draw
+    if (whiteNonPawns.length + blackNonPawns.length == 3) {
+      // Two kings + one minor piece
+      final allNonKingNonPawn = [
+        ...whiteNonPawns,
+        ...blackNonPawns,
+      ].where((p) => p.type != PieceType.king).toList();
+
+      if (allNonKingNonPawn.length == 1) {
+        final piece = allNonKingNonPawn.first;
+        if (piece.type == PieceType.bishop || piece.type == PieceType.knight) {
           return true;
         }
       }

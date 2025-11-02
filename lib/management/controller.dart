@@ -607,51 +607,61 @@ class Controller extends GetxController {
 
   /// Shows a winner declaration snackbar
   void _showWinnerSnackbar(String winnerColor) {
-    Get.snackbar(
-      '🏆 Game Over!',
-      '$winnerColor Wins!',
-      duration: const Duration(seconds: 5),
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: winnerColor.toLowerCase() == 'white'
-          ? Colors.blue.shade100
-          : Colors.grey.shade800,
-      colorText: winnerColor.toLowerCase() == 'white'
-          ? Colors.blue.shade900
-          : Colors.white,
-      icon: const Icon(Icons.emoji_events, color: Colors.amber),
-      shouldIconPulse: true,
-      margin: const EdgeInsets.all(16),
-      borderRadius: 12,
-    );
+    // Use post-frame callback to avoid showing snackbar during build/initialization
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Get.snackbar(
+        '🏆 Game Over!',
+        '$winnerColor Wins!',
+        duration: const Duration(seconds: 5),
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: winnerColor.toLowerCase() == 'white'
+            ? Colors.blue.shade100
+            : Colors.grey.shade800,
+        colorText: winnerColor.toLowerCase() == 'white'
+            ? Colors.blue.shade900
+            : Colors.white,
+        icon: const Icon(Icons.emoji_events, color: Colors.amber),
+        shouldIconPulse: true,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
+    });
   }
 
   /// Shows a draw declaration snackbar
   void _showDrawSnackbar(String drawType) {
-    Get.snackbar(
-      '🤝 Game Over!',
-      '$drawType - It\'s a tie!',
-      duration: const Duration(seconds: 4),
-      snackPosition: SnackPosition.TOP,
-      backgroundColor: Colors.orange.shade100,
-      colorText: Colors.orange.shade900,
-      icon: const Icon(Icons.handshake, color: Colors.orange),
-      shouldIconPulse: true,
-      margin: const EdgeInsets.all(16),
-      borderRadius: 12,
-    );
+    // Use post-frame callback to avoid showing snackbar during build/initialization
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Get.snackbar(
+        '🤝 Game Over!',
+        '$drawType - It\'s a tie!',
+        duration: const Duration(seconds: 4),
+        snackPosition: SnackPosition.TOP,
+        backgroundColor: Colors.orange.shade100,
+        colorText: Colors.orange.shade900,
+        icon: const Icon(Icons.handshake, color: Colors.orange),
+        shouldIconPulse: true,
+        margin: const EdgeInsets.all(16),
+        borderRadius: 12,
+      );
+    });
   }
 
   /// Shows a temporary message
   void _showMessage(String message) {
     // In a real app, you might want to show this in a snackbar or toast
     // For now, we'll just use Get.snackbar
+    // Use post-frame callback to ensure we're not in build phase
     if (Get.isSnackbarOpen) return;
-    Get.snackbar(
-      'Chess Recast',
-      message,
-      duration: const Duration(seconds: 2),
-      snackPosition: SnackPosition.BOTTOM,
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (Get.isSnackbarOpen) return; // Check again after frame
+      Get.snackbar(
+        'Chess Recast',
+        message,
+        duration: const Duration(seconds: 2),
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    });
   }
 
   /// Resets the game to the initial state
