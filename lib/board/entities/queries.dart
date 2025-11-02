@@ -23,12 +23,28 @@ extension BoardQueries on ChessBoard {
         }
       }
 
+      // Special handling for Royal Pawns mode - pawns attack like kings
+      if (gameType == ModesEnum.royalPawns && piece.type == PieceType.pawn) {
+        return _canPawnAttackLikeKingInRoyalPawnsMode(piece.position, position);
+      }
+
       // Special handling for Diamonds mode bishops
       if (gameType == ModesEnum.diamonds && piece.type == PieceType.bishop) {
         return _canBishopAttackInDiamondsMode(piece.position, position);
       }
       return piece.canAttack(position, pieces);
     });
+  }
+
+  /// Checks if a pawn can attack a position in Royal Pawns mode (like a king)
+  bool _canPawnAttackLikeKingInRoyalPawnsMode(
+    Position pawnPos,
+    Position targetPos,
+  ) {
+    final dx = (targetPos.col - pawnPos.col).abs();
+    final dy = (targetPos.row - pawnPos.row).abs();
+    // King-like attack: one square in any direction
+    return dx <= 1 && dy <= 1 && (dx != 0 || dy != 0);
   }
 
   /// Checks if a bishop can attack a position in Diamonds mode (diamond pattern)
