@@ -1,5 +1,7 @@
+import 'package:chessrecast/debug.dart';
 import '../types/piece_type.dart';
 import '../types/piece_color.dart';
+import '../types/game_status.dart';
 import '../../modes/modes_enum.dart';
 import '../entities/position.dart';
 import '../entities/piece.dart';
@@ -165,6 +167,18 @@ extension MoveExecution on ChessBoard {
       }
     }
 
+    // Update halfMoveClock for 50-move rule
+    // Reset to 0 on pawn move or capture, otherwise increment
+    final newHalfMoveClock =
+        (move.piece.type == PieceType.pawn || move.capturedPiece != null)
+        ? 0
+        : halfMoveClock + 1;
+
+    // Update fullMoveNumber (increments after black's move)
+    final newFullMoveNumber = currentPlayer == PieceColor.black
+        ? fullMoveNumber + 1
+        : fullMoveNumber;
+
     // Create the new board state first
     final newBoard = copyWith(
       pieces: newPieces,
@@ -177,7 +191,23 @@ extension MoveExecution on ChessBoard {
       blackCanCastleQueenside: newBlackCanCastleQueenside,
       whiteHasPromotedKing: newWhiteHasPromotedKing,
       blackHasPromotedKing: newBlackHasPromotedKing,
+      halfMoveClock: newHalfMoveClock,
+      fullMoveNumber: newFullMoveNumber,
+      positionHistory: [...positionHistory, getPositionKey()],
     );
+
+    // Check for automatic draw conditions (50-move rule or threefold repetition)
+    if (newBoard.shouldAutoDraw()) {
+      if (newBoard.canClaimFiftyMoveRule()) {
+        printDebug(
+          '⚖️ DRAW: 50-move rule - ${newBoard.halfMoveClock} half-moves without pawn move or capture',
+        );
+      }
+      if (newBoard.hasThreefoldRepetition()) {
+        printDebug('⚖️ DRAW: Threefold repetition detected');
+      }
+      return newBoard.copyWith(gameStatus: GameStatus.draw);
+    }
 
     return newBoard;
   }

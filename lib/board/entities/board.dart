@@ -19,12 +19,13 @@ class ChessBoard extends Equatable {
   final bool whiteCanCastleQueenside;
   final bool blackCanCastleKingside;
   final bool blackCanCastleQueenside;
-  final int halfMoveClock;
+  final int halfMoveClock; // For 50-move rule
   final int fullMoveNumber;
   final List<ChessMove> moveHistory;
   final ModesEnum gameType;
   final bool whiteHasPromotedKing;
   final bool blackHasPromotedKing;
+  final List<String> positionHistory; // For threefold repetition
 
   const ChessBoard({
     required this.pieces,
@@ -41,6 +42,7 @@ class ChessBoard extends Equatable {
     this.gameType = ModesEnum.classic,
     this.whiteHasPromotedKing = false,
     this.blackHasPromotedKing = false,
+    this.positionHistory = const [],
   });
 
   /// Creates the initial chess board setup
@@ -161,6 +163,68 @@ class ChessBoard extends Equatable {
     }
   }
 
+  /// Generates a unique key for the current position (for threefold repetition)
+  /// Includes piece positions, current player, castling rights, and en passant
+  String getPositionKey() {
+    // Sort pieces by position for consistent ordering
+    final sortedPieces = pieces.toList()
+      ..sort((a, b) {
+        if (a.position.row != b.position.row) {
+          return a.position.row.compareTo(b.position.row);
+        }
+        return a.position.col.compareTo(b.position.col);
+      });
+
+    final piecesStr = sortedPieces
+        .map((p) {
+          final colorChar = p.color == PieceColor.white ? 'W' : 'B';
+          final typeChar = p.type.name[0].toUpperCase();
+          return '$colorChar$typeChar${p.position.algebraic}';
+        })
+        .join('|');
+
+    final castling = [
+      whiteCanCastleKingside ? 'K' : '',
+      whiteCanCastleQueenside ? 'Q' : '',
+      blackCanCastleKingside ? 'k' : '',
+      blackCanCastleQueenside ? 'q' : '',
+    ].join();
+
+    final enPassant = enPassantTarget?.algebraic ?? '-';
+    final player = currentPlayer == PieceColor.white ? 'W' : 'B';
+
+    return '$piecesStr:$player:$castling:$enPassant';
+  }
+
+  /// Checks if the 50-move rule applies (draw available)
+  bool canClaimFiftyMoveRule() {
+    return halfMoveClock >= 100; // 100 half-moves = 50 full moves
+  }
+
+  /// Checks if threefold repetition has occurred (draw available)
+  bool hasThreefoldRepetition() {
+    if (positionHistory.isEmpty) return false;
+
+    final currentPosition = getPositionKey();
+    int count = 0;
+
+    for (final position in positionHistory) {
+      if (position == currentPosition) {
+        count++;
+        if (count >= 3) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /// Checks if draw conditions are met (50-move rule or threefold repetition)
+  bool shouldAutoDraw() {
+    return canClaimFiftyMoveRule() || hasThreefoldRepetition();
+  }
+
   /// Creates a copy of the board with updated properties
   ChessBoard copyWith({
     List<ChessPiece>? pieces,
@@ -177,6 +241,7 @@ class ChessBoard extends Equatable {
     ModesEnum? gameType,
     bool? whiteHasPromotedKing,
     bool? blackHasPromotedKing,
+    List<String>? positionHistory,
   }) {
     return ChessBoard(
       pieces: pieces ?? this.pieces,
@@ -197,6 +262,7 @@ class ChessBoard extends Equatable {
       gameType: gameType ?? this.gameType,
       whiteHasPromotedKing: whiteHasPromotedKing ?? this.whiteHasPromotedKing,
       blackHasPromotedKing: blackHasPromotedKing ?? this.blackHasPromotedKing,
+      positionHistory: positionHistory ?? this.positionHistory,
     );
   }
 
@@ -216,5 +282,6 @@ class ChessBoard extends Equatable {
     gameType,
     whiteHasPromotedKing,
     blackHasPromotedKing,
+    positionHistory,
   ];
 }

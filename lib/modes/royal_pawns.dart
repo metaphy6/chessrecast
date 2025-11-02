@@ -7,9 +7,9 @@ import 'game_mode.dart';
 /// Rules:
 /// - Pawns can move one square in ANY direction (like a King)
 /// - Pawns can capture in ANY direction (like a King)
-/// - Pawns can still do the two-square initial move from starting position
-/// - Standard promotion rules apply
-/// - En passant still works with standard diagonal captures
+/// - Pawns can still do the two-square initial move forward from starting position
+/// - Standard promotion rules apply when reaching the last rank
+/// - No en passant in this mode
 class RoyalPawns extends GameMode {
   @override
   List<ChessMove>? getPawnMoves(ChessPiece pawn, ChessBoard board) {
@@ -96,7 +96,9 @@ class RoyalPawns extends GameMode {
           );
         }
       } else {
-        printDebug('🚫 ROYAL PAWN blocked by friendly piece at ${newPos.algebraic}');
+        printDebug(
+          '🚫 ROYAL PAWN blocked by friendly piece at ${newPos.algebraic}',
+        );
       }
     }
 
@@ -123,33 +125,7 @@ class RoyalPawns extends GameMode {
       }
     }
 
-    // Handle en passant
-    if (board.enPassantTarget != null) {
-      final enPassantRow = pawn.color == PieceColor.white ? 5 : 2;
-      if (pawn.position.row == enPassantRow) {
-        final colDiff = (board.enPassantTarget!.col - pawn.position.col).abs();
-        if (colDiff == 1 &&
-            board.enPassantTarget!.row ==
-                pawn.position.row + (pawn.color == PieceColor.white ? 1 : -1)) {
-          final capturedPawn = board.getPieceAt(
-            Position(pawn.position.row, board.enPassantTarget!.col),
-          );
-          if (capturedPawn != null &&
-              capturedPawn.type == PieceType.pawn &&
-              capturedPawn.color != pawn.color) {
-            printDebug('🎯 En passant capture found!');
-            moves.add(
-              ChessMove.enPassant(
-                from: pawn.position,
-                to: board.enPassantTarget!,
-                piece: pawn,
-                capturedPiece: capturedPawn,
-              ),
-            );
-          }
-        }
-      }
-    }
+    // Note: No en passant in Royal Pawns mode since pawns can capture in all directions
 
     return moves;
   }

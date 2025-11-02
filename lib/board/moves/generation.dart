@@ -16,6 +16,7 @@ import '../../modes/kings_battle.dart';
 import '../../modes/save_the_queen.dart';
 import '../../modes/save_the_king.dart';
 import '../../modes/other_side.dart';
+import '../../modes/royal_pawns.dart';
 
 /// Extension for move generation operations
 extension MoveGeneration on ChessBoard {
@@ -36,7 +37,9 @@ extension MoveGeneration on ChessBoard {
     }
 
     final potentialMoves = _getPotentialMoves(piece);
-    printDebug('🔍 MOVE GEN: Potential moves generated: ${potentialMoves.length}');
+    printDebug(
+      '🔍 MOVE GEN: Potential moves generated: ${potentialMoves.length}',
+    );
 
     // Apply game mode specific move filtering first
     var filteredByGameMode = potentialMoves;
@@ -160,6 +163,11 @@ extension MoveGeneration on ChessBoard {
       if (customMoves != null) return customMoves;
     }
 
+    if (gameType == ModesEnum.royalPawns) {
+      final customMoves = RoyalPawns().getPawnMoves(pawn, this);
+      if (customMoves != null) return customMoves;
+    }
+
     final moves = <ChessMove>[];
     final direction = pawn.color == PieceColor.white ? 1 : -1;
     final startRow = pawn.color == PieceColor.white ? 1 : 6;
@@ -273,7 +281,9 @@ extension MoveGeneration on ChessBoard {
   }) {
     // Check for Diamonds mode - only bishops allowed
     if (gameType == ModesEnum.diamonds) {
-      printDebug('💎 BOARD: Diamonds mode - restricting promotion to Bishop only');
+      printDebug(
+        '💎 BOARD: Diamonds mode - restricting promotion to Bishop only',
+      );
       return ['B']; // Only bishop promotion in Diamonds mode
     }
 
@@ -285,7 +295,9 @@ extension MoveGeneration on ChessBoard {
 
     // Check for Save the King mode - can promote to King
     if (gameType == ModesEnum.saveTheKing) {
-      printDebug('👑 BOARD: Save the King mode - checking King promotion options');
+      printDebug(
+        '👑 BOARD: Save the King mode - checking King promotion options',
+      );
       final saveTheKingMode = SaveTheKing();
       final options = saveTheKingMode.getPromotionPieces(
         color,

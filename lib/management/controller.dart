@@ -455,9 +455,19 @@ class Controller extends GetxController {
         _showDrawSnackbar('Stalemate');
         break;
       case GameStatus.draw:
-        _statusMessage.value = 'Game is a draw.';
+        // Determine draw reason
+        String drawReason = 'Draw';
+        if (board.canClaimFiftyMoveRule()) {
+          drawReason = '50-Move Rule';
+          _statusMessage.value = 'Draw by 50-move rule!';
+        } else if (board.hasThreefoldRepetition()) {
+          drawReason = 'Threefold Repetition';
+          _statusMessage.value = 'Draw by threefold repetition!';
+        } else {
+          _statusMessage.value = 'Game is a draw.';
+        }
         // Show draw snackbar
-        _showDrawSnackbar('Draw');
+        _showDrawSnackbar(drawReason);
         break;
     }
   }
