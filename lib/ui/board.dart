@@ -10,14 +10,14 @@ class ChessBoardWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.brown.shade800, width: 4),
+        border: Border.all(color: Colors.purple.shade800, width: 4),
         borderRadius: BorderRadius.circular(8),
       ),
       child: AspectRatio(
         aspectRatio: 1.0,
         child: Container(
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.brown.shade600, width: 2),
+            border: Border.all(color: Colors.purple.shade600, width: 2),
           ),
           child: Column(
             children: List.generate(8, (row) {

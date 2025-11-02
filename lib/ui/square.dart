@@ -44,7 +44,9 @@ class ChessSquare extends StatelessWidget {
             } catch (e) {
               // Log error during development, silent in production
               if (AppConstants.enableDebugLogs) {
-                printDebug('❌ Error selecting square ${position.algebraic}: $e');
+                printDebug(
+                  '❌ Error selecting square ${position.algebraic}: $e',
+                );
               }
             }
           },
@@ -57,7 +59,7 @@ class ChessSquare extends StatelessWidget {
                 ? BoxDecoration(
                     border: Border.all(color: Colors.purple.shade700, width: 3),
                   )
-                : null,
+                : BoxDecoration(border: Border.all(color: Colors.black12)),
             child: Stack(
               children: [
                 // Entangle zone indicator
@@ -106,24 +108,16 @@ class ChessSquare extends StatelessWidget {
                     child: Text(
                       piece,
                       style: TextStyle(
-                        fontSize: 40,
+                        fontSize: 36,
                         fontWeight: FontWeight.bold,
-                        // Yellowish color for white pieces - good contrast on both squares
                         color: pieceColor == PieceColor.white
-                            ? Colors
-                                  .amber
-                                  .shade600 // Yellowish color for white pieces
-                            : Colors.black,
-                        // Simple consistent shadow for all pieces
-                        shadows: [
-                          Shadow(
-                            offset: const Offset(1, 1),
-                            blurRadius: 2,
-                            color: pieceColor == PieceColor.white
-                                ? Colors.black38
-                                : Colors.white38,
-                          ),
-                        ],
+                            ? const Color.fromARGB(
+                                255,
+                                104,
+                                170,
+                                236,
+                              ) // Darker blue for white pieces
+                            : const Color.fromARGB(255, 144, 0, 0),
                       ),
                     ),
                   ),
@@ -184,8 +178,8 @@ class ChessSquare extends StatelessWidget {
       return isLight ? Colors.purple.shade100 : Colors.purple.shade400;
     }
 
-    // Classic chess board colors
-    return isLight ? Colors.grey.shade200 : Colors.brown.shade600;
+    // Grey color scheme matching dev board
+    return isLight ? Colors.grey.shade300 : Colors.grey.shade700;
   }
 
   bool _shouldShowCoordinates() {
