@@ -3,10 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../board/exporter.dart';
 import '../modes/modes_enum.dart';
+import '../bot/bot_manager.dart';
+import '../analytics/game_analytics.dart';
 import 'orchestrator.dart';
 
 class Controller extends GetxController {
   final Orchestrator _gameOrchestrator = Orchestrator();
+  final BotManager botManager = Get.find<BotManager>();
+  GameAnalytics? _analytics;
 
   // Game type
   late final ModesEnum gameType;
@@ -113,7 +117,28 @@ class Controller extends GetxController {
     _boardHistory.add(_board.value);
     _historyIndex.value = 0;
 
+    // Initialize analytics
+    _initializeAnalytics();
+
     _updateStatusMessage();
+
+    // Start bot move if it's bot's turn (use Future.microtask to ensure UI is ready)
+    Future.microtask(() => _checkBotTurn());
+  }
+
+  /// Initialize game analytics
+  void _initializeAnalytics() {
+    final whitePlayer = botManager.whiteBot?.name ?? 'Human';
+    final blackPlayer = botManager.blackBot?.name ?? 'Human';
+
+    _analytics = GameAnalytics(
+      gameId: 'game_${DateTime.now().millisecondsSinceEpoch}',
+      gameMode: gameType,
+      whitePlayer: whitePlayer,
+      blackPlayer: blackPlayer,
+      isWhiteBot: botManager.whiteBot != null,
+      isBlackBot: botManager.blackBot != null,
+    );
   }
 
   /// Handles square selection on the chess board
@@ -397,8 +422,25 @@ class Controller extends GetxController {
     }
   }
 
+  /// Format move in standard chess notation
+  String _formatMoveNotation(ChessMove move) {
+    final pieceSymbol = move.piece.type == PieceType.pawn
+        ? ''
+        : move.piece.type.symbol.toUpperCase();
+    final capture = move.capturedPiece != null ? 'x' : '-';
+    final capturedInfo = move.capturedPiece != null
+        ? ' (captures ${move.capturedPiece!.type.symbol.toUpperCase()})'
+        : '';
+
+    return '${move.piece.color.name.toUpperCase()}: $pieceSymbol${move.from.algebraic}$capture${move.to.algebraic}$capturedInfo';
+  }
+
   /// Makes a move and updates the board state
   void makeMove(ChessMove move) {
+    // Log the move in chess notation
+    final moveNotation = _formatMoveNotation(move);
+    logger.i('♟️  MOVE: $moveNotation');
+
     printDebug(
       '🎯 CONTROLLER: makeMove called for ${move.piece.type.name} from ${move.from.algebraic} to ${move.to.algebraic}',
     );
@@ -409,6 +451,15 @@ class Controller extends GetxController {
       printDebug('🎯 CONTROLLER: Calling orchestrator.executeMove');
       final newBoard = _gameOrchestrator.executeMove(board, move);
       printDebug('🎯 CONTROLLER: ✅ executeMove returned new board');
+
+      // Record move in analytics
+      _analytics?.recordMove(
+        '${move.from.algebraic}-${move.to.algebraic}',
+        board.currentPlayer,
+        isCapture: move.capturedPiece != null,
+        isPromotion: move.isPromotion,
+      );
+
       _board.value = newBoard;
 
       // Add to history - clear any forward history if we're not at the end
@@ -425,11 +476,93 @@ class Controller extends GetxController {
 
       // Force UI update for GetBuilder widgets
       update();
+
+      // Force GetX reactive update
+      _board.refresh();
+
       printDebug('🎯 CONTROLLER: ✅ Board updated successfully');
+
+      // Check if game is over and end analytics
+      if (isGameOver) {
+        _endGameAnalytics();
+      } else {
+        // Trigger bot move if it's bot's turn
+        Future.microtask(() => _checkBotTurn());
+      }
     } catch (e) {
       printDebug('🎯 CONTROLLER: ❌ makeMove exception: ${e.toString()}');
       _showMessage('Invalid move: ${e.toString()}');
+      rethrow;
     }
+  }
+
+  /// Check if it's a bot's turn and make the move
+  Future<void> _checkBotTurn() async {
+    // Don't proceed if game is over or auto-play is paused
+    if (isGameOver) return;
+    if (botManager.isPaused.value) return;
+
+    // Check if current player is a bot
+    if (!botManager.isBotTurn(currentPlayer)) return;
+
+    final bot = botManager.getBotForPlayer(currentPlayer);
+    if (bot == null) return;
+
+    // Small delay to see moves on screen
+    await Future.delayed(Duration(milliseconds: 200));
+
+    // If auto-play is enabled, add delay
+    if (botManager.isAutoPlaying.value) {
+      await Future.delayed(Duration(milliseconds: botManager.moveDelay.value));
+
+      // Check again if paused after delay
+      if (botManager.isPaused.value) return;
+    }
+
+    // Get valid moves for all pieces of current player
+    final allMoves = <ChessMove>[];
+    for (final piece in board.getPiecesOfColor(currentPlayer)) {
+      final pieceMoves = board.getValidMovesFor(piece.position);
+      allMoves.addAll(pieceMoves);
+    }
+
+    if (allMoves.isEmpty) {
+      logBot(bot.name, 'No legal moves available');
+      return;
+    }
+
+    // Let the bot select a move
+    final selectedMove = await bot.selectMove(board, allMoves);
+
+    if (selectedMove != null && !isGameOver) {
+      makeMove(selectedMove);
+    }
+  }
+
+  /// End game analytics
+  void _endGameAnalytics() {
+    _analytics?.endGame(
+      status: gameStatus,
+      winnerColor: winner,
+      reason: _getEndReason(),
+    );
+    _analytics?.printSummary();
+  }
+
+  /// Get the end game reason
+  String _getEndReason() {
+    if (board.canClaimFiftyMoveRule()) {
+      return '50-move rule';
+    } else if (board.hasThreefoldRepetition()) {
+      return 'Threefold repetition';
+    } else if (gameStatus == GameStatus.checkmate) {
+      return 'Checkmate';
+    } else if (gameStatus == GameStatus.stalemate) {
+      return 'Stalemate';
+    } else if (gameStatus == GameStatus.draw) {
+      return 'Draw';
+    }
+    return 'Unknown';
   }
 
   /// Updates the status message based on the current game state

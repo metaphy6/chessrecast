@@ -12,7 +12,7 @@ class DevBoardSetupPage extends StatefulWidget {
 }
 
 class _DevBoardSetupPageState extends State<DevBoardSetupPage> {
-  ModesEnum selectedGameType = ModesEnum.classic;
+  late ModesEnum selectedGameType;
   PieceColor currentTurnColor = PieceColor.white;
   List<ChessPiece> customPieces = [];
 
@@ -23,6 +23,9 @@ class _DevBoardSetupPageState extends State<DevBoardSetupPage> {
   @override
   void initState() {
     super.initState();
+    // Get the game type from route arguments, default to classic if not provided
+    final args = Get.arguments as Map<String, dynamic>?;
+    selectedGameType = args?['gameType'] ?? ModesEnum.classic;
     _loadStandardStartPosition();
   }
 

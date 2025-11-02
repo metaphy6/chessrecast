@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'ui/game_page.dart';
 import 'ui/start.dart';
+import 'ui/bot_setup.dart';
 import 'dev/dev_board_setup.dart';
 import 'bindings.dart';
 
@@ -9,6 +10,7 @@ class AppRoutes {
   static const String game = '/game';
   static const String home = '/';
   static const String devBoard = '/dev-board';
+  static const String botSetup = '/bot-setup';
 
   static List<GetPage> routes = [
     GetPage(name: home, page: () => const StartPage(), binding: AppBindings()),
@@ -25,6 +27,11 @@ class AppRoutes {
     GetPage(
       name: devBoard,
       page: () => const DevBoardSetupPage(),
+      binding: AppBindings(),
+    ),
+    GetPage(
+      name: botSetup,
+      page: () => const BotSetupScreen(),
       binding: AppBindings(),
     ),
   ];
