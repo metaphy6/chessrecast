@@ -150,7 +150,7 @@ enum BotType {
       case BotType.random:
         return 'Picks random moves';
       case BotType.greedy:
-        return 'Prioritizes captures';
+        return 'Smart tactical player - evaluates captures, development, and position';
       case BotType.isolate:
         return 'Quick random moves';
     }
