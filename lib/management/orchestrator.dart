@@ -54,6 +54,10 @@ class Orchestrator {
 
   /// Executes a move and returns the new board state
   ChessBoard executeMove(ChessBoard board, ChessMove move) {
+    printDebug(
+      '🎯 ORCHESTRATOR: executeMove called for ${board.gameType.name} mode',
+    );
+
     if (!isValidMove(board, move)) {
       throw ArgumentError('Invalid move: $move');
     }
@@ -153,6 +157,27 @@ class Orchestrator {
       printDebug('🏰 ORCHESTRATOR: Falling through to standard move execution');
     }
 
+    // Check for Snare mode special moves (revengeful knight capture)
+    if (board.gameType == ModesEnum.snare) {
+      printDebug(
+        '🕸️ ORCHESTRATOR: Snare mode detected, checking for special move',
+      );
+      final snareMode = Snare();
+      final snareBoard = snareMode.handleSpecialMove(board, move);
+      printDebug(
+        '🕸️ ORCHESTRATOR: handleSpecialMove returned: ${snareBoard != null ? "NEW BOARD (REVENGE)" : "NULL"}',
+      );
+      if (snareBoard != null) {
+        printDebug(
+          '🕸️ ORCHESTRATOR: Updating game status with Snare board after revenge',
+        );
+        return updateGameStatus(snareBoard);
+      }
+      printDebug(
+        '🕸️ ORCHESTRATOR: Falling through to standard move execution',
+      );
+    }
+
     // Check for Queen capture in Supreme Queen mode before making the move
     if (board.gameType == ModesEnum.supremeQueen &&
         move.capturedPiece != null) {
@@ -185,14 +210,22 @@ class Orchestrator {
           'ORCHESTRATOR',
           'WHITE KING MISSING! Black wins by king capture (illegal state in ${board.gameType.name} mode)',
         );
-        return board.copyWith(gameStatus: GameStatus.checkmate);
+        // Set currentPlayer to White so that getWinner() returns Black (White.opposite)
+        return board.copyWith(
+          gameStatus: GameStatus.checkmate,
+          currentPlayer: PieceColor.white,
+        );
       }
       if (blackKing == null) {
         logError(
           'ORCHESTRATOR',
           'BLACK KING MISSING! White wins by king capture (illegal state in ${board.gameType.name} mode)',
         );
-        return board.copyWith(gameStatus: GameStatus.checkmate);
+        // Set currentPlayer to Black so that getWinner() returns White (Black.opposite)
+        return board.copyWith(
+          gameStatus: GameStatus.checkmate,
+          currentPlayer: PieceColor.black,
+        );
       }
     }
 
@@ -390,9 +423,13 @@ class Orchestrator {
       printDebug(
         '🕸️ SNARE ORCHESTRATOR: ${board.currentPlayer.opposite.name} King is ENTANGLED - CHECKMATE!',
       );
-      // The player who just moved their king into entangle loses
-      // Game is checkmate, current player wins
-      return board.copyWith(gameStatus: GameStatus.checkmate);
+      // The player who just moved their king into entangle loses (suicide)
+      // We need to switch the turn back so getWinner() returns the correct winner
+      // After suicide, the player who made the move should be currentPlayer (in checkmate)
+      return board.copyWith(
+        currentPlayer: board.currentPlayer.opposite,
+        gameStatus: GameStatus.checkmate,
+      );
     }
 
     // Use standard chess rules for check/stalemate

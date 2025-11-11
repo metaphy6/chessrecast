@@ -10,9 +10,10 @@ import 'game_mode.dart';
 /// - You capture an opponent's rook (instant win)
 ///
 /// SPECIAL RULES:
-/// 1. Pawns can move backward and capture diagonally (forward or backward)
-/// 2. Losing a rook results in immediate game loss
-/// 3. Rooks can only capture opponent rooks (cannot capture other pieces)
+/// 1. Pawns move normally (forward only, like classic chess)
+/// 2. Pawns cannot promote to rooks (only queen, bishop, knight)
+/// 3. Losing a rook results in immediate game loss
+/// 4. Rooks can only capture opponent rooks (cannot capture other pieces)
 class OtherSide extends GameMode {
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
@@ -45,30 +46,30 @@ class OtherSide extends GameMode {
   @override
   List<ChessMove>? getPawnMoves(ChessPiece pawn, ChessBoard board) {
     final moves = <ChessMove>[];
+    final forwardDirection = pawn.color == PieceColor.white ? 1 : -1;
+    final startRow = pawn.color == PieceColor.white ? 1 : 6;
+    final lastRank = pawn.color == PieceColor.white ? 7 : 0;
 
     printDebug(
-      '🔄 OTHER SIDE PAWN: ${pawn.position.algebraic} can move forward/backward and capture diagonally in both directions',
+      '♟️ OTHER SIDE PAWN: ${pawn.position.algebraic} moves forward only (like classic chess)',
     );
 
-    // Pawns can move one square forward OR backward
-    for (final direction in [1, -1]) {
-      final newPos = pawn.position.offset(direction, 0);
-      if (!newPos.isValid) continue;
-
-      final targetPiece = board.getPieceAt(newPos);
+    // One square forward
+    final oneForward = pawn.position.offset(forwardDirection, 0);
+    if (oneForward.isValid) {
+      final targetPiece = board.getPieceAt(oneForward);
       if (targetPiece == null) {
         // Check for promotion
-        final lastRank = pawn.color == PieceColor.white ? 7 : 0;
-        if (newPos.row == lastRank) {
+        if (oneForward.row == lastRank) {
           // Add promotion moves
           for (final promotionPiece in board.getPromotionPieces(
             pawn.color,
-            promotionPosition: newPos,
+            promotionPosition: oneForward,
           )) {
             moves.add(
               ChessMove.promotion(
                 from: pawn.position,
-                to: newPos,
+                to: oneForward,
                 piece: pawn,
                 promotionPiece: promotionPiece,
               ),
@@ -76,91 +77,92 @@ class OtherSide extends GameMode {
           }
         } else {
           moves.add(
-            ChessMove.simple(from: pawn.position, to: newPos, piece: pawn),
+            ChessMove.simple(from: pawn.position, to: oneForward, piece: pawn),
           );
         }
       }
     }
 
-    // Two-square forward move from starting position
-    final startRow = pawn.color == PieceColor.white ? 1 : 6;
-    final forwardDirection = pawn.color == PieceColor.white ? 1 : -1;
-
+    // Two squares forward from starting position
     if (pawn.position.row == startRow) {
-      final twoSquarePos = pawn.position.offset(forwardDirection * 2, 0);
-      if (twoSquarePos.isValid && board.getPieceAt(twoSquarePos) == null) {
-        final oneSquarePos = pawn.position.offset(forwardDirection, 0);
-        if (board.getPieceAt(oneSquarePos) == null) {
+      final twoForward = pawn.position.offset(forwardDirection * 2, 0);
+      if (twoForward.isValid && board.getPieceAt(twoForward) == null) {
+        final oneForwardCheck = pawn.position.offset(forwardDirection, 0);
+        if (board.getPieceAt(oneForwardCheck) == null) {
+          moves.add(
+            ChessMove.simple(from: pawn.position, to: twoForward, piece: pawn),
+          );
+        }
+      }
+    }
+
+    // Diagonal captures (forward only)
+    for (final colOffset in [-1, 1]) {
+      final capturePos = pawn.position.offset(forwardDirection, colOffset);
+      if (!capturePos.isValid) continue;
+
+      final targetPiece = board.getPieceAt(capturePos);
+      if (targetPiece != null && targetPiece.color != pawn.color) {
+        // Check for promotion
+        if (capturePos.row == lastRank) {
+          // Add promotion captures
+          for (final promotionPiece in board.getPromotionPieces(
+            pawn.color,
+            promotionPosition: capturePos,
+          )) {
+            moves.add(
+              ChessMove.promotion(
+                from: pawn.position,
+                to: capturePos,
+                piece: pawn,
+                capturedPiece: targetPiece,
+                promotionPiece: promotionPiece,
+              ),
+            );
+          }
+        } else {
           moves.add(
             ChessMove.simple(
               from: pawn.position,
-              to: twoSquarePos,
+              to: capturePos,
               piece: pawn,
+              capturedPiece: targetPiece,
+            ),
+          );
+        }
+      }
+
+      // En passant (forward direction only)
+      if (capturePos == board.enPassantTarget) {
+        final capturedPawn = board.getPieceAt(
+          Position(pawn.position.row, capturePos.col),
+        );
+        if (capturedPawn != null && capturedPawn.type == PieceType.pawn) {
+          moves.add(
+            ChessMove.enPassant(
+              from: pawn.position,
+              to: capturePos,
+              piece: pawn,
+              capturedPiece: capturedPawn,
             ),
           );
         }
       }
     }
 
-    // Diagonal captures (both forward and backward)
-    for (final rowOffset in [1, -1]) {
-      for (final colOffset in [-1, 1]) {
-        final capturePos = pawn.position.offset(rowOffset, colOffset);
-        if (!capturePos.isValid) continue;
-
-        final targetPiece = board.getPieceAt(capturePos);
-        if (targetPiece != null && targetPiece.color != pawn.color) {
-          // Check for promotion
-          final lastRank = pawn.color == PieceColor.white ? 7 : 0;
-          if (capturePos.row == lastRank) {
-            // Add promotion captures
-            for (final promotionPiece in board.getPromotionPieces(
-              pawn.color,
-              promotionPosition: capturePos,
-            )) {
-              moves.add(
-                ChessMove.promotion(
-                  from: pawn.position,
-                  to: capturePos,
-                  piece: pawn,
-                  capturedPiece: targetPiece,
-                  promotionPiece: promotionPiece,
-                ),
-              );
-            }
-          } else {
-            moves.add(
-              ChessMove.simple(
-                from: pawn.position,
-                to: capturePos,
-                piece: pawn,
-                capturedPiece: targetPiece,
-              ),
-            );
-          }
-        }
-
-        // En passant (only forward direction)
-        if (rowOffset == forwardDirection &&
-            capturePos == board.enPassantTarget) {
-          final capturedPawn = board.getPieceAt(
-            Position(pawn.position.row, capturePos.col),
-          );
-          if (capturedPawn != null && capturedPawn.type == PieceType.pawn) {
-            moves.add(
-              ChessMove.enPassant(
-                from: pawn.position,
-                to: capturePos,
-                piece: pawn,
-                capturedPiece: capturedPawn,
-              ),
-            );
-          }
-        }
-      }
-    }
-
     return moves;
+  }
+
+  @override
+  List<String>? getPromotionPieces(
+    PieceColor color,
+    ChessBoard board, {
+    Position? promotionPosition,
+  }) {
+    // Disable promotion to rook in Other Side mode
+    // Only allow promotion to queen, bishop, and knight
+    printDebug('♟️ OTHER SIDE: Pawn promotion - rook promotion disabled');
+    return ['q', 'b', 'n'];
   }
 
   @override

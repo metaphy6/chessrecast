@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../board/exporter.dart';
 import '../modes/modes_enum.dart';
+import '../debug.dart';
 
 /// Development board setup page - allows custom piece placement and game mode testing
 class DevBoardSetupPage extends StatefulWidget {
@@ -26,7 +27,24 @@ class _DevBoardSetupPageState extends State<DevBoardSetupPage> {
     // Get the game type from route arguments, default to classic if not provided
     final args = Get.arguments as Map<String, dynamic>?;
     selectedGameType = args?['gameType'] ?? ModesEnum.classic;
-    _loadStandardStartPosition();
+
+    printDebug('🔙 DEV BOARD SETUP initState: args=$args');
+
+    // Check if returning from a game with saved state
+    if (args?['pieces'] != null && args?['pieces'] is List<ChessPiece>) {
+      printDebug(
+        '🔙 DEV BOARD: Restoring ${(args!['pieces'] as List).length} pieces',
+      );
+      customPieces = List<ChessPiece>.from(args['pieces'] as List<ChessPiece>);
+      currentTurnColor =
+          args['currentPlayer'] as PieceColor? ?? PieceColor.white;
+      printDebug(
+        '🔙 DEV BOARD: Restored state - ${customPieces.length} pieces, turn: ${currentTurnColor.name}',
+      );
+    } else {
+      printDebug('🔙 DEV BOARD: Loading standard start position');
+      _loadStandardStartPosition();
+    }
   }
 
   void _loadStandardStartPosition() {
@@ -102,6 +120,9 @@ class _DevBoardSetupPageState extends State<DevBoardSetupPage> {
           'customBoard': customPieces,
           'currentPlayer': currentTurnColor,
           'isDevBoard': true,
+          // Store original pieces and player for back navigation
+          'devBoardOriginalPieces': List<ChessPiece>.from(customPieces),
+          'devBoardOriginalPlayer': currentTurnColor,
         },
       );
     });

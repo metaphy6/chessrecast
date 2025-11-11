@@ -153,7 +153,9 @@ class Snare extends GameMode {
         );
       }
     }
-    printDebug('❌ NO MATCH: Piece at ${piece.position.algebraic} is NOT entangled');
+    printDebug(
+      '❌ NO MATCH: Piece at ${piece.position.algebraic} is NOT entangled',
+    );
     return false;
   }
 
@@ -200,7 +202,9 @@ class Snare extends GameMode {
         if (zonePos != piece.position) {
           final targetPiece = board.getPieceAt(zonePos);
           if (targetPiece == null) {
-            printDebug('🕸️ SNARE: Can move within zone to ${zonePos.algebraic}');
+            printDebug(
+              '🕸️ SNARE: Can move within zone to ${zonePos.algebraic}',
+            );
             moves.add(
               ChessMove.simple(from: piece.position, to: zonePos, piece: piece),
             );
@@ -364,10 +368,14 @@ class Snare extends GameMode {
     final knights = getKnights(color, board);
 
     if (knights.isEmpty) {
-      printDebug('🕸️ SNARE: ${color.name} has no knights - NO PROMOTIONS ALLOWED');
+      printDebug(
+        '🕸️ SNARE: ${color.name} has no knights - NO PROMOTIONS ALLOWED',
+      );
       return [];
     } else if (knights.length == 1) {
-      printDebug('🕸️ SNARE: ${color.name} has 1 knight - MUST promote to Knight');
+      printDebug(
+        '🕸️ SNARE: ${color.name} has 1 knight - MUST promote to Knight',
+      );
       return ['N'];
     }
 
@@ -500,28 +508,42 @@ class Snare extends GameMode {
 
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
-    // Check for revengeful knight capture
+    printDebug(
+      '🕸️ SNARE handleSpecialMove: Checking move ${move.from.algebraic} -> ${move.to.algebraic}',
+    );
+    printDebug(
+      '🕸️ SNARE handleSpecialMove: Captured piece: ${move.capturedPiece?.type.name ?? "none"}',
+    );
+
+    // Check for revengeful knight capture (BEFORE the move is executed)
     if (move.capturedPiece != null &&
         move.capturedPiece!.type == PieceType.knight) {
       final capturedKnightColor = move.capturedPiece!.color;
+      // Count knights BEFORE capture to see if this is the last one
       final defendingKnights = getKnights(capturedKnightColor, board);
 
-      // If this is the last knight, activate revenge
-      if (defendingKnights.length == 1 &&
-          defendingKnights[0].position == move.capturedPiece!.position) {
-        printDebug('⚡ SNARE: Last ${capturedKnightColor.name} knight captured!');
+      printDebug(
+        '⚡ SNARE: Capturing ${capturedKnightColor.name} knight! Total knights before capture: ${defendingKnights.length}',
+      );
+
+      // If capturing the last knight, activate revenge
+      if (defendingKnights.length == 1) {
+        printDebug(
+          '⚡ SNARE: Last ${capturedKnightColor.name} knight captured!',
+        );
         printDebug('⚡ SNARE: REVENGEFUL KNIGHT - Both pieces destroyed!');
 
-        // Remove both pieces
-        final newPieces = board.pieces.where((piece) {
-          return piece.position != move.from && piece.position != move.to;
+        // Execute the move first to get the new board state
+        final newBoard = board.makeMove(move);
+
+        // Remove the attacking piece (it gets destroyed by revenge)
+        final newPieces = newBoard.pieces.where((piece) {
+          return piece.position != move.to;
         }).toList();
 
-        return board.copyWith(
-          pieces: newPieces,
-          currentPlayer: capturedKnightColor, // Turn returns to knight owner
-          moveHistory: [...board.moveHistory, move],
-        );
+        // Don't switch turn back - keep it as is after makeMove
+        // If the attacker was a King, the game will end with the attacker losing
+        return newBoard.copyWith(pieces: newPieces);
       }
     }
 
@@ -530,7 +552,9 @@ class Snare extends GameMode {
 
     // Check if either king is entangled
     if (isKingEntangled(board.currentPlayer, newBoard)) {
-      printDebug('🕸️ SNARE: ${board.currentPlayer.name} King ENTANGLED after move');
+      printDebug(
+        '🕸️ SNARE: ${board.currentPlayer.name} King ENTANGLED after move',
+      );
       return newBoard.copyWith(gameStatus: GameStatus.checkmate);
     }
 

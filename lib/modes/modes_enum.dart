@@ -6,11 +6,11 @@ enum ModesEnum {
   ),
   otherSide(
     'Other Side',
-    'Race your rook to the opponent\'s back rank! Pawns can move backward. Rooks can only capture rooks. Losing a rook or reaching the back rank wins instantly.',
+    'Race your rook to the opponent\'s back rank! Rooks can only capture rooks. Capturing a rook or reaching the back rank wins instantly.',
   ),
   heir(
     'Heir',
-    'Kings can be captured when mated. Pawns can promote to King once. Game ends when second King is mated or King is mated with no pawns left.',
+    'Kings can be captured when mated. Pawns can promote to King once. Game ends when second King is mated, King is mated with no pawns left, or all pawns are captured.',
   ),
   supremeQueen(
     'Supreme Queen',
@@ -26,7 +26,7 @@ enum ModesEnum {
   ),
   teleport(
     'Teleport',
-    'Kings and rooks can swap positions when aligned on the same rank or file. Castling is disabled.',
+    'King and rook can swap positions when aligned horizontally or vertically. Castling is not allowed.',
   ),
   friendlyFire(
     'Friendly Fire',
@@ -34,7 +34,7 @@ enum ModesEnum {
   ),
   kingsBattle(
     'Kings\' Battle',
-    'Phase 1: Only kings and pawns can move. When a king captures a pawn (King\'s Kill), all pieces unlock and the capturer gets a bonus move. Pawn promotion also unlocks all pieces.',
+    'Only kings and pawns can move untill one of kings captures a pawn (King\'s Kill); after that, all pieces unlock and the capturer gets a bonus move. Pawn promotion also unlocks all the other pieces.',
   ),
   saveTheQueen(
     'Save the Queen',
