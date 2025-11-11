@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../board/exporter.dart';
 import '../modes/modes_enum.dart';
+import '../ui/piece_renderer.dart';
+import '../ui/board_theme.dart';
 import '../debug.dart';
 
 /// Development board setup page - allows custom piece placement and game mode testing
@@ -20,6 +22,9 @@ class _DevBoardSetupPageState extends State<DevBoardSetupPage> {
   // Currently selected piece type for placement
   PieceType? selectedPieceType;
   PieceColor selectedPieceColor = PieceColor.white;
+
+  // Board theme
+  BoardTheme boardTheme = BoardTheme.brown;
 
   @override
   void initState() {
@@ -135,6 +140,33 @@ class _DevBoardSetupPageState extends State<DevBoardSetupPage> {
         title: const Text('Dev Board Setup'),
         backgroundColor: Colors.purple.shade700,
         actions: [
+          // Board theme selector
+          PopupMenuButton<BoardTheme>(
+            icon: const Icon(Icons.palette),
+            tooltip: 'Board Theme',
+            onSelected: (theme) {
+              setState(() => boardTheme = theme);
+            },
+            itemBuilder: (context) => BoardTheme.values
+                .map(
+                  (theme) => PopupMenuItem(
+                    value: theme,
+                    child: Row(
+                      children: [
+                        Icon(
+                          boardTheme == theme
+                              ? Icons.check_circle
+                              : Icons.circle_outlined,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(theme.displayName),
+                      ],
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
           IconButton(
             icon: const Icon(Icons.info_outline),
             onPressed: () => _showInstructions(),
@@ -237,57 +269,43 @@ class _DevBoardSetupPageState extends State<DevBoardSetupPage> {
         border: Border.all(color: Colors.purple.shade800, width: 4),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.purple.shade600, width: 2),
-        ),
-        child: Column(
-          children: List.generate(8, (row) {
-            final boardRow = 7 - row;
-            return Expanded(
-              child: Row(
-                children: List.generate(8, (col) {
-                  final position = Position(boardRow, col);
-                  return Expanded(child: _buildDevSquare(position));
-                }),
-              ),
-            );
-          }),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: Stack(
+          children: [
+            // Board background image
+            Positioned.fill(child: boardTheme.getImage(fit: BoxFit.cover)),
+            // Grid of squares
+            Column(
+              children: List.generate(8, (row) {
+                final boardRow = 7 - row;
+                return Expanded(
+                  child: Row(
+                    children: List.generate(8, (col) {
+                      final position = Position(boardRow, col);
+                      return Expanded(child: _buildDevSquare(position));
+                    }),
+                  ),
+                );
+              }),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildDevSquare(Position position) {
-    final isLight = (position.row + position.col) % 2 == 0;
     final piece = _getPieceAt(position);
 
     return GestureDetector(
       onTap: () => _placePiece(position),
       child: Container(
         decoration: BoxDecoration(
-          color: isLight ? Colors.grey.shade300 : Colors.grey.shade700,
+          color: Colors.transparent,
           border: Border.all(color: Colors.black12),
         ),
-        child: Center(
-          child: piece != null
-              ? Text(
-                  piece.unicodeSymbol,
-                  style: TextStyle(
-                    fontSize: 36,
-                    color: piece.color == PieceColor.white
-                        ? const Color.fromARGB(
-                            255,
-                            127,
-                            163,
-                            197,
-                          ) // Darker blue for white pieces
-                        : Colors.black,
-                    fontWeight: FontWeight.bold,
-                  ),
-                )
-              : null,
-        ),
+        child: Center(child: piece != null ? piece.toWidget(size: 45) : null),
       ),
     );
   }
@@ -327,20 +345,59 @@ class _DevBoardSetupPageState extends State<DevBoardSetupPage> {
                 },
               ),
               const SizedBox(width: 16),
-              // Eraser
-              ChoiceChip(
-                label: const Icon(Icons.clear, size: 18),
-                selected: selectedPieceType == null,
-                onSelected: (selected) {
-                  if (selected) {
-                    setState(() => selectedPieceType = null);
-                  }
+              const Spacer(),
+              // Remove button
+              InkWell(
+                onTap: () {
+                  setState(() => selectedPieceType = null);
                 },
-                tooltip: 'Remove piece',
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: selectedPieceType == null
+                        ? Colors.red.shade100
+                        : Colors.grey.shade200,
+                    border: Border.all(
+                      color: selectedPieceType == null
+                          ? Colors.red.shade700
+                          : Colors.grey.shade400,
+                      width: selectedPieceType == null ? 3 : 2,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.clear,
+                        size: 20,
+                        color: selectedPieceType == null
+                            ? Colors.red.shade900
+                            : Colors.grey.shade700,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Remove',
+                        style: TextStyle(
+                          fontWeight: selectedPieceType == null
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: selectedPieceType == null
+                              ? Colors.red.shade900
+                              : Colors.grey.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -353,24 +410,29 @@ class _DevBoardSetupPageState extends State<DevBoardSetupPage> {
                 final isSelected = selectedPieceType == type;
 
                 return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ChoiceChip(
-                    label: Text(
-                      piece.unicodeSymbol,
-                      style: TextStyle(
-                        fontSize: 24,
-                        color: selectedPieceColor == PieceColor.white
-                            ? const Color.fromARGB(255, 127, 163, 197)
-                            : Colors.black,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      if (selected) {
-                        setState(() => selectedPieceType = type);
-                      }
+                  padding: const EdgeInsets.only(right: 10),
+                  child: InkWell(
+                    onTap: () {
+                      setState(() => selectedPieceType = type);
                     },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? Colors.purple.shade100
+                            : Colors.grey.shade200,
+                        border: Border.all(
+                          color: isSelected
+                              ? Colors.purple.shade700
+                              : Colors.grey.shade400,
+                          width: isSelected ? 3 : 2,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(child: piece.toWidget(size: 38)),
+                    ),
                   ),
                 );
               }).toList(),

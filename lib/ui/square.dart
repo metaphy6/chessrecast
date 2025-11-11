@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../board/exporter.dart';
 import '../management/controller.dart';
 import '../constants.dart';
+import 'piece_renderer.dart';
 
 class ChessSquare extends StatelessWidget {
   final Position position;
@@ -20,13 +21,12 @@ class ChessSquare extends StatelessWidget {
       final isLight = (position.row + position.col) % 2 != 0;
       final isSelected = controller.isSelectedPosition(position);
       final isValidMove = controller.isValidMoveTarget(position);
-      final piece = controller.getPieceSymbol(position);
-      final pieceColor = controller.getPieceColor(position);
+      final chessPiece = controller.getPieceAt(position);
 
       // SNARE MODE: Check if this square is in an entangle zone
       final isEntangleZone = controller.isPositionInEntangleZone(position);
       final hasEntangledPiece =
-          piece != null && controller.isPieceEntangled(position);
+          chessPiece != null && controller.isPieceEntangled(position);
 
       return Material(
         color: _getSquareColor(
@@ -59,11 +59,11 @@ class ChessSquare extends StatelessWidget {
                 ? BoxDecoration(
                     border: Border.all(color: Colors.purple.shade700, width: 3),
                   )
-                : BoxDecoration(border: Border.all(color: Colors.black12)),
+                : null,
             child: Stack(
               children: [
                 // Entangle zone indicator
-                if (isEntangleZone && piece == null)
+                if (isEntangleZone && chessPiece == null)
                   Center(
                     child: Container(
                       width: 30,
@@ -91,36 +91,20 @@ class ChessSquare extends StatelessWidget {
                       width: 20,
                       height: 20,
                       decoration: BoxDecoration(
-                        color: piece != null
+                        color: chessPiece != null
                             ? Colors.red.withValues(alpha: 0.8)
                             : Colors.green.withValues(alpha: 0.6),
                         shape: BoxShape.circle,
-                        border: piece != null
+                        border: chessPiece != null
                             ? Border.all(color: Colors.red.shade900, width: 2)
                             : null,
                       ),
                     ),
                   ),
 
-                // Chess piece
-                if (piece != null)
-                  Center(
-                    child: Text(
-                      piece,
-                      style: TextStyle(
-                        fontSize: 36,
-                        fontWeight: FontWeight.bold,
-                        color: pieceColor == PieceColor.white
-                            ? const Color.fromARGB(
-                                255,
-                                104,
-                                170,
-                                236,
-                              ) // Darker blue for white pieces
-                            : const Color.fromARGB(255, 144, 0, 0),
-                      ),
-                    ),
-                  ),
+                // Chess piece (SVG rendering)
+                if (chessPiece != null)
+                  Center(child: chessPiece.toWidget(size: 45)),
 
                 // Entangled piece indicator overlay
                 if (hasEntangledPiece)
@@ -165,21 +149,23 @@ class ChessSquare extends StatelessWidget {
     bool isValidMove,
     bool isEntangleZone,
   ) {
+    // Since we're using a background image, make squares transparent
+    // Only add color overlays for selected/valid moves
     if (isSelected) {
-      return Colors.yellow.shade300;
+      return Colors.yellow.withValues(alpha: 0.5);
     }
 
     if (isValidMove) {
-      return isLight ? Colors.lightGreen.shade200 : Colors.green.shade400;
+      return Colors.green.withValues(alpha: 0.3);
     }
 
     // SNARE MODE: Entangle zone gets a purple tint
     if (isEntangleZone) {
-      return isLight ? Colors.purple.shade100 : Colors.purple.shade400;
+      return Colors.purple.withValues(alpha: 0.2);
     }
 
-    // Grey color scheme matching dev board
-    return isLight ? Colors.grey.shade300 : Colors.grey.shade700;
+    // Transparent for normal squares to show board image
+    return Colors.transparent;
   }
 
   bool _shouldShowCoordinates() {
