@@ -298,148 +298,259 @@ class _DevBoardSetupPageState extends State<DevBoardSetupPage> {
   Widget _buildDevSquare(Position position) {
     final piece = _getPieceAt(position);
 
-    return GestureDetector(
-      onTap: () => _placePiece(position),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          border: Border.all(color: Colors.black12),
-        ),
-        child: Center(child: piece != null ? piece.toWidget(size: 45) : null),
-      ),
+    return DragTarget<ChessPiece>(
+      onWillAcceptWithDetails: (details) =>
+          true, // Accept any piece being dragged
+      onAcceptWithDetails: (details) {
+        final draggedPiece = details.data;
+        setState(() {
+          // Remove piece from its old position if it was on the board
+          customPieces.removeWhere((p) => p.position == draggedPiece.position);
+          // Add piece to new position
+          customPieces.add(draggedPiece.copyWith(position: position));
+        });
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isHighlighted = candidateData.isNotEmpty;
+
+        return GestureDetector(
+          onTap: () => _placePiece(position),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isHighlighted
+                  ? Colors.green.withValues(alpha: 0.3)
+                  : Colors.transparent,
+              border: Border.all(
+                color: isHighlighted ? Colors.green : Colors.black12,
+                width: isHighlighted ? 2 : 1,
+              ),
+            ),
+            child: Center(
+              child: piece != null
+                  ? Draggable<ChessPiece>(
+                      data: piece,
+                      feedback: Material(
+                        color: Colors.transparent,
+                        child: piece.toWidget(size: 50),
+                      ),
+                      childWhenDragging: Opacity(
+                        opacity: 0.3,
+                        child: piece.toWidget(size: 45),
+                      ),
+                      child: piece.toWidget(size: 45),
+                    )
+                  : null,
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildPieceSelector() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      color: Colors.grey.shade100,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Select Piece to Place:',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Row(
+    return DragTarget<ChessPiece>(
+      // Accept pieces being dragged off the board to remove them
+      onWillAcceptWithDetails: (details) => true,
+      onAcceptWithDetails: (details) {
+        final draggedPiece = details.data;
+        setState(() {
+          // Remove piece from board when dropped on selector area
+          customPieces.removeWhere((p) => p.position == draggedPiece.position);
+        });
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isHighlighted = candidateData.isNotEmpty;
+
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          color: isHighlighted ? Colors.red.shade100 : Colors.grey.shade100,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Color selector
-              ChoiceChip(
-                label: const Text('White'),
-                selected: selectedPieceColor == PieceColor.white,
-                onSelected: (selected) {
-                  if (selected) {
-                    setState(() => selectedPieceColor = PieceColor.white);
-                  }
-                },
-              ),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                label: const Text('Black'),
-                selected: selectedPieceColor == PieceColor.black,
-                onSelected: (selected) {
-                  if (selected) {
-                    setState(() => selectedPieceColor = PieceColor.black);
-                  }
-                },
-              ),
-              const SizedBox(width: 16),
-              const Spacer(),
-              // Remove button
-              InkWell(
-                onTap: () {
-                  setState(() => selectedPieceType = null);
-                },
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+              Row(
+                children: [
+                  const Text(
+                    'Select Piece to Place:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  decoration: BoxDecoration(
-                    color: selectedPieceType == null
-                        ? Colors.red.shade100
-                        : Colors.grey.shade200,
-                    border: Border.all(
-                      color: selectedPieceType == null
-                          ? Colors.red.shade700
-                          : Colors.grey.shade400,
-                      width: selectedPieceType == null ? 3 : 2,
+                  if (isHighlighted) ...[
+                    const SizedBox(width: 8),
+                    const Icon(
+                      Icons.delete_outline,
+                      color: Colors.red,
+                      size: 20,
                     ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.clear,
-                        size: 20,
-                        color: selectedPieceType == null
-                            ? Colors.red.shade900
-                            : Colors.grey.shade700,
+                    const SizedBox(width: 4),
+                    Text(
+                      'Drop to remove',
+                      style: TextStyle(
+                        color: Colors.red.shade700,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Remove',
-                        style: TextStyle(
-                          fontWeight: selectedPieceType == null
-                              ? FontWeight.bold
-                              : FontWeight.normal,
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  // Color selector
+                  ChoiceChip(
+                    label: const Text('White'),
+                    selected: selectedPieceColor == PieceColor.white,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() => selectedPieceColor = PieceColor.white);
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('Black'),
+                    selected: selectedPieceColor == PieceColor.black,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() => selectedPieceColor = PieceColor.black);
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 16),
+                  const Spacer(),
+                  // Remove button
+                  InkWell(
+                    onTap: () {
+                      setState(() => selectedPieceType = null);
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: selectedPieceType == null
+                            ? Colors.red.shade100
+                            : Colors.grey.shade200,
+                        border: Border.all(
                           color: selectedPieceType == null
-                              ? Colors.red.shade900
-                              : Colors.grey.shade700,
+                              ? Colors.red.shade700
+                              : Colors.grey.shade400,
+                          width: selectedPieceType == null ? 3 : 2,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.clear,
+                            size: 20,
+                            color: selectedPieceType == null
+                                ? Colors.red.shade900
+                                : Colors.grey.shade700,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Remove',
+                            style: TextStyle(
+                              fontWeight: selectedPieceType == null
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: selectedPieceType == null
+                                  ? Colors.red.shade900
+                                  : Colors.grey.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: PieceType.values.map((type) {
+                    final piece = ChessPiece(
+                      type: type,
+                      color: selectedPieceColor,
+                      position: Position(0, 0), // Dummy position for display
+                    );
+                    final isSelected = selectedPieceType == type;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: Draggable<ChessPiece>(
+                        data: ChessPiece(
+                          type: type,
+                          color: selectedPieceColor,
+                          // Use a dummy position that won't match any board position
+                          position: Position(-1, -1),
+                        ),
+                        feedback: Material(
+                          color: Colors.transparent,
+                          child: piece.toWidget(size: 50),
+                        ),
+                        childWhenDragging: Opacity(
+                          opacity: 0.3,
+                          child: InkWell(
+                            onTap: () {
+                              setState(() => selectedPieceType = type);
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? Colors.purple.shade100
+                                    : Colors.grey.shade200,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? Colors.purple.shade700
+                                      : Colors.grey.shade400,
+                                  width: isSelected ? 3 : 2,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(child: piece.toWidget(size: 38)),
+                            ),
+                          ),
+                        ),
+                        child: InkWell(
+                          onTap: () {
+                            setState(() => selectedPieceType = type);
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.purple.shade100
+                                  : Colors.grey.shade200,
+                              border: Border.all(
+                                color: isSelected
+                                    ? Colors.purple.shade700
+                                    : Colors.grey.shade400,
+                                width: isSelected ? 3 : 2,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(child: piece.toWidget(size: 38)),
+                          ),
                         ),
                       ),
-                    ],
-                  ),
+                    );
+                  }).toList(),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: PieceType.values.map((type) {
-                final piece = ChessPiece(
-                  type: type,
-                  color: selectedPieceColor,
-                  position: Position(0, 0), // Dummy position for display
-                );
-                final isSelected = selectedPieceType == type;
-
-                return Padding(
-                  padding: const EdgeInsets.only(right: 10),
-                  child: InkWell(
-                    onTap: () {
-                      setState(() => selectedPieceType = type);
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? Colors.purple.shade100
-                            : Colors.grey.shade200,
-                        border: Border.all(
-                          color: isSelected
-                              ? Colors.purple.shade700
-                              : Colors.grey.shade400,
-                          width: isSelected ? 3 : 2,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Center(child: piece.toWidget(size: 38)),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
