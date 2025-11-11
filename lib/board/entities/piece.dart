@@ -36,11 +36,6 @@ class ChessPiece extends Equatable {
     return copyWith(position: newPosition, hasMoved: true);
   }
 
-  /// Returns the Unicode symbol for this piece
-  String get unicodeSymbol {
-    return type.getUnicodeSymbol(color == PieceColor.white);
-  }
-
   /// Returns the FEN symbol for this piece
   String get fenSymbol {
     final symbol = type.symbol;

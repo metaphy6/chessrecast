@@ -5,6 +5,7 @@ import '../board/exporter.dart';
 import '../modes/modes_enum.dart';
 import '../bot/bot_manager.dart';
 import '../analytics/game_analytics.dart';
+import '../ui/board_theme.dart';
 import 'orchestrator.dart';
 
 class Controller extends GetxController {
@@ -18,6 +19,9 @@ class Controller extends GetxController {
   ChessBoard? _initialDevBoard; // Store the initial custom board setup
   List<ChessPiece>? _devBoardOriginalPieces; // Store original pieces from args
   PieceColor? _devBoardOriginalPlayer; // Store starting player from args
+
+  // UI preferences
+  final Rx<BoardTheme> _boardTheme = BoardTheme.brown.obs;
 
   // Reactive variables
   final Rx<ChessBoard> _board = ChessBoard.initial().obs;
@@ -36,6 +40,7 @@ class Controller extends GetxController {
   String get statusMessage => _statusMessage.value;
   bool get canUndo => _historyIndex.value > 0;
   bool get canRedo => _historyIndex.value < _boardHistory.length - 1;
+  BoardTheme get boardTheme => _boardTheme.value;
 
   PieceColor get currentPlayer => board.currentPlayer;
   GameStatus get gameStatus => board.gameStatus;
@@ -755,16 +760,20 @@ class Controller extends GetxController {
     }
   }
 
-  /// Gets the piece at a specific position
-  String? getPieceSymbol(Position position) {
-    final piece = board.getPieceAt(position);
-    return piece?.unicodeSymbol;
+  /// Gets the piece at a specific position (returns ChessPiece, not symbol)
+  ChessPiece? getPieceAt(Position position) {
+    return board.getPieceAt(position);
   }
 
   /// Gets the piece color at a specific position
   PieceColor? getPieceColor(Position position) {
     final piece = board.getPieceAt(position);
     return piece?.color;
+  }
+
+  /// Change the board theme
+  void setBoardTheme(BoardTheme theme) {
+    _boardTheme.value = theme;
   }
 
   /// Checks if a position is a valid move target

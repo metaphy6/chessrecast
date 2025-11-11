@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../management/controller.dart';
 import '../bot/bot_manager.dart';
+import '../ui/board_theme.dart';
 import 'board.dart';
 import 'info_panel.dart';
 
@@ -138,6 +139,35 @@ class ChessGamePage extends StatelessWidget {
               ],
             );
           }),
+          // Board theme selector
+          PopupMenuButton<BoardTheme>(
+            icon: const Icon(Icons.palette, color: Colors.white),
+            tooltip: 'Board Theme',
+            onSelected: (theme) {
+              controller.setBoardTheme(theme);
+            },
+            itemBuilder: (context) => BoardTheme.values
+                .map(
+                  (theme) => PopupMenuItem(
+                    value: theme,
+                    child: Row(
+                      children: [
+                        Obx(
+                          () => Icon(
+                            controller.boardTheme == theme
+                                ? Icons.check_circle
+                                : Icons.circle_outlined,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(theme.displayName),
+                      ],
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () => controller.resetGame(),

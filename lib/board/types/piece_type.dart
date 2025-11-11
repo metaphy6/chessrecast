@@ -41,20 +41,4 @@ enum PieceType {
         return 'k';
     }
   }
-
-  /// Returns the Unicode symbol for the piece
-  String getUnicodeSymbol(bool isWhite) {
-    // Use the same outlined symbols for both colors
-    // Only color will differentiate white from black pieces
-    const symbols = {
-      PieceType.king: '♔',
-      PieceType.queen: '♕',
-      PieceType.rook: '♖',
-      PieceType.bishop: '♗',
-      PieceType.knight: '♘',
-      PieceType.pawn: '♙',
-    };
-
-    return symbols[this]!;
-  }
 }
