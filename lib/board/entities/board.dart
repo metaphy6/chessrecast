@@ -135,7 +135,9 @@ class ChessBoard extends Equatable {
       }
     }
 
-    return ChessBoard(pieces: pieces, gameType: gameType);
+    final board = ChessBoard(pieces: pieces, gameType: gameType);
+    // Add initial position to history for threefold repetition tracking
+    return board.copyWith(positionHistory: [board.getPositionKey()]);
   }
 
   /// Gets the piece at the specified position
@@ -206,15 +208,24 @@ class ChessBoard extends Equatable {
     if (positionHistory.isEmpty) return false;
 
     final currentPosition = getPositionKey();
-    int count = 0;
+    int count = 1; // Start at 1 to count the current position
 
-    for (final position in positionHistory) {
+    printDebug('🔁 CHECKING REPETITION: Current position: $currentPosition');
+    printDebug('🔁 Position history (${positionHistory.length} entries):');
+
+    for (int i = 0; i < positionHistory.length; i++) {
+      final position = positionHistory[i];
+      printDebug('  [$i]: $position');
       if (position == currentPosition) {
         count++;
-        if (count >= 3) {
-          return true;
-        }
+        printDebug('  ✓ MATCH! Count is now $count (including current)');
       }
+    }
+
+    printDebug('🔁 Final count: $count (need 3 for draw)');
+
+    if (count >= 3) {
+      return true;
     }
 
     return false;

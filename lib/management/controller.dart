@@ -15,6 +15,9 @@ class Controller extends GetxController {
   // Game type
   late final ModesEnum gameType;
   late final bool isDevBoard;
+  ChessBoard? _initialDevBoard; // Store the initial custom board setup
+  List<ChessPiece>? _devBoardOriginalPieces; // Store original pieces from args
+  PieceColor? _devBoardOriginalPlayer; // Store starting player from args
 
   // Reactive variables
   final Rx<ChessBoard> _board = ChessBoard.initial().obs;
@@ -54,6 +57,18 @@ class Controller extends GetxController {
       final customPieces = args!['customBoard'] as List<ChessPiece>;
       final customCurrentPlayer =
           args['currentPlayer'] as PieceColor? ?? PieceColor.white;
+
+      // Store original pieces from arguments for navigation back
+      _devBoardOriginalPieces = args['devBoardOriginalPieces'] != null
+          ? List<ChessPiece>.from(
+              args['devBoardOriginalPieces'] as List<ChessPiece>,
+            )
+          : List<ChessPiece>.from(customPieces);
+      _devBoardOriginalPlayer =
+          args['devBoardOriginalPlayer'] as PieceColor? ?? customCurrentPlayer;
+      printDebug(
+        '🔙 STORED dev board state: ${_devBoardOriginalPieces!.length} pieces, starting player: ${_devBoardOriginalPlayer?.name}',
+      );
 
       // Determine castling rights based on piece positions
       final whiteKingOnStart = customPieces.any(
@@ -107,7 +122,14 @@ class Controller extends GetxController {
 
       // Evaluate the initial game status for the custom board
       customBoard = _gameOrchestrator.updateGameStatus(customBoard);
+
+      // Add initial position to history for threefold repetition tracking
+      customBoard = customBoard.copyWith(
+        positionHistory: [customBoard.getPositionKey()],
+      );
+
       _board.value = customBoard;
+      _initialDevBoard = customBoard; // Store for restart functionality
     } else {
       // Initialize board with the correct game type
       _board.value = ChessBoard.initial(gameType: gameType);
@@ -447,6 +469,7 @@ class Controller extends GetxController {
     printDebug(
       '🎯 CONTROLLER: Move capturedPiece: ${move.capturedPiece != null ? move.capturedPiece!.type.name : "null"}',
     );
+    printDebug('🎯 CONTROLLER: Board game type: ${board.gameType.name}');
     try {
       printDebug('🎯 CONTROLLER: Calling orchestrator.executeMove');
       final newBoard = _gameOrchestrator.executeMove(board, move);
@@ -666,7 +689,13 @@ class Controller extends GetxController {
 
   /// Resets the game to the initial state
   void resetGame() {
-    _board.value = ChessBoard.initial(gameType: gameType);
+    // For dev boards, reset to the initial custom setup
+    if (isDevBoard && _initialDevBoard != null) {
+      _board.value = _initialDevBoard!;
+    } else {
+      // For normal games, reset to standard initial position
+      _board.value = ChessBoard.initial(gameType: gameType);
+    }
     _boardHistory.clear();
     _boardHistory.add(_board.value);
     _historyIndex.value = 0;
@@ -698,6 +727,32 @@ class Controller extends GetxController {
     _deselectPiece();
     _updateStatusMessage();
     update();
+  }
+
+  /// Navigates back to dev board setup or home
+  void navigateBack() {
+    printDebug(
+      '🔙 NAVIGATE BACK: isDevBoard=$isDevBoard, _devBoardOriginalPieces=${_devBoardOriginalPieces != null ? "saved (${_devBoardOriginalPieces!.length} pieces)" : "null"}',
+    );
+
+    if (isDevBoard && _devBoardOriginalPieces != null) {
+      printDebug(
+        '🔙 Navigating to dev board setup with gameType=${gameType.name}',
+      );
+      // Navigate back to dev board setup with the original configuration
+      Get.offAllNamed(
+        '/dev-board',
+        arguments: {
+          'gameType': gameType,
+          'pieces': _devBoardOriginalPieces,
+          'currentPlayer': _devBoardOriginalPlayer,
+        },
+      );
+    } else {
+      printDebug('🔙 Navigating to home page');
+      // Navigate to home for normal games
+      Get.offAllNamed('/');
+    }
   }
 
   /// Gets the piece at a specific position

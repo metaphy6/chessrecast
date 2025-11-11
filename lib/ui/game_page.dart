@@ -62,8 +62,10 @@ class ChessGamePage extends StatelessWidget {
         elevation: 4,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Get.offAllNamed('/'),
-          tooltip: 'Back to Game Selection',
+          onPressed: () => controller.navigateBack(),
+          tooltip: controller.isDevBoard
+              ? 'Back to Dev Board Setup'
+              : 'Back to Game Selection',
         ),
         actions: [
           Obx(
@@ -139,7 +141,7 @@ class ChessGamePage extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () => controller.resetGame(),
-            tooltip: 'New Game',
+            tooltip: controller.isDevBoard ? 'Restart' : 'New Game',
           ),
         ],
       ),
@@ -204,15 +206,16 @@ class ChessGamePage extends StatelessWidget {
   }
 
   Widget _buildActionButtons() {
+    final controller = Get.find<Controller>();
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           ElevatedButton.icon(
-            onPressed: () => Get.find<Controller>().resetGame(),
+            onPressed: () => controller.resetGame(),
             icon: const Icon(Icons.refresh),
-            label: const Text('New Game'),
+            label: Text(controller.isDevBoard ? 'Restart' : 'New Game'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
               foregroundColor: Colors.white,

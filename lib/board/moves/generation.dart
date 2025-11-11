@@ -304,6 +304,12 @@ extension MoveGeneration on ChessBoard {
       return ['R', 'B', 'N']; // Rook, Bishop, Knight only
     }
 
+    // Check for Other Side mode - no rook promotion allowed
+    if (gameType == ModesEnum.otherSide) {
+      printDebug('🏰 BOARD: Other Side mode - no rook promotion allowed');
+      return ['Q', 'B', 'N']; // Queen, Bishop, Knight only
+    }
+
     // Check for Save the King mode - can promote to King
     if (gameType == ModesEnum.saveTheKing) {
       printDebug(

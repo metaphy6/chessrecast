@@ -35,8 +35,9 @@ class TacticalPatterns {
       if (piece.color != move.piece.color) continue;
       if (piece.type != PieceType.bishop &&
           piece.type != PieceType.rook &&
-          piece.type != PieceType.queen)
+          piece.type != PieceType.queen) {
         continue;
+      }
 
       // Check if moving piece was blocking this piece's attack
       if (_isOnAttackRay(piece.position, move.from, board)) {
@@ -83,8 +84,9 @@ class TacticalPatterns {
       if (enemyPiece.color == piece.color) continue;
       if (enemyPiece.type != PieceType.bishop &&
           enemyPiece.type != PieceType.rook &&
-          enemyPiece.type != PieceType.queen)
+          enemyPiece.type != PieceType.queen) {
         continue;
+      }
 
       // Check if enemy piece, our piece, and king are on same line
       if (_isOnAttackRay(enemyPiece.position, piecePos, board) &&

@@ -251,8 +251,9 @@ class PositionEvaluator {
 
     for (final piece in board.pieces) {
       // Skip pawns and kings for speed
-      if (piece.type == PieceType.pawn || piece.type == PieceType.king)
+      if (piece.type == PieceType.pawn || piece.type == PieceType.king) {
         continue;
+      }
 
       final mobility = _estimatePieceMobility(piece, board);
 
