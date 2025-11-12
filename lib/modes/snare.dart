@@ -11,7 +11,7 @@ import 'game_mode.dart';
 ///   * Move one square in any direction (king-like moves) to escape
 ///   * Move within the zone if alone
 ///   * Capture adjacent entangled enemy pieces
-/// - If the King is entangled, it's instant checkmate
+/// - King can move anywhere as long as at least one knight of the same color is alive
 /// - Pieces can't voluntarily enter entangle zones (except from adjacent squares)
 /// - Pieces moving through entangle zones are captured in the zone
 /// - Suicide moves (putting own king in check/mate) are legal
@@ -25,6 +25,37 @@ class Snare extends GameMode {
           (piece) => piece.type == PieceType.knight && piece.color == color,
         )
         .toList();
+  }
+
+  /// SNARE MODE: Override isKingInCheck - King cannot be in check if at least one knight is alive
+  /// This is for status display and move restrictions, NOT for actual capture eligibility
+  bool isKingInCheckSnare(PieceColor kingColor, ChessBoard board) {
+    // If the king's color has no knights, use normal check rules
+    final myKnights = getKnights(kingColor, board);
+    if (myKnights.isEmpty) {
+      // No knights - use normal check logic
+      final king = board.getKing(kingColor);
+      if (king == null) return false;
+      return board.isPositionUnderAttack(king.position, kingColor.opposite);
+    }
+
+    // King has at least one knight - king cannot be in check
+    // King moves freely as long as knights are alive
+    return false;
+  }
+
+  /// SNARE MODE: Check if king is actually capturable (can be eaten by opponent)
+  /// This is different from isKingInCheckSnare - king is only capturable if it has knights
+  bool isKingCapturable(PieceColor kingColor, ChessBoard board) {
+    final king = board.getKing(kingColor);
+    if (king == null) return false;
+
+    // King cannot be captured if all knights are gone (only the last knight can be captured)
+    final myKnights = getKnights(kingColor, board);
+    if (myKnights.isEmpty) return false;
+
+    // King is capturable if it has knights and any enemy piece can attack it
+    return board.isPositionUnderAttack(king.position, kingColor.opposite);
   }
 
   /// SNARE MODE: Checks if two knights defend each other (creating an entangle zone)
@@ -550,19 +581,56 @@ class Snare extends GameMode {
     // Check for immediate entanglement after move
     final newBoard = board.makeMove(move);
 
-    // Check if either king is entangled
-    if (isKingEntangled(board.currentPlayer, newBoard)) {
-      printDebug(
-        '🕸️ SNARE: ${board.currentPlayer.name} King ENTANGLED after move',
-      );
-      return newBoard.copyWith(gameStatus: GameStatus.checkmate);
-    }
+    printDebug(
+      '🕸️ SNARE: Checking entanglement after move. Move piece type: ${move.piece.type.name}',
+    );
 
-    if (isKingEntangled(board.currentPlayer.opposite, newBoard)) {
+    // Only trigger checkmate if a knight move CREATES a NEW entangle zone that traps a king
+    // Self-checkmate happens when a player moves their own knight in a way that creates
+    // an entangle zone catching a king (could be own or opponent's king)
+    if (move.piece.type == PieceType.knight) {
       printDebug(
-        '🕸️ SNARE: ${board.currentPlayer.opposite.name} King ENTANGLED after move',
+        '🕸️ SNARE: This was a KNIGHT move, checking for new entangle zones...',
       );
-      return newBoard.copyWith(gameStatus: GameStatus.checkmate);
+
+      final movingKnightColor = move.piece.color;
+
+      // Check both players' kings
+      for (final kingColor in [PieceColor.white, PieceColor.black]) {
+        // Check if king was entangled BEFORE this move
+        final kingWasEntangledBefore = isKingEntangled(kingColor, board);
+
+        // Check if king is entangled AFTER this move
+        final kingIsEntangledAfter = isKingEntangled(kingColor, newBoard);
+
+        // Self-checkmate only happens if king was NOT entangled before, but IS entangled after
+        // This means the knight move created a NEW zone that caught the king
+        if (!kingWasEntangledBefore && kingIsEntangledAfter) {
+          printDebug(
+            '🕸️ SNARE: ${movingKnightColor.name} knight at ${move.from.algebraic} → ${move.to.algebraic} created NEW entangle zone',
+          );
+          printDebug(
+            '🕸️ SNARE: ${kingColor.name} King SELF-ENTANGLED (was not entangled before, now is)',
+          );
+          return newBoard.copyWith(gameStatus: GameStatus.checkmate);
+        } else if (!kingWasEntangledBefore && !kingIsEntangledAfter) {
+          printDebug(
+            '🕸️ SNARE: ${kingColor.name} King - was not entangled before, still not entangled after',
+          );
+        } else if (kingWasEntangledBefore && kingIsEntangledAfter) {
+          printDebug(
+            '🕸️ SNARE: ${kingColor.name} King - was already entangled before (no checkmate)',
+          );
+        } else if (kingWasEntangledBefore && !kingIsEntangledAfter) {
+          printDebug(
+            '🕸️ SNARE: ${kingColor.name} King - was entangled before, but escaped after move',
+          );
+        }
+      }
+    } else {
+      printDebug(
+        '🕸️ SNARE: This was NOT a knight move (it was ${move.piece.type.name}), skipping entangle check',
+      );
     }
 
     return null; // Normal move processing
