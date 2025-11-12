@@ -120,9 +120,28 @@ extension MoveGeneration on ChessBoard {
     final safeMoves = filteredByGameMode.where((move) {
       // CRITICAL: Never allow capturing the opponent's king
       // Exception: Heir mode allows king captures as part of the game mechanics
+      // Exception: Snare mode allows king capture if it's actually under attack
       if (move.capturedPiece != null &&
           move.capturedPiece!.type == PieceType.king &&
           gameType != ModesEnum.heir) {
+        // In Snare mode, allow king capture only if the king is actually under attack
+        if (gameType == ModesEnum.snare) {
+          final snareMode = Snare();
+          final opponentColor = move.capturedPiece!.color;
+          // Check if opponent's king is actually capturable (under attack)
+          if (!snareMode.isKingCapturable(opponentColor, this)) {
+            printDebug(
+              '🚫 MOVE GEN: Blocking king capture - king not under attack in Snare mode: ${move.piece.type.name} ${move.from.algebraic} → ${move.to.algebraic}',
+            );
+            return false;
+          }
+          // King is capturable - allow the move
+          printDebug(
+            '⚡ SNARE: Allowing king capture (king is under attack): ${move.piece.type.name} ${move.from.algebraic} → ${move.to.algebraic}',
+          );
+          return true;
+        }
+
         printDebug(
           '🚫 MOVE GEN: Blocking illegal king capture move: ${move.piece.type.name} ${move.from.algebraic} → ${move.to.algebraic}',
         );
@@ -132,12 +151,24 @@ extension MoveGeneration on ChessBoard {
       final boardAfterMove = makeMoveForValidation(move);
       final kingInCheck = boardAfterMove.isKingInCheck(currentPlayer);
 
-      // Snare mode allows suicide moves (king moving into danger)
+      // Snare mode allows suicide moves (king moving into danger) ONLY if king has knights
       if (gameType == ModesEnum.snare && piece.type == PieceType.king) {
-        printDebug(
-          '🕸️ BOARD: Snare mode - allowing king move to ${move.to.algebraic} even if in check (suicide move)',
-        );
-        return true; // Allow the move even if it puts king in check
+        final snareMode = Snare();
+        final myKnights = snareMode.getKnights(currentPlayer, this);
+
+        if (myKnights.isNotEmpty) {
+          // King has knights - allow the move even if it puts king in check
+          // King can freely move into entangle zones
+          printDebug(
+            '🕸️ BOARD: Snare mode - allowing king move to ${move.to.algebraic} (king has ${myKnights.length} knights)',
+          );
+          return true;
+        } else {
+          // King has no knights - apply normal check rules
+          printDebug(
+            '🕸️ BOARD: Snare mode - king has NO knights left, applying normal check rules for move to ${move.to.algebraic}',
+          );
+        }
       }
 
       if (kingInCheck) {

@@ -18,7 +18,7 @@ enum ModesEnum {
   ),
   snare(
     'Snare',
-    'Knight-focused variant: Two knights create "entangle zones" that trap pieces. Last knight becomes revengeful. No promotions if all knights lost.',
+    'Knight-focused variant: Two knights create "entangle zones" that trap pieces. King moves freely as long as at least one knight is alive and can enter entangle zones. King is only checkmated if opponent\'s knight move catches it in an entangle zone. Last knight becomes revengeful. No promotions if all knights lost.',
   ),
   diamonds(
     'Diamonds',

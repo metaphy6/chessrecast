@@ -401,39 +401,27 @@ class Orchestrator {
 
   /// SNARE MODE: Updates game status with entangled King detection
   ChessBoard _updateSnareGameStatus(ChessBoard board) {
-    // If game is already over (e.g., immediate checkmate from makeMove), don't overwrite
+    // If game is already over (e.g., from handleSpecialMove returning checkmate), don't overwrite
     if (board.gameStatus != GameStatus.ongoing) {
       return board;
     }
 
     final snareMode = Snare();
 
-    // Check if EITHER king is entangled (instant checkmate)
-    // Note: We check both kings because after a move, the turn switches
-    // If white moves into entangle, it's now black's turn, but white is the one who's mated
-    if (snareMode.isKingEntangled(board.currentPlayer, board)) {
-      printDebug(
-        '🕸️ SNARE ORCHESTRATOR: ${board.currentPlayer.name} King is ENTANGLED - CHECKMATE!',
-      );
-      return board.copyWith(gameStatus: GameStatus.checkmate);
-    }
+    // NOTE: We do NOT check for king entanglement here!
+    // Entanglement-based checkmate is ONLY triggered by handleSpecialMove when:
+    // 1. A knight move is made
+    // 2. That move creates a NEW entangle zone
+    // 3. The opponent's king is caught in that new zone
+    //
+    // Kings are allowed to freely enter existing entangle zones without penalty.
+    // This prevents false checkmate when a king voluntarily moves into an existing zone.
 
-    // Also check the opponent's king (who just moved)
-    if (snareMode.isKingEntangled(board.currentPlayer.opposite, board)) {
-      printDebug(
-        '🕸️ SNARE ORCHESTRATOR: ${board.currentPlayer.opposite.name} King is ENTANGLED - CHECKMATE!',
-      );
-      // The player who just moved their king into entangle loses (suicide)
-      // We need to switch the turn back so getWinner() returns the correct winner
-      // After suicide, the player who made the move should be currentPlayer (in checkmate)
-      return board.copyWith(
-        currentPlayer: board.currentPlayer.opposite,
-        gameStatus: GameStatus.checkmate,
-      );
-    }
-
-    // Use standard chess rules for check/stalemate
-    final currentPlayerInCheck = board.isKingInCheck(board.currentPlayer);
+    // SNARE MODE: Use Snare-specific check logic (king cannot be in check if at least one knight is alive)
+    final currentPlayerInCheck = snareMode.isKingInCheckSnare(
+      board.currentPlayer,
+      board,
+    );
     final hasValidMoves = _hasValidMoves(board);
 
     GameStatus newStatus;
