@@ -401,8 +401,14 @@ class Orchestrator {
 
   /// SNARE MODE: Updates game status with entangled King detection
   ChessBoard _updateSnareGameStatus(ChessBoard board) {
-    // If game is already over (e.g., from handleSpecialMove returning checkmate), don't overwrite
-    if (board.gameStatus != GameStatus.ongoing) {
+    // If game is already over (checkmate/stalemate/draw from handleSpecialMove), don't overwrite
+    // BUT we DO need to re-evaluate if status is just "check" to determine checkmate
+    if (board.gameStatus == GameStatus.checkmate ||
+        board.gameStatus == GameStatus.stalemate ||
+        board.gameStatus == GameStatus.draw) {
+      printDebug(
+        '🕸️ SNARE STATUS: Game already over (${board.gameStatus}), not updating',
+      );
       return board;
     }
 
@@ -417,28 +423,65 @@ class Orchestrator {
     // Kings are allowed to freely enter existing entangle zones without penalty.
     // This prevents false checkmate when a king voluntarily moves into an existing zone.
 
-    // SNARE MODE: Use Snare-specific check logic (king cannot be in check if at least one knight is alive)
-    final currentPlayerInCheck = snareMode.isKingInCheckSnare(
-      board.currentPlayer,
-      board,
+    printDebug(
+      '🕸️ SNARE STATUS: Checking status for ${board.currentPlayer} player',
     );
+
+    // SNARE MODE: Check if current player's king still has knights
+    final myKnights = snareMode.getKnights(board.currentPlayer, board);
+    printDebug(
+      '🕸️ SNARE STATUS: ${board.currentPlayer} has ${myKnights.length} knights',
+    );
+
     final hasValidMoves = _hasValidMoves(board);
+    printDebug(
+      '🕸️ SNARE STATUS: ${board.currentPlayer} has valid moves: $hasValidMoves',
+    );
 
     GameStatus newStatus;
 
-    if (currentPlayerInCheck) {
-      if (hasValidMoves) {
-        newStatus = GameStatus.check;
-      } else {
-        newStatus = GameStatus.checkmate;
-      }
-    } else {
+    if (myKnights.isNotEmpty) {
+      // King has knights - cannot be checkmated, only captured
+      // King moves freely and game can only end by capture (not checkmate)
+      printDebug(
+        '🕸️ SNARE STATUS: King has knights - using knight-based rules',
+      );
       if (hasValidMoves) {
         newStatus = GameStatus.ongoing;
       } else {
+        // No valid moves but king has knights - stalemate
         newStatus = GameStatus.stalemate;
       }
+    } else {
+      // King has no knights - apply regular chess checkmate rules
+      printDebug(
+        '🕸️ SNARE STATUS: King has NO knights - using regular chess rules',
+      );
+      final currentPlayerInCheck = snareMode.isKingInCheckSnare(
+        board.currentPlayer,
+        board,
+      );
+      printDebug(
+        '🕸️ SNARE STATUS: ${board.currentPlayer} king is in check: $currentPlayerInCheck',
+      );
+
+      if (currentPlayerInCheck) {
+        if (hasValidMoves) {
+          newStatus = GameStatus.check;
+        } else {
+          newStatus = GameStatus.checkmate;
+          printDebug('🕸️ SNARE STATUS: ✅ CHECKMATE detected!');
+        }
+      } else {
+        if (hasValidMoves) {
+          newStatus = GameStatus.ongoing;
+        } else {
+          newStatus = GameStatus.stalemate;
+        }
+      }
     }
+
+    printDebug('🕸️ SNARE STATUS: New status: $newStatus');
 
     // Check for draw conditions
     if (_isDrawByInsufficientMaterial(board) ||
