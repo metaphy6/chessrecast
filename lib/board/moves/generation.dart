@@ -9,6 +9,7 @@ import '../entities/board.dart';
 import '../entities/queries.dart';
 import 'validation.dart';
 import '../../modes/snare.dart';
+import '../../modes/truce.dart';
 import '../../modes/diamonds.dart';
 import '../../modes/teleport.dart';
 import '../../modes/friendly_fire.dart';
@@ -53,6 +54,12 @@ extension MoveGeneration on ChessBoard {
       filteredByGameMode = snareMode.filterMoves(potentialMoves, piece, this);
       printDebug(
         '🕸️ BOARD: Snare mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
+      );
+    } else if (gameType == ModesEnum.truce) {
+      final truceMode = Truce();
+      filteredByGameMode = truceMode.filterMoves(potentialMoves, piece, this);
+      printDebug(
+        '🤝 BOARD: Truce mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     } else if (gameType == ModesEnum.diamonds) {
       final diamondsMode = Diamonds();
@@ -150,6 +157,19 @@ extension MoveGeneration on ChessBoard {
 
       final boardAfterMove = makeMoveForValidation(move);
       final kingInCheck = boardAfterMove.isKingInCheck(currentPlayer);
+
+      // Truce mode: Kings can move freely during truce (no check enforcement)
+      if (gameType == ModesEnum.truce) {
+        final truceMode = Truce();
+        if (truceMode.isTruceActive(this)) {
+          // During truce, allow all moves (king can move into "check")
+          printDebug(
+            '🤝 BOARD: Truce active - allowing move to ${move.to.algebraic} (ignoring check)',
+          );
+          return true;
+        }
+        // After truce breaks, apply normal check rules (fall through)
+      }
 
       // Snare mode allows suicide moves (king moving into danger) ONLY if king has knights
       if (gameType == ModesEnum.snare && piece.type == PieceType.king) {
