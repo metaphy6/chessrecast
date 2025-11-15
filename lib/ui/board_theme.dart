@@ -26,8 +26,16 @@ enum BoardTheme {
     }
   }
 
-  /// Get the board image widget
+  /// Get the board image widget with caching
   Widget getImage({BoxFit fit = BoxFit.cover}) {
-    return Image.asset(assetPath, fit: fit);
+    return Image.asset(
+      assetPath,
+      fit: fit,
+      cacheWidth: 1024, // Cache at reasonable resolution
+      cacheHeight: 1024,
+      filterQuality: FilterQuality.medium, // Balance quality and performance
+      gaplessPlayback: true, // Prevent flicker on theme changes
+      isAntiAlias: false, // Disable for better raster performance
+    );
   }
 }

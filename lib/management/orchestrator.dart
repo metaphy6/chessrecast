@@ -9,6 +9,17 @@ import '../modes/save_the_king.dart';
 import '../modes/other_side.dart';
 import '../modes/truce.dart';
 
+/// Cached mode instances to avoid repeated instantiation
+class _OrchestratorModesCache {
+  static final Snare snare = Snare();
+  static final Truce truce = Truce();
+  static final Teleport teleport = Teleport();
+  static final KingsBattle kingsBattle = KingsBattle();
+  static final SaveTheQueen saveTheQueen = SaveTheQueen();
+  static final SaveTheKing saveTheKing = SaveTheKing();
+  static final OtherSide otherSide = OtherSide();
+}
+
 class Orchestrator {
   /// Validates if a move is legal in the current board state
   bool isValidMove(ChessBoard board, ChessMove move) {
@@ -23,8 +34,7 @@ class Orchestrator {
 
     // Truce mode: Check if move violates truce rules
     if (board.gameType == ModesEnum.truce) {
-      final truceMode = Truce();
-      if (!truceMode.validateTruceMove(board, move)) {
+      if (!_OrchestratorModesCache.truce.validateTruceMove(board, move)) {
         printDebug('🤝 ORCHESTRATOR: Move rejected by Truce mode rules');
         return false;
       }
@@ -77,8 +87,10 @@ class Orchestrator {
       printDebug(
         '🔄 ORCHESTRATOR: Teleport mode detected, checking for special move',
       );
-      final teleportMode = Teleport();
-      final teleportBoard = teleportMode.handleSpecialMove(board, move);
+      final teleportBoard = _OrchestratorModesCache.teleport.handleSpecialMove(
+        board,
+        move,
+      );
       printDebug(
         '🔄 ORCHESTRATOR: handleSpecialMove returned: ${teleportBoard != null ? "NEW BOARD" : "NULL"}',
       );
@@ -96,8 +108,8 @@ class Orchestrator {
       printDebug(
         '👑 ORCHESTRATOR: Kings Battle mode detected, checking for special move',
       );
-      final kingsBattleMode = KingsBattle();
-      final kingsBattleBoard = kingsBattleMode.handleSpecialMove(board, move);
+      final kingsBattleBoard = _OrchestratorModesCache.kingsBattle
+          .handleSpecialMove(board, move);
       printDebug(
         '👑 ORCHESTRATOR: handleSpecialMove returned: ${kingsBattleBoard != null ? "NEW BOARD (BONUS MOVE)" : "NULL"}',
       );
@@ -115,8 +127,8 @@ class Orchestrator {
       printDebug(
         '👸 ORCHESTRATOR: Save the Queen mode detected, checking for special move',
       );
-      final saveTheQueenMode = SaveTheQueen();
-      final saveTheQueenBoard = saveTheQueenMode.handleSpecialMove(board, move);
+      final saveTheQueenBoard = _OrchestratorModesCache.saveTheQueen
+          .handleSpecialMove(board, move);
       printDebug(
         '👸 ORCHESTRATOR: handleSpecialMove returned: ${saveTheQueenBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
       );
@@ -134,8 +146,8 @@ class Orchestrator {
       printDebug(
         '👑 ORCHESTRATOR: Save the King mode detected, checking for special move',
       );
-      final saveTheKingMode = SaveTheKing();
-      final saveTheKingBoard = saveTheKingMode.handleSpecialMove(board, move);
+      final saveTheKingBoard = _OrchestratorModesCache.saveTheKing
+          .handleSpecialMove(board, move);
       printDebug(
         '👑 ORCHESTRATOR: handleSpecialMove returned: ${saveTheKingBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
       );
@@ -153,8 +165,8 @@ class Orchestrator {
       printDebug(
         '🏰 ORCHESTRATOR: Other Side mode detected, checking for special move',
       );
-      final otherSideMode = OtherSide();
-      final otherSideBoard = otherSideMode.handleSpecialMove(board, move);
+      final otherSideBoard = _OrchestratorModesCache.otherSide
+          .handleSpecialMove(board, move);
       printDebug(
         '🏰 ORCHESTRATOR: handleSpecialMove returned: ${otherSideBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
       );
@@ -172,8 +184,10 @@ class Orchestrator {
       printDebug(
         '🕸️ ORCHESTRATOR: Snare mode detected, checking for special move',
       );
-      final snareMode = Snare();
-      final snareBoard = snareMode.handleSpecialMove(board, move);
+      final snareBoard = _OrchestratorModesCache.snare.handleSpecialMove(
+        board,
+        move,
+      );
       printDebug(
         '🕸️ ORCHESTRATOR: handleSpecialMove returned: ${snareBoard != null ? "NEW BOARD (REVENGE)" : "NULL"}',
       );
@@ -193,8 +207,10 @@ class Orchestrator {
       printDebug(
         '🤝 ORCHESTRATOR: Truce mode detected, checking for special move',
       );
-      final truceMode = Truce();
-      final truceBoard = truceMode.handleSpecialMove(board, move);
+      final truceBoard = _OrchestratorModesCache.truce.handleSpecialMove(
+        board,
+        move,
+      );
       printDebug(
         '🤝 ORCHESTRATOR: handleSpecialMove returned: ${truceBoard != null ? "NEW BOARD" : "NULL"}',
       );
@@ -385,13 +401,11 @@ class Orchestrator {
 
   /// Updates game status specifically for Truce mode
   ChessBoard _updateTruceGameStatus(ChessBoard board) {
-    final truceMode = Truce();
-
     printDebug(
       '🤝 TRUCE STATUS: Checking status for ${board.currentPlayer} player',
     );
 
-    final isTruceActive = truceMode.isTruceActive(board);
+    final isTruceActive = _OrchestratorModesCache.truce.isTruceActive(board);
     printDebug('🤝 TRUCE STATUS: Truce active: $isTruceActive');
 
     final hasValidMoves = _hasValidMoves(board);
@@ -413,10 +427,8 @@ class Orchestrator {
     } else {
       // After truce breaks: Apply regular chess rules
       printDebug('🤝 TRUCE STATUS: Truce broken - using regular chess rules');
-      final currentPlayerInCheck = truceMode.isKingInCheckTruce(
-        board.currentPlayer,
-        board,
-      );
+      final currentPlayerInCheck = _OrchestratorModesCache.truce
+          .isKingInCheckTruce(board.currentPlayer, board);
       printDebug(
         '🤝 TRUCE STATUS: ${board.currentPlayer} king in check: $currentPlayerInCheck',
       );
@@ -462,8 +474,6 @@ class Orchestrator {
       return board;
     }
 
-    final snareMode = Snare();
-
     // NOTE: We do NOT check for king entanglement here!
     // Entanglement-based checkmate is ONLY triggered by handleSpecialMove when:
     // 1. A knight move is made
@@ -478,7 +488,10 @@ class Orchestrator {
     );
 
     // SNARE MODE: Check if current player's king still has knights
-    final myKnights = snareMode.getKnights(board.currentPlayer, board);
+    final myKnights = _OrchestratorModesCache.snare.getKnights(
+      board.currentPlayer,
+      board,
+    );
     printDebug(
       '🕸️ SNARE STATUS: ${board.currentPlayer} has ${myKnights.length} knights',
     );
@@ -507,10 +520,8 @@ class Orchestrator {
       printDebug(
         '🕸️ SNARE STATUS: King has NO knights - using regular chess rules',
       );
-      final currentPlayerInCheck = snareMode.isKingInCheckSnare(
-        board.currentPlayer,
-        board,
-      );
+      final currentPlayerInCheck = _OrchestratorModesCache.snare
+          .isKingInCheckSnare(board.currentPlayer, board);
       printDebug(
         '🕸️ SNARE STATUS: ${board.currentPlayer} king is in check: $currentPlayerInCheck',
       );
@@ -662,26 +673,39 @@ class Orchestrator {
     }
 
     // Classic insufficient material for non-pawn pieces still applies
-    final whiteNonPawns = whitePieces
-        .where((p) => p.type != PieceType.pawn)
-        .toList();
-    final blackNonPawns = blackPieces
-        .where((p) => p.type != PieceType.pawn)
-        .toList();
+    final whiteNonPawns = <ChessPiece>[];
+    final blackNonPawns = <ChessPiece>[];
+
+    for (final p in whitePieces) {
+      if (p.type != PieceType.pawn) whiteNonPawns.add(p);
+    }
+    for (final p in blackPieces) {
+      if (p.type != PieceType.pawn) blackNonPawns.add(p);
+    }
 
     // If there are only kings and one minor piece, it's a draw
     if (whiteNonPawns.length + blackNonPawns.length == 3) {
-      // Two kings + one minor piece
-      final allNonKingNonPawn = [
-        ...whiteNonPawns,
-        ...blackNonPawns,
-      ].where((p) => p.type != PieceType.king).toList();
-
-      if (allNonKingNonPawn.length == 1) {
-        final piece = allNonKingNonPawn.first;
-        if (piece.type == PieceType.bishop || piece.type == PieceType.knight) {
-          return true;
+      // Two kings + one minor piece - find the non-king piece
+      ChessPiece? nonKingPiece;
+      for (final p in whiteNonPawns) {
+        if (p.type != PieceType.king) {
+          nonKingPiece = p;
+          break;
         }
+      }
+      if (nonKingPiece == null) {
+        for (final p in blackNonPawns) {
+          if (p.type != PieceType.king) {
+            nonKingPiece = p;
+            break;
+          }
+        }
+      }
+
+      if (nonKingPiece != null &&
+          (nonKingPiece.type == PieceType.bishop ||
+              nonKingPiece.type == PieceType.knight)) {
+        return true;
       }
     }
 

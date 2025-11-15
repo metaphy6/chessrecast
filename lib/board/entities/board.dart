@@ -151,51 +151,71 @@ class ChessBoard extends Equatable {
 
   /// Gets all pieces of the specified color
   List<ChessPiece> getPiecesOfColor(PieceColor color) {
-    return pieces.where((piece) => piece.color == color).toList();
+    // Optimize with pre-allocated list for hot path performance
+    final result = <ChessPiece>[];
+    for (final piece in pieces) {
+      if (piece.color == color) {
+        result.add(piece);
+      }
+    }
+    return result;
   }
 
   /// Gets the king of the specified color
   ChessPiece? getKing(PieceColor color) {
-    try {
-      return pieces.firstWhere(
-        (piece) => piece.type == PieceType.king && piece.color == color,
-      );
-    } catch (e) {
-      return null;
+    // Direct iteration is faster than firstWhere with exception
+    for (final piece in pieces) {
+      if (piece.type == PieceType.king && piece.color == color) {
+        return piece;
+      }
     }
+    return null;
   }
 
   /// Generates a unique key for the current position (for threefold repetition)
   /// Includes piece positions, current player, castling rights, and en passant
+  /// OPTIMIZED: Avoid expensive string operations on every move
   String getPositionKey() {
-    // Sort pieces by position for consistent ordering
-    final sortedPieces = pieces.toList()
-      ..sort((a, b) {
-        if (a.position.row != b.position.row) {
-          return a.position.row.compareTo(b.position.row);
-        }
-        return a.position.col.compareTo(b.position.col);
-      });
+    // Use StringBuffer for efficient string building
+    final buffer = StringBuffer();
 
-    final piecesStr = sortedPieces
-        .map((p) {
-          final colorChar = p.color == PieceColor.white ? 'W' : 'B';
-          final typeChar = p.type.name[0].toUpperCase();
-          return '$colorChar$typeChar${p.position.algebraic}';
-        })
-        .join('|');
+    // Sort pieces by position for consistent ordering (cached pattern)
+    final sortedPieces = <ChessPiece>[];
+    for (final piece in pieces) {
+      sortedPieces.add(piece);
+    }
+    sortedPieces.sort((a, b) {
+      if (a.position.row != b.position.row) {
+        return a.position.row.compareTo(b.position.row);
+      }
+      return a.position.col.compareTo(b.position.col);
+    });
 
-    final castling = [
-      whiteCanCastleKingside ? 'K' : '',
-      whiteCanCastleQueenside ? 'Q' : '',
-      blackCanCastleKingside ? 'k' : '',
-      blackCanCastleQueenside ? 'q' : '',
-    ].join();
+    // Build string efficiently with StringBuffer
+    bool first = true;
+    for (final p in sortedPieces) {
+      if (!first) buffer.write('|');
+      first = false;
 
-    final enPassant = enPassantTarget?.algebraic ?? '-';
-    final player = currentPlayer == PieceColor.white ? 'W' : 'B';
+      buffer.write(p.color == PieceColor.white ? 'W' : 'B');
+      buffer.write(p.type.name[0].toUpperCase());
+      buffer.write(p.position.algebraic);
+    }
 
-    return '$piecesStr:$player:$castling:$enPassant';
+    buffer.write(':');
+    buffer.write(currentPlayer == PieceColor.white ? 'W' : 'B');
+    buffer.write(':');
+
+    // Castling rights
+    if (whiteCanCastleKingside) buffer.write('K');
+    if (whiteCanCastleQueenside) buffer.write('Q');
+    if (blackCanCastleKingside) buffer.write('k');
+    if (blackCanCastleQueenside) buffer.write('q');
+
+    buffer.write(':');
+    buffer.write(enPassantTarget?.algebraic ?? '-');
+
+    return buffer.toString();
   }
 
   /// Checks if the 50-move rule applies (draw available)
@@ -204,28 +224,22 @@ class ChessBoard extends Equatable {
   }
 
   /// Checks if threefold repetition has occurred (draw available)
+  /// OPTIMIZED: Early exit and reduced debug logging
   bool hasThreefoldRepetition() {
     if (positionHistory.isEmpty) return false;
 
     final currentPosition = getPositionKey();
     int count = 1; // Start at 1 to count the current position
 
-    printDebug('🔁 CHECKING REPETITION: Current position: $currentPosition');
-    printDebug('🔁 Position history (${positionHistory.length} entries):');
-
+    // Early exit optimization - stop counting after we reach 3
     for (int i = 0; i < positionHistory.length; i++) {
-      final position = positionHistory[i];
-      printDebug('  [$i]: $position');
-      if (position == currentPosition) {
+      if (positionHistory[i] == currentPosition) {
         count++;
-        printDebug('  ✓ MATCH! Count is now $count (including current)');
+        if (count >= 3) {
+          printDebug('🔁 THREEFOLD REPETITION DETECTED');
+          return true;
+        }
       }
-    }
-
-    printDebug('🔁 Final count: $count (need 3 for draw)');
-
-    if (count >= 3) {
-      return true;
     }
 
     return false;

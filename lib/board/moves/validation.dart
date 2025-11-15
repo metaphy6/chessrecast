@@ -82,21 +82,38 @@ extension MoveValidation on ChessBoard {
   }
 
   /// Makes a move for validation purposes (preserves en passant target)
+  /// Optimized to reduce allocations in hot path
   ChessBoard makeMoveForValidation(ChessMove move) {
-    final newPieces = List<ChessPiece>.from(pieces);
+    // Optimize: Pre-allocate list with known capacity
+    final newPieces = List<ChessPiece>.of(pieces, growable: true);
 
-    // Remove the moving piece from its current position
-    newPieces.removeWhere((piece) => piece.position == move.from);
+    // Remove the moving piece from its current position (optimized loop)
+    for (int i = newPieces.length - 1; i >= 0; i--) {
+      if (newPieces[i].position == move.from) {
+        newPieces.removeAt(i);
+        break;
+      }
+    }
 
     // Remove captured piece if any
     if (move.capturedPiece != null) {
       if (move.isEnPassant) {
         // For en passant, remove the pawn that was captured
-        newPieces.removeWhere((piece) => piece == move.capturedPiece);
+        for (int i = newPieces.length - 1; i >= 0; i--) {
+          if (newPieces[i] == move.capturedPiece) {
+            newPieces.removeAt(i);
+            break;
+          }
+        }
       } else {
-        newPieces.removeWhere((piece) => piece.position == move.to);
+        for (int i = newPieces.length - 1; i >= 0; i--) {
+          if (newPieces[i].position == move.to) {
+            newPieces.removeAt(i);
+            break;
+          }
+        }
       }
-    } else {}
+    }
 
     // Add the piece to its new position
     newPieces.add(move.piece.movedTo(move.to));

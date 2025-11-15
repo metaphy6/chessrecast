@@ -19,112 +19,89 @@ import '../../modes/save_the_king.dart';
 import '../../modes/other_side.dart';
 import '../../modes/royal_pawns.dart';
 
+/// Cached mode instances to avoid repeated instantiation
+class _ModesCache {
+  static final Snare snare = Snare();
+  static final Truce truce = Truce();
+  static final Diamonds diamonds = Diamonds();
+  static final Teleport teleport = Teleport();
+  static final FriendlyFire friendlyFire = FriendlyFire();
+  static final KingsBattle kingsBattle = KingsBattle();
+  static final SaveTheQueen saveTheQueen = SaveTheQueen();
+  static final OtherSide otherSide = OtherSide();
+  static final RoyalPawns royalPawns = RoyalPawns();
+}
+
 /// Extension for move generation operations
 extension MoveGeneration on ChessBoard {
   /// Gets all valid moves for a piece at the specified position
   List<ChessMove> getValidMovesFor(Position position) {
     final piece = getPieceAt(position);
 
-    printDebug('🔍 MOVE GEN: Clicked ${position.algebraic}');
-    printDebug(
-      '🔍 MOVE GEN: Piece: ${piece != null ? "${piece.color.name} ${piece.type.name}" : "NONE"}',
-    );
-    printDebug('🔍 MOVE GEN: Current player: ${currentPlayer.name}');
-    printDebug('🔍 MOVE GEN: Game type: ${gameType.name}');
-
     if (piece == null || piece.color != currentPlayer) {
-      printDebug('🔍 MOVE GEN: ❌ Returning empty - wrong turn or no piece');
       return [];
     }
 
     final potentialMoves = _getPotentialMoves(piece);
-    printDebug(
-      '🔍 MOVE GEN: Potential moves generated: ${potentialMoves.length}',
-    );
 
     // Apply game mode specific move filtering first
     var filteredByGameMode = potentialMoves;
 
-    printDebug(
-      '🔍 MOVE GEN: About to apply game mode filtering for ${gameType.name}',
-    );
-
     if (gameType == ModesEnum.snare) {
-      final snareMode = Snare();
-      filteredByGameMode = snareMode.filterMoves(potentialMoves, piece, this);
-      printDebug(
-        '🕸️ BOARD: Snare mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
+      filteredByGameMode = _ModesCache.snare.filterMoves(
+        potentialMoves,
+        piece,
+        this,
       );
     } else if (gameType == ModesEnum.truce) {
-      final truceMode = Truce();
-      filteredByGameMode = truceMode.filterMoves(potentialMoves, piece, this);
-      printDebug(
-        '🤝 BOARD: Truce mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
+      filteredByGameMode = _ModesCache.truce.filterMoves(
+        potentialMoves,
+        piece,
+        this,
       );
     } else if (gameType == ModesEnum.diamonds) {
-      final diamondsMode = Diamonds();
-      filteredByGameMode = diamondsMode.filterMoves(
+      filteredByGameMode = _ModesCache.diamonds.filterMoves(
         potentialMoves,
         piece,
         this,
-      );
-      printDebug(
-        '💎 BOARD: Diamonds mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     } else if (gameType == ModesEnum.teleport) {
-      final teleportMode = Teleport();
-      filteredByGameMode = teleportMode.filterMoves(
+      filteredByGameMode = _ModesCache.teleport.filterMoves(
         potentialMoves,
         piece,
         this,
-      );
-      printDebug(
-        '🔄 BOARD: Teleport mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     } else if (gameType == ModesEnum.friendlyFire) {
-      final friendlyFireMode = FriendlyFire();
-      filteredByGameMode = friendlyFireMode.filterMoves(
+      filteredByGameMode = _ModesCache.friendlyFire.filterMoves(
         potentialMoves,
         piece,
         this,
-      );
-      printDebug(
-        '🔥 BOARD: Friendly Fire mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     } else if (gameType == ModesEnum.kingsBattle) {
-      final kingsBattleMode = KingsBattle();
-      filteredByGameMode = kingsBattleMode.filterMoves(
+      filteredByGameMode = _ModesCache.kingsBattle.filterMoves(
         potentialMoves,
         piece,
         this,
-      );
-      printDebug(
-        '👑 BOARD: Kings Battle mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     } else if (gameType == ModesEnum.saveTheQueen) {
-      final saveTheQueenMode = SaveTheQueen();
-      filteredByGameMode = saveTheQueenMode.filterMoves(
+      filteredByGameMode = _ModesCache.saveTheQueen.filterMoves(
         potentialMoves,
         piece,
         this,
-      );
-      printDebug(
-        '👸 BOARD: Save the Queen mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     } else if (gameType == ModesEnum.otherSide) {
-      final otherSideMode = OtherSide();
-      filteredByGameMode = otherSideMode.filterMoves(
+      filteredByGameMode = _ModesCache.otherSide.filterMoves(
         potentialMoves,
         piece,
         this,
-      );
-      printDebug(
-        '🏰 BOARD: Other Side mode filtered moves for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}: ${potentialMoves.length} → ${filteredByGameMode.length}',
       );
     }
 
     // Filter out moves that would put own king in check (unless game mode allows suicide)
-    final safeMoves = filteredByGameMode.where((move) {
+    // Optimize: Pre-allocate result list
+    final safeMoves = <ChessMove>[];
+
+    for (final move in filteredByGameMode) {
       // CRITICAL: Never allow capturing the opponent's king
       // Exception: Heir mode allows king captures as part of the game mechanics
       // Exception: Snare mode allows king capture if it's actually under attack
@@ -133,26 +110,17 @@ extension MoveGeneration on ChessBoard {
           gameType != ModesEnum.heir) {
         // In Snare mode, allow king capture only if the king is actually under attack
         if (gameType == ModesEnum.snare) {
-          final snareMode = Snare();
           final opponentColor = move.capturedPiece!.color;
           // Check if opponent's king is actually capturable (under attack)
-          if (!snareMode.isKingCapturable(opponentColor, this)) {
-            printDebug(
-              '🚫 MOVE GEN: Blocking king capture - king not under attack in Snare mode: ${move.piece.type.name} ${move.from.algebraic} → ${move.to.algebraic}',
-            );
-            return false;
+          if (!_ModesCache.snare.isKingCapturable(opponentColor, this)) {
+            continue; // Skip this move
           }
           // King is capturable - allow the move
-          printDebug(
-            '⚡ SNARE: Allowing king capture (king is under attack): ${move.piece.type.name} ${move.from.algebraic} → ${move.to.algebraic}',
-          );
-          return true;
+          safeMoves.add(move);
+          continue;
         }
 
-        printDebug(
-          '🚫 MOVE GEN: Blocking illegal king capture move: ${move.piece.type.name} ${move.from.algebraic} → ${move.to.algebraic}',
-        );
-        return false;
+        continue; // Skip this move
       }
 
       final boardAfterMove = makeMoveForValidation(move);
@@ -160,43 +128,32 @@ extension MoveGeneration on ChessBoard {
 
       // Truce mode: Kings can move freely during truce (no check enforcement)
       if (gameType == ModesEnum.truce) {
-        final truceMode = Truce();
-        if (truceMode.isTruceActive(this)) {
+        if (_ModesCache.truce.isTruceActive(this)) {
           // During truce, allow all moves (king can move into "check")
-          printDebug(
-            '🤝 BOARD: Truce active - allowing move to ${move.to.algebraic} (ignoring check)',
-          );
-          return true;
+          safeMoves.add(move);
+          continue;
         }
         // After truce breaks, apply normal check rules (fall through)
       }
 
       // Snare mode allows suicide moves (king moving into danger) ONLY if king has knights
       if (gameType == ModesEnum.snare && piece.type == PieceType.king) {
-        final snareMode = Snare();
-        final myKnights = snareMode.getKnights(currentPlayer, this);
+        final myKnights = _ModesCache.snare.getKnights(currentPlayer, this);
 
         if (myKnights.isNotEmpty) {
           // King has knights - allow the move even if it puts king in check
           // King can freely move into entangle zones
-          printDebug(
-            '🕸️ BOARD: Snare mode - allowing king move to ${move.to.algebraic} (king has ${myKnights.length} knights)',
-          );
-          return true;
-        } else {
-          // King has no knights - apply normal check rules
-          printDebug(
-            '🕸️ BOARD: Snare mode - king has NO knights left, applying normal check rules for move to ${move.to.algebraic}',
-          );
+          safeMoves.add(move);
+          continue;
         }
+        // King has no knights - apply normal check rules (fall through)
       }
 
-      if (kingInCheck) {
-      } else {}
-      return !kingInCheck;
-    }).toList();
+      if (!kingInCheck) {
+        safeMoves.add(move);
+      }
+    }
 
-    printDebug('🔍 MOVE GEN: Final safe moves: ${safeMoves.length}');
     return safeMoves;
   }
 
@@ -221,12 +178,12 @@ extension MoveGeneration on ChessBoard {
   List<ChessMove> _getPawnMoves(ChessPiece pawn) {
     // Check if the game mode has custom pawn moves
     if (gameType == ModesEnum.otherSide) {
-      final customMoves = OtherSide().getPawnMoves(pawn, this);
+      final customMoves = _ModesCache.otherSide.getPawnMoves(pawn, this);
       if (customMoves != null) return customMoves;
     }
 
     if (gameType == ModesEnum.royalPawns) {
-      final customMoves = RoyalPawns().getPawnMoves(pawn, this);
+      final customMoves = _ModesCache.royalPawns.getPawnMoves(pawn, this);
       if (customMoves != null) return customMoves;
     }
 

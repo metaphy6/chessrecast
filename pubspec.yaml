@@ -43,9 +43,6 @@ dependencies:
   
   # Chess UI
   chess_vectors_flutter: ^1.0.12
-  
-  # Logging
-  logger: ^2.4.0
 
 dev_dependencies:
   flutter_test:
