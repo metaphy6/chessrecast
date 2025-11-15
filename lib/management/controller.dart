@@ -545,6 +545,17 @@ class Controller extends GetxController {
       ];
       if (move.capturedPiece != null) {
         squaresToUpdate.add('square_${move.capturedPiece!.position.algebraic}');
+
+        // SAVE THE QUEEN: If captured piece is a queen, also update prison square
+        if (gameType == ModesEnum.saveTheQueen &&
+            move.capturedPiece!.type == PieceType.queen) {
+          // Queen might return to prison - update prison squares
+          final whitePrison = Position(7, 3); // d8
+          final blackPrison = Position(0, 3); // d1
+          squaresToUpdate.add('square_${whitePrison.algebraic}');
+          squaresToUpdate.add('square_${blackPrison.algebraic}');
+          printDebug('👸 CONTROLLER: Added prison squares to update list');
+        }
       }
 
       // Single batched update for all affected squares + history
@@ -749,6 +760,15 @@ class Controller extends GetxController {
     _historyIndex.value = 0;
     _deselectPiece();
     _updateStatusMessage();
+
+    // Update all 64 squares to reflect the reset board state
+    final allSquares = <String>[];
+    for (final file in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
+      for (final rank in ['1', '2', '3', '4', '5', '6', '7', '8']) {
+        allSquares.add('square_$file$rank');
+      }
+    }
+    update([...allSquares, 'history']);
   }
 
   /// Undoes the last move
@@ -762,11 +782,14 @@ class Controller extends GetxController {
     _deselectPiece();
     _updateStatusMessage();
 
-    // Update history buttons
-    update(['history']);
-
-    // Full board update for undo
-    update();
+    // Update all 64 squares to reflect the undo
+    final allSquares = <String>[];
+    for (final file in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
+      for (final rank in ['1', '2', '3', '4', '5', '6', '7', '8']) {
+        allSquares.add('square_$file$rank');
+      }
+    }
+    update([...allSquares, 'history']);
   }
 
   /// Redoes the last undone move
@@ -780,11 +803,14 @@ class Controller extends GetxController {
     _deselectPiece();
     _updateStatusMessage();
 
-    // Update history buttons
-    update(['history']);
-
-    // Full board update for redo
-    update();
+    // Update all 64 squares to reflect the redo
+    final allSquares = <String>[];
+    for (final file in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
+      for (final rank in ['1', '2', '3', '4', '5', '6', '7', '8']) {
+        allSquares.add('square_$file$rank');
+      }
+    }
+    update([...allSquares, 'history']);
   }
 
   /// Navigates back to dev board setup or home

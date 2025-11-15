@@ -49,6 +49,7 @@ class SaveTheQueen implements GameMode {
       );
 
       // Filter out moves that would capture a prisoner queen on its initial prison square
+      // OR capture a prisoner queen when its prison square is occupied
       final filteredMoves = moves.where((move) {
         final targetPiece = board.getPieceAt(move.to);
         if (targetPiece != null && targetPiece.type == PieceType.queen) {
@@ -62,6 +63,28 @@ class SaveTheQueen implements GameMode {
               '👸 SAVE QUEEN: ❌ Cannot capture ${targetPiece.color.name} queen at ${targetPiece.position.algebraic} - still in prison',
             );
             return false; // Cannot capture queen on prison square
+          }
+
+          // Check if queen is prisoner (in opponent's half) and its prison square is occupied
+          final queenInOwnHalf = _isInOwnHalf(
+            targetPiece.position,
+            targetPiece.color,
+          );
+          if (!queenInOwnHalf) {
+            // Queen is a prisoner, check if prison square is occupied
+            final prisonPosition = targetPiece.color == PieceColor.white
+                ? whiteQueenPrison
+                : blackQueenPrison;
+            final prisonOccupied = board.pieces.any(
+              (p) => p.position == prisonPosition,
+            );
+
+            if (prisonOccupied) {
+              printDebug(
+                '👸 SAVE QUEEN: ❌ Cannot capture ${targetPiece.color.name} prisoner queen at ${targetPiece.position.algebraic} - prison square ${prisonPosition.algebraic} is occupied',
+              );
+              return false; // Cannot capture prisoner queen if prison is occupied
+            }
           }
         }
         return true;
@@ -78,7 +101,9 @@ class SaveTheQueen implements GameMode {
     final isInOwnHalf = _isInOwnHalf(piece.position, piece.color);
     final isInPrison = _isInPrison(piece.position, piece.color);
 
-    printDebug('👸 SAVE QUEEN: In own half: $isInOwnHalf, In prison: $isInPrison');
+    printDebug(
+      '👸 SAVE QUEEN: In own half: $isInOwnHalf, In prison: $isInPrison',
+    );
 
     if (isInOwnHalf) {
       // ESCAPED STATE: Queen can move and capture like normal
@@ -142,7 +167,9 @@ class SaveTheQueen implements GameMode {
         }
       }
 
-      printDebug('👸 SAVE QUEEN: Total prisoner moves: ${prisonerMoves.length}');
+      printDebug(
+        '👸 SAVE QUEEN: Total prisoner moves: ${prisonerMoves.length}',
+      );
       return prisonerMoves;
     }
   }
@@ -168,7 +195,9 @@ class SaveTheQueen implements GameMode {
         '👸 SAVE QUEEN: Opponent prison: ${opponentPrison.algebraic} (row ${opponentPrison.row}, col ${opponentPrison.col})',
       );
       printDebug('👸 SAVE QUEEN: Is in own half: $isInOwnHalf');
-      printDebug('👸 SAVE QUEEN: Positions match: ${move.to == opponentPrison}');
+      printDebug(
+        '👸 SAVE QUEEN: Positions match: ${move.to == opponentPrison}',
+      );
 
       if (isInOwnHalf && move.to == opponentPrison) {
         printDebug(
@@ -195,31 +224,55 @@ class SaveTheQueen implements GameMode {
         final newBoard = board.makeMove(move);
         return newBoard.copyWith(gameStatus: GameStatus.checkmate);
       } else {
-        // CAPTURED PRISONER QUEEN = Return to prison
-        printDebug('👸 SAVE QUEEN: 🔒 Prisoner queen captured, returning to prison');
+        // CAPTURED PRISONER QUEEN = Return to prison (if prison is empty)
+        printDebug(
+          '👸 SAVE QUEEN: 🔒 Prisoner queen captured, checking if can return to prison',
+        );
 
-        // Execute the capture
-        var newBoard = board.makeMove(move);
-
-        // Return captured queen to prison
+        // Check prison position
         final prisonPosition = capturedQueen.color == PieceColor.white
             ? whiteQueenPrison
             : blackQueenPrison;
 
-        // Remove queen from current position and add to prison
-        final newPieces = newBoard.pieces.toList();
-        final prisonedQueen = capturedQueen.copyWith(
-          position: prisonPosition,
-          hasMoved: false, // Reset movement state
+        // Check if prison square is occupied
+        final prisonOccupied = board.pieces.any(
+          (p) => p.position == prisonPosition,
         );
-        newPieces.add(prisonedQueen);
 
-        newBoard = newBoard.copyWith(pieces: newPieces);
+        if (prisonOccupied) {
+          // Prison is occupied - queen is captured permanently
+          printDebug(
+            '👸 SAVE QUEEN: ❌ Prison square ${prisonPosition.algebraic} is occupied - queen captured permanently!',
+          );
 
-        printDebug(
-          '👸 SAVE QUEEN: Queen returned to prison at ${prisonPosition.algebraic}',
-        );
-        return newBoard;
+          // Just execute the capture normally (queen disappears)
+          final newBoard = board.makeMove(move);
+          return newBoard;
+        } else {
+          // Prison is empty - return queen to prison
+          printDebug(
+            '👸 SAVE QUEEN: ✅ Prison square is empty - returning queen to prison',
+          );
+
+          // Execute the capture
+          var newBoard = board.makeMove(move);
+
+          // Return captured queen to prison
+          final prisonedQueen = capturedQueen.copyWith(
+            position: prisonPosition,
+            hasMoved: false, // Reset movement state
+          );
+
+          final newPieces = newBoard.pieces.toList();
+          newPieces.add(prisonedQueen);
+
+          newBoard = newBoard.copyWith(pieces: newPieces);
+
+          printDebug(
+            '👸 SAVE QUEEN: Queen returned to prison at ${prisonPosition.algebraic}',
+          );
+          return newBoard;
+        }
       }
     }
 
