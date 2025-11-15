@@ -7,6 +7,7 @@ import '../modes/kings_battle.dart';
 import '../modes/save_the_queen.dart';
 import '../modes/save_the_king.dart';
 import '../modes/other_side.dart';
+import '../modes/truce.dart';
 
 class Orchestrator {
   /// Validates if a move is legal in the current board state
@@ -19,6 +20,15 @@ class Orchestrator {
       '🎯 ORCHESTRATOR: Move capturedPiece: ${move.capturedPiece != null ? move.capturedPiece!.type.name : "null"}',
     );
     printDebug('🎯 ORCHESTRATOR: Game type: ${board.gameType.name}');
+
+    // Truce mode: Check if move violates truce rules
+    if (board.gameType == ModesEnum.truce) {
+      final truceMode = Truce();
+      if (!truceMode.validateTruceMove(board, move)) {
+        printDebug('🤝 ORCHESTRATOR: Move rejected by Truce mode rules');
+        return false;
+      }
+    }
 
     final validMoves = board.getValidMovesFor(move.from);
     printDebug(
@@ -178,14 +188,21 @@ class Orchestrator {
       );
     }
 
-    // Check for Queen capture in Supreme Queen mode before making the move
-    if (board.gameType == ModesEnum.supremeQueen &&
-        move.capturedPiece != null) {
-      if (move.capturedPiece!.type == PieceType.queen) {
-        // Make the move first, then set game as won
-        var newBoard = board.makeMove(move);
-        return newBoard.copyWith(gameStatus: GameStatus.checkmate);
+    // Check for Truce mode special move handling
+    if (board.gameType == ModesEnum.truce) {
+      printDebug(
+        '🤝 ORCHESTRATOR: Truce mode detected, checking for special move',
+      );
+      final truceMode = Truce();
+      final truceBoard = truceMode.handleSpecialMove(board, move);
+      printDebug(
+        '🤝 ORCHESTRATOR: handleSpecialMove returned: ${truceBoard != null ? "NEW BOARD" : "NULL"}',
+      );
+      if (truceBoard != null) {
+        printDebug('🤝 ORCHESTRATOR: Updating game status with Truce board');
+        return updateGameStatus(truceBoard);
       }
+      printDebug('🤝 ORCHESTRATOR: Falling through to standard move execution');
     }
 
     var newBoard = board.makeMove(move);
@@ -244,9 +261,9 @@ class Orchestrator {
       return _updateHeirGameStatus(board);
     }
 
-    // Special handling for Supreme Queen mode
-    if (board.gameType == ModesEnum.supremeQueen) {
-      return _updateSupremeQueenGameStatus(board);
+    // Special handling for Truce mode
+    if (board.gameType == ModesEnum.truce) {
+      return _updateTruceGameStatus(board);
     }
 
     // Special handling for Snare mode
@@ -366,28 +383,61 @@ class Orchestrator {
     return updatedBoard.copyWith(gameStatus: newStatus);
   }
 
-  /// Updates game status specifically for Supreme Queen mode
-  ChessBoard _updateSupremeQueenGameStatus(ChessBoard board) {
-    final currentPlayerInCheck = board.isKingInCheck(board.currentPlayer);
+  /// Updates game status specifically for Truce mode
+  ChessBoard _updateTruceGameStatus(ChessBoard board) {
+    final truceMode = Truce();
+
+    printDebug(
+      '🤝 TRUCE STATUS: Checking status for ${board.currentPlayer} player',
+    );
+
+    final isTruceActive = truceMode.isTruceActive(board);
+    printDebug('🤝 TRUCE STATUS: Truce active: $isTruceActive');
+
     final hasValidMoves = _hasValidMoves(board);
+    printDebug(
+      '🤝 TRUCE STATUS: ${board.currentPlayer} has valid moves: $hasValidMoves',
+    );
 
     GameStatus newStatus;
 
-    // Supreme Queen mode follows regular chess rules for check/mate/stalemate
-    // Queen capture ending is handled in executeMove() before this method is called
-    if (currentPlayerInCheck) {
-      if (hasValidMoves) {
-        newStatus = GameStatus.check;
-      } else {
-        newStatus = GameStatus.checkmate;
-      }
-    } else {
+    if (isTruceActive) {
+      // During truce: No check or checkmate, only stalemate if no moves
+      printDebug('🤝 TRUCE STATUS: Truce active - no check/checkmate allowed');
       if (hasValidMoves) {
         newStatus = GameStatus.ongoing;
       } else {
+        // No valid moves during truce - stalemate
         newStatus = GameStatus.stalemate;
       }
+    } else {
+      // After truce breaks: Apply regular chess rules
+      printDebug('🤝 TRUCE STATUS: Truce broken - using regular chess rules');
+      final currentPlayerInCheck = truceMode.isKingInCheckTruce(
+        board.currentPlayer,
+        board,
+      );
+      printDebug(
+        '🤝 TRUCE STATUS: ${board.currentPlayer} king in check: $currentPlayerInCheck',
+      );
+
+      if (currentPlayerInCheck) {
+        if (hasValidMoves) {
+          newStatus = GameStatus.check;
+        } else {
+          newStatus = GameStatus.checkmate;
+          printDebug('🤝 TRUCE STATUS: ✅ CHECKMATE detected!');
+        }
+      } else {
+        if (hasValidMoves) {
+          newStatus = GameStatus.ongoing;
+        } else {
+          newStatus = GameStatus.stalemate;
+        }
+      }
     }
+
+    printDebug('🤝 TRUCE STATUS: New status: $newStatus');
 
     // Check for draw conditions
     if (_isDrawByInsufficientMaterial(board) ||

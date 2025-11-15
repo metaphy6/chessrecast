@@ -12,9 +12,9 @@ enum ModesEnum {
     'Heir',
     'Kings can be captured when mated. Pawns can promote to King once. Game ends when second King is mated, King is mated with no pawns left, or all pawns are captured.',
   ),
-  supremeQueen(
-    'Supreme Queen',
-    'Pawns cannot promote to Queen. Capturing the opponent\'s Queen wins the game immediately.',
+  truce(
+    'Truce',
+    'Players cannot attack until one player moves all pieces. No piece can move more than 3 times during truce. No check or checkmate during truce. Once broken, normal chess rules apply.',
   ),
   snare(
     'Snare',
