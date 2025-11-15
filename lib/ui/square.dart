@@ -17,6 +17,14 @@ class _BorderDecorations {
   );
 }
 
+// Cached color overlays to eliminate allocations
+class _ColorOverlays {
+  static final selected = Colors.yellow.withValues(alpha: 0.5);
+  static final validMove = Colors.green.withValues(alpha: 0.3);
+  static final entangleZone = Colors.purple.withValues(alpha: 0.2);
+  static const transparent = Colors.transparent;
+}
+
 class ChessSquare extends StatelessWidget {
   final Position position;
 
@@ -40,28 +48,27 @@ class ChessSquare extends StatelessWidget {
         final hasEntangledPiece =
             chessPiece != null && controller.isPieceEntangled(position);
 
-        return Material(
-          color: _getSquareColor(
-            isLight,
-            isSelected,
-            isValidMove,
-            isEntangleZone,
-          ),
-          child: InkWell(
-            splashColor: Colors.blue.withValues(alpha: 0.3),
-            highlightColor: Colors.blue.withValues(alpha: 0.1),
-            onTap: () {
-              try {
-                controller.onSquareSelected(position);
-              } catch (e) {
-                // Log error during development, silent in production
-                if (AppConstants.enableDebugLogs) {
-                  printDebug(
-                    '❌ Error selecting square ${position.algebraic}: $e',
-                  );
-                }
+        return GestureDetector(
+          onTap: () {
+            try {
+              controller.onSquareSelected(position);
+            } catch (e) {
+              // Log error during development, silent in production
+              if (AppConstants.enableDebugLogs) {
+                printDebug(
+                  '❌ Error selecting square ${position.algebraic}: $e',
+                );
               }
-            },
+            }
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            color: _getSquareColor(
+              isLight,
+              isSelected,
+              isValidMove,
+              isEntangleZone,
+            ),
             child: Container(
               decoration: isSelected
                   ? _BorderDecorations.selected
@@ -122,20 +129,20 @@ class ChessSquare extends StatelessWidget {
     // Since we're using a background image, make squares transparent
     // Only add color overlays for selected/valid moves
     if (isSelected) {
-      return Colors.yellow.withValues(alpha: 0.5);
+      return _ColorOverlays.selected;
     }
 
     if (isValidMove) {
-      return Colors.green.withValues(alpha: 0.3);
+      return _ColorOverlays.validMove;
     }
 
     // SNARE MODE: Entangle zone gets a purple tint
     if (isEntangleZone) {
-      return Colors.purple.withValues(alpha: 0.2);
+      return _ColorOverlays.entangleZone;
     }
 
     // Transparent for normal squares to show board image
-    return Colors.transparent;
+    return _ColorOverlays.transparent;
   }
 
   // Const value to avoid method call overhead
