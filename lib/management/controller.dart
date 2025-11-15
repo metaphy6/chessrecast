@@ -6,6 +6,7 @@ import '../modes/modes_enum.dart';
 import '../bot/bot_manager.dart';
 import '../analytics/game_analytics.dart';
 import '../ui/board_theme.dart';
+import '../constants.dart';
 import 'orchestrator.dart';
 
 class Controller extends GetxController {
@@ -374,11 +375,15 @@ class Controller extends GetxController {
         makeMove(finalMove);
       } else {
         printDebug('🎯 CONTROLLER: ❌ Move is INVALID');
-        _showMessage('Invalid move!');
+        // No snackbar for invalid move - causes jank
+        // Visual feedback: piece just doesn't move (deselected below)
       }
     } catch (e) {
       printDebug('🎯 CONTROLLER: ❌ Exception: ${e.toString()}');
-      _showMessage('Error: ${e.toString()}');
+      // Only show snackbar for unexpected errors, not invalid moves
+      if (AppConstants.enableDebugLogs) {
+        _showMessage('Error: ${e.toString()}');
+      }
     }
 
     _deselectPiece();
@@ -396,7 +401,8 @@ class Controller extends GetxController {
 
     // Handle case where no promotion pieces are available (King would be in check)
     if (availablePieces.isEmpty) {
-      _showMessage('Cannot promote - King would be in check!');
+      // No snackbar - causes jank. Just deselect the piece silently.
+      _deselectPiece();
       return;
     }
 
@@ -474,7 +480,8 @@ class Controller extends GetxController {
     if (_gameOrchestrator.isValidMove(board, promotionMove)) {
       makeMove(promotionMove);
     } else {
-      _showMessage('Invalid promotion move!');
+      // No snackbar - causes jank. Invalid promotion just doesn't execute.
+      printDebug('🎯 CONTROLLER: ❌ Invalid promotion move');
     }
   }
 
@@ -676,7 +683,7 @@ class Controller extends GetxController {
       Get.snackbar(
         '🏆 Game Over!',
         '$winnerColor Wins!',
-        duration: const Duration(seconds: 5),
+        duration: const Duration(seconds: 3),
         snackPosition: SnackPosition.TOP,
         backgroundColor: winnerColor.toLowerCase() == 'white'
             ? Colors.blue.shade100
@@ -685,7 +692,7 @@ class Controller extends GetxController {
             ? Colors.blue.shade900
             : Colors.white,
         icon: const Icon(Icons.emoji_events, color: Colors.amber),
-        shouldIconPulse: true,
+        shouldIconPulse: false,
         margin: const EdgeInsets.all(16),
         borderRadius: 12,
       );
@@ -699,12 +706,12 @@ class Controller extends GetxController {
       Get.snackbar(
         '🤝 Game Over!',
         '$drawType - It\'s a tie!',
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 3),
         snackPosition: SnackPosition.TOP,
         backgroundColor: Colors.orange.shade100,
         colorText: Colors.orange.shade900,
         icon: const Icon(Icons.handshake, color: Colors.orange),
-        shouldIconPulse: true,
+        shouldIconPulse: false,
         margin: const EdgeInsets.all(16),
         borderRadius: 12,
       );

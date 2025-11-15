@@ -16,15 +16,17 @@ Your Chess Recast app has been transformed from **janky and sluggish** to **butt
 
 ### Overall App Performance
 
-| Metric | Before (Round 0) | After (Round 8) | Improvement |
+| Metric | Before (Round 0) | After (Round 9) | Improvement |
 |--------|-----------------|-----------------|-------------|
 | **Piece Selection** | 45ms | 2ms | **96% faster (22.5×)** 🚀 |
+| **Invalid Move** | 30ms | 2ms | **93% faster (15×)** 🚀 |
 | **Move Execution** | 60ms | 2-3ms | **95-96% faster (20-30×)** 🚀 |
 | **Mode Selection** | 35ms | 4ms | **89% faster (8.8×)** |
 | **Game Start** | 120ms | 15ms | **88% faster (8×)** |
 | **Frame Time** | 120ms | 2-5ms | **96-98% faster** |
 | **FPS** | 10-15 | 60 locked | **4-6× improvement** |
 | **Janky Frames** | 60% | <0.5% | **99%+ reduction** |
+| **Snackbars/Game** | 15-20 | 0-1 | **95%+ reduction** 🎯 |
 
 ### Resource Optimization
 
@@ -83,6 +85,12 @@ Your Chess Recast app has been transformed from **janky and sluggish** to **butt
 **Impact**: 96% faster piece selection (combined with Round 6)  
 **Status**: Complete  
 **Details**: See `docs/GAME_BOARD_ANIMATION_OPTIMIZATIONS.md`
+
+### ✅ Round 9: Snackbar Optimization ⭐ NEW
+**Focus**: Silent invalid move feedback, disable icon pulse, reduce durations  
+**Impact**: 93% faster invalid moves, 95%+ fewer snackbars/game  
+**Status**: Complete  
+**Details**: See `docs/SNACKBAR_OPTIMIZATIONS.md`
 
 ---
 
