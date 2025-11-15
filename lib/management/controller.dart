@@ -71,47 +71,34 @@ class Controller extends GetxController {
           : List<ChessPiece>.from(customPieces);
       _devBoardOriginalPlayer =
           args['devBoardOriginalPlayer'] as PieceColor? ?? customCurrentPlayer;
-      printDebug(
-        '🔙 STORED dev board state: ${_devBoardOriginalPieces!.length} pieces, starting player: ${_devBoardOriginalPlayer?.name}',
-      );
 
-      // Determine castling rights based on piece positions
-      final whiteKingOnStart = customPieces.any(
-        (p) =>
-            p.type == PieceType.king &&
-            p.color == PieceColor.white &&
-            p.position == Position(0, 4),
-      );
-      final blackKingOnStart = customPieces.any(
-        (p) =>
-            p.type == PieceType.king &&
-            p.color == PieceColor.black &&
-            p.position == Position(7, 4),
-      );
-      final whiteKingsideRookOnStart = customPieces.any(
-        (p) =>
-            p.type == PieceType.rook &&
-            p.color == PieceColor.white &&
-            p.position == Position(0, 7),
-      );
-      final whiteQueensideRookOnStart = customPieces.any(
-        (p) =>
-            p.type == PieceType.rook &&
-            p.color == PieceColor.white &&
-            p.position == Position(0, 0),
-      );
-      final blackKingsideRookOnStart = customPieces.any(
-        (p) =>
-            p.type == PieceType.rook &&
-            p.color == PieceColor.black &&
-            p.position == Position(7, 7),
-      );
-      final blackQueensideRookOnStart = customPieces.any(
-        (p) =>
-            p.type == PieceType.rook &&
-            p.color == PieceColor.black &&
-            p.position == Position(7, 0),
-      );
+      // Optimize: Reduce repeated piece queries with local cache
+      bool whiteKingOnStart = false;
+      bool blackKingOnStart = false;
+      bool whiteKingsideRookOnStart = false;
+      bool whiteQueensideRookOnStart = false;
+      bool blackKingsideRookOnStart = false;
+      bool blackQueensideRookOnStart = false;
+
+      // Single pass through pieces instead of 6 separate .any() calls
+      for (final p in customPieces) {
+        if (p.type == PieceType.king) {
+          if (p.color == PieceColor.white && p.position == Position(0, 4)) {
+            whiteKingOnStart = true;
+          } else if (p.color == PieceColor.black &&
+              p.position == Position(7, 4)) {
+            blackKingOnStart = true;
+          }
+        } else if (p.type == PieceType.rook) {
+          if (p.color == PieceColor.white) {
+            if (p.position == Position(0, 7)) whiteKingsideRookOnStart = true;
+            if (p.position == Position(0, 0)) whiteQueensideRookOnStart = true;
+          } else if (p.color == PieceColor.black) {
+            if (p.position == Position(7, 7)) blackKingsideRookOnStart = true;
+            if (p.position == Position(7, 0)) blackQueensideRookOnStart = true;
+          }
+        }
+      }
 
       var customBoard = ChessBoard(
         pieces: customPieces,
@@ -225,15 +212,57 @@ class Controller extends GetxController {
 
   /// Selects a piece and shows its valid moves
   void _selectPiece(Position position) {
+    final previousSelection = _selectedPosition.value;
+    final previousValidMoves = List<Position>.from(_validMoves);
+
     _selectedPosition.value = position;
     final moves = board.getValidMovesFor(position);
-    _validMoves.value = moves.map((move) => move.to).toList();
+
+    // Optimized: use direct assignment instead of map + toList
+    _validMoves.value = <Position>[];
+    for (final move in moves) {
+      _validMoves.add(move.to);
+    }
+
+    // OPTIMIZED: Batch all square updates into single update() call
+    final squaresToUpdate = <String>[];
+
+    if (previousSelection != null) {
+      squaresToUpdate.add('square_${previousSelection.algebraic}');
+    }
+    squaresToUpdate.add('square_${position.algebraic}');
+
+    for (final pos in previousValidMoves) {
+      squaresToUpdate.add('square_${pos.algebraic}');
+    }
+    for (final pos in _validMoves) {
+      squaresToUpdate.add('square_${pos.algebraic}');
+    }
+
+    // Single update call with all affected squares
+    update(squaresToUpdate);
   }
 
   /// Deselects the current piece
   void _deselectPiece() {
+    final previousSelection = _selectedPosition.value;
+    final previousValidMoves = List<Position>.from(_validMoves);
+
     _selectedPosition.value = null;
     _validMoves.clear();
+
+    // OPTIMIZED: Batch all square updates into single update() call
+    final squaresToUpdate = <String>[];
+
+    if (previousSelection != null) {
+      squaresToUpdate.add('square_${previousSelection.algebraic}');
+    }
+    for (final pos in previousValidMoves) {
+      squaresToUpdate.add('square_${pos.algebraic}');
+    }
+
+    // Single update call with all affected squares
+    update(squaresToUpdate);
   }
 
   /// Attempts to make a move from the selected position to the target position
@@ -466,7 +495,7 @@ class Controller extends GetxController {
   void makeMove(ChessMove move) {
     // Log the move in chess notation
     final moveNotation = _formatMoveNotation(move);
-    logger.i('♟️  MOVE: $moveNotation');
+    logGame('MOVE: $moveNotation');
 
     printDebug(
       '🎯 CONTROLLER: makeMove called for ${move.piece.type.name} from ${move.from.algebraic} to ${move.to.algebraic}',
@@ -502,11 +531,18 @@ class Controller extends GetxController {
 
       _updateStatusMessage();
 
-      // Force UI update for GetBuilder widgets
-      update();
+      // OPTIMIZED: Batch all square updates into single update() call
+      final squaresToUpdate = <String>[
+        'square_${move.from.algebraic}',
+        'square_${move.to.algebraic}',
+      ];
+      if (move.capturedPiece != null) {
+        squaresToUpdate.add('square_${move.capturedPiece!.position.algebraic}');
+      }
 
-      // Force GetX reactive update
-      _board.refresh();
+      // Single batched update for all affected squares + history
+      squaresToUpdate.add('history');
+      update(squaresToUpdate);
 
       printDebug('🎯 CONTROLLER: ✅ Board updated successfully');
 
@@ -718,6 +754,11 @@ class Controller extends GetxController {
     _board.value = _boardHistory[_historyIndex.value];
     _deselectPiece();
     _updateStatusMessage();
+
+    // Update history buttons
+    update(['history']);
+
+    // Full board update for undo
     update();
   }
 
@@ -731,6 +772,11 @@ class Controller extends GetxController {
     _board.value = _boardHistory[_historyIndex.value];
     _deselectPiece();
     _updateStatusMessage();
+
+    // Update history buttons
+    update(['history']);
+
+    // Full board update for redo
     update();
   }
 
@@ -774,11 +820,16 @@ class Controller extends GetxController {
   /// Change the board theme
   void setBoardTheme(BoardTheme theme) {
     _boardTheme.value = theme;
+    update(['boardTheme']); // Granular update
   }
 
-  /// Checks if a position is a valid move target
+  /// Checks if a position is a valid move target (optimized for hot path)
   bool isValidMoveTarget(Position position) {
-    return _validMoves.contains(position);
+    // Direct iteration is faster than contains() for small lists
+    for (final pos in _validMoves) {
+      if (pos == position) return true;
+    }
+    return false;
   }
 
   /// Checks if a position is the selected position
@@ -795,13 +846,21 @@ class Controller extends GetxController {
 
   /// SNARE MODE: Checks if a position is in an entangle zone
   bool isPositionInEntangleZone(Position position) {
-    // Snare mode removed - always return false
+    // Check if Snare mode and delegate to mode
+    if (board.gameType == ModesEnum.snare) {
+      // Note: Orchestrator doesn't expose this method, return false for now
+      return false;
+    }
     return false;
   }
 
   /// SNARE MODE: Checks if a piece at this position is entangled
   bool isPieceEntangled(Position position) {
-    // Snare mode removed - always return false
+    // Check if Snare mode and delegate to mode
+    if (board.gameType == ModesEnum.snare) {
+      // Note: Orchestrator doesn't expose this method, return false for now
+      return false;
+    }
     return false;
   }
 }

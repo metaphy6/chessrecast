@@ -79,8 +79,8 @@ class GameAnalytics {
     final isBot = player == PieceColor.white ? isWhiteBot : isBlackBot;
     final botIndicator = isBot ? ' 🤖' : '';
 
-    logger.i(
-      '📝 Move #$moveCount: ${player.name.toUpperCase()}$botIndicator ($playerName) - $moveNotation',
+    logGame(
+      'Move #$moveCount: ${player.name.toUpperCase()}$botIndicator ($playerName) - $moveNotation',
     );
 
     // Track move time
@@ -158,39 +158,41 @@ class GameAnalytics {
     final stats = getStatistics();
     final duration = Duration(seconds: stats['duration'] as int);
 
-    logger.i('📊 ═══════════════════════════════════════');
-    logger.i('📊 GAME SUMMARY');
-    logger.i('📊 ═══════════════════════════════════════');
-    logger.i('📊 Mode: ${stats['mode']}');
-    logger.i('📊 White: ${stats['whitePlayer']}${isWhiteBot ? ' 🤖' : ''}');
-    logger.i('📊 Black: ${stats['blackPlayer']}${isBlackBot ? ' 🤖' : ''}');
-    logger.i('📊 ───────────────────────────────────────');
-    logger.i('📊 Result: ${stats['status']?.toString().toUpperCase()}');
+    printDebug('📊 ═══════════════════════════════════════');
+    printDebug('📊 GAME SUMMARY');
+    printDebug('📊 ═══════════════════════════════════════');
+    printDebug('📊 Mode: ${stats['mode']}');
+    printDebug('📊 White: ${stats['whitePlayer']}${isWhiteBot ? ' 🤖' : ''}');
+    printDebug('📊 Black: ${stats['blackPlayer']}${isBlackBot ? ' 🤖' : ''}');
+    printDebug('📊 ───────────────────────────────────────');
+    printDebug('📊 Result: ${stats['status']?.toString().toUpperCase()}');
     if (winner != null) {
-      logger.i('📊 Winner: ${winner!.name.toUpperCase()}');
+      printDebug('📊 Winner: ${winner!.name.toUpperCase()}');
     }
     if (endReason != null) {
-      logger.i('📊 Reason: $endReason');
+      printDebug('📊 Reason: $endReason');
     }
-    logger.i('📊 ───────────────────────────────────────');
-    logger.i('📊 Duration: ${duration.inMinutes}m ${duration.inSeconds % 60}s');
-    logger.i('📊 Total Moves: $moveCount');
-    logger.i('📊 Captures: $captureCount');
-    logger.i('📊 Promotions: $promotionCount');
-    logger.i('📊 Avg Move Time: ${stats['avgMoveTimeMs']}ms');
-    logger.i('📊 ───────────────────────────────────────');
+    printDebug('📊 ───────────────────────────────────────');
+    printDebug(
+      '📊 Duration: ${duration.inMinutes}m ${duration.inSeconds % 60}s',
+    );
+    printDebug('📊 Total Moves: $moveCount');
+    printDebug('📊 Captures: $captureCount');
+    printDebug('📊 Promotions: $promotionCount');
+    printDebug('📊 Avg Move Time: ${stats['avgMoveTimeMs']}ms');
+    printDebug('📊 ───────────────────────────────────────');
 
     // Print complete move history
     if (moveList.isNotEmpty) {
-      logger.i('📊 COMPLETE MOVE HISTORY:');
+      printDebug('📊 COMPLETE MOVE HISTORY:');
       for (int i = 0; i < moveList.length; i++) {
         final moveNum = i + 1;
         final color = i % 2 == 0 ? 'WHITE' : 'BLACK';
-        logger.i('📊   #$moveNum $color: ${moveList[i]}');
+        printDebug('📊   #$moveNum $color: ${moveList[i]}');
       }
-      logger.i('📊 ───────────────────────────────────────');
+      printDebug('📊 ───────────────────────────────────────');
     }
 
-    logger.i('📊 ═══════════════════════════════════════');
+    printDebug('📊 ═══════════════════════════════════════');
   }
 }

@@ -12,7 +12,6 @@ class ChessGamePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<Controller>();
-    final botManager = Get.find<BotManager>();
 
     return Scaffold(
       appBar: AppBar(
@@ -69,8 +68,10 @@ class ChessGamePage extends StatelessWidget {
               : 'Back to Game Selection',
         ),
         actions: [
-          Obx(
-            () => IconButton(
+          // Undo/Redo with GetBuilder instead of Obx for better performance
+          GetBuilder<Controller>(
+            id: 'history',
+            builder: (controller) => IconButton(
               icon: const Icon(Icons.undo, color: Colors.white),
               onPressed: controller.canUndo
                   ? () => controller.undoLastMove()
@@ -78,8 +79,9 @@ class ChessGamePage extends StatelessWidget {
               tooltip: 'Undo Move',
             ),
           ),
-          Obx(
-            () => IconButton(
+          GetBuilder<Controller>(
+            id: 'history',
+            builder: (controller) => IconButton(
               icon: const Icon(Icons.redo, color: Colors.white),
               onPressed: controller.canRedo
                   ? () => controller.redoMove()
@@ -88,58 +90,67 @@ class ChessGamePage extends StatelessWidget {
             ),
           ),
           // Bot Controls (only show if bot game)
-          Obx(() {
-            if (!botManager.isBotGame.value) return const SizedBox.shrink();
+          GetBuilder<BotManager>(
+            id: 'botControls',
+            builder: (botManager) {
+              if (!botManager.isBotGame.value) return const SizedBox.shrink();
 
-            return Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Pause/Resume button
-                if (botManager.isAutoPlaying.value)
-                  IconButton(
-                    icon: Icon(
-                      botManager.isPaused.value
-                          ? Icons.play_arrow
-                          : Icons.pause,
-                      color: Colors.white,
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Pause/Resume button
+                  if (botManager.isAutoPlaying.value)
+                    IconButton(
+                      icon: Icon(
+                        botManager.isPaused.value
+                            ? Icons.play_arrow
+                            : Icons.pause,
+                        color: Colors.white,
+                      ),
+                      onPressed: () {
+                        if (botManager.isPaused.value) {
+                          botManager.resumeAutoPlay();
+                        } else {
+                          botManager.pauseAutoPlay();
+                        }
+                      },
+                      tooltip: botManager.isPaused.value ? 'Resume' : 'Pause',
                     ),
-                    onPressed: () {
-                      if (botManager.isPaused.value) {
-                        botManager.resumeAutoPlay();
-                      } else {
-                        botManager.pauseAutoPlay();
-                      }
+                  // Speed control
+                  PopupMenuButton<int>(
+                    icon: const Icon(Icons.speed, color: Colors.white),
+                    tooltip: 'Bot Speed',
+                    onSelected: (speed) {
+                      botManager.moveDelay.value = speed;
                     },
-                    tooltip: botManager.isPaused.value ? 'Resume' : 'Pause',
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 100,
+                        child: Text('Very Fast (0.1s)'),
+                      ),
+                      const PopupMenuItem(
+                        value: 500,
+                        child: Text('Fast (0.5s)'),
+                      ),
+                      const PopupMenuItem(
+                        value: 1000,
+                        child: Text('Normal (1s)'),
+                      ),
+                      const PopupMenuItem(
+                        value: 2000,
+                        child: Text('Slow (2s)'),
+                      ),
+                      const PopupMenuItem(
+                        value: 3000,
+                        child: Text('Very Slow (3s)'),
+                      ),
+                    ],
                   ),
-                // Speed control
-                PopupMenuButton<int>(
-                  icon: const Icon(Icons.speed, color: Colors.white),
-                  tooltip: 'Bot Speed',
-                  onSelected: (speed) {
-                    botManager.moveDelay.value = speed;
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 100,
-                      child: Text('Very Fast (0.1s)'),
-                    ),
-                    const PopupMenuItem(value: 500, child: Text('Fast (0.5s)')),
-                    const PopupMenuItem(
-                      value: 1000,
-                      child: Text('Normal (1s)'),
-                    ),
-                    const PopupMenuItem(value: 2000, child: Text('Slow (2s)')),
-                    const PopupMenuItem(
-                      value: 3000,
-                      child: Text('Very Slow (3s)'),
-                    ),
-                  ],
-                ),
-              ],
-            );
-          }),
-          // Board theme selector
+                ],
+              );
+            },
+          ),
+          // Board theme selector with GetBuilder
           PopupMenuButton<BoardTheme>(
             icon: const Icon(Icons.palette, color: Colors.white),
             tooltip: 'Board Theme',
@@ -150,19 +161,20 @@ class ChessGamePage extends StatelessWidget {
                 .map(
                   (theme) => PopupMenuItem(
                     value: theme,
-                    child: Row(
-                      children: [
-                        Obx(
-                          () => Icon(
+                    child: GetBuilder<Controller>(
+                      id: 'boardTheme',
+                      builder: (controller) => Row(
+                        children: [
+                          Icon(
                             controller.boardTheme == theme
                                 ? Icons.check_circle
                                 : Icons.circle_outlined,
                             size: 20,
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(theme.displayName),
-                      ],
+                          const SizedBox(width: 8),
+                          Text(theme.displayName),
+                        ],
+                      ),
                     ),
                   ),
                 )

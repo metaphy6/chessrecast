@@ -29,75 +29,23 @@ class StartPage extends StatelessWidget {
               ),
               const SizedBox(height: 32),
               Expanded(
-                child: ListView.builder(
-                  itemCount: ModesEnum.values.length,
-                  itemBuilder: (context, index) {
-                    final gameType = ModesEnum.values[index];
+                child: GetBuilder<OptionsController>(
+                  id: 'mode_selection',
+                  builder: (_) {
+                    return ListView.builder(
+                      itemCount: ModesEnum.values.length,
+                      itemBuilder: (context, index) {
+                        final gameType = ModesEnum.values[index];
+                        final isSelected =
+                            controller.selectedGameType.value == gameType;
 
-                    return Obx(() {
-                      final isSelected =
-                          controller.selectedGameType.value == gameType;
-
-                      return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        elevation: isSelected ? 8 : 2,
-                        color: isSelected
-                            ? Theme.of(context).colorScheme.primaryContainer
-                            : null,
-                        child: InkWell(
+                        return _ModeCard(
+                          gameType: gameType,
+                          isSelected: isSelected,
                           onTap: () => controller.selectGameType(gameType),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      isSelected
-                                          ? Icons.radio_button_checked
-                                          : Icons.radio_button_unchecked,
-                                      color: isSelected
-                                          ? Theme.of(
-                                              context,
-                                            ).colorScheme.primary
-                                          : Colors.grey,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        gameType.displayName,
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                          color: isSelected
-                                              ? Theme.of(
-                                                  context,
-                                                ).colorScheme.primary
-                                              : null,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 36),
-                                  child: Text(
-                                    gameType.description,
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    });
+                        );
+                      },
+                    );
                   },
                 ),
               ),
@@ -163,6 +111,72 @@ class StartPage extends StatelessWidget {
                   ),
                 ),
               ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModeCard extends StatelessWidget {
+  final ModesEnum gameType;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ModeCard({
+    required this.gameType,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      elevation: isSelected ? 8 : 2,
+      color: isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    isSelected
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                    color: isSelected
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.grey,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      gameType.displayName,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.only(left: 36),
+                child: Text(
+                  gameType.description,
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                ),
+              ),
             ],
           ),
         ),

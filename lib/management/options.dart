@@ -7,6 +7,7 @@ class OptionsController extends GetxController {
 
   void selectGameType(ModesEnum gameType) {
     selectedGameType.value = gameType;
+    update(['mode_selection']);
   }
 
   void startGame() {

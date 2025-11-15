@@ -80,10 +80,6 @@ class Snare extends GameMode {
     final row2 = knight2.position.row;
     final col2 = knight2.position.col;
 
-    printDebug(
-      '🔍 ZONE CALC: ${knight1.position.algebraic} (row=$row1, col=$col1) + ${knight2.position.algebraic} (row=$row2, col=$col2)',
-    );
-
     // Determine if knights form a vertical or horizontal corridor
     final rowDiff = (row1 - row2).abs();
     final colDiff = (col1 - col2).abs();
@@ -96,9 +92,6 @@ class Snare extends GameMode {
 
       zone.add(Position(row1, middleCol));
       zone.add(Position(row2, middleCol));
-      printDebug(
-        '🔍 ZONE CALC: Vertical corridor - added ${Position(row1, middleCol).algebraic}, ${Position(row2, middleCol).algebraic}',
-      );
     } else if (rowDiff == 2 && colDiff == 1) {
       // Horizontal corridor (2 row difference)
       final minRow = row1 < row2 ? row1 : row2;
@@ -106,18 +99,7 @@ class Snare extends GameMode {
 
       zone.add(Position(middleRow, col1));
       zone.add(Position(middleRow, col2));
-      printDebug(
-        '🔍 ZONE CALC: Horizontal corridor - added ${Position(middleRow, col1).algebraic}, ${Position(middleRow, col2).algebraic}',
-      );
-    } else {
-      printDebug(
-        '🔍 ZONE CALC: Invalid knight position for entangle - rowDiff=$rowDiff, colDiff=$colDiff',
-      );
     }
-
-    printDebug(
-      '🕸️ SNARE: Entangle zone between ${knight1.position.algebraic} and ${knight2.position.algebraic}: ${zone.isEmpty ? "EMPTY!" : zone.map((p) => p.algebraic).join(", ")}',
-    );
 
     return zone;
   }
@@ -139,12 +121,6 @@ class Snare extends GameMode {
       return zone.any((pos) => pos == piece.position);
     }).toList();
 
-    if (entangledPieces.isNotEmpty) {
-      printDebug(
-        '🕸️ SNARE: ${entangledPieces.length} piece(s) entangled by ${color.name} knights: ${entangledPieces.map((p) => '${p.color.name} ${p.type.name} at ${p.position.algebraic}').join(", ")}',
-      );
-    }
-
     return {
       'knights': knights,
       'zone': zone,
@@ -154,39 +130,18 @@ class Snare extends GameMode {
 
   /// SNARE MODE: Checks if a piece is currently entangled
   bool isPieceEntangled(ChessPiece piece, ChessBoard board) {
-    printDebug(
-      '🔍 ENTANGLE CHECK: Checking if ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic} is entangled',
-    );
-
     // Check both colors' knights for entanglement
     for (final color in [PieceColor.white, PieceColor.black]) {
       final info = getEntangleInfo(color, board);
       if (info != null) {
         final entangledPieces = info['entangledPieces'] as List<ChessPiece>;
-        printDebug(
-          '🔍 ENTANGLE CHECK: ${color.name} knights have ${entangledPieces.length} entangled pieces',
-        );
-
         for (final p in entangledPieces) {
-          printDebug(
-            '🔍   - ${p.color.name} ${p.type.name} at ${p.position.algebraic}',
-          );
           if (p.position == piece.position) {
-            printDebug(
-              '✅ MATCH FOUND: Piece at ${piece.position.algebraic} IS ENTANGLED',
-            );
             return true;
           }
         }
-      } else {
-        printDebug(
-          '🔍 ENTANGLE CHECK: ${color.name} knights have no entangle info (null)',
-        );
       }
     }
-    printDebug(
-      '❌ NO MATCH: Piece at ${piece.position.algebraic} is NOT entangled',
-    );
     return false;
   }
 
@@ -291,13 +246,8 @@ class Snare extends GameMode {
             );
 
         if (isDefendingKnight) {
-          printDebug(
-            '🕸️ SNARE: ${newPos.algebraic} blocked - cannot capture defending knight!',
-          );
+          // Cannot capture defending knight
         } else {
-          printDebug(
-            '🕸️ SNARE: Can escape and capture ${targetPiece.type.name} at ${newPos.algebraic}',
-          );
           moves.add(
             ChessMove.simple(
               from: piece.position,
@@ -307,8 +257,6 @@ class Snare extends GameMode {
             ),
           );
         }
-      } else {
-        printDebug('🕸️ SNARE: ${newPos.algebraic} blocked by friendly piece');
       }
     }
 
@@ -322,9 +270,6 @@ class Snare extends GameMode {
               .abs();
 
           if (rowDiff <= 1 && colDiff <= 1 && (rowDiff > 0 || colDiff > 0)) {
-            printDebug(
-              '🕸️ SNARE: Can capture entangled enemy ${entangledTarget.type.name} at ${entangledTarget.position.algebraic}',
-            );
             moves.add(
               ChessMove.simple(
                 from: piece.position,
@@ -338,9 +283,6 @@ class Snare extends GameMode {
       }
     }
 
-    printDebug(
-      '🕸️ SNARE: Total moves for entangled piece (suicide allowed): ${moves.length}',
-    );
     return moves;
   }
 
@@ -447,16 +389,12 @@ class Snare extends GameMode {
             final isAlreadyInZone = zone.any((pos) => pos == move.from);
 
             if (!isAdjacentMove && !isAlreadyInZone) {
-              printDebug(
-                '🕸️ SNARE: Move BLOCKED - cannot enter entangle zone from non-adjacent square',
-              );
               moveIntercepted = true;
               break;
             }
 
             // Allow entry to empty squares
             if (targetPiece == null) {
-              printDebug('🕸️ SNARE: Move ALLOWED - entering empty zone');
               continue;
             }
 
@@ -472,18 +410,13 @@ class Snare extends GameMode {
                 );
 
             if (isTargetEntangled) {
-              printDebug('🕸️ SNARE: Move ALLOWED - capturing entangled piece');
               continue;
             }
 
-            printDebug('🕸️ SNARE: Zone occupied by non-entangled piece');
             continue;
           }
 
           // Check if move passes through the zone
-          printDebug(
-            '🔍 PATH CHECK: Testing move ${move.from.algebraic} → ${move.to.algebraic}',
-          );
           final pathThroughZone = _getPathThroughZone(
             move.from,
             move.to,
@@ -491,9 +424,6 @@ class Snare extends GameMode {
             board,
           );
           if (pathThroughZone != null) {
-            printDebug(
-              '🕸️ SNARE: Move INTERCEPTED - captured at ${pathThroughZone.algebraic}',
-            );
             final interceptedMove = ChessMove.simple(
               from: move.from,
               to: pathThroughZone,
@@ -528,9 +458,6 @@ class Snare extends GameMode {
 
     // Check if current player's King is entangled (instant mate)
     if (isKingEntangled(board.currentPlayer, board)) {
-      printDebug(
-        '🕸️ SNARE: ${board.currentPlayer.name} King is ENTANGLED - CHECKMATE!',
-      );
       return GameStatus.checkmate;
     }
 
@@ -539,13 +466,6 @@ class Snare extends GameMode {
 
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
-    printDebug(
-      '🕸️ SNARE handleSpecialMove: Checking move ${move.from.algebraic} -> ${move.to.algebraic}',
-    );
-    printDebug(
-      '🕸️ SNARE handleSpecialMove: Captured piece: ${move.capturedPiece?.type.name ?? "none"}',
-    );
-
     // Check for revengeful knight capture (BEFORE the move is executed)
     if (move.capturedPiece != null &&
         move.capturedPiece!.type == PieceType.knight) {
@@ -589,12 +509,6 @@ class Snare extends GameMode {
     // Self-checkmate happens when a player moves their own knight in a way that creates
     // an entangle zone catching a king (could be own or opponent's king)
     if (move.piece.type == PieceType.knight) {
-      printDebug(
-        '🕸️ SNARE: This was a KNIGHT move, checking for new entangle zones...',
-      );
-
-      final movingKnightColor = move.piece.color;
-
       // Check both players' kings
       for (final kingColor in [PieceColor.white, PieceColor.black]) {
         // Check if king was entangled BEFORE this move
@@ -606,31 +520,9 @@ class Snare extends GameMode {
         // Self-checkmate only happens if king was NOT entangled before, but IS entangled after
         // This means the knight move created a NEW zone that caught the king
         if (!kingWasEntangledBefore && kingIsEntangledAfter) {
-          printDebug(
-            '🕸️ SNARE: ${movingKnightColor.name} knight at ${move.from.algebraic} → ${move.to.algebraic} created NEW entangle zone',
-          );
-          printDebug(
-            '🕸️ SNARE: ${kingColor.name} King SELF-ENTANGLED (was not entangled before, now is)',
-          );
           return newBoard.copyWith(gameStatus: GameStatus.checkmate);
-        } else if (!kingWasEntangledBefore && !kingIsEntangledAfter) {
-          printDebug(
-            '🕸️ SNARE: ${kingColor.name} King - was not entangled before, still not entangled after',
-          );
-        } else if (kingWasEntangledBefore && kingIsEntangledAfter) {
-          printDebug(
-            '🕸️ SNARE: ${kingColor.name} King - was already entangled before (no checkmate)',
-          );
-        } else if (kingWasEntangledBefore && !kingIsEntangledAfter) {
-          printDebug(
-            '🕸️ SNARE: ${kingColor.name} King - was entangled before, but escaped after move',
-          );
         }
       }
-    } else {
-      printDebug(
-        '🕸️ SNARE: This was NOT a knight move (it was ${move.piece.type.name}), skipping entangle check',
-      );
     }
 
     return null; // Normal move processing

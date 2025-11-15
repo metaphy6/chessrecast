@@ -2,6 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:chess_vectors_flutter/chess_vectors_flutter.dart';
 import '../board/exporter.dart';
 
+/// Cached piece widgets to prevent SVG re-parsing on every render
+class _PieceWidgetCache {
+  // Pre-instantiate all piece widgets for maximum performance
+  static final whitePawn = WhitePawn();
+  static final whiteKnight = WhiteKnight();
+  static final whiteBishop = WhiteBishop();
+  static final whiteRook = WhiteRook();
+  static final whiteQueen = WhiteQueen();
+  static final whiteKing = WhiteKing();
+
+  static final blackPawn = BlackPawn();
+  static final blackKnight = BlackKnight();
+  static final blackBishop = BlackBishop();
+  static final blackRook = BlackRook();
+  static final blackQueen = BlackQueen();
+  static final blackKing = BlackKing();
+}
+
 /// Widget that renders a chess piece using SVG graphics from chess_vectors_flutter
 class PieceRenderer extends StatelessWidget {
   final PieceType type;
@@ -17,42 +35,47 @@ class PieceRenderer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(width: size, height: size, child: _getPieceWidget());
+    // Wrap in RepaintBoundary and use cached SVG widgets
+    return RepaintBoundary(
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: _getCachedPieceWidget(),
+      ),
+    );
   }
 
-  Widget _getPieceWidget() {
-    // chess_vectors_flutter provides beautiful SVG pieces
-    // They automatically handle sizing and rendering
-
+  Widget _getCachedPieceWidget() {
+    // Use pre-instantiated widgets from cache - avoids SVG parsing overhead
     if (color == PieceColor.white) {
       switch (type) {
         case PieceType.pawn:
-          return WhitePawn();
+          return _PieceWidgetCache.whitePawn;
         case PieceType.knight:
-          return WhiteKnight();
+          return _PieceWidgetCache.whiteKnight;
         case PieceType.bishop:
-          return WhiteBishop();
+          return _PieceWidgetCache.whiteBishop;
         case PieceType.rook:
-          return WhiteRook();
+          return _PieceWidgetCache.whiteRook;
         case PieceType.queen:
-          return WhiteQueen();
+          return _PieceWidgetCache.whiteQueen;
         case PieceType.king:
-          return WhiteKing();
+          return _PieceWidgetCache.whiteKing;
       }
     } else {
       switch (type) {
         case PieceType.pawn:
-          return BlackPawn();
+          return _PieceWidgetCache.blackPawn;
         case PieceType.knight:
-          return BlackKnight();
+          return _PieceWidgetCache.blackKnight;
         case PieceType.bishop:
-          return BlackBishop();
+          return _PieceWidgetCache.blackBishop;
         case PieceType.rook:
-          return BlackRook();
+          return _PieceWidgetCache.blackRook;
         case PieceType.queen:
-          return BlackQueen();
+          return _PieceWidgetCache.blackQueen;
         case PieceType.king:
-          return BlackKing();
+          return _PieceWidgetCache.blackKing;
       }
     }
   }
