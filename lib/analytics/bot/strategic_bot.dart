@@ -1,8 +1,8 @@
 import 'dart:math';
-import '../board/entities/board.dart';
-import '../board/entities/move.dart';
-import '../board/types/piece_type.dart';
-import '../debug.dart';
+import '../../board/entities/board.dart';
+import '../../board/entities/move.dart';
+import '../../board/types/piece_type.dart';
+import '../../debug.dart';
 import 'chess_bot.dart';
 import 'evaluation/opening_book.dart';
 import 'evaluation/position_cache.dart';
@@ -185,3 +185,4 @@ class StrategicBot extends ChessBot {
     }
   }
 }
+

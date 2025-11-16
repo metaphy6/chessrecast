@@ -1,6 +1,6 @@
 import 'package:get/get.dart';
 import '../modes/modes_enum.dart';
-import '../bot/bot_manager.dart';
+import '../analytics/bot/bot_manager.dart';
 
 class OptionsController extends GetxController {
   final Rx<ModesEnum> selectedGameType = ModesEnum.classic.obs;

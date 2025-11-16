@@ -5,5 +5,6 @@ class AppConstants {
   // Development & Debug Settings
   static const bool kDebugMode = true; // Set to false for production
   static const bool enableDebugLogs = kDebugMode; // Control print statements
-  static const bool enableDevBoard = kDebugMode; // Enable dev board features
+  // Feature Flags
+  static const bool enableDevBoard = kDebugMode; // Enable custom board features
 }

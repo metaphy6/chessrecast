@@ -1,6 +1,6 @@
-import '../../board/types/piece_type.dart';
-import '../../board/types/piece_color.dart';
-import '../../board/entities/position.dart';
+import '../../../board/types/piece_type.dart';
+import '../../../board/types/piece_color.dart';
+import '../../../board/entities/position.dart';
 
 /// Piece-Square Tables for positional evaluation
 /// Values are from white's perspective (flip for black)
@@ -454,3 +454,5 @@ class PieceSquareTables {
     }
   }
 }
+
+

@@ -1,4 +1,4 @@
-import '../../board/exporter.dart';
+import '../../../board/exporter.dart';
 
 /// Detects tactical patterns (forks, pins, discovered attacks, etc.)
 class TacticalPatterns {
@@ -255,3 +255,5 @@ class TacticalPatterns {
     }
   }
 }
+
+

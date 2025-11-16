@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../board/exporter.dart';
 import '../modes/modes_enum.dart';
-import '../bot/bot_manager.dart';
+import '../analytics/bot/bot_manager.dart';
 import '../analytics/game_analytics.dart';
 import '../ui/board_theme.dart';
 import '../constants.dart';
@@ -138,7 +138,7 @@ class Controller extends GetxController {
     _updateStatusMessage();
 
     // Start bot move if it's bot's turn (use Future.microtask to ensure UI is ready)
-    Future.microtask(() => _checkBotTurn());
+    Future.microtask(() => checkBotTurn());
   }
 
   /// Initialize game analytics
@@ -569,7 +569,7 @@ class Controller extends GetxController {
         _endGameAnalytics();
       } else {
         // Trigger bot move if it's bot's turn
-        Future.microtask(() => _checkBotTurn());
+        Future.microtask(() => checkBotTurn());
       }
     } catch (e) {
       printDebug('🎯 CONTROLLER: ❌ makeMove exception: ${e.toString()}');
@@ -579,7 +579,7 @@ class Controller extends GetxController {
   }
 
   /// Check if it's a bot's turn and make the move
-  Future<void> _checkBotTurn() async {
+  Future<void> checkBotTurn() async {
     // Don't proceed if game is over or auto-play is paused
     if (isGameOver) return;
     if (botManager.isPaused.value) return;

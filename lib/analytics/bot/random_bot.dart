@@ -1,7 +1,7 @@
 import 'dart:math';
-import '../board/entities/board.dart';
-import '../board/entities/move.dart';
-import '../debug.dart';
+import '../../board/entities/board.dart';
+import '../../board/entities/move.dart';
+import '../../debug.dart';
 import 'chess_bot.dart';
 
 /// Simple bot that picks random moves
@@ -41,3 +41,4 @@ class RandomBot extends ChessBot {
     return selectedMove;
   }
 }
+

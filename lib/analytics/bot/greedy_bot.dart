@@ -1,10 +1,10 @@
 import 'dart:math';
-import '../board/entities/board.dart';
-import '../board/entities/move.dart';
-import '../board/entities/position.dart';
-import '../board/types/piece_type.dart';
-import '../board/types/piece_color.dart';
-import '../debug.dart';
+import '../../board/entities/board.dart';
+import '../../board/entities/move.dart';
+import '../../board/entities/position.dart';
+import '../../board/types/piece_type.dart';
+import '../../board/types/piece_color.dart';
+import '../../debug.dart';
 import 'chess_bot.dart';
 
 /// Smart bot that evaluates moves using chess heuristics
@@ -175,3 +175,4 @@ class GreedyBot extends ChessBot {
     return score;
   }
 }
+

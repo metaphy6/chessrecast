@@ -1,7 +1,7 @@
 import 'package:get/get.dart';
 import 'management/controller.dart';
 import 'management/options.dart';
-import 'bot/bot_manager.dart';
+import 'analytics/bot/bot_manager.dart';
 
 class AppBindings extends Bindings {
   @override

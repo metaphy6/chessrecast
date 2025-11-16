@@ -1,4 +1,4 @@
-import '../../board/exporter.dart';
+import '../../../board/exporter.dart';
 
 /// Cache for position evaluations to avoid recomputing
 class PositionCache {
@@ -99,3 +99,5 @@ class CacheEntry {
 
   CacheEntry({required this.evaluation, required this.lastAccessed});
 }
+
+

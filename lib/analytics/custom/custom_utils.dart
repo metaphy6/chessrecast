@@ -1,5 +1,5 @@
-import '../constants.dart';
-import '../debug.dart';
+import '../../constants.dart';
+import '../../debug.dart';
 
 /// Debug logging utility that respects the global debug flag
 ///

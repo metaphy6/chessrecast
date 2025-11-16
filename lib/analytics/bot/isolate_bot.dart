@@ -1,6 +1,6 @@
 import 'dart:math';
-import '../board/exporter.dart';
-import '../debug.dart';
+import '../../board/exporter.dart';
+import '../../debug.dart';
 import 'chess_bot.dart';
 
 /// Ultra-fast bot that just picks random valid moves
@@ -42,3 +42,4 @@ class IsolateBot extends ChessBot {
     return selectedMove;
   }
 }
+
