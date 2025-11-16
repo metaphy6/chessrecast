@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:18-alpine
+    container_name: chessrecast-db
+    environment:
+      POSTGRES_USER: chessrecast
+      POSTGRES_PASSWORD: chessrecast_dev
+      POSTGRES_DB: chessrecast
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chessrecast"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:8.2.3-alpine
+    container_name: chessrecast-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ChessRecast API Server
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chessrecast-api
+    ports:
+      - "8080:8080"
+      - "9090:9090" # Metrics
+    environment:
+      - DATABASE_URL=postgres://chessrecast:chessrecast_dev@postgres:5432/chessrecast?sslmode=disable
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=dev_secret_change_in_production
+      - LOG_LEVEL=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:

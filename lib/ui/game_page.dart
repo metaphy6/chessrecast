@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../analytics/bot/bot_manager.dart';
 import '../management/controller.dart';
+import '../management/online_controller.dart';
 import '../ui/board_theme.dart';
 import 'board.dart';
 import 'info_panel.dart';
@@ -11,7 +12,22 @@ class ChessGamePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<Controller>();
+    // Check if we need online controller
+    final args = Get.arguments as Map<String, dynamic>?;
+    final isOnline = args?['isOnline'] ?? false;
+
+    // Initialize the appropriate controller
+    Controller controller;
+    try {
+      controller = Get.find<Controller>();
+    } catch (e) {
+      // Controller not found, create one
+      if (isOnline) {
+        controller = Get.put<Controller>(OnlineController());
+      } else {
+        controller = Get.put<Controller>(Controller());
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
