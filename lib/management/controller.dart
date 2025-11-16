@@ -1,6 +1,7 @@
 import 'package:chessrecast/debug.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:meta/meta.dart';
 import '../board/exporter.dart';
 import '../modes/modes_enum.dart';
 import '../analytics/bot/bot_manager.dart';
@@ -854,6 +855,21 @@ class Controller extends GetxController {
   void setBoardTheme(BoardTheme theme) {
     _boardTheme.value = theme;
     update(['boardTheme']); // Granular update
+  }
+
+  /// Update the board state directly (for online mode)
+  @protected
+  void updateBoardState(ChessBoard newBoard) {
+    _board.value = newBoard;
+
+    // Trigger UI update for all 64 squares
+    final squareIds = <String>[];
+    for (int row = 0; row < 8; row++) {
+      for (int col = 0; col < 8; col++) {
+        squareIds.add('square_${Position(row, col).algebraic}');
+      }
+    }
+    update(squareIds);
   }
 
   /// Checks if a position is a valid move target (optimized for hot path)

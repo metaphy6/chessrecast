@@ -1,5 +1,4 @@
 import 'package:get/get.dart';
-import 'management/controller.dart';
 import 'management/options.dart';
 import 'analytics/bot/bot_manager.dart';
 
@@ -12,7 +11,6 @@ class AppBindings extends Bindings {
     // Register the OptionsController
     Get.put(OptionsController(), permanent: true);
 
-    // Register the Controller (lazy - created when needed)
-    Get.lazyPut<Controller>(() => Controller(), fenix: true);
+    // Note: Controller is now instantiated in the game page to support OnlineController
   }
 }

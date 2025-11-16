@@ -49,4 +49,17 @@ enum ModesEnum {
 
   final String displayName;
   final String description;
+
+  /// Convert enum name to snake_case for backend API
+  String toSnakeCase() {
+    return name
+        .replaceAllMapped(
+          RegExp(r'[A-Z]'),
+          (match) => '_${match.group(0)!.toLowerCase()}',
+        )
+        .replaceFirst(
+          RegExp(r'^_'),
+          '',
+        ); // Remove leading underscore if present
+  }
 }

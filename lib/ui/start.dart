@@ -87,6 +87,40 @@ class StartPage extends StatelessWidget {
                   foregroundColor: Colors.blue.shade600,
                 ),
               ),
+              const SizedBox(height: 12),
+              // Play Online Against Bot Button
+              OutlinedButton.icon(
+                onPressed: () {
+                  Get.toNamed('/bot-selection');
+                },
+                icon: const Icon(Icons.cloud),
+                label: const Text('🌐 Play Online vs Bot'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: BorderSide(color: Colors.green.shade600, width: 2),
+                  foregroundColor: Colors.green.shade600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Online Bot vs Bot Button
+              OutlinedButton.icon(
+                onPressed: () {
+                  Get.toNamed('/online-bot-vs-bot');
+                },
+                icon: const Icon(Icons.smart_toy),
+                label: const Text('⚔️ Watch Online Bot Battle'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: BorderSide(color: Colors.orange.shade600, width: 2),
+                  foregroundColor: Colors.orange.shade600,
+                ),
+              ),
               if (AppConstants.enableDevBoard) ...[
                 const SizedBox(height: 12),
                 OutlinedButton.icon(

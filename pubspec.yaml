@@ -41,6 +41,10 @@ dependencies:
   # Utility packages
   equatable: ^2.0.5
   
+  # HTTP & WebSocket
+  http: ^1.2.2
+  web_socket_channel: ^3.0.1
+  
   # Chess UI
   chess_vectors_flutter: ^1.0.12
 
