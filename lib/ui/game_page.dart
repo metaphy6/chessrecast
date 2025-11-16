@@ -127,7 +127,11 @@ class ChessGamePage extends StatelessWidget {
                     ),
                   // Speed control
                   PopupMenuButton<int>(
-                    icon: const Icon(Icons.speed, color: Colors.white, size: 20),
+                    icon: const Icon(
+                      Icons.speed,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                     tooltip: 'Bot Speed',
                     padding: const EdgeInsets.all(8),
                     onSelected: (speed) {

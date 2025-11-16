@@ -100,7 +100,7 @@ class BotManager extends GetxController {
     isPaused.value = false;
     update(['botControls']); // Trigger UI update
     logBot('Manager', 'Auto-play resumed');
-    
+
     // Trigger the next bot move after resuming
     Future.microtask(() {
       try {
@@ -177,4 +177,3 @@ enum BotType {
     }
   }
 }
-
