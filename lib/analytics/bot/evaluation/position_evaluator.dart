@@ -1,4 +1,4 @@
-import '../../board/exporter.dart';
+import '../../../board/exporter.dart';
 import 'piece_square_tables.dart';
 
 /// Comprehensive position evaluator with multiple factors
@@ -287,3 +287,5 @@ class PositionEvaluator {
     return count;
   }
 }
+
+

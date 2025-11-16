@@ -28,23 +28,22 @@ class StartPage extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
+              // PERFORMANCE: ListView without GetBuilder - individual cards rebuild themselves
               Expanded(
-                child: GetBuilder<OptionsController>(
-                  id: 'mode_selection',
-                  builder: (_) {
-                    return ListView.builder(
-                      itemCount: ModesEnum.values.length,
-                      itemBuilder: (context, index) {
-                        final gameType = ModesEnum.values[index];
-                        final isSelected =
-                            controller.selectedGameType.value == gameType;
+                child: ListView.builder(
+                  itemCount: ModesEnum.values.length,
+                  // PERFORMANCE: Cache extent to reduce rebuilds
+                  cacheExtent: 500,
+                  itemBuilder: (context, index) {
+                    final gameType = ModesEnum.values[index];
 
-                        return _ModeCard(
-                          gameType: gameType,
-                          isSelected: isSelected,
-                          onTap: () => controller.selectGameType(gameType),
-                        );
-                      },
+                    // PERFORMANCE: Each card manages its own rebuild via GetBuilder
+                    return RepaintBoundary(
+                      child: _ModeCard(
+                        key: ValueKey(gameType),
+                        gameType: gameType,
+                        controller: controller,
+                      ),
                     );
                   },
                 ),
@@ -93,14 +92,14 @@ class StartPage extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: () {
                     Get.toNamed(
-                      '/dev-board',
+                      '/custom-board',
                       arguments: {
                         'gameType': controller.selectedGameType.value,
                       },
                     );
                   },
                   icon: const Icon(Icons.bug_report),
-                  label: const Text('Dev Board Setup'),
+                  label: const Text('Custom Board Setup'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -119,68 +118,82 @@ class StartPage extends StatelessWidget {
   }
 }
 
+/// PERFORMANCE: Optimized mode card that only rebuilds itself when selection changes
 class _ModeCard extends StatelessWidget {
   final ModesEnum gameType;
-  final bool isSelected;
-  final VoidCallback onTap;
+  final OptionsController controller;
 
   const _ModeCard({
+    super.key,
     required this.gameType,
-    required this.isSelected,
-    required this.onTap,
+    required this.controller,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      elevation: isSelected ? 8 : 2,
-      color: isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    isSelected
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_unchecked,
-                    color: isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.grey,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      gameType.displayName,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: isSelected
-                            ? Theme.of(context).colorScheme.primary
-                            : null,
+    // PERFORMANCE: Cache theme colors outside GetBuilder to avoid repeated lookups
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    final primaryContainer = Theme.of(context).colorScheme.primaryContainer;
+    final greyColor = Colors.grey.shade600;
+
+    // PERFORMANCE: Only this card rebuilds when selection changes
+    return GetBuilder<OptionsController>(
+      id: 'mode_selection',
+      builder: (_) {
+        final isSelected = controller.selectedGameType.value == gameType;
+
+        // PERFORMANCE: AnimatedContainer for smooth selection transitions
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          child: Card(
+            elevation: isSelected ? 8 : 2,
+            color: isSelected ? primaryContainer : null,
+            child: InkWell(
+              onTap: () => controller.selectGameType(gameType),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          isSelected
+                              ? Icons.radio_button_checked
+                              : Icons.radio_button_unchecked,
+                          color: isSelected ? primaryColor : Colors.grey,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            gameType.displayName,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected ? primaryColor : null,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 36),
+                      child: Text(
+                        gameType.description,
+                        style: TextStyle(color: greyColor, fontSize: 14),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.only(left: 36),
-                child: Text(
-                  gameType.description,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

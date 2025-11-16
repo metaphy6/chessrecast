@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../analytics/bot/bot_manager.dart';
 import '../management/controller.dart';
-import '../bot/bot_manager.dart';
 import '../ui/board_theme.dart';
 import 'board.dart';
 import 'info_panel.dart';
@@ -71,22 +71,28 @@ class ChessGamePage extends StatelessWidget {
           // Undo/Redo with GetBuilder instead of Obx for better performance
           GetBuilder<Controller>(
             id: 'history',
-            builder: (controller) => IconButton(
-              icon: const Icon(Icons.undo, color: Colors.white),
-              onPressed: controller.canUndo
-                  ? () => controller.undoLastMove()
-                  : null,
-              tooltip: 'Undo Move',
-            ),
-          ),
-          GetBuilder<Controller>(
-            id: 'history',
-            builder: (controller) => IconButton(
-              icon: const Icon(Icons.redo, color: Colors.white),
-              onPressed: controller.canRedo
-                  ? () => controller.redoMove()
-                  : null,
-              tooltip: 'Redo Move',
+            builder: (controller) => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.undo, color: Colors.white, size: 20),
+                  onPressed: controller.canUndo
+                      ? () => controller.undoLastMove()
+                      : null,
+                  tooltip: 'Undo',
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.redo, color: Colors.white, size: 20),
+                  onPressed: controller.canRedo
+                      ? () => controller.redoMove()
+                      : null,
+                  tooltip: 'Redo',
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(),
+                ),
+              ],
             ),
           ),
           // Bot Controls (only show if bot game)
@@ -106,6 +112,7 @@ class ChessGamePage extends StatelessWidget {
                             ? Icons.play_arrow
                             : Icons.pause,
                         color: Colors.white,
+                        size: 20,
                       ),
                       onPressed: () {
                         if (botManager.isPaused.value) {
@@ -115,11 +122,14 @@ class ChessGamePage extends StatelessWidget {
                         }
                       },
                       tooltip: botManager.isPaused.value ? 'Resume' : 'Pause',
+                      padding: const EdgeInsets.all(8),
+                      constraints: const BoxConstraints(),
                     ),
                   // Speed control
                   PopupMenuButton<int>(
-                    icon: const Icon(Icons.speed, color: Colors.white),
+                    icon: const Icon(Icons.speed, color: Colors.white, size: 20),
                     tooltip: 'Bot Speed',
+                    padding: const EdgeInsets.all(8),
                     onSelected: (speed) {
                       botManager.moveDelay.value = speed;
                     },
@@ -150,40 +160,73 @@ class ChessGamePage extends StatelessWidget {
               );
             },
           ),
-          // Board theme selector with GetBuilder
-          PopupMenuButton<BoardTheme>(
-            icon: const Icon(Icons.palette, color: Colors.white),
-            tooltip: 'Board Theme',
-            onSelected: (theme) {
-              controller.setBoardTheme(theme);
+          // More menu with theme and reset
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white, size: 20),
+            padding: const EdgeInsets.all(8),
+            tooltip: 'More',
+            onSelected: (value) {
+              if (value == 'reset') {
+                controller.resetGame();
+              }
             },
-            itemBuilder: (context) => BoardTheme.values
-                .map(
-                  (theme) => PopupMenuItem(
-                    value: theme,
-                    child: GetBuilder<Controller>(
-                      id: 'boardTheme',
-                      builder: (controller) => Row(
-                        children: [
-                          Icon(
-                            controller.boardTheme == theme
-                                ? Icons.check_circle
-                                : Icons.circle_outlined,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(theme.displayName),
-                        ],
-                      ),
+            itemBuilder: (context) => [
+              // Board theme submenu
+              PopupMenuItem<String>(
+                enabled: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Board Theme',
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
-                  ),
-                )
-                .toList(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => controller.resetGame(),
-            tooltip: controller.isDevBoard ? 'Restart' : 'New Game',
+                    const SizedBox(height: 8),
+                    ...BoardTheme.values.map((theme) {
+                      return GetBuilder<Controller>(
+                        id: 'boardTheme',
+                        builder: (controller) => InkWell(
+                          onTap: () {
+                            controller.setBoardTheme(theme);
+                            Navigator.pop(context);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 8,
+                              horizontal: 4,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  controller.boardTheme == theme
+                                      ? Icons.check_circle
+                                      : Icons.circle_outlined,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(theme.displayName),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                    const Divider(),
+                  ],
+                ),
+              ),
+              // Reset button
+              PopupMenuItem<String>(
+                value: 'reset',
+                child: Row(
+                  children: [
+                    const Icon(Icons.refresh, size: 20),
+                    const SizedBox(width: 8),
+                    Text(controller.isDevBoard ? 'Restart' : 'New Game'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -206,7 +249,12 @@ class ChessGamePage extends StatelessWidget {
   Widget _buildPortraitLayout() {
     return Column(
       children: [
-        const Expanded(flex: 1, child: InfoPanel(isTopPanel: true)),
+        // PERFORMANCE: Flexible instead of Expanded to prevent overflow
+        const Flexible(
+          flex: 1,
+          fit: FlexFit.tight,
+          child: InfoPanel(isTopPanel: true),
+        ),
         const Expanded(
           flex: 6,
           child: Center(
@@ -216,7 +264,11 @@ class ChessGamePage extends StatelessWidget {
             ),
           ),
         ),
-        const Expanded(flex: 1, child: InfoPanel(isTopPanel: false)),
+        const Flexible(
+          flex: 1,
+          fit: FlexFit.tight,
+          child: InfoPanel(isTopPanel: false),
+        ),
         _buildActionButtons(),
       ],
     );

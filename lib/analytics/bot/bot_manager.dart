@@ -1,7 +1,8 @@
 import 'package:get/get.dart';
-import '../board/types/piece_color.dart';
-import '../modes/modes_enum.dart';
-import '../debug.dart';
+import '../../board/types/piece_color.dart';
+import '../../modes/modes_enum.dart';
+import '../../debug.dart';
+import '../../management/controller.dart';
 import 'chess_bot.dart';
 import 'random_bot.dart';
 import 'greedy_bot.dart';
@@ -90,13 +91,25 @@ class BotManager extends GetxController {
   /// Pause auto-play
   void pauseAutoPlay() {
     isPaused.value = true;
+    update(['botControls']); // Trigger UI update
     logBot('Manager', 'Auto-play paused');
   }
 
   /// Resume auto-play
   void resumeAutoPlay() {
     isPaused.value = false;
+    update(['botControls']); // Trigger UI update
     logBot('Manager', 'Auto-play resumed');
+    
+    // Trigger the next bot move after resuming
+    Future.microtask(() {
+      try {
+        final controller = Get.find<Controller>();
+        controller.checkBotTurn();
+      } catch (e) {
+        logBot('Manager', 'Error triggering bot move after resume: $e');
+      }
+    });
   }
 
   /// Stop auto-play
@@ -164,3 +177,4 @@ enum BotType {
     }
   }
 }
+

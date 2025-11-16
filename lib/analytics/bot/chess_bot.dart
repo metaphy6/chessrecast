@@ -1,6 +1,6 @@
-import '../board/entities/board.dart';
-import '../board/entities/move.dart';
-import '../board/types/piece_color.dart';
+import '../../board/entities/board.dart';
+import '../../board/entities/move.dart';
+import '../../board/types/piece_color.dart';
 
 /// Base class for all chess bots
 abstract class ChessBot {
@@ -22,3 +22,4 @@ abstract class ChessBot {
   /// Get bot difficulty/strength description
   String get description;
 }
+
