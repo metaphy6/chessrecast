@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import '../debug.dart';
 
 /// API Service for communicating with the ChessRecast Go backend
 class ApiService {
@@ -258,13 +259,13 @@ class ApiService {
     // Try each URL
     for (final url in urls) {
       try {
-        print('Testing connection to: $url');
+        printDebug('Testing connection to: $url');
         final response = await http
             .get(Uri.parse(url))
             .timeout(const Duration(seconds: 5));
 
         if (response.statusCode == 200) {
-          print('✅ Connected successfully to: $url');
+          printDebug('✅ Connected successfully to: $url');
           // Update baseUrl if we found a working alternative
           if (Platform.isAndroid && url.contains('192.168')) {
             manualBaseUrl = 'http://192.168.0.26:8080/api/v1';
@@ -272,12 +273,11 @@ class ApiService {
           return true;
         }
       } catch (e) {
-        print('❌ Failed to connect to $url: $e');
+        logError('Failed to connect to $url', e);
         continue;
       }
     }
-
-    print('❌ All connection attempts failed');
+    printDebug('❌ All connection attempts failed');
     return false;
   }
 

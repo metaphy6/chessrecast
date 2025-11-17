@@ -36,7 +36,7 @@ class _BotSelectionPageState extends State<BotSelectionPage> {
               children: [
                 // Difficulty Section
                 Card(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withAlpha((0.9 * 255).round()),
                   elevation: 8,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -78,9 +78,7 @@ class _BotSelectionPageState extends State<BotSelectionPage> {
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: _getDifficultyColor().withOpacity(
-                                      0.3,
-                                    ),
+                                                    color: _getDifficultyColor().withAlpha((0.3 * 255).round()),
                                     blurRadius: 8,
                                     offset: const Offset(0, 4),
                                   ),
@@ -114,9 +112,7 @@ class _BotSelectionPageState extends State<BotSelectionPage> {
                             activeTrackColor: _getDifficultyColor(),
                             inactiveTrackColor: Colors.grey[300],
                             thumbColor: _getDifficultyColor(),
-                            overlayColor: _getDifficultyColor().withOpacity(
-                              0.2,
-                            ),
+                            overlayColor: _getDifficultyColor().withAlpha((0.2 * 255).round()),
                             thumbShape: const RoundSliderThumbShape(
                               enabledThumbRadius: 14,
                             ),
@@ -165,7 +161,7 @@ class _BotSelectionPageState extends State<BotSelectionPage> {
 
                 // Game Mode Section
                 Card(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withAlpha((0.9 * 255).round()),
                   elevation: 8,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -268,7 +264,7 @@ class _BotSelectionPageState extends State<BotSelectionPage> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withAlpha((0.8 * 255).round()),
                   ),
                 ),
               ],
