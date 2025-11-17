@@ -6,8 +6,10 @@ class OptionsController extends GetxController {
   final Rx<ModesEnum> selectedGameType = ModesEnum.classic.obs;
 
   void selectGameType(ModesEnum gameType) {
+    final previous = selectedGameType.value;
     selectedGameType.value = gameType;
-    update(['mode_selection']);
+    // Only notify the previously-selected and newly-selected cards to avoid rebuilding all cards
+    update(['mode_${previous.name}', 'mode_${gameType.name}']);
   }
 
   void startGame() {

@@ -33,7 +33,9 @@ class StartPage extends StatelessWidget {
                 child: ListView.builder(
                   itemCount: ModesEnum.values.length,
                   // PERFORMANCE: Cache extent to reduce rebuilds
-                  cacheExtent: 500,
+                  cacheExtent: 1000,
+                  // PERFORMANCE: Keep repaint boundaries enabled for items
+                  addRepaintBoundaries: true,
                   itemBuilder: (context, index) {
                     final gameType = ModesEnum.values[index];
 
@@ -167,26 +169,25 @@ class _ModeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // PERFORMANCE: Cache theme colors outside GetBuilder to avoid repeated lookups
     final primaryColor = Theme.of(context).colorScheme.primary;
-    final primaryContainer = Theme.of(context).colorScheme.primaryContainer;
     final greyColor = Colors.grey.shade600;
 
     // PERFORMANCE: Only this card rebuilds when selection changes
     return GetBuilder<OptionsController>(
-      id: 'mode_selection',
+      id: 'mode_${gameType.name}',
       builder: (_) {
         final isSelected = controller.selectedGameType.value == gameType;
 
-        // PERFORMANCE: AnimatedContainer for smooth selection transitions
+        // PERFORMANCE: Use a constant card appearance (no highlight/elevation change)
         return AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
           margin: const EdgeInsets.symmetric(vertical: 8),
           child: Card(
-            elevation: isSelected ? 8 : 2,
-            color: isSelected ? primaryContainer : null,
-            child: InkWell(
+            elevation: 2,
+            color: null,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () => controller.selectGameType(gameType),
-              borderRadius: BorderRadius.circular(12),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -204,10 +205,9 @@ class _ModeCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             gameType.displayName,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
-                              color: isSelected ? primaryColor : null,
                             ),
                           ),
                         ),
