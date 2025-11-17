@@ -33,7 +33,7 @@ class StartPage extends StatelessWidget {
                 child: ListView.builder(
                   itemCount: ModesEnum.values.length,
                   // PERFORMANCE: Cache extent to reduce rebuilds
-                  cacheExtent: 1000,
+                  cacheExtent: 500,
                   // PERFORMANCE: Keep repaint boundaries enabled for items
                   addRepaintBoundaries: true,
                   itemBuilder: (context, index) {
@@ -170,6 +170,11 @@ class _ModeCard extends StatelessWidget {
     // PERFORMANCE: Cache theme colors outside GetBuilder to avoid repeated lookups
     final primaryColor = Theme.of(context).colorScheme.primary;
     final greyColor = Colors.grey.shade600;
+    final titleStyle = const TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+    );
+    final descStyle = TextStyle(color: greyColor, fontSize: 14);
 
     // PERFORMANCE: Only this card rebuilds when selection changes
     return GetBuilder<OptionsController>(
@@ -177,10 +182,8 @@ class _ModeCard extends StatelessWidget {
       builder: (_) {
         final isSelected = controller.selectedGameType.value == gameType;
 
-        // PERFORMANCE: Use a constant card appearance (no highlight/elevation change)
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
+        // PERFORMANCE: Use a simple Container to avoid layout animation; keep card constant
+        return Container(
           margin: const EdgeInsets.symmetric(vertical: 8),
           child: Card(
             elevation: 2,
@@ -203,23 +206,14 @@ class _ModeCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: Text(
-                            gameType.displayName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                          child: Text(gameType.displayName, style: titleStyle),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     Padding(
                       padding: const EdgeInsets.only(left: 36),
-                      child: Text(
-                        gameType.description,
-                        style: TextStyle(color: greyColor, fontSize: 14),
-                      ),
+                      child: Text(gameType.description, style: descStyle),
                     ),
                   ],
                 ),

@@ -353,7 +353,9 @@ class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: _getDifficultyColor(difficulty).withAlpha((0.3 * 255).round()),
+                        color: _getDifficultyColor(
+                          difficulty,
+                        ).withAlpha((0.3 * 255).round()),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -387,7 +389,9 @@ class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
                 activeTrackColor: _getDifficultyColor(difficulty),
                 inactiveTrackColor: Colors.grey[300],
                 thumbColor: _getDifficultyColor(difficulty),
-                overlayColor: _getDifficultyColor(difficulty).withAlpha((0.2 * 255).round()),
+                overlayColor: _getDifficultyColor(
+                  difficulty,
+                ).withAlpha((0.2 * 255).round()),
                 thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 14),
                 overlayShape: const RoundSliderOverlayShape(overlayRadius: 24),
               ),

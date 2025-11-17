@@ -78,7 +78,9 @@ class _BotSelectionPageState extends State<BotSelectionPage> {
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
-                                                    color: _getDifficultyColor().withAlpha((0.3 * 255).round()),
+                                    color: _getDifficultyColor().withAlpha(
+                                      (0.3 * 255).round(),
+                                    ),
                                     blurRadius: 8,
                                     offset: const Offset(0, 4),
                                   ),
@@ -112,7 +114,9 @@ class _BotSelectionPageState extends State<BotSelectionPage> {
                             activeTrackColor: _getDifficultyColor(),
                             inactiveTrackColor: Colors.grey[300],
                             thumbColor: _getDifficultyColor(),
-                            overlayColor: _getDifficultyColor().withAlpha((0.2 * 255).round()),
+                            overlayColor: _getDifficultyColor().withAlpha(
+                              (0.2 * 255).round(),
+                            ),
                             thumbShape: const RoundSliderThumbShape(
                               enabledThumbRadius: 14,
                             ),
