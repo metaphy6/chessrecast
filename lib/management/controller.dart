@@ -1,7 +1,6 @@
 import 'package:chessrecast/debug.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:meta/meta.dart';
 import '../board/exporter.dart';
 import '../modes/modes_enum.dart';
 import '../analytics/bot/bot_manager.dart';
