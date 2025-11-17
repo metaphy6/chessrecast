@@ -38,10 +38,6 @@ class FriendlyFire implements GameMode {
       '🔥 FRIENDLY FIRE: Found ${friendlyPieces.length} friendly pieces that have moved',
     );
 
-    printDebug(
-      '🔥 FRIENDLY FIRE: Found ${friendlyPieces.length} friendly pieces that have moved',
-    );
-
     for (final friendlyPiece in friendlyPieces) {
       final targetPosition = friendlyPiece.position;
 
