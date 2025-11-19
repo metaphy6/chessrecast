@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'position.dart';
-import 'piece.dart';
+import '../piece.dart';
 
 class ChessMove extends Equatable {
   final Position from;

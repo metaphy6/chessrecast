@@ -1,13 +1,13 @@
 import 'package:chessrecast/debug.dart';
 import 'package:equatable/equatable.dart';
-import '../types/piece_color.dart';
-import '../types/piece_type.dart';
-import '../types/game_status.dart';
-import 'position.dart';
+import 'items/piece_color.dart';
+import 'items/piece_type.dart';
+import 'game_status.dart';
+import 'moves/position.dart';
 import 'piece.dart';
-import 'move.dart';
-import '../../modes/modes_enum.dart';
-import '../../modes/save_the_king.dart';
+import 'moves/move.dart';
+import '../modes/modes_enum.dart';
+import '../modes/save_the_king.dart';
 
 /// Core ChessBoard class with state and basic operations
 class ChessBoard extends Equatable {

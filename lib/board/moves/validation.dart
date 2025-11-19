@@ -1,10 +1,10 @@
-import '../types/piece_color.dart';
-import '../types/piece_type.dart';
-import '../entities/position.dart';
-import '../entities/piece.dart';
-import '../entities/move.dart';
-import '../entities/board.dart';
-import '../entities/queries.dart';
+import '../items/piece_color.dart';
+import '../items/piece_type.dart';
+import 'position.dart';
+import '../piece.dart';
+import 'move.dart';
+import '../board.dart';
+import 'special_cases.dart';
 
 /// Extension for move validation operations
 extension MoveValidation on ChessBoard {

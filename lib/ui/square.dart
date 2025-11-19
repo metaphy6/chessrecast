@@ -1,7 +1,8 @@
 import 'package:chessrecast/debug.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../board/exporter.dart';
+import '../management/utils.dart';
+import '../board/utils/exporter.dart';
 import '../management/controller.dart';
 import '../constants.dart';
 import 'piece_renderer.dart';
@@ -34,7 +35,7 @@ class ChessSquare extends StatelessWidget {
   Widget build(BuildContext context) {
     // Use GetBuilder with specific ID for this position - much more efficient
     return GetBuilder<Controller>(
-      id: 'square_${position.algebraic}',
+      id: squareIdFromPosition(position),
       builder: (controller) {
         // In chess, a1 (0,0) should be a dark square
         // So when (row + col) is even, it should be dark

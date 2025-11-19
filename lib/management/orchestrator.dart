@@ -1,5 +1,5 @@
 import 'package:chessrecast/debug.dart';
-import '../board/exporter.dart';
+import '../board/utils/exporter.dart';
 import '../modes/modes_enum.dart';
 import '../modes/snare.dart';
 import '../modes/teleport.dart';

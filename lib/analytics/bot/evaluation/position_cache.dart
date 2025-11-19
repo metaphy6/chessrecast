@@ -1,4 +1,4 @@
-import '../../../board/exporter.dart';
+import '../../../board/utils/exporter.dart';
 
 /// Cache for position evaluations to avoid recomputing
 class PositionCache {

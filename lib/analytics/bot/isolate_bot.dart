@@ -1,5 +1,5 @@
 import 'dart:math';
-import '../../board/exporter.dart';
+import '../../board/utils/exporter.dart';
 import '../../debug.dart';
 import 'chess_bot.dart';
 

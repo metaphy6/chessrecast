@@ -1,6 +1,6 @@
 import 'dart:math';
-import '../../board/entities/board.dart';
-import '../../board/entities/move.dart';
+import '../../board/board.dart';
+import '../../board/moves/move.dart';
 import '../../debug.dart';
 import 'chess_bot.dart';
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../management/controller.dart';
-import '../board/exporter.dart';
+import '../board/utils/exporter.dart';
 
 class InfoPanel extends StatelessWidget {
   final bool isTopPanel;

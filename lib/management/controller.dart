@@ -1,13 +1,14 @@
 import 'package:chessrecast/debug.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../board/exporter.dart';
+import '../board/utils/exporter.dart';
 import '../modes/modes_enum.dart';
 import '../analytics/bot/bot_manager.dart';
 import '../analytics/game_analytics.dart';
 import '../ui/board_theme.dart';
 import '../constants.dart';
 import 'orchestrator.dart';
+import 'utils.dart';
 
 class Controller extends GetxController {
   final Orchestrator _gameOrchestrator = Orchestrator();
@@ -229,15 +230,15 @@ class Controller extends GetxController {
     final squaresToUpdate = <String>[];
 
     if (previousSelection != null) {
-      squaresToUpdate.add('square_${previousSelection.algebraic}');
+      squaresToUpdate.add(squareIdFromPosition(previousSelection));
     }
-    squaresToUpdate.add('square_${position.algebraic}');
+    squaresToUpdate.add(squareIdFromPosition(position));
 
     for (final pos in previousValidMoves) {
-      squaresToUpdate.add('square_${pos.algebraic}');
+      squaresToUpdate.add(squareIdFromPosition(pos));
     }
     for (final pos in _validMoves) {
-      squaresToUpdate.add('square_${pos.algebraic}');
+      squaresToUpdate.add(squareIdFromPosition(pos));
     }
 
     // Single update call with all affected squares
@@ -256,10 +257,10 @@ class Controller extends GetxController {
     final squaresToUpdate = <String>[];
 
     if (previousSelection != null) {
-      squaresToUpdate.add('square_${previousSelection.algebraic}');
+      squaresToUpdate.add(squareIdFromPosition(previousSelection));
     }
     for (final pos in previousValidMoves) {
-      squaresToUpdate.add('square_${pos.algebraic}');
+      squaresToUpdate.add(squareIdFromPosition(pos));
     }
 
     // Single update call with all affected squares
@@ -444,22 +445,8 @@ class Controller extends GetxController {
   }
 
   /// Gets the display name for a promotion piece
-  String _getPromotionPieceName(String piece) {
-    switch (piece) {
-      case 'Q':
-        return 'Queen';
-      case 'R':
-        return 'Rook';
-      case 'B':
-        return 'Bishop';
-      case 'N':
-        return 'Knight';
-      case 'K':
-        return 'King';
-      default:
-        return 'Unknown';
-    }
-  }
+  String _getPromotionPieceName(String piece) =>
+      promotionPieceNameReadable(piece);
 
   /// Executes a promotion move
   void _executePromotionMove(
@@ -540,11 +527,11 @@ class Controller extends GetxController {
 
       // OPTIMIZED: Batch all square updates into single update() call
       final squaresToUpdate = <String>[
-        'square_${move.from.algebraic}',
-        'square_${move.to.algebraic}',
+        squareIdFromPosition(move.from),
+        squareIdFromPosition(move.to),
       ];
       if (move.capturedPiece != null) {
-        squaresToUpdate.add('square_${move.capturedPiece!.position.algebraic}');
+        squaresToUpdate.add(squareIdFromPosition(move.capturedPiece!.position));
 
         // SAVE THE QUEEN: If captured piece is a queen, also update prison square
         if (gameType == ModesEnum.saveTheQueen &&
@@ -552,8 +539,8 @@ class Controller extends GetxController {
           // Queen might return to prison - update prison squares
           final whitePrison = Position(7, 3); // d8
           final blackPrison = Position(0, 3); // d1
-          squaresToUpdate.add('square_${whitePrison.algebraic}');
-          squaresToUpdate.add('square_${blackPrison.algebraic}');
+          squaresToUpdate.add(squareIdFromPosition(whitePrison));
+          squaresToUpdate.add(squareIdFromPosition(blackPrison));
           printDebug('👸 CONTROLLER: Added prison squares to update list');
         }
       }
@@ -601,12 +588,8 @@ class Controller extends GetxController {
       if (botManager.isPaused.value) return;
     }
 
-    // Get valid moves for all pieces of current player
-    final allMoves = <ChessMove>[];
-    for (final piece in board.getPiecesOfColor(currentPlayer)) {
-      final pieceMoves = board.getValidMovesFor(piece.position);
-      allMoves.addAll(pieceMoves);
-    }
+    // Get valid moves for all pieces of current player via orchestrator
+    final allMoves = _gameOrchestrator.getAllValidMoves(board);
 
     if (allMoves.isEmpty) {
       logBot(bot.name, 'No legal moves available');
@@ -762,13 +745,7 @@ class Controller extends GetxController {
     _updateStatusMessage();
 
     // Update all 64 squares to reflect the reset board state
-    final allSquares = <String>[];
-    for (final file in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
-      for (final rank in ['1', '2', '3', '4', '5', '6', '7', '8']) {
-        allSquares.add('square_$file$rank');
-      }
-    }
-    update([...allSquares, 'history']);
+    updateAllSquaresAndHistory(this);
   }
 
   /// Undoes the last move
@@ -783,13 +760,7 @@ class Controller extends GetxController {
     _updateStatusMessage();
 
     // Update all 64 squares to reflect the undo
-    final allSquares = <String>[];
-    for (final file in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
-      for (final rank in ['1', '2', '3', '4', '5', '6', '7', '8']) {
-        allSquares.add('square_$file$rank');
-      }
-    }
-    update([...allSquares, 'history']);
+    updateAllSquaresAndHistory(this);
   }
 
   /// Redoes the last undone move
@@ -804,13 +775,7 @@ class Controller extends GetxController {
     _updateStatusMessage();
 
     // Update all 64 squares to reflect the redo
-    final allSquares = <String>[];
-    for (final file in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
-      for (final rank in ['1', '2', '3', '4', '5', '6', '7', '8']) {
-        allSquares.add('square_$file$rank');
-      }
-    }
-    update([...allSquares, 'history']);
+    updateAllSquaresAndHistory(this);
   }
 
   /// Navigates back to dev board setup or home
@@ -861,14 +826,10 @@ class Controller extends GetxController {
   void updateBoardState(ChessBoard newBoard) {
     _board.value = newBoard;
 
-    // Trigger UI update for all 64 squares
-    final squareIds = <String>[];
-    for (int row = 0; row < 8; row++) {
-      for (int col = 0; col < 8; col++) {
-        squareIds.add('square_${Position(row, col).algebraic}');
-      }
-    }
-    update(squareIds);
+    // Batch update using helper
+    update(
+      getAllSquareIds(),
+    ); // still use direct update for simple batched update
   }
 
   /// Checks if a position is a valid move target (optimized for hot path)

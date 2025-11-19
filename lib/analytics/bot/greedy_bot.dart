@@ -1,9 +1,9 @@
 import 'dart:math';
-import '../../board/entities/board.dart';
-import '../../board/entities/move.dart';
-import '../../board/entities/position.dart';
-import '../../board/types/piece_type.dart';
-import '../../board/types/piece_color.dart';
+import '../../board/board.dart';
+import '../../board/moves/move.dart';
+import '../../board/moves/position.dart';
+import '../../board/items/piece_type.dart';
+import '../../board/items/piece_color.dart';
 import '../../debug.dart';
 import 'chess_bot.dart';
 

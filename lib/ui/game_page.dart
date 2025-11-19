@@ -337,7 +337,7 @@ class ChessGamePage extends StatelessWidget {
             ),
           ),
           ElevatedButton.icon(
-            onPressed: () => Get.find<Controller>().undoLastMove(),
+            onPressed: () => controller.undoLastMove(),
             icon: const Icon(Icons.undo),
             label: const Text('Undo'),
             style: ElevatedButton.styleFrom(
