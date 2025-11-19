@@ -1,5 +1,5 @@
 import 'package:chessrecast/debug.dart';
-import '../board/exporter.dart';
+import '../board/utils/exporter.dart';
 import 'game_mode.dart';
 
 /// DIAMONDS MODE: Bishops move diagonally but capture in diamond patterns

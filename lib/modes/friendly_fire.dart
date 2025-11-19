@@ -1,5 +1,5 @@
 import 'package:chessrecast/debug.dart';
-import '../board/exporter.dart';
+import '../board/utils/exporter.dart';
 import 'game_mode.dart';
 
 /// Friendly Fire Mode: Players can capture their own pieces (except kings)

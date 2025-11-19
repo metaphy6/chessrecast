@@ -1,7 +1,7 @@
 import 'dart:math';
-import '../../board/entities/board.dart';
-import '../../board/entities/move.dart';
-import '../../board/types/piece_type.dart';
+import '../../board/board.dart';
+import '../../board/moves/move.dart';
+import '../../board/items/piece_type.dart';
 import '../../debug.dart';
 import 'chess_bot.dart';
 import 'evaluation/opening_book.dart';

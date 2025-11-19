@@ -1,12 +1,12 @@
 import 'package:chessrecast/debug.dart';
-import '../types/piece_type.dart';
-import '../types/piece_color.dart';
-import '../types/game_status.dart';
+import '../items/piece_type.dart';
+import '../items/piece_color.dart';
+import '../game_status.dart';
 import '../../modes/modes_enum.dart';
-import '../entities/position.dart';
-import '../entities/piece.dart';
-import '../entities/move.dart';
-import '../entities/board.dart';
+import 'position.dart';
+import '../piece.dart';
+import 'move.dart';
+import '../board.dart';
 
 /// Extension for move execution operations
 extension MoveExecution on ChessBoard {

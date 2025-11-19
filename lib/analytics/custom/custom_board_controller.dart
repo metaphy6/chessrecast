@@ -1,7 +1,8 @@
 import 'package:get/get.dart';
-import '../../board/exporter.dart';
+import '../../board/utils/exporter.dart';
 import '../../modes/modes_enum.dart';
 import '../../ui/board_theme.dart';
+import '../../management/utils.dart';
 
 /// Controller for dev board setup with optimized ID-based updates
 class CustomBoardController extends GetxController {
@@ -51,16 +52,14 @@ class CustomBoardController extends GetxController {
     _customPieces = List<ChessPiece>.from(ChessBoard.initial().pieces);
 
     // Update all squares
-    final allSquares = _generateAllSquareIds();
-    update(allSquares);
+    update(getAllSquareIds());
   }
 
   void clearBoard() {
     _customPieces.clear();
 
     // Update all squares
-    final allSquares = _generateAllSquareIds();
-    update(allSquares);
+    update(getAllSquareIds());
   }
 
   ChessPiece? getPieceAt(Position position) {
@@ -72,7 +71,7 @@ class CustomBoardController extends GetxController {
   }
 
   void placePiece(Position position) {
-    final squaresToUpdate = <String>['square_${position.algebraic}'];
+    final squaresToUpdate = <String>[squareIdFromPosition(position)];
 
     if (_selectedPieceType == null) {
       // Remove piece if no piece type selected
@@ -100,7 +99,7 @@ class CustomBoardController extends GetxController {
     PieceType type,
     PieceColor color,
   ) {
-    final squaresToUpdate = <String>['square_${position.algebraic}'];
+    final squaresToUpdate = <String>[squareIdFromPosition(position)];
 
     // Remove existing piece at this position
     _customPieces.removeWhere((p) => p.position == position);
@@ -114,8 +113,8 @@ class CustomBoardController extends GetxController {
   /// Move piece from one position to another (used by drag & drop)
   void movePieceFromTo(Position fromPosition, Position toPosition) {
     final squaresToUpdate = <String>[
-      'square_${fromPosition.algebraic}',
-      'square_${toPosition.algebraic}',
+      squareIdFromPosition(fromPosition),
+      squareIdFromPosition(toPosition),
     ];
 
     // Find the piece at fromPosition
@@ -137,7 +136,7 @@ class CustomBoardController extends GetxController {
 
   /// Remove piece at a specific position (used by drag to trash)
   void removePieceAt(Position position) {
-    final squaresToUpdate = <String>['square_${position.algebraic}'];
+    final squaresToUpdate = <String>[squareIdFromPosition(position)];
 
     _customPieces.removeWhere((p) => p.position == position);
 
@@ -172,8 +171,7 @@ class CustomBoardController extends GetxController {
   void setBoardTheme(BoardTheme theme) {
     _boardTheme = theme;
     // Update entire board for theme change
-    final allSquares = _generateAllSquareIds();
-    update(allSquares);
+    update(getAllSquareIds());
   }
 
   bool validateBoard() {
@@ -187,13 +185,5 @@ class CustomBoardController extends GetxController {
     return whiteKing && blackKing;
   }
 
-  List<String> _generateAllSquareIds() {
-    final allSquares = <String>[];
-    for (final file in ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']) {
-      for (final rank in ['1', '2', '3', '4', '5', '6', '7', '8']) {
-        allSquares.add('square_$file$rank');
-      }
-    }
-    return allSquares;
-  }
+  // Note: We now use getAllSquareIds() from management/utils.dart directly
 }

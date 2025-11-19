@@ -1,4 +1,4 @@
-import '../../../board/exporter.dart';
+import '../../../board/utils/exporter.dart';
 import 'piece_square_tables.dart';
 
 /// Comprehensive position evaluator with multiple factors

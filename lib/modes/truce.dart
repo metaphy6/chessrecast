@@ -1,5 +1,5 @@
 import 'package:chessrecast/debug.dart';
-import '../board/exporter.dart';
+import '../board/utils/exporter.dart';
 import 'game_mode.dart';
 
 /// TRUCE MODE: Players cannot attack until all pieces have moved once

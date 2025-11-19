@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../board/exporter.dart';
+import '../../board/utils/exporter.dart';
 import '../../modes/modes_enum.dart';
 import '../../ui/piece_renderer.dart';
 import '../../ui/board_theme.dart';
 import '../../debug.dart';
 import 'custom_board_controller.dart';
+import '../../management/utils.dart';
 
 /// Lightweight drag data to prevent stale piece references
 class _DragData {
@@ -315,7 +316,7 @@ class _CustomSquare extends StatelessWidget {
   Widget build(BuildContext context) {
     // CRITICAL: Only this specific square rebuilds when 'square_a1' (etc.) is updated
     return GetBuilder<CustomBoardController>(
-      id: 'square_${position.algebraic}',
+      id: squareIdFromPosition(position),
       tag: 'custom_board',
       builder: (_) {
         final piece = controller.getPieceAt(position);

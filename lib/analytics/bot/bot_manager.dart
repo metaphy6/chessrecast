@@ -1,5 +1,5 @@
 import 'package:get/get.dart';
-import '../../board/types/piece_color.dart';
+import '../../board/items/piece_color.dart';
 import '../../modes/modes_enum.dart';
 import '../../debug.dart';
 import '../../management/controller.dart';
@@ -104,8 +104,7 @@ class BotManager extends GetxController {
     // Trigger the next bot move after resuming
     Future.microtask(() {
       try {
-        final controller = Get.find<Controller>();
-        controller.checkBotTurn();
+        Get.find<Controller>().checkBotTurn();
       } catch (e) {
         logBot('Manager', 'Error triggering bot move after resume: $e');
       }

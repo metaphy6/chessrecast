@@ -1,4 +1,4 @@
-import '../board/exporter.dart';
+import '../board/utils/exporter.dart';
 
 /// Base class for game mode implementations
 /// Each game mode can override specific behaviors to modify chess rules

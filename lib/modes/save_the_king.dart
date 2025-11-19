@@ -1,4 +1,4 @@
-import '../board/exporter.dart';
+import '../board/utils/exporter.dart';
 import 'game_mode.dart';
 import 'modes_enum.dart';
 

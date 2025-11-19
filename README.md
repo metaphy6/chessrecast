@@ -144,3 +144,16 @@ See LICENSE file
 
 **Status**: ✅ Fully playable with online backend integration!
 
+## 🧭 Code Style & CI
+
+- Prefer inline `Get.find<T>().method()` for single-use lookups instead of storing short-lived local variables. If you use `Get.find<T>()` multiple times in a method, keep a local variable.
+- We added a small tool `tool/check_get_find_single_use.dart` that scans the `lib` folder for single-use `Get.find<T>()` assignments and fails CI if found. This is enforced by the GitHub Action `/.github/workflows/check_get_find.yml`.
+
+To run the check locally:
+```bash
+dart tool/check_get_find_single_use.dart
+```
+
+If your IDE lints or the CI warns about `Get.find` patterns, please inline the `Get.find<T>()` call when it's used exactly once.
+
+

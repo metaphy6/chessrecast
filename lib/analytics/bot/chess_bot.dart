@@ -1,6 +1,6 @@
-import '../../board/entities/board.dart';
-import '../../board/entities/move.dart';
-import '../../board/types/piece_color.dart';
+import '../../board/board.dart';
+import '../../board/moves/move.dart';
+import '../../board/items/piece_color.dart';
 
 /// Base class for all chess bots
 abstract class ChessBot {

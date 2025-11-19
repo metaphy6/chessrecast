@@ -1,4 +1,4 @@
-import '../../../board/exporter.dart';
+import '../../../board/utils/exporter.dart';
 
 /// Opening book with common opening moves
 class OpeningBook {

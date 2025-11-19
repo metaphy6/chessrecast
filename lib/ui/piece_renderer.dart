@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:chess_vectors_flutter/chess_vectors_flutter.dart';
-import '../board/exporter.dart';
+import '../board/utils/exporter.dart';
 
 /// Cached piece widgets to prevent SVG re-parsing on every render
 class _PieceWidgetCache {

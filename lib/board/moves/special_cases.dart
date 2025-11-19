@@ -1,11 +1,10 @@
-import '../types/piece_color.dart';
-import '../types/piece_type.dart';
+import '../items/piece_color.dart';
+import '../items/piece_type.dart';
 import '../../modes/modes_enum.dart';
 import 'position.dart';
-import 'board.dart';
+import '../board.dart';
 
-/// Extension for board query operations
-extension BoardQueries on ChessBoard {
+extension SpecialCases on ChessBoard {
   /// Checks if the specified position is under attack by the specified color
   bool isPositionUnderAttack(Position position, PieceColor attackingColor) {
     final attackingPieces = getPiecesOfColor(attackingColor);

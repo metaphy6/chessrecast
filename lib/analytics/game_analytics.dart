@@ -1,5 +1,5 @@
-import '../board/types/game_status.dart';
-import '../board/types/piece_color.dart';
+import '../board/game_status.dart';
+import '../board/items/piece_color.dart';
 import '../modes/modes_enum.dart';
 import '../debug.dart';
 

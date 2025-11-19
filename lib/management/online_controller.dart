@@ -1,10 +1,11 @@
 import 'package:chessrecast/debug.dart';
 import 'package:get/get.dart';
-import '../board/exporter.dart';
+import '../board/utils/exporter.dart';
 import '../modes/modes_enum.dart';
 import '../services/api_service.dart';
 import '../services/game_websocket.dart';
 import 'controller.dart';
+import 'utils.dart';
 
 /// Extended controller with backend integration for online gameplay
 class OnlineController extends Controller {
@@ -311,8 +312,8 @@ class OnlineController extends Controller {
   Future<void> makeMoveOnline(ChessMove move) async {
     try {
       // Convert positions to algebraic notation
-      final from = _positionToAlgebraic(move.from);
-      final to = _positionToAlgebraic(move.to);
+      final from = positionToAlgebraic(move.from);
+      final to = positionToAlgebraic(move.to);
 
       // Promotion piece is already a string in ChessMove
       final promotion = move.promotionPiece;
@@ -344,11 +345,7 @@ class OnlineController extends Controller {
     }
   }
 
-  /// Convert Position to algebraic notation (e.g., e2, e4)
-  String _positionToAlgebraic(Position pos) {
-    final files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-    return '${files[pos.col]}${pos.row + 1}';
-  }
+  // positionToAlgebraic(Position) helper is provided by board_utils.dart
 
   /// Resign current online game
   Future<void> resignOnlineGame() async {

@@ -1,0 +1,19 @@
+name: Check Get.find single use
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  find_get_find_single_use:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+      - name: Run Get.find single-use checker
+        run: dart tool/check_get_find_single_use.dart
