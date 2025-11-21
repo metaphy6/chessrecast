@@ -1,36 +1,18 @@
 import 'package:chessrecast/debug.dart';
 import '../items/piece_color.dart';
 import '../items/piece_type.dart';
-import '../../modes/modes_enum.dart';
+import '../../modes/modes.dart';
 import 'position.dart';
+import 'helpers.dart';
 import '../piece.dart';
 import 'move.dart';
 import '../board.dart';
 import 'special_cases.dart';
 import 'validation.dart';
-import '../../modes/snare.dart';
-import '../../modes/truce.dart';
-import '../../modes/diamonds.dart';
-import '../../modes/teleport.dart';
-import '../../modes/friendly_fire.dart';
-import '../../modes/kings_battle.dart';
-import '../../modes/save_the_queen.dart';
-import '../../modes/save_the_king.dart';
-import '../../modes/other_side.dart';
-import '../../modes/royal_pawns.dart';
+// modes.dart already imported above and provides enums and instances
 
 /// Cached mode instances to avoid repeated instantiation
-class _ModesCache {
-  static final Snare snare = Snare();
-  static final Truce truce = Truce();
-  static final Diamonds diamonds = Diamonds();
-  static final Teleport teleport = Teleport();
-  static final FriendlyFire friendlyFire = FriendlyFire();
-  static final KingsBattle kingsBattle = KingsBattle();
-  static final SaveTheQueen saveTheQueen = SaveTheQueen();
-  static final OtherSide otherSide = OtherSide();
-  static final RoyalPawns royalPawns = RoyalPawns();
-}
+// Use centralized ModesCache for singleton mode instances
 
 /// Extension for move generation operations
 extension MoveGeneration on ChessBoard {
@@ -45,57 +27,7 @@ extension MoveGeneration on ChessBoard {
     final potentialMoves = _getPotentialMoves(piece);
 
     // Apply game mode specific move filtering first
-    var filteredByGameMode = potentialMoves;
-
-    if (gameType == ModesEnum.snare) {
-      filteredByGameMode = _ModesCache.snare.filterMoves(
-        potentialMoves,
-        piece,
-        this,
-      );
-    } else if (gameType == ModesEnum.truce) {
-      filteredByGameMode = _ModesCache.truce.filterMoves(
-        potentialMoves,
-        piece,
-        this,
-      );
-    } else if (gameType == ModesEnum.diamonds) {
-      filteredByGameMode = _ModesCache.diamonds.filterMoves(
-        potentialMoves,
-        piece,
-        this,
-      );
-    } else if (gameType == ModesEnum.teleport) {
-      filteredByGameMode = _ModesCache.teleport.filterMoves(
-        potentialMoves,
-        piece,
-        this,
-      );
-    } else if (gameType == ModesEnum.friendlyFire) {
-      filteredByGameMode = _ModesCache.friendlyFire.filterMoves(
-        potentialMoves,
-        piece,
-        this,
-      );
-    } else if (gameType == ModesEnum.kingsBattle) {
-      filteredByGameMode = _ModesCache.kingsBattle.filterMoves(
-        potentialMoves,
-        piece,
-        this,
-      );
-    } else if (gameType == ModesEnum.saveTheQueen) {
-      filteredByGameMode = _ModesCache.saveTheQueen.filterMoves(
-        potentialMoves,
-        piece,
-        this,
-      );
-    } else if (gameType == ModesEnum.otherSide) {
-      filteredByGameMode = _ModesCache.otherSide.filterMoves(
-        potentialMoves,
-        piece,
-        this,
-      );
-    }
+    final filteredByGameMode = _applyGameModeFilter(potentialMoves, piece);
 
     // Filter out moves that would put own king in check (unless game mode allows suicide)
     // Optimize: Pre-allocate result list
@@ -112,7 +44,7 @@ extension MoveGeneration on ChessBoard {
         if (gameType == ModesEnum.snare) {
           final opponentColor = move.capturedPiece!.color;
           // Check if opponent's king is actually capturable (under attack)
-          if (!_ModesCache.snare.isKingCapturable(opponentColor, this)) {
+          if (!modes.snare.isKingCapturable(opponentColor, this)) {
             continue; // Skip this move
           }
           // King is capturable - allow the move
@@ -128,7 +60,7 @@ extension MoveGeneration on ChessBoard {
 
       // Truce mode: Kings can move freely during truce (no check enforcement)
       if (gameType == ModesEnum.truce) {
-        if (_ModesCache.truce.isTruceActive(this)) {
+        if (modes.truce.isTruceActive(this)) {
           // During truce, allow all moves (king can move into "check")
           safeMoves.add(move);
           continue;
@@ -138,7 +70,7 @@ extension MoveGeneration on ChessBoard {
 
       // Snare mode allows suicide moves (king moving into danger) ONLY if king has knights
       if (gameType == ModesEnum.snare && piece.type == PieceType.king) {
-        final myKnights = _ModesCache.snare.getKnights(currentPlayer, this);
+        final myKnights = modes.snare.getKnights(currentPlayer, this);
 
         if (myKnights.isNotEmpty) {
           // King has knights - allow the move even if it puts king in check
@@ -155,6 +87,33 @@ extension MoveGeneration on ChessBoard {
     }
 
     return safeMoves;
+  }
+
+  /// Centralized game mode move filtering to reduce duplicated switch/if blocks.
+  List<ChessMove> _applyGameModeFilter(
+    List<ChessMove> potentialMoves,
+    ChessPiece piece,
+  ) {
+    switch (gameType) {
+      case ModesEnum.snare:
+        return modes.snare.filterMoves(potentialMoves, piece, this);
+      case ModesEnum.truce:
+        return modes.truce.filterMoves(potentialMoves, piece, this);
+      case ModesEnum.diamonds:
+        return modes.diamonds.filterMoves(potentialMoves, piece, this);
+      case ModesEnum.teleport:
+        return modes.teleport.filterMoves(potentialMoves, piece, this);
+      case ModesEnum.friendlyFire:
+        return modes.friendlyFire.filterMoves(potentialMoves, piece, this);
+      case ModesEnum.kingsBattle:
+        return modes.kingsBattle.filterMoves(potentialMoves, piece, this);
+      case ModesEnum.saveTheQueen:
+        return modes.saveTheQueen.filterMoves(potentialMoves, piece, this);
+      case ModesEnum.otherSide:
+        return modes.otherSide.filterMoves(potentialMoves, piece, this);
+      default:
+        return potentialMoves;
+    }
   }
 
   /// Gets all potential moves for a piece (without checking for king safety)
@@ -178,12 +137,12 @@ extension MoveGeneration on ChessBoard {
   List<ChessMove> _getPawnMoves(ChessPiece pawn) {
     // Check if the game mode has custom pawn moves
     if (gameType == ModesEnum.otherSide) {
-      final customMoves = _ModesCache.otherSide.getPawnMoves(pawn, this);
+      final customMoves = modes.otherSide.getPawnMoves(pawn, this);
       if (customMoves != null) return customMoves;
     }
 
     if (gameType == ModesEnum.royalPawns) {
-      final customMoves = _ModesCache.royalPawns.getPawnMoves(pawn, this);
+      final customMoves = modes.royalPawns.getPawnMoves(pawn, this);
       if (customMoves != null) return customMoves;
     }
 
@@ -201,20 +160,16 @@ extension MoveGeneration on ChessBoard {
       // Check for promotion
       final lastRank = pawn.color == PieceColor.white ? 7 : 0;
       if (oneStep.row == lastRank) {
-        // Add promotion moves
-        for (final promotionPiece in getPromotionPieces(
-          pawn.color,
-          promotionPosition: oneStep,
-        )) {
-          moves.add(
-            ChessMove.promotion(
-              from: pawn.position,
-              to: oneStep,
-              piece: pawn,
-              promotionPiece: promotionPiece,
+        moves.addAll(
+          createMovesWithPromotionCheck(
+            pawn,
+            oneStep,
+            promotionOptions: getPromotionPieces(
+              pawn.color,
+              promotionPosition: oneStep,
             ),
-          );
-        }
+          ),
+        );
       } else {
         // Regular forward move
         moves.add(
@@ -242,21 +197,17 @@ extension MoveGeneration on ChessBoard {
           // Check for promotion when capturing
           final lastRank = pawn.color == PieceColor.white ? 7 : 0;
           if (capturePos.row == lastRank) {
-            // Add promotion captures
-            for (final promotionPiece in getPromotionPieces(
-              pawn.color,
-              promotionPosition: capturePos,
-            )) {
-              moves.add(
-                ChessMove.promotion(
-                  from: pawn.position,
-                  to: capturePos,
-                  piece: pawn,
-                  capturedPiece: targetPiece,
-                  promotionPiece: promotionPiece,
+            moves.addAll(
+              createMovesWithPromotionCheck(
+                pawn,
+                capturePos,
+                capturedPiece: targetPiece,
+                promotionOptions: getPromotionPieces(
+                  pawn.color,
+                  promotionPosition: capturePos,
                 ),
-              );
-            }
+              ),
+            );
           } else {
             // Regular capture
             moves.add(
@@ -323,7 +274,7 @@ extension MoveGeneration on ChessBoard {
       printDebug(
         '👑 BOARD: Save the King mode - checking King promotion options',
       );
-      final saveTheKingMode = SaveTheKing();
+      final saveTheKingMode = modes.saveTheKing;
       final options = saveTheKingMode.getPromotionPieces(
         color,
         this,
@@ -339,45 +290,16 @@ extension MoveGeneration on ChessBoard {
   }
 
   List<ChessMove> _getRookMoves(ChessPiece rook) {
-    final moves = <ChessMove>[];
     final directions = [
       [-1, 0],
       [1, 0],
       [0, -1],
-      [0, 1], // up, down, left, right
+      [0, 1],
     ];
-
-    for (final direction in directions) {
-      for (int i = 1; i < 8; i++) {
-        final newPos = rook.position.offset(direction[0] * i, direction[1] * i);
-        if (!newPos.isValid) break;
-
-        final targetPiece = getPieceAt(newPos);
-        if (targetPiece == null) {
-          moves.add(
-            ChessMove.simple(from: rook.position, to: newPos, piece: rook),
-          );
-        } else {
-          if (targetPiece.color != rook.color) {
-            moves.add(
-              ChessMove.simple(
-                from: rook.position,
-                to: newPos,
-                piece: rook,
-                capturedPiece: targetPiece,
-              ),
-            );
-          }
-          break;
-        }
-      }
-    }
-
-    return moves;
+    return generateSlidingMoves(rook, directions);
   }
 
   List<ChessMove> _getKnightMoves(ChessPiece knight) {
-    final moves = <ChessMove>[];
     final knightMoves = [
       [-2, -1],
       [-2, 1],
@@ -388,66 +310,17 @@ extension MoveGeneration on ChessBoard {
       [2, -1],
       [2, 1],
     ];
-
-    for (final move in knightMoves) {
-      final newPos = knight.position.offset(move[0], move[1]);
-      if (!newPos.isValid) continue;
-
-      final targetPiece = getPieceAt(newPos);
-      if (targetPiece == null || targetPiece.color != knight.color) {
-        moves.add(
-          ChessMove.simple(
-            from: knight.position,
-            to: newPos,
-            piece: knight,
-            capturedPiece: targetPiece,
-          ),
-        );
-      }
-    }
-
-    return moves;
+    return generateStepMoves(knight, knightMoves);
   }
 
   List<ChessMove> _getBishopMoves(ChessPiece bishop) {
-    final moves = <ChessMove>[];
     final directions = [
       [-1, -1],
       [-1, 1],
       [1, -1],
-      [1, 1], // diagonals
+      [1, 1],
     ];
-
-    for (final direction in directions) {
-      for (int i = 1; i < 8; i++) {
-        final newPos = bishop.position.offset(
-          direction[0] * i,
-          direction[1] * i,
-        );
-        if (!newPos.isValid) break;
-
-        final targetPiece = getPieceAt(newPos);
-        if (targetPiece == null) {
-          moves.add(
-            ChessMove.simple(from: bishop.position, to: newPos, piece: bishop),
-          );
-        } else {
-          if (targetPiece.color != bishop.color) {
-            moves.add(
-              ChessMove.simple(
-                from: bishop.position,
-                to: newPos,
-                piece: bishop,
-                capturedPiece: targetPiece,
-              ),
-            );
-          }
-          break;
-        }
-      }
-    }
-
-    return moves;
+    return generateSlidingMoves(bishop, directions);
   }
 
   List<ChessMove> _getQueenMoves(ChessPiece queen) {
@@ -455,7 +328,6 @@ extension MoveGeneration on ChessBoard {
   }
 
   List<ChessMove> _getKingMoves(ChessPiece king) {
-    final moves = <ChessMove>[];
     final directions = [
       [-1, -1],
       [-1, 0],
@@ -466,23 +338,7 @@ extension MoveGeneration on ChessBoard {
       [1, 0],
       [1, 1],
     ];
-
-    for (final direction in directions) {
-      final newPos = king.position.offset(direction[0], direction[1]);
-      if (!newPos.isValid) continue;
-
-      final targetPiece = getPieceAt(newPos);
-      if (targetPiece == null || targetPiece.color != king.color) {
-        moves.add(
-          ChessMove.simple(
-            from: king.position,
-            to: newPos,
-            piece: king,
-            capturedPiece: targetPiece,
-          ),
-        );
-      }
-    }
+    final moves = generateStepMoves(king, directions);
 
     // Add castling moves if conditions are met (not in Teleport mode)
     if (gameType != ModesEnum.teleport) {

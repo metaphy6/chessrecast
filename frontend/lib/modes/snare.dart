@@ -18,6 +18,11 @@ import 'game_mode.dart';
 /// - When the last knight is captured, it's "revengeful" - both pieces are destroyed
 /// - Promotion restrictions: No knights = no promotions, 1 knight = must promote to knight
 class Snare extends GameMode {
+  @Deprecated(
+    'Use the `modes.snare` alias from modes_cache.dart instead of direct instantiation',
+  )
+  const Snare();
+
   /// SNARE MODE: Gets the knights of the specified color
   List<ChessPiece> getKnights(PieceColor color, ChessBoard board) {
     return board.pieces
@@ -30,6 +35,7 @@ class Snare extends GameMode {
   /// SNARE MODE: Override isKingInCheck - King cannot be in check if at least one knight is alive
   /// This is for status display and move restrictions, NOT for actual capture eligibility
   bool isKingInCheckSnare(PieceColor kingColor, ChessBoard board) {
+    printDebugVerbose('🕸️ SNARE: isKingInCheckSnare called for $kingColor');
     // If the king's color has no knights, use normal check rules
     final myKnights = getKnights(kingColor, board);
     if (myKnights.isEmpty) {
@@ -47,6 +53,7 @@ class Snare extends GameMode {
   /// SNARE MODE: Check if king is actually capturable (can be eaten by opponent)
   /// This is different from isKingInCheckSnare - king is only capturable if it has knights
   bool isKingCapturable(PieceColor kingColor, ChessBoard board) {
+    printDebugVerbose('🕸️ SNARE: isKingCapturable called for $kingColor');
     final king = board.getKing(kingColor);
     if (king == null) return false;
 
@@ -106,6 +113,7 @@ class Snare extends GameMode {
 
   /// SNARE MODE: Gets all entangled pieces for a given color
   Map<String, dynamic>? getEntangleInfo(PieceColor color, ChessBoard board) {
+    printDebugVerbose('🕸️ SNARE: getEntangleInfo called for $color');
     final knights = getKnights(color, board);
     if (knights.length != 2) return null;
 
@@ -200,7 +208,9 @@ class Snare extends GameMode {
     }
 
     // RULE: ALL entangled pieces can escape via king-like moves
-    printDebug('🕸️ SNARE: Checking escape moves (king-like one square moves)');
+    printDebugVerbose(
+      '🕸️ SNARE: Checking escape moves (king-like one square moves)',
+    );
 
     final escapeOffsets = [
       [-1, -1],
@@ -219,7 +229,9 @@ class Snare extends GameMode {
 
       // Can't escape to a position still in the entangle zone
       if (entangleZone.any((pos) => pos == newPos)) {
-        printDebug('🕸️ SNARE: ${newPos.algebraic} is still in zone, skip');
+        printDebugVerbose(
+          '🕸️ SNARE: ${newPos.algebraic} is still in zone, skip',
+        );
         continue;
       }
 
@@ -227,7 +239,7 @@ class Snare extends GameMode {
 
       // Can move to empty square or capture enemy piece
       if (targetPiece == null) {
-        printDebug('🕸️ SNARE: Can escape to ${newPos.algebraic}');
+        printDebugVerbose('🕸️ SNARE: Can escape to ${newPos.algebraic}');
         moves.add(
           ChessMove.simple(from: piece.position, to: newPos, piece: piece),
         );
@@ -362,6 +374,10 @@ class Snare extends GameMode {
     ChessBoard board,
   ) {
     // Handle entangled pieces
+    printDebug(
+      '🕸️ SNARE: filterMoves called for ${piece.type.name} at ${piece.position.algebraic}',
+    );
+    // Handle entangled pieces
     if (isPieceEntangled(piece, board)) {
       printDebug('🕸️ SNARE: Piece IS ENTANGLED - using entangled piece moves');
       return _getEntangledPieceMoves(piece, board);
@@ -466,6 +482,9 @@ class Snare extends GameMode {
 
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
+    printDebug(
+      '🕸️ SNARE: handleSpecialMove called for ${move.piece.color.name} ${move.piece.type.name} ${move.from.algebraic}->${move.to.algebraic}',
+    );
     // Check for revengeful knight capture (BEFORE the move is executed)
     if (move.capturedPiece != null &&
         move.capturedPiece!.type == PieceType.knight) {

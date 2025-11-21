@@ -9,6 +9,15 @@ void printDebug(dynamic message) {
   }
 }
 
+/// Very verbose debug (for hot-loops and high-volume logging)
+void printDebugVerbose(dynamic message) {
+  if (kDebugMode &&
+      AppConstants.enableDebugLogs &&
+      AppConstants.enableVerboseLogs) {
+    debugPrint(message.toString());
+  }
+}
+
 /// Bot-specific logging - accepts optional bot name
 void logBot(dynamic message, [dynamic secondParam]) {
   if (kDebugMode && AppConstants.enableDebugLogs) {

@@ -41,4 +41,3 @@ class RandomBot extends ChessBot {
     return selectedMove;
   }
 }
-

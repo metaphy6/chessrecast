@@ -5,6 +5,7 @@ import '../piece.dart';
 import 'move.dart';
 import '../board.dart';
 import 'special_cases.dart';
+import 'helpers.dart';
 
 /// Extension for move validation operations
 extension MoveValidation on ChessBoard {
@@ -118,30 +119,9 @@ extension MoveValidation on ChessBoard {
     // Add the piece to its new position
     newPieces.add(move.piece.movedTo(move.to));
 
-    // Handle castling in validation - move the rook as well
+    // Handle castling in validation - move the rook as well using helper
     if (move.isCastling) {
-      final kingRow = move.from.row;
-      final isKingside = move.to.col == 6; // g-file
-
-      if (isKingside) {
-        // Kingside castling: move rook from h-file to f-file
-        final rook = getPieceAt(Position(kingRow, 7));
-        if (rook != null) {
-          newPieces.removeWhere(
-            (piece) => piece.position == Position(kingRow, 7),
-          );
-          newPieces.add(rook.movedTo(Position(kingRow, 5))); // f-file
-        }
-      } else {
-        // Queenside castling: move rook from a-file to d-file
-        final rook = getPieceAt(Position(kingRow, 0));
-        if (rook != null) {
-          newPieces.removeWhere(
-            (piece) => piece.position == Position(kingRow, 0),
-          );
-          newPieces.add(rook.movedTo(Position(kingRow, 3))); // d-file
-        }
-      }
+      performCastlingRookMove(newPieces, move.from, move.to);
     }
 
     // For validation, preserve the current en passant target

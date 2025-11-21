@@ -12,6 +12,11 @@ import 'game_mode.dart';
 /// - If the second (promoted) King is captured, the player loses immediately
 /// - King promotion must not result in immediate check
 class Heir extends GameMode {
+  @Deprecated(
+    'Use the `modes.heir` alias from modes_cache.dart instead of direct instantiation',
+  )
+  const Heir();
+
   /// Checks if promoting a pawn to King would result in immediate check
   bool _wouldKingPromotionBeInCheck(
     PieceColor color,
@@ -40,6 +45,9 @@ class Heir extends GameMode {
 
   @override
   List<ChessMove>? getPawnMoves(ChessPiece pawn, ChessBoard board) {
+    printDebug(
+      '👑 HEIR: getPawnMoves called for pawn at ${pawn.position.algebraic}',
+    );
     final moves = <ChessMove>[];
     final direction = pawn.color == PieceColor.white ? 1 : -1;
     final startRow = pawn.color == PieceColor.white ? 1 : 6;
@@ -227,7 +235,9 @@ class Heir extends GameMode {
         printDebug('🏁 HEIR MODE: Second king mated for $color - Game Over!');
         return true;
       } else if (pawns.isEmpty) {
-        printDebug('🏁 HEIR MODE: First king mated and no pawns left - Game Over!');
+        printDebug(
+          '🏁 HEIR MODE: First king mated and no pawns left - Game Over!',
+        );
         return true;
       } else {
         printDebug(
@@ -246,6 +256,7 @@ class Heir extends GameMode {
     bool currentPlayerInCheck,
     bool hasValidMoves,
   ) {
+    printDebug('👑 HEIR: updateGameStatus called for ${board.currentPlayer}');
     // Check for immediate game end (no king and no pawns)
     for (final color in [PieceColor.white, PieceColor.black]) {
       final kings = board.pieces

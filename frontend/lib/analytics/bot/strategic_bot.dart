@@ -185,4 +185,3 @@ class StrategicBot extends ChessBot {
     }
   }
 }
-

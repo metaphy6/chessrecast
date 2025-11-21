@@ -1,24 +1,9 @@
 import 'package:chessrecast/debug.dart';
 import '../board/utils/exporter.dart';
-import '../modes/modes_enum.dart';
-import '../modes/snare.dart';
-import '../modes/teleport.dart';
-import '../modes/kings_battle.dart';
-import '../modes/save_the_queen.dart';
-import '../modes/save_the_king.dart';
-import '../modes/other_side.dart';
-import '../modes/truce.dart';
+import '../modes/modes.dart';
 
 /// Cached mode instances to avoid repeated instantiation
-class _OrchestratorModesCache {
-  static final Snare snare = Snare();
-  static final Truce truce = Truce();
-  static final Teleport teleport = Teleport();
-  static final KingsBattle kingsBattle = KingsBattle();
-  static final SaveTheQueen saveTheQueen = SaveTheQueen();
-  static final SaveTheKing saveTheKing = SaveTheKing();
-  static final OtherSide otherSide = OtherSide();
-}
+// Use centralized modes cache (ModesCache) to avoid repeated instantiation
 
 class Orchestrator {
   /// Validates if a move is legal in the current board state
@@ -34,20 +19,20 @@ class Orchestrator {
 
     // Truce mode: Check if move violates truce rules
     if (board.gameType == ModesEnum.truce) {
-      if (!_OrchestratorModesCache.truce.validateTruceMove(board, move)) {
+      if (!modes.truce.validateTruceMove(board, move)) {
         printDebug('🤝 ORCHESTRATOR: Move rejected by Truce mode rules');
         return false;
       }
     }
 
     final validMoves = board.getValidMovesFor(move.from);
-    printDebug(
+    printDebugVerbose(
       '🎯 ORCHESTRATOR: Found ${validMoves.length} valid moves for this piece',
     );
 
     // Debug: Print all valid moves and their capturedPiece
     for (final validMove in validMoves) {
-      printDebug(
+      printDebugVerbose(
         '🎯 ORCHESTRATOR: Valid move option: ${validMove.from.algebraic} -> ${validMove.to.algebraic}, capturedPiece: ${validMove.capturedPiece != null ? validMove.capturedPiece!.type.name : "null"}',
       );
     }
@@ -87,10 +72,7 @@ class Orchestrator {
       printDebug(
         '🔄 ORCHESTRATOR: Teleport mode detected, checking for special move',
       );
-      final teleportBoard = _OrchestratorModesCache.teleport.handleSpecialMove(
-        board,
-        move,
-      );
+      final teleportBoard = modes.teleport.handleSpecialMove(board, move);
       printDebug(
         '🔄 ORCHESTRATOR: handleSpecialMove returned: ${teleportBoard != null ? "NEW BOARD" : "NULL"}',
       );
@@ -108,8 +90,7 @@ class Orchestrator {
       printDebug(
         '👑 ORCHESTRATOR: Kings Battle mode detected, checking for special move',
       );
-      final kingsBattleBoard = _OrchestratorModesCache.kingsBattle
-          .handleSpecialMove(board, move);
+      final kingsBattleBoard = modes.kingsBattle.handleSpecialMove(board, move);
       printDebug(
         '👑 ORCHESTRATOR: handleSpecialMove returned: ${kingsBattleBoard != null ? "NEW BOARD (BONUS MOVE)" : "NULL"}',
       );
@@ -127,8 +108,10 @@ class Orchestrator {
       printDebug(
         '👸 ORCHESTRATOR: Save the Queen mode detected, checking for special move',
       );
-      final saveTheQueenBoard = _OrchestratorModesCache.saveTheQueen
-          .handleSpecialMove(board, move);
+      final saveTheQueenBoard = modes.saveTheQueen.handleSpecialMove(
+        board,
+        move,
+      );
       printDebug(
         '👸 ORCHESTRATOR: handleSpecialMove returned: ${saveTheQueenBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
       );
@@ -146,8 +129,7 @@ class Orchestrator {
       printDebug(
         '👑 ORCHESTRATOR: Save the King mode detected, checking for special move',
       );
-      final saveTheKingBoard = _OrchestratorModesCache.saveTheKing
-          .handleSpecialMove(board, move);
+      final saveTheKingBoard = modes.saveTheKing.handleSpecialMove(board, move);
       printDebug(
         '👑 ORCHESTRATOR: handleSpecialMove returned: ${saveTheKingBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
       );
@@ -165,8 +147,7 @@ class Orchestrator {
       printDebug(
         '🏰 ORCHESTRATOR: Other Side mode detected, checking for special move',
       );
-      final otherSideBoard = _OrchestratorModesCache.otherSide
-          .handleSpecialMove(board, move);
+      final otherSideBoard = modes.otherSide.handleSpecialMove(board, move);
       printDebug(
         '🏰 ORCHESTRATOR: handleSpecialMove returned: ${otherSideBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
       );
@@ -184,10 +165,7 @@ class Orchestrator {
       printDebug(
         '🕸️ ORCHESTRATOR: Snare mode detected, checking for special move',
       );
-      final snareBoard = _OrchestratorModesCache.snare.handleSpecialMove(
-        board,
-        move,
-      );
+      final snareBoard = modes.snare.handleSpecialMove(board, move);
       printDebug(
         '🕸️ ORCHESTRATOR: handleSpecialMove returned: ${snareBoard != null ? "NEW BOARD (REVENGE)" : "NULL"}',
       );
@@ -207,10 +185,7 @@ class Orchestrator {
       printDebug(
         '🤝 ORCHESTRATOR: Truce mode detected, checking for special move',
       );
-      final truceBoard = _OrchestratorModesCache.truce.handleSpecialMove(
-        board,
-        move,
-      );
+      final truceBoard = modes.truce.handleSpecialMove(board, move);
       printDebug(
         '🤝 ORCHESTRATOR: handleSpecialMove returned: ${truceBoard != null ? "NEW BOARD" : "NULL"}',
       );
@@ -405,7 +380,7 @@ class Orchestrator {
       '🤝 TRUCE STATUS: Checking status for ${board.currentPlayer} player',
     );
 
-    final isTruceActive = _OrchestratorModesCache.truce.isTruceActive(board);
+    final isTruceActive = modes.truce.isTruceActive(board);
     printDebug('🤝 TRUCE STATUS: Truce active: $isTruceActive');
 
     final hasValidMoves = _hasValidMoves(board);
@@ -427,8 +402,10 @@ class Orchestrator {
     } else {
       // After truce breaks: Apply regular chess rules
       printDebug('🤝 TRUCE STATUS: Truce broken - using regular chess rules');
-      final currentPlayerInCheck = _OrchestratorModesCache.truce
-          .isKingInCheckTruce(board.currentPlayer, board);
+      final currentPlayerInCheck = modes.truce.isKingInCheckTruce(
+        board.currentPlayer,
+        board,
+      );
       printDebug(
         '🤝 TRUCE STATUS: ${board.currentPlayer} king in check: $currentPlayerInCheck',
       );
@@ -488,10 +465,7 @@ class Orchestrator {
     );
 
     // SNARE MODE: Check if current player's king still has knights
-    final myKnights = _OrchestratorModesCache.snare.getKnights(
-      board.currentPlayer,
-      board,
-    );
+    final myKnights = modes.snare.getKnights(board.currentPlayer, board);
     printDebug(
       '🕸️ SNARE STATUS: ${board.currentPlayer} has ${myKnights.length} knights',
     );
@@ -520,8 +494,10 @@ class Orchestrator {
       printDebug(
         '🕸️ SNARE STATUS: King has NO knights - using regular chess rules',
       );
-      final currentPlayerInCheck = _OrchestratorModesCache.snare
-          .isKingInCheckSnare(board.currentPlayer, board);
+      final currentPlayerInCheck = modes.snare.isKingInCheckSnare(
+        board.currentPlayer,
+        board,
+      );
       printDebug(
         '🕸️ SNARE STATUS: ${board.currentPlayer} king is in check: $currentPlayerInCheck',
       );

@@ -42,4 +42,3 @@ class IsolateBot extends ChessBot {
     return selectedMove;
   }
 }
-

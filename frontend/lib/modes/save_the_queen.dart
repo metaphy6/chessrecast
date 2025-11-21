@@ -27,6 +27,10 @@ import 'game_mode.dart';
 /// - Pawns CANNOT promote to Queen
 /// - Regular checkmate still possible with other pieces
 class SaveTheQueen implements GameMode {
+  @Deprecated(
+    'Use the `modes.saveTheQueen` alias from modes_cache.dart instead of direct instantiation',
+  )
+  const SaveTheQueen();
   // Initial queen positions (prisoners)
   static const Position whiteQueenPrison = Position(
     7,
@@ -43,6 +47,9 @@ class SaveTheQueen implements GameMode {
     ChessPiece piece,
     ChessBoard board,
   ) {
+    printDebug(
+      '👸 SAVE QUEEN: filterMoves called for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
+    );
     if (piece.type != PieceType.queen) {
       printDebug(
         '👸 SAVE QUEEN: ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic} - passing through ${moves.length} moves',
@@ -176,6 +183,9 @@ class SaveTheQueen implements GameMode {
 
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
+    printDebug(
+      '👸 SAVE QUEEN: handleSpecialMove called for ${move.piece.color.name} ${move.piece.type.name} move ${move.from.algebraic}->${move.to.algebraic}',
+    );
     // Check if escaped queen reached opponent's prison square = WIN!
     if (move.piece.type == PieceType.queen) {
       final isInOwnHalf = _isInOwnHalf(move.to, move.piece.color);
@@ -340,6 +350,9 @@ class SaveTheQueen implements GameMode {
 
   @override
   List<ChessMove>? getPawnMoves(ChessPiece pawn, ChessBoard board) {
+    printDebug(
+      '👸 SAVE QUEEN: getPawnMoves called for ${pawn.color.name} pawn at ${pawn.position.algebraic}',
+    );
     // Use default pawn moves
     return null;
   }

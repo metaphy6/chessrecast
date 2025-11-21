@@ -287,5 +287,3 @@ class PositionEvaluator {
     return count;
   }
 }
-
-

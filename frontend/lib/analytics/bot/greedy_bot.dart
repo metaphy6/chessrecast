@@ -175,4 +175,3 @@ class GreedyBot extends ChessBot {
     return score;
   }
 }
-

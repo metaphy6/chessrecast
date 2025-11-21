@@ -12,6 +12,11 @@ import 'game_mode.dart';
 /// - Near board edges, the diamond may be incomplete
 /// - Pawns can ONLY promote to Bishops
 class Diamonds extends GameMode {
+  @Deprecated(
+    'Use the `modes.diamonds` alias from modes_cache.dart instead of direct instantiation',
+  )
+  const Diamonds();
+
   /// Gets all bishops of the specified color
   List<ChessPiece> getBishops(PieceColor color, ChessBoard board) {
     return board.pieces
@@ -50,7 +55,7 @@ class Diamonds extends GameMode {
       }
     }
 
-    printDebug(
+    printDebugVerbose(
       '💎 DIAMONDS: Bishop at ${bishopPos.algebraic} diamond capture zone: ${capturePositions.map((p) => p.algebraic).join(", ")}',
     );
 
@@ -63,6 +68,9 @@ class Diamonds extends GameMode {
     ChessBoard board, {
     Position? promotionPosition,
   }) {
+    printDebug(
+      '💎 DIAMONDS: getPromotionPieces called for $color at ${promotionPosition?.algebraic ?? "-"}',
+    );
     printDebug('💎 DIAMONDS: Pawn promotion - ONLY Bishop allowed');
     return ['B']; // Only allow bishop promotion
   }
@@ -78,6 +86,9 @@ class Diamonds extends GameMode {
       return moves; // Other pieces move normally
     }
 
+    printDebug(
+      '💎 DIAMONDS: filterMoves called; Bishop: ${piece.color.name} at ${piece.position.algebraic}',
+    );
     printDebug('💎 DIAMONDS: === FILTERING BISHOP MOVES ===');
     printDebug(
       '💎 DIAMONDS: Bishop: ${piece.color.name} at ${piece.position.algebraic}',
@@ -118,6 +129,9 @@ class Diamonds extends GameMode {
     }
 
     printDebug('💎 DIAMONDS: Output moves count: ${filteredMoves.length}');
+    printDebug(
+      '💎 DIAMONDS: filterMoves returning ${filteredMoves.length} moves',
+    );
     printDebug('💎 DIAMONDS: === END FILTERING ===');
 
     return filteredMoves;

@@ -22,4 +22,3 @@ abstract class ChessBot {
   /// Get bot difficulty/strength description
   String get description;
 }
-

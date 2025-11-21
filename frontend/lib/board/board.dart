@@ -6,8 +6,7 @@ import 'game_status.dart';
 import 'moves/position.dart';
 import 'piece.dart';
 import 'moves/move.dart';
-import '../modes/modes_enum.dart';
-import '../modes/save_the_king.dart';
+import '../modes/modes.dart';
 
 /// Core ChessBoard class with state and basic operations
 class ChessBoard extends Equatable {
