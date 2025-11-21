@@ -33,6 +33,10 @@ migrate_working_dir/
 .pub/
 /build/
 
+# Ignore build outputs for the frontend (e.g. Flutter web/build or mobile release assets)
+# Use a rooted pattern so it applies to the repo-relative `frontend/build` directory.
+/frontend/build/
+
 # Symbolication related
 app.*.symbols
 
