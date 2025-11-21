@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../modes/modes_enum.dart';
+import 'shared.dart';
 import '../services/api_service.dart';
 
 class OnlineBotVsBotPage extends StatefulWidget {
@@ -340,112 +341,14 @@ class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
               ],
             ),
             const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _getDifficultyColor(difficulty),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _getDifficultyColor(
-                          difficulty,
-                        ).withAlpha((0.3 * 255).round()),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    '$difficulty',
-                    style: const TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                _getDifficultyLabel(difficulty),
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: _getDifficultyColor(difficulty),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            SliderTheme(
-              data: SliderThemeData(
-                activeTrackColor: _getDifficultyColor(difficulty),
-                inactiveTrackColor: Colors.grey[300],
-                thumbColor: _getDifficultyColor(difficulty),
-                overlayColor: _getDifficultyColor(
-                  difficulty,
-                ).withAlpha((0.2 * 255).round()),
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 14),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 24),
-              ),
-              child: Slider(
-                value: difficulty.toDouble(),
-                min: 1,
-                max: 10,
-                divisions: 9,
-                label: difficulty.toString(),
-                onChanged: onChanged,
-              ),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Beginner',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-                Text(
-                  'Master',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ],
-            ),
+            DifficultySelector(difficulty: difficulty, onChanged: onChanged),
           ],
         ),
       ),
     );
   }
 
-  Color _getDifficultyColor(int difficulty) {
-    if (difficulty <= 3) {
-      return Colors.green;
-    } else if (difficulty <= 6) {
-      return Colors.orange;
-    } else {
-      return Colors.red;
-    }
-  }
-
-  String _getDifficultyLabel(int difficulty) {
-    if (difficulty <= 2) {
-      return 'Beginner';
-    } else if (difficulty <= 4) {
-      return 'Easy';
-    } else if (difficulty <= 6) {
-      return 'Intermediate';
-    } else if (difficulty <= 8) {
-      return 'Advanced';
-    } else {
-      return 'Master';
-    }
-  }
+  // Difficulty label & color mapping now handled by shared DifficultySelector
 
   Future<void> _startGame() async {
     setState(() {

@@ -12,11 +12,18 @@ import 'modes_enum.dart';
 /// - No two-square initial move
 /// - No en passant in this mode
 class RoyalPawns extends GameMode {
+  @Deprecated(
+    'Use the `modes.royalPawns` alias from modes_cache.dart instead of direct instantiation',
+  )
+  const RoyalPawns();
   @override
   List<ChessMove>? getPawnMoves(ChessPiece pawn, ChessBoard board) {
+    printDebug(
+      '👑 ROYAL PAWN: getPawnMoves called for pawn at ${pawn.position.algebraic}',
+    );
     final moves = <ChessMove>[];
 
-    printDebug(
+    printDebugVerbose(
       '👑 ROYAL PAWN: ${pawn.position.algebraic} can move and capture like a king!',
     );
 

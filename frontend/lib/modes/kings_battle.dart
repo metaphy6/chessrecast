@@ -16,12 +16,19 @@ import 'game_mode.dart';
 /// - Standard chess rules apply
 /// - Player who made King's Kill gets one bonus move immediately
 class KingsBattle implements GameMode {
+  @Deprecated(
+    'Use the `modes.kingsBattle` alias from modes_cache.dart instead of direct instantiation',
+  )
+  const KingsBattle();
   @override
   List<ChessMove> filterMoves(
     List<ChessMove> moves,
     ChessPiece piece,
     ChessBoard board,
   ) {
+    printDebug(
+      '👑 KINGS BATTLE: filterMoves called for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
+    );
     printDebug('👑 KINGS BATTLE: === FILTERING MOVES ===');
     printDebug(
       '👑 KINGS BATTLE: Piece: ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
@@ -34,7 +41,9 @@ class KingsBattle implements GameMode {
 
       // In Phase 1, only kings and pawns can move
       if (piece.type != PieceType.king && piece.type != PieceType.pawn) {
-        printDebug('👑 KINGS BATTLE: ❌ ${piece.type.name} cannot move in Phase 1');
+        printDebug(
+          '👑 KINGS BATTLE: ❌ ${piece.type.name} cannot move in Phase 1',
+        );
         return []; // Other pieces cannot move yet
       }
 
@@ -50,6 +59,9 @@ class KingsBattle implements GameMode {
         }).toList();
 
         printDebug('👑 KINGS BATTLE: King moves: ${filteredMoves.length}');
+        printDebug(
+          '👑 KINGS BATTLE: filterMoves returning ${filteredMoves.length} moves',
+        );
         return filteredMoves;
       }
 
@@ -70,7 +82,7 @@ class KingsBattle implements GameMode {
         move.capturedPiece!.type == PieceType.pawn &&
         !_hasKingsKillHappened(board)) {
       printDebug(
-        '👑 KINGS BATTLE: ⚔️ KING\'S KILL! ${move.piece.color.name} king captured pawn at ${move.to.algebraic}',
+        '👑 KINGS BATTLE: 🚨 KING\'S KILL detected by ${move.piece.color.name} at ${move.to.algebraic}',
       );
 
       // Execute the move normally first
@@ -84,7 +96,7 @@ class KingsBattle implements GameMode {
     // Check if this is a pawn promotion (also unlocks all pieces)
     if (move.isPromotion && !_hasKingsKillHappened(board)) {
       printDebug(
-        '👑 KINGS BATTLE: 👑 PAWN PROMOTED! This unlocks all pieces like King\'s Kill',
+        '👑 KINGS BATTLE: 👑 PAWN PROMOTED! Unlocking Kings Battle phase',
       );
 
       // Execute the promotion normally first

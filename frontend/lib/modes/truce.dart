@@ -11,12 +11,16 @@ import 'game_mode.dart';
 /// - NO check or checkmate during truce - kings move freely
 /// - Once truce is broken, normal chess rules apply including check and checkmate
 class Truce extends GameMode {
+  const Truce();
   @override
   List<ChessMove> filterMoves(
     List<ChessMove> moves,
     ChessPiece piece,
     ChessBoard board,
   ) {
+    printDebug(
+      '🤝 TRUCE: filterMoves called for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
+    );
     // If truce is broken, return all moves
     if (_isTruceBroken(board)) {
       return moves;
@@ -36,6 +40,9 @@ class Truce extends GameMode {
 
   /// Validate if a move is allowed during truce
   bool validateTruceMove(ChessBoard board, ChessMove move) {
+    printDebug(
+      '🤝 TRUCE: validateTruceMove called for ${move.piece.color.name} ${move.piece.type.name} ${move.from.algebraic}->${move.to.algebraic}',
+    );
     // Check if moving the same piece too many times during truce
     if (!_isTruceBroken(board)) {
       final moveCount = _getPieceMoveCount(board, move.piece);
@@ -52,6 +59,9 @@ class Truce extends GameMode {
 
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
+    printDebug(
+      '🤝 TRUCE: handleSpecialMove called for ${move.piece.color.name} ${move.piece.type.name} ${move.from.algebraic}->${move.to.algebraic}',
+    );
     // Check if this move breaks the truce
     final wasTruceActive = !_isTruceBroken(board);
 

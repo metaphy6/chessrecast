@@ -1,3 +1,4 @@
+import 'package:chessrecast/debug.dart';
 import '../board/utils/exporter.dart';
 import 'game_mode.dart';
 import 'modes_enum.dart';
@@ -23,11 +24,18 @@ import 'modes_enum.dart';
 /// White: Two queens on d1 and e1
 /// Black: Two queens on d8 and e8
 class SaveTheKing extends GameMode {
+  @Deprecated(
+    'Use the `modes.saveTheKing` alias from modes_cache.dart instead of direct instantiation',
+  )
+  const SaveTheKing();
   // Track halfmoves for 50-move draw rule (static to persist across instances)
   static int _halfmoveClock = 0;
 
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
+    printDebug(
+      '👑 SAVE KING: handleSpecialMove called for ${move.piece.color.name} move ${move.from.algebraic}->${move.to.algebraic}',
+    );
     // Update halfmove clock
     if (move.capturedPiece != null || move.piece.type == PieceType.pawn) {
       _halfmoveClock = 0;
@@ -69,6 +77,9 @@ class SaveTheKing extends GameMode {
     ChessBoard board, {
     Position? promotionPosition,
   }) {
+    printDebug(
+      '👑 SAVE KING: getPromotionPieces called for $color at ${promotionPosition?.algebraic ?? "-"}',
+    );
     if (promotionPosition == null) return null;
 
     final opponentColor = color.opposite;
@@ -114,6 +125,9 @@ class SaveTheKing extends GameMode {
     bool currentPlayerInCheck,
     bool hasValidMoves,
   ) {
+    printDebug(
+      '👑 SAVE KING: updateGameStatus called for ${board.currentPlayer.name}',
+    );
     final currentColor = board.currentPlayer;
 
     // Check if current player has lost all queens

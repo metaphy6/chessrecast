@@ -15,8 +15,15 @@ import 'game_mode.dart';
 /// 3. Losing a rook results in immediate game loss
 /// 4. Rooks can only capture opponent rooks (cannot capture other pieces)
 class OtherSide extends GameMode {
+  @Deprecated(
+    'Use the `modes.otherSide` alias from modes_cache.dart instead of direct instantiation',
+  )
+  const OtherSide();
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
+    printDebug(
+      '🏰 OTHER SIDE: handleSpecialMove called for ${move.piece.color.name} ${move.piece.type.name} ${move.from.algebraic}->${move.to.algebraic}',
+    );
     // Check if a rook was captured - instant loss for the player who lost it
     if (move.capturedPiece != null &&
         move.capturedPiece!.type == PieceType.rook) {
@@ -45,6 +52,9 @@ class OtherSide extends GameMode {
 
   @override
   List<ChessMove>? getPawnMoves(ChessPiece pawn, ChessBoard board) {
+    printDebugVerbose(
+      '♟️ OTHER SIDE: getPawnMoves called for ${pawn.color.name} pawn at ${pawn.position.algebraic}',
+    );
     final moves = <ChessMove>[];
     final forwardDirection = pawn.color == PieceColor.white ? 1 : -1;
     final startRow = pawn.color == PieceColor.white ? 1 : 6;
@@ -171,6 +181,9 @@ class OtherSide extends GameMode {
     ChessPiece piece,
     ChessBoard board,
   ) {
+    printDebug(
+      '🏰 OTHER SIDE: filterMoves called for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
+    );
     // Only filter rook moves - rooks can only capture opponent rooks
     if (piece.type != PieceType.rook) {
       return moves; // Other pieces use standard rules

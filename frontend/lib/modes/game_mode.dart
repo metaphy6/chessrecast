@@ -3,6 +3,8 @@ import '../board/utils/exporter.dart';
 /// Base class for game mode implementations
 /// Each game mode can override specific behaviors to modify chess rules
 abstract class GameMode {
+  const GameMode();
+
   /// Get pawn moves for this game mode
   /// Returns null if the mode uses default pawn behavior
   List<ChessMove>? getPawnMoves(ChessPiece pawn, ChessBoard board) => null;

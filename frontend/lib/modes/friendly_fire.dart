@@ -8,12 +8,19 @@ import 'game_mode.dart';
 /// - Cannot capture pieces that haven't moved yet (balancing restriction)
 /// - Cannot put yourself in check/checkmate
 class FriendlyFire implements GameMode {
+  @Deprecated(
+    'Use the `modes.friendlyFire` alias from modes_cache.dart instead of direct instantiation',
+  )
+  const FriendlyFire();
   @override
   List<ChessMove> filterMoves(
     List<ChessMove> moves,
     ChessPiece piece,
     ChessBoard board,
   ) {
+    printDebug(
+      '🔥 FRIENDLY FIRE: filterMoves called for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
+    );
     printDebug('🔥 FRIENDLY FIRE: === FILTERING MOVES ===');
     printDebug(
       '🔥 FRIENDLY FIRE: Piece: ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
@@ -34,7 +41,7 @@ class FriendlyFire implements GameMode {
           p.position != piece.position, // Can't capture self
     );
 
-    printDebug(
+    printDebugVerbose(
       '🔥 FRIENDLY FIRE: Found ${friendlyPieces.length} friendly pieces that have moved',
     );
 
@@ -60,12 +67,12 @@ class FriendlyFire implements GameMode {
           (m) => m.from == friendlyFireMove.from && m.to == friendlyFireMove.to,
         )) {
           expandedMoves.add(friendlyFireMove);
-          printDebug(
+          printDebugVerbose(
             '🔥 FRIENDLY FIRE: ✅ Can capture friendly ${friendlyPiece.type.name} at ${targetPosition.algebraic}',
           );
         }
       } else {
-        printDebug(
+        printDebugVerbose(
           '🔥 FRIENDLY FIRE: ❌ Cannot reach ${friendlyPiece.type.name} at ${targetPosition.algebraic}',
         );
       }

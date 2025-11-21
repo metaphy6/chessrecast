@@ -11,6 +11,11 @@ import 'game_mode.dart';
 /// - No castling is allowed in this mode
 /// - All other pieces move normally
 class Teleport extends GameMode {
+  @Deprecated(
+    'Use the `modes.teleport` alias from modes_cache.dart instead of direct instantiation',
+  )
+  const Teleport();
+
   /// Gets all rooks of the specified color
   List<ChessPiece> getRooks(PieceColor color, ChessBoard board) {
     return board.pieces
@@ -34,6 +39,9 @@ class Teleport extends GameMode {
       return moves; // Other pieces move normally
     }
 
+    printDebugVerbose(
+      '🔄 TELEPORT: filterMoves called for King ${piece.color.name} at ${piece.position.algebraic}',
+    );
     printDebug('🔄 TELEPORT: === FILTERING KING MOVES ===');
     printDebug(
       '🔄 TELEPORT: King: ${piece.color.name} at ${piece.position.algebraic}',
@@ -61,7 +69,10 @@ class Teleport extends GameMode {
       }
     }
 
-    printDebug('🔄 TELEPORT: Total moves: ${filteredMoves.length}');
+    printDebugVerbose('🔄 TELEPORT: Total moves: ${filteredMoves.length}');
+    printDebug(
+      '🔄 TELEPORT: filterMoves returning ${filteredMoves.length} moves',
+    );
     printDebug('🔄 TELEPORT: === END FILTERING ===');
 
     return filteredMoves;
@@ -69,7 +80,9 @@ class Teleport extends GameMode {
 
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
-    printDebug('🔄 TELEPORT: handleSpecialMove called');
+    printDebug(
+      '🔄 TELEPORT: handleSpecialMove called for move ${move.from.algebraic}->${move.to.algebraic}',
+    );
     printDebug('🔄 TELEPORT: Move piece: ${move.piece.type.name}');
     printDebug(
       '🔄 TELEPORT: Move from: ${move.from.algebraic} to: ${move.to.algebraic}',

@@ -47,16 +47,10 @@ class _BoardGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     // Pre-build all square widgets with RepaintBoundary to prevent cascading repaints
     return Column(
-      children: const [
-        Expanded(child: _BoardRow(7)), // Rank 8
-        Expanded(child: _BoardRow(6)), // Rank 7
-        Expanded(child: _BoardRow(5)), // Rank 6
-        Expanded(child: _BoardRow(4)), // Rank 5
-        Expanded(child: _BoardRow(3)), // Rank 4
-        Expanded(child: _BoardRow(2)), // Rank 3
-        Expanded(child: _BoardRow(1)), // Rank 2
-        Expanded(child: _BoardRow(0)), // Rank 1
-      ],
+      children: List.generate(
+        8,
+        (index) => Expanded(child: _BoardRow(7 - index)),
+      ),
     );
   }
 }
@@ -70,48 +64,14 @@ class _BoardRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: [
-        Expanded(
+      children: List.generate(
+        8,
+        (col) => Expanded(
           child: RepaintBoundary(
-            child: ChessSquare(position: Position(row, 0)),
+            child: ChessSquare(position: Position(row, col)),
           ),
         ),
-        Expanded(
-          child: RepaintBoundary(
-            child: ChessSquare(position: Position(row, 1)),
-          ),
-        ),
-        Expanded(
-          child: RepaintBoundary(
-            child: ChessSquare(position: Position(row, 2)),
-          ),
-        ),
-        Expanded(
-          child: RepaintBoundary(
-            child: ChessSquare(position: Position(row, 3)),
-          ),
-        ),
-        Expanded(
-          child: RepaintBoundary(
-            child: ChessSquare(position: Position(row, 4)),
-          ),
-        ),
-        Expanded(
-          child: RepaintBoundary(
-            child: ChessSquare(position: Position(row, 5)),
-          ),
-        ),
-        Expanded(
-          child: RepaintBoundary(
-            child: ChessSquare(position: Position(row, 6)),
-          ),
-        ),
-        Expanded(
-          child: RepaintBoundary(
-            child: ChessSquare(position: Position(row, 7)),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

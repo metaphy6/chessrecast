@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../analytics/bot/bot_manager.dart';
 import '../modes/modes_enum.dart';
 import '../routes.dart';
+import 'shared.dart';
 
 /// Bot setup screen with optimized state management to prevent jank
 class BotSetupScreen extends StatelessWidget {
@@ -161,62 +162,54 @@ class _BotSelector extends StatelessWidget {
     }).toList();
 
     return RepaintBoundary(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              GetBuilder<_BotSetupController>(
-                id: id,
-                tag: 'bot_setup',
-                builder: (_) {
-                  final currentBot = isWhite
-                      ? controller.whiteBot
-                      : controller.blackBot;
+      child: SectionCard(
+        titleRow: Text(
+          title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 12),
+            GetBuilder<_BotSetupController>(
+              id: id,
+              tag: 'bot_setup',
+              builder: (_) {
+                final currentBot = isWhite
+                    ? controller.whiteBot
+                    : controller.blackBot;
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      DropdownButtonFormField<BotType>(
-                        value: currentBot,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          labelText: 'Bot Type',
-                        ),
-                        items: dropdownItems,
-                        onChanged: (value) {
-                          if (value != null) {
-                            if (isWhite) {
-                              controller.setWhiteBot(value);
-                            } else {
-                              controller.setBlackBot(value);
-                            }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DropdownButtonFormField<BotType>(
+                      value: currentBot,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        labelText: 'Bot Type',
+                      ),
+                      items: dropdownItems,
+                      onChanged: (value) {
+                        if (value != null) {
+                          if (isWhite) {
+                            controller.setWhiteBot(value);
+                          } else {
+                            controller.setBlackBot(value);
                           }
-                        },
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        currentBot.description,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      currentBot.description,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -237,36 +230,32 @@ class _GameModeSelector extends StatelessWidget {
     }).toList();
 
     return RepaintBoundary(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Game Mode',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              GetBuilder<_BotSetupController>(
-                id: 'game_mode',
-                tag: 'bot_setup',
-                builder: (_) => DropdownButtonFormField<ModesEnum>(
-                  value: controller.selectedMode,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    labelText: 'Select Mode',
-                  ),
-                  items: dropdownItems,
-                  onChanged: (value) {
-                    if (value != null) {
-                      controller.setGameMode(value);
-                    }
-                  },
+      child: SectionCard(
+        titleRow: const Text(
+          'Game Mode',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 12),
+            GetBuilder<_BotSetupController>(
+              id: 'game_mode',
+              tag: 'bot_setup',
+              builder: (_) => DropdownButtonFormField<ModesEnum>(
+                value: controller.selectedMode,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  labelText: 'Select Mode',
                 ),
+                items: dropdownItems,
+                onChanged: (value) {
+                  if (value != null) controller.setGameMode(value);
+                },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -282,49 +271,47 @@ class _PlaybackSettings extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Playback Settings',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      child: SectionCard(
+        titleRow: const Text(
+          'Playback Settings',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 12),
+            GetBuilder<_BotSetupController>(
+              id: 'auto_play',
+              tag: 'bot_setup',
+              builder: (_) => SwitchListTile(
+                title: const Text('Auto-play'),
+                subtitle: const Text('Automatically play moves'),
+                value: controller.autoPlay,
+                onChanged: (value) => controller.setAutoPlay(value),
               ),
-              const SizedBox(height: 12),
-              GetBuilder<_BotSetupController>(
-                id: 'auto_play',
-                tag: 'bot_setup',
-                builder: (_) => SwitchListTile(
-                  title: const Text('Auto-play'),
-                  subtitle: const Text('Automatically play moves'),
-                  value: controller.autoPlay,
-                  onChanged: (value) => controller.setAutoPlay(value),
-                ),
+            ),
+            const SizedBox(height: 8),
+            GetBuilder<_BotSetupController>(
+              id: 'move_delay',
+              tag: 'bot_setup',
+              builder: (_) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Move Delay: ${controller.moveDelay}ms'),
+                  Slider(
+                    value: controller.moveDelay.toDouble(),
+                    min: 100,
+                    max: 3000,
+                    divisions: 29,
+                    label: '${controller.moveDelay}ms',
+                    onChanged: (value) =>
+                        controller.setMoveDelay(value.toInt()),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              GetBuilder<_BotSetupController>(
-                id: 'move_delay',
-                tag: 'bot_setup',
-                builder: (_) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Move Delay: ${controller.moveDelay}ms'),
-                    Slider(
-                      value: controller.moveDelay.toDouble(),
-                      min: 100,
-                      max: 3000,
-                      divisions: 29,
-                      label: '${controller.moveDelay}ms',
-                      onChanged: (value) =>
-                          controller.setMoveDelay(value.toInt()),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

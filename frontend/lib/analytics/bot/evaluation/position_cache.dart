@@ -99,5 +99,3 @@ class CacheEntry {
 
   CacheEntry({required this.evaluation, required this.lastAccessed});
 }
-
-
