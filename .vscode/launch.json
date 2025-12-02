@@ -1,0 +1,56 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter: frontend (mobile - debug)",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "frontend",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "deviceId": "",
+      "env": {
+        "ANDROID_SDK_ROOT": "C:\\Users\\dev\\AppData\\Local\\Android\\sdk",
+        "PATH": "${env:PATH};C:\\Users\\dev\\AppData\\Local\\Android\\sdk\\platform-tools"
+      }
+    },
+    {
+      "name": "Flutter: frontend (profile)",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "frontend",
+      "program": "lib/main.dart",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "Flutter: frontend (release)",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "frontend",
+      "program": "lib/main.dart",
+      "flutterMode": "release"
+    },
+    {
+      "name": "Flutter: frontend (web - Chrome)",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "frontend",
+      "program": "lib/main.dart",
+      "deviceId": "chrome",
+      "env": {
+        "ANDROID_SDK_ROOT": "C:\\Users\\dev\\AppData\\Local\\Android\\sdk",
+        "PATH": "${env:PATH};C:\\Users\\dev\\AppData\\Local\\Android\\sdk\\platform-tools"
+      }
+    },
+    {
+      "name": "Attach: frontend (running device)",
+      "type": "dart",
+      "request": "attach",
+      "cwd": "frontend",
+      "env": {
+        "ANDROID_SDK_ROOT": "C:\\Users\\dev\\AppData\\Local\\Android\\sdk",
+        "PATH": "${env:PATH};C:\\Users\\dev\\AppData\\Local\\Android\\sdk\\platform-tools"
+      }
+    }
+  ]
+}

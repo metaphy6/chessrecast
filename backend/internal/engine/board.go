@@ -221,6 +221,9 @@ func (b *Board) executeCastling(move Move) {
 		rookFrom := Position{Row: move.From.Row, Col: 7}
 		rookTo := Position{Row: move.From.Row, Col: 5}
 		rook := b.GetPieceAt(rookFrom)
+		if rook == nil {
+			return // Rook not found, skip castling execution
+		}
 		b.removePiece(rookFrom)
 		rook.Position = rookTo
 		rook.HasMoved = true
@@ -229,6 +232,9 @@ func (b *Board) executeCastling(move Move) {
 		rookFrom := Position{Row: move.From.Row, Col: 0}
 		rookTo := Position{Row: move.From.Row, Col: 3}
 		rook := b.GetPieceAt(rookFrom)
+		if rook == nil {
+			return // Rook not found, skip castling execution
+		}
 		b.removePiece(rookFrom)
 		rook.Position = rookTo
 		rook.HasMoved = true
@@ -370,6 +376,12 @@ func (b *Board) ToFEN() string {
 	// TODO: Add castling rights, en passant, halfmove clock, fullmove number
 
 	return fen
+}
+
+// IsKingInCheck checks if the king of the given color is in check
+func (b *Board) IsKingInCheck(color Color) bool {
+	mg := NewMoveGenerator(b)
+	return mg.isKingInCheck(b, color)
 }
 
 // Helper function

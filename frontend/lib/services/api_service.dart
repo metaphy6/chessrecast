@@ -241,6 +241,71 @@ class ApiService {
     throw Exception('Failed to create bot vs bot game: ${response.body}');
   }
 
+  /// Pause a bot vs bot game
+  Future<void> pauseGame(String gameId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/games/$gameId/pause'),
+      headers: {if (_authToken != null) 'Authorization': 'Bearer $_authToken'},
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to pause game: ${response.statusCode}');
+    }
+  }
+
+  /// Resume a paused bot vs bot game
+  Future<void> resumeGame(String gameId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/games/$gameId/resume'),
+      headers: {if (_authToken != null) 'Authorization': 'Bearer $_authToken'},
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to resume game: ${response.statusCode}');
+    }
+  }
+
+  /// Stop a bot vs bot game
+  Future<void> stopGame(String gameId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/games/$gameId/stop'),
+      headers: {if (_authToken != null) 'Authorization': 'Bearer $_authToken'},
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to stop game: ${response.statusCode}');
+    }
+  }
+
+  /// Update move delay for a bot vs bot game
+  Future<void> setMoveDelay(String gameId, int delayMs) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/games/$gameId/delay'),
+      headers: {
+        'Content-Type': 'application/json',
+        if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+      },
+      body: json.encode({'delay_ms': delayMs}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to set delay: ${response.statusCode}');
+    }
+  }
+
+  /// Get game status (including pause state and delay)
+  Future<Map<String, dynamic>> getGameStatus(String gameId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/games/$gameId/status'),
+      headers: {if (_authToken != null) 'Authorization': 'Bearer $_authToken'},
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    }
+    throw Exception('Failed to get game status: ${response.statusCode}');
+  }
+
   /// Test backend connection
   /// Test backend connection
   Future<bool> testConnection() async {

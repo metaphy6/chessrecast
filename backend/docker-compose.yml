@@ -1,7 +1,5 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database (Main App)
   postgres:
     image: postgres:18-alpine
     container_name: chessrecast-db
@@ -18,6 +16,37 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # PostgreSQL Database (Dedicated for Bot Game Logs - AI Training Data)
+  postgres-logs:
+    image: postgres:18-alpine
+    container_name: chessrecast-logs-db
+    environment:
+      POSTGRES_USER: botlogs
+      POSTGRES_PASSWORD: botlogs_dev
+      POSTGRES_DB: bot_game_logs
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_logs_data:/var/lib/postgresql/data
+    command:
+      - "postgres"
+      - "-c"
+      - "log_statement=all"
+      - "-c"
+      - "log_lock_waits=on"
+      - "-c"
+      - "log_min_duration_statement=500"
+      - "-c"
+      - "log_checkpoints=on"
+      - "-c"
+      - "log_line_prefix=%t [%p] %q%u@%d "
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U botlogs -d bot_game_logs"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
   # Redis Cache
   redis:
@@ -44,11 +73,15 @@ services:
       - "9090:9090" # Metrics
     environment:
       - DATABASE_URL=postgres://chessrecast:chessrecast_dev@postgres:5432/chessrecast?sslmode=disable
+      - LOGS_DATABASE_URL=postgres://botlogs:botlogs_dev@postgres-logs:5432/bot_game_logs?sslmode=disable
       - REDIS_URL=redis://redis:6379
       - JWT_SECRET=dev_secret_change_in_production
       - LOG_LEVEL=info
+      - LOG_CONNECTION_EVENTS=true
     depends_on:
       postgres:
+        condition: service_healthy
+      postgres-logs:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -56,4 +89,5 @@ services:
 
 volumes:
   postgres_data:
+  postgres_logs_data:
   redis_data:

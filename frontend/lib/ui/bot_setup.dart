@@ -184,7 +184,7 @@ class _BotSelector extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     DropdownButtonFormField<BotType>(
-                      value: currentBot,
+                      initialValue: currentBot,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
                         labelText: 'Bot Type',
@@ -244,7 +244,7 @@ class _GameModeSelector extends StatelessWidget {
               id: 'game_mode',
               tag: 'bot_setup',
               builder: (_) => DropdownButtonFormField<ModesEnum>(
-                value: controller.selectedMode,
+                initialValue: controller.selectedMode,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   labelText: 'Select Mode',

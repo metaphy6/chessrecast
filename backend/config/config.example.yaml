@@ -1,0 +1,10 @@
+port: 8080
+database_url: "postgres://chessrecast:chessrecast_dev@postgres:5432/chessrecast?sslmode=disable"
+redis_url: "redis://redis:6379"
+jwt_secret: "dev_secret_change_in_production"
+log_level: "info"
+
+# Example additional configuration
+metrics:
+  enabled: true
+  port: 9090

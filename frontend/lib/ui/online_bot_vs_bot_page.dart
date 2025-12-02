@@ -18,10 +18,13 @@ class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
   int _blackDifficulty = 5;
   ModesEnum _selectedMode = ModesEnum.classic;
   bool _autoPlay = true;
-  int _moveDelay = 1000; // milliseconds
+  int _moveDelaySeconds = 3; // seconds (1-10)
 
   bool _isCreating = false;
+  bool _isGameRunning = false;
+  bool _isPaused = false;
   String _statusMessage = '';
+  String? _currentGameId;
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +107,7 @@ class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<ModesEnum>(
-                          value: _selectedMode,
+                          initialValue: _selectedMode,
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: Colors.grey[100],
@@ -187,38 +190,65 @@ class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
 
                         if (_autoPlay) ...[
                           const SizedBox(height: 16),
-                          Text(
-                            'Move Delay: ${_moveDelay}ms',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey[700],
-                            ),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.timer,
+                                color: Colors.brown[600],
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Move Delay: $_moveDelaySeconds second${_moveDelaySeconds > 1 ? 's' : ''}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                            ],
                           ),
-                          Slider(
-                            value: _moveDelay.toDouble(),
-                            min: 100,
-                            max: 5000,
-                            divisions: 49,
-                            label: '${_moveDelay}ms',
-                            onChanged: (value) {
-                              setState(() {
-                                _moveDelay = value.toInt();
-                              });
-                            },
+                          const SizedBox(height: 8),
+                          SliderTheme(
+                            data: SliderThemeData(
+                              activeTrackColor: Colors.brown[600],
+                              inactiveTrackColor: Colors.brown[200],
+                              thumbColor: Colors.brown[700],
+                              overlayColor: Colors.brown.withAlpha(50),
+                              valueIndicatorColor: Colors.brown[700],
+                              thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 12,
+                              ),
+                            ),
+                            child: Slider(
+                              value: _moveDelaySeconds.toDouble(),
+                              min: 1,
+                              max: 10,
+                              divisions: 9,
+                              label: '$_moveDelaySeconds sec',
+                              onChanged: (value) {
+                                setState(() {
+                                  _moveDelaySeconds = value.toInt();
+                                });
+                                // If game is running, update delay in real-time
+                                if (_isGameRunning && _currentGameId != null) {
+                                  _updateMoveDelay();
+                                }
+                              },
+                            ),
                           ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Fast (100ms)',
+                                'Fast (1s)',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey[600],
                                 ),
                               ),
                               Text(
-                                'Slow (5s)',
+                                'Slow (10s)',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey[600],
@@ -250,39 +280,100 @@ class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
 
                 if (_statusMessage.isNotEmpty) const SizedBox(height: 16),
 
-                // Start Button
-                ElevatedButton(
-                  onPressed: _isCreating ? null : _startGame,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange[600],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    elevation: 8,
-                  ),
-                  child: _isCreating
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(color: Colors.white),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(Icons.play_arrow, size: 32),
-                            SizedBox(width: 8),
-                            Text(
-                              'Start Battle',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                              ),
+                // Game Control Buttons
+                if (_isGameRunning) ...[
+                  // Play/Pause and Stop buttons when game is running
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _togglePause,
+                          icon: Icon(
+                            _isPaused ? Icons.play_arrow : Icons.pause,
+                            size: 28,
+                          ),
+                          label: Text(
+                            _isPaused ? 'Resume' : 'Pause',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                             ),
-                          ],
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _isPaused
+                                ? Colors.green[600]
+                                : Colors.orange[600],
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 6,
+                          ),
                         ),
-                ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _stopGame,
+                          icon: const Icon(Icons.stop, size: 28),
+                          label: const Text(
+                            'Stop',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red[600],
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 6,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  // Start Button when no game is running
+                  ElevatedButton(
+                    onPressed: _isCreating ? null : _startGame,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange[600],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 8,
+                    ),
+                    child: _isCreating
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.play_arrow, size: 32),
+                              SizedBox(width: 8),
+                              Text(
+                                'Start Battle',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ],
 
                 const SizedBox(height: 16),
 
@@ -377,19 +468,23 @@ class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
         _statusMessage = 'Setting up bot battle...';
       });
 
-      // Create bot vs bot game
+      // Create bot vs bot game with delay in milliseconds
       final result = await _apiService.createBotVsBotGame(
         mode: _selectedMode.toSnakeCase(),
         whiteDifficulty: _whiteDifficulty,
         blackDifficulty: _blackDifficulty,
         autoPlay: _autoPlay,
-        moveDelay: _moveDelay,
+        moveDelay: _moveDelaySeconds * 1000, // Convert seconds to ms
       );
 
       final gameId = result['game_id'];
+      _currentGameId = gameId;
 
       setState(() {
         _statusMessage = 'Battle started! Game ID: $gameId';
+        _isGameRunning = true;
+        _isPaused = false;
+        _isCreating = false;
       });
 
       // Navigate to spectator view
@@ -406,15 +501,82 @@ class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
       setState(() {
         _statusMessage = 'Error: $e';
         _isCreating = false;
+        _isGameRunning = false;
       });
 
-      Get.snackbar(
-        'Failed to Start Battle',
-        e.toString(),
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.red[100],
-        duration: const Duration(seconds: 5),
-      );
+      // Use ScaffoldMessenger instead of Get.snackbar to avoid Overlay issues
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to Start Battle: $e'),
+            backgroundColor: Colors.red[700],
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _togglePause() async {
+    if (_currentGameId == null) return;
+
+    try {
+      if (_isPaused) {
+        await _apiService.resumeGame(_currentGameId!);
+        setState(() {
+          _isPaused = false;
+          _statusMessage = 'Game resumed';
+        });
+      } else {
+        await _apiService.pauseGame(_currentGameId!);
+        setState(() {
+          _isPaused = true;
+          _statusMessage = 'Game paused';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red[700],
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _stopGame() async {
+    if (_currentGameId == null) return;
+
+    try {
+      await _apiService.stopGame(_currentGameId!);
+      setState(() {
+        _isGameRunning = false;
+        _isPaused = false;
+        _currentGameId = null;
+        _statusMessage = 'Game stopped';
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error stopping game: $e'),
+            backgroundColor: Colors.red[700],
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateMoveDelay() async {
+    if (_currentGameId == null) return;
+
+    try {
+      await _apiService.setMoveDelay(_currentGameId!, _moveDelaySeconds * 1000);
+    } catch (e) {
+      // Silently fail - delay update is not critical
     }
   }
 }

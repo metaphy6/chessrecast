@@ -199,7 +199,7 @@ class _CustomControlPanel extends StatelessWidget {
           children: [
             Expanded(
               child: DropdownButtonFormField<ModesEnum>(
-                value: controller.selectedGameType,
+                initialValue: controller.selectedGameType,
                 decoration: const InputDecoration(
                   labelText: 'Game Mode',
                   border: OutlineInputBorder(),
@@ -222,7 +222,7 @@ class _CustomControlPanel extends StatelessWidget {
             const SizedBox(width: 16),
             Expanded(
               child: DropdownButtonFormField<PieceColor>(
-                value: controller.currentTurnColor,
+                initialValue: controller.currentTurnColor,
                 decoration: const InputDecoration(
                   labelText: 'Turn',
                   border: OutlineInputBorder(),
