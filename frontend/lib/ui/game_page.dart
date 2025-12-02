@@ -180,6 +180,25 @@ class ChessGamePage extends StatelessWidget {
               );
             },
           ),
+          // Online Spectator Controls (pause/resume for bot vs bot)
+          if (isOnline && controller is OnlineController)
+            Obx(() {
+              final onlineController = controller as OnlineController;
+              if (!onlineController.isSpectator) {
+                return const SizedBox.shrink();
+              }
+              return IconButton(
+                icon: Icon(
+                  onlineController.isPaused ? Icons.play_arrow : Icons.pause,
+                  color: Colors.white,
+                  size: 24,
+                ),
+                onPressed: () => onlineController.togglePause(),
+                tooltip: onlineController.isPaused ? 'Resume' : 'Pause',
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(),
+              );
+            }),
           // More menu with theme and reset
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.white, size: 20),

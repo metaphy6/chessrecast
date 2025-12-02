@@ -1,8 +1,10 @@
 package ai
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
+	"sort"
 	"time"
 
 	"github.com/metaphy6/chessrecast/internal/engine"
@@ -10,11 +12,12 @@ import (
 
 // Bot represents an AI chess player
 type Bot struct {
-	Difficulty  int // 1-10
-	Color       engine.Color
-	MaxDepth    int           // Search depth based on difficulty
-	TimeLimit   time.Duration // Max thinking time
-	OpeningBook map[string]string // Opening moves database
+	Difficulty    int // 1-10
+	Color         engine.Color
+	MaxDepth      int           // Search depth based on difficulty
+	TimeLimit     time.Duration // Max thinking time
+	OpeningBook   map[string]string // Opening moves database
+	searchTimeout time.Time     // When to stop searching
 }
 
 // NewBot creates a new AI bot
@@ -40,35 +43,39 @@ func NewBot(difficulty int, color engine.Color) *Bot {
 
 // difficultyToDepth maps difficulty level to search depth
 func difficultyToDepth(difficulty int) int {
+	// Reduced depths for better performance
 	// Difficulty 1-3: 1-2 ply (half-moves)
-	// Difficulty 4-6: 3-4 ply
-	// Difficulty 7-8: 5-6 ply
-	// Difficulty 9-10: 7-8 ply
+	// Difficulty 4-6: 2-3 ply
+	// Difficulty 7-8: 3-4 ply
+	// Difficulty 9-10: 4-5 ply
 	depthMap := map[int]int{
 		1:  1,
 		2:  1,
 		3:  2,
-		4:  3,
+		4:  2,
 		5:  3,
-		6:  4,
-		7:  5,
-		8:  6,
-		9:  7,
-		10: 8,
+		6:  3,
+		7:  3,
+		8:  4,
+		9:  4,
+		10: 5,
 	}
 	return depthMap[difficulty]
 }
 
 // difficultyToTimeLimit maps difficulty to maximum thinking time
+// Keep times short for responsive gameplay
 func difficultyToTimeLimit(difficulty int) time.Duration {
 	if difficulty <= 3 {
-		return 1 * time.Second
-	} else if difficulty <= 6 {
-		return 3 * time.Second
-	} else if difficulty <= 8 {
-		return 10 * time.Second
+		return 300 * time.Millisecond
+	} else if difficulty <= 5 {
+		return 500 * time.Millisecond
+	} else if difficulty <= 7 {
+		return 800 * time.Millisecond
+	} else if difficulty <= 9 {
+		return 1200 * time.Millisecond
 	}
-	return 30 * time.Second
+	return 2 * time.Second // Max 2 seconds even for difficulty 10
 }
 
 // loadOpeningBook loads common opening moves
@@ -82,6 +89,16 @@ func loadOpeningBook() map[string]string {
 
 // GetBestMove returns the best move for the current board state
 func (b *Bot) GetBestMove(board *engine.Board) (*engine.Move, error) {
+	startTime := time.Now()
+	defer func() {
+		elapsed := time.Since(startTime)
+		if elapsed > 500*time.Millisecond {
+			fmt.Printf("⏱️ Bot (difficulty %d) took %v to calculate move\n", b.Difficulty, elapsed)
+		}
+	}()
+	
+	fmt.Printf("🤖 Bot calculating move for mode: %s, turn: %s\n", board.Mode, board.CurrentTurn)
+
 	// Check opening book first (only for higher difficulties)
 	if b.Difficulty >= 7 && board.MoveCount < 6 {
 		if bookMove := b.getOpeningBookMove(board); bookMove != nil {
@@ -92,7 +109,19 @@ func (b *Bot) GetBestMove(board *engine.Board) (*engine.Move, error) {
 	// Generate all valid moves
 	allMoves := b.getAllValidMoves(board)
 	if len(allMoves) == 0 {
+		fmt.Printf("⚠️ No valid moves available for %s\n", board.CurrentTurn)
 		return nil, nil // No valid moves
+	}
+	
+	// Log moves in debug mode for special modes
+	if board.Mode != engine.Classic && len(allMoves) > 0 {
+		fmt.Printf("🎯 Mode %s: Generated %d valid moves\n", board.Mode, len(allMoves))
+	}
+	
+	// If only one move available, return it immediately (forced move)
+	if len(allMoves) == 1 {
+		fmt.Printf("🎯 Only 1 valid move available, returning immediately\n")
+		return &allMoves[0], nil
 	}
 
 	// Apply difficulty-based strategy
@@ -165,10 +194,21 @@ func (b *Bot) selectBeginnerMove(moves []engine.Move, board *engine.Board) (*eng
 
 // selectIntermediateMove - Minimax with limited depth
 func (b *Bot) selectIntermediateMove(moves []engine.Move, board *engine.Board) (*engine.Move, error) {
+	// Set timeout for search
+	b.searchTimeout = time.Now().Add(b.TimeLimit)
+
+	// Sort moves by potential (captures first) for better pruning
+	moves = b.sortMoves(moves)
+
 	bestMoves := []engine.Move{moves[0]}
 	bestScore := math.Inf(-1)
 
 	for i := range moves {
+		// Check time before evaluating each move
+		if time.Now().After(b.searchTimeout) {
+			break
+		}
+
 		testBoard := board.Clone()
 		testBoard.MakeMove(moves[i])
 
@@ -194,6 +234,9 @@ func (b *Bot) selectIntermediateMove(moves []engine.Move, board *engine.Board) (
 
 // selectAdvancedMove - Minimax with alpha-beta pruning and advanced evaluation
 func (b *Bot) selectAdvancedMove(moves []engine.Move, board *engine.Board) (*engine.Move, error) {
+	// Set timeout for search
+	b.searchTimeout = time.Now().Add(b.TimeLimit)
+
 	bestMoves := []engine.Move{moves[0]}
 	bestScore := math.Inf(-1)
 	alpha := math.Inf(-1)
@@ -202,11 +245,9 @@ func (b *Bot) selectAdvancedMove(moves []engine.Move, board *engine.Board) (*eng
 	// Sort moves by potential (captures first)
 	moves = b.sortMoves(moves)
 
-	startTime := time.Now()
-
 	for i := range moves {
 		// Check time limit
-		if time.Since(startTime) > b.TimeLimit {
+		if time.Now().After(b.searchTimeout) {
 			break
 		}
 
@@ -237,6 +278,11 @@ func (b *Bot) selectAdvancedMove(moves []engine.Move, board *engine.Board) (*eng
 
 // minimax implements the minimax algorithm with alpha-beta pruning
 func (b *Bot) minimax(board *engine.Board, depth int, alpha, beta float64, maximizing bool) float64 {
+	// Check time limit
+	if !b.searchTimeout.IsZero() && time.Now().After(b.searchTimeout) {
+		return b.evaluateBoard(board) // Return current evaluation if out of time
+	}
+
 	if depth == 0 {
 		return b.evaluateBoard(board)
 	}
@@ -252,6 +298,9 @@ func (b *Bot) minimax(board *engine.Board, depth int, alpha, beta float64, maxim
 		}
 		return 0 // Stalemate
 	}
+	
+	// Sort moves for better alpha-beta pruning (captures first)
+	moves = b.sortMoves(moves)
 
 	if maximizing {
 		maxEval := math.Inf(-1)
@@ -364,28 +413,205 @@ func (b *Bot) getPositionalValue(piece *engine.Piece, pos engine.Position) float
 }
 
 // getModeSpecificScore adds scoring for game mode objectives
+// These bonuses are significant (comparable to piece values) to ensure the bot prioritizes mode objectives
 func (b *Bot) getModeSpecificScore(board *engine.Board) float64 {
 	score := 0.0
 
 	switch board.Mode {
+	case engine.RoyalPawns:
+		// In Royal Pawns, pawns move like kings - prioritize pawn advancement and aggression
+		for row := 0; row < 8; row++ {
+			for col := 0; col < 8; col++ {
+				piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
+				if piece == nil || piece.Type != engine.Pawn {
+					continue
+				}
+
+				if piece.Color == b.Color {
+					// BIG bonus for pawns in the center (they can attack in all directions)
+					if col >= 2 && col <= 5 && row >= 2 && row <= 5 {
+						score += 80.0
+					}
+					// Strong bonus for advanced pawns (near enemy territory)
+					if piece.Color == engine.White {
+						score += float64(row) * 30.0 // Higher rows are better for white
+					} else {
+						score += float64(7-row) * 30.0 // Lower rows are better for black
+					}
+				} else {
+					// Penalize opponent's advanced pawns significantly
+					if piece.Color == engine.White {
+						score -= float64(row) * 30.0
+					} else {
+						score -= float64(7-row) * 30.0
+					}
+				}
+			}
+		}
+
 	case engine.OtherSide:
-		// Bonus for rooks near opponent's back rank
+		// Goal: Get rook to opponent's back rank - this is the PRIMARY objective
+		targetRow := 7
+		if b.Color == engine.Black {
+			targetRow = 0
+		}
 		for col := 0; col < 8; col++ {
-			piece := board.GetPieceAt(engine.Position{Row: 7, Col: col})
-			if piece != nil && piece.Type == engine.Rook && piece.Color == b.Color {
-				score += 50.0
+			for row := 0; row < 8; row++ {
+				piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
+				if piece != nil && piece.Type == engine.Rook && piece.Color == b.Color {
+					// Huge bonus based on how close rook is to target row
+					if b.Color == engine.White {
+						score += float64(row) * 60.0 // Higher is better for white
+					} else {
+						score += float64(7-row) * 60.0 // Lower is better for black
+					}
+					// MASSIVE bonus if on target row (winning condition!)
+					if row == targetRow {
+						score += 1000.0
+					}
+				}
+			}
+		}
+
+	case engine.Diamonds:
+		// Bishops are crucial in Diamonds mode - prioritize bishop activity and capturing
+		for row := 0; row < 8; row++ {
+			for col := 0; col < 8; col++ {
+				piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
+				if piece != nil && piece.Type == engine.Bishop && piece.Color == b.Color {
+					// Strong bonus for central bishops (more diagonal lines)
+					if row >= 2 && row <= 5 && col >= 2 && col <= 5 {
+						score += 100.0
+					}
+					// Bonus for active (moved) bishops
+					if piece.HasMoved {
+						score += 50.0
+					}
+				}
+			}
+		}
+
+	case engine.Teleport:
+		// Value king-rook alignment for teleportation opportunities
+		var kingPos engine.Position
+		kingFound := false
+		for row := 0; row < 8; row++ {
+			for col := 0; col < 8; col++ {
+				piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
+				if piece != nil && piece.Type == engine.King && piece.Color == b.Color {
+					kingPos = engine.Position{Row: row, Col: col}
+					kingFound = true
+					break
+				}
+			}
+			if kingFound {
+				break
+			}
+		}
+
+		if kingFound {
+			// Bonus for rooks aligned with king (enables teleport)
+			for row := 0; row < 8; row++ {
+				for col := 0; col < 8; col++ {
+					piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
+					if piece != nil && piece.Type == engine.Rook && piece.Color == b.Color {
+						if row == kingPos.Row || col == kingPos.Col {
+							score += 80.0 // Aligned for potential teleport
+						}
+					}
+				}
+			}
+		}
+
+	case engine.KingsBattle:
+		// Prioritize king attacking pawns to unlock other pieces
+		if !board.KingsKillUnlock {
+			// Game is still locked - prioritize king capturing enemy pawns
+			var kingPos engine.Position
+			for row := 0; row < 8; row++ {
+				for col := 0; col < 8; col++ {
+					piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
+					if piece != nil && piece.Type == engine.King && piece.Color == b.Color {
+						kingPos = engine.Position{Row: row, Col: col}
+						break
+					}
+				}
+			}
+			// Strong bonus for king being near enemy pawns
+			for row := 0; row < 8; row++ {
+				for col := 0; col < 8; col++ {
+					piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
+					if piece != nil && piece.Type == engine.Pawn && piece.Color != b.Color {
+						distance := abs(kingPos.Row-row) + abs(kingPos.Col-col)
+						score += float64(14-distance) * 20.0 // Much closer is much better
+					}
+				}
 			}
 		}
 
 	case engine.SaveTheQueen:
-		// Bonus if queen has escaped
+		// Bonus if queen has escaped - this is the win condition!
 		if board.EscapedQueens[b.Color] {
-			score += 200.0
+			score += 2000.0
+		} else {
+			// Prioritize moving queen toward board edges (escape routes)
+			var queenPos engine.Position
+			queenFound := false
+			for row := 0; row < 8; row++ {
+				for col := 0; col < 8; col++ {
+					piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
+					if piece != nil && piece.Type == engine.Queen && piece.Color == b.Color {
+						queenPos = engine.Position{Row: row, Col: col}
+						queenFound = true
+						break
+					}
+				}
+				if queenFound {
+					break
+				}
+			}
+			if queenFound {
+				// Big bonus for queen being on edge (closer to escape)
+				if queenPos.Row == 0 || queenPos.Row == 7 || queenPos.Col == 0 || queenPos.Col == 7 {
+					score += 300.0
+				}
+			}
 		}
 
 	case engine.SaveTheKing:
-		// Bonus for having king(s)
-		score += float64(board.PromotedKings[b.Color]) * 300.0
+		// Bonus for having promoted kings - win condition!
+		score += float64(board.PromotedKings[b.Color]) * 1500.0
+		// Strong bonus for pawns near promotion
+		for col := 0; col < 8; col++ {
+			for row := 0; row < 8; row++ {
+				piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
+				if piece != nil && piece.Type == engine.Pawn && piece.Color == b.Color {
+					if b.Color == engine.White && row >= 5 {
+						score += float64(row) * 50.0
+					} else if b.Color == engine.Black && row <= 2 {
+						score += float64(7-row) * 50.0
+					}
+				}
+			}
+		}
+
+	case engine.Heir:
+		// Count how many kings we have vs opponent - more kings = better!
+		myKings := 0
+		oppKings := 0
+		for row := 0; row < 8; row++ {
+			for col := 0; col < 8; col++ {
+				piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
+				if piece != nil && piece.Type == engine.King {
+					if piece.Color == b.Color {
+						myKings++
+					} else {
+						oppKings++
+					}
+				}
+			}
+		}
+		score += float64(myKings-oppKings) * 500.0
 	}
 
 	return score
@@ -412,15 +638,140 @@ func (b *Bot) getAllValidMoves(board *engine.Board) []engine.Move {
 }
 
 func (b *Bot) sortMoves(moves []engine.Move) []engine.Move {
-	// Sort by capture value (MVV-LVA: Most Valuable Victim - Least Valuable Attacker)
-	// This improves alpha-beta pruning efficiency
-	// TODO: Implement proper sorting
+	// Sort by MVV-LVA: Most Valuable Victim - Least Valuable Attacker
+	// This greatly improves alpha-beta pruning efficiency by trying good moves first
+	sort.Slice(moves, func(i, j int) bool {
+		scoreI := b.getMoveOrderScore(&moves[i])
+		scoreJ := b.getMoveOrderScore(&moves[j])
+		return scoreI > scoreJ
+	})
 	return moves
 }
 
+// getMoveOrderScore returns a score for move ordering (higher = try first)
+func (b *Bot) getMoveOrderScore(move *engine.Move) int {
+	score := 0
+	
+	// Captures are very important - prioritize by MVV-LVA
+	if move.CapturedPiece != nil {
+		victimValue := getPieceValue(move.CapturedPiece.Type)
+		attackerValue := getPieceValue(move.Piece.Type)
+		// MVV-LVA: capturing queen with pawn is best (900 - 100 = 800)
+		score += 10000 + victimValue - attackerValue/10
+	}
+	
+	// Promotions are very valuable
+	if move.IsPromotion {
+		score += 9000
+	}
+	
+	// Checks are often good
+	// (We'd need board to check this, skip for now)
+	
+	// Center control bonus
+	if move.To.Row >= 3 && move.To.Row <= 4 && move.To.Col >= 3 && move.To.Col <= 4 {
+		score += 50
+	}
+	
+	return score
+}
+
 func (b *Bot) isPieceSafe(board *engine.Board, pos engine.Position) bool {
-	// Check if piece at position is defended or not under attack
-	// Simplified implementation
+	// Check if piece at position is attacked by opponent
+	piece := board.GetPieceAt(pos)
+	if piece == nil {
+		return true
+	}
+	
+	oppColor := piece.Color.Opposite()
+	
+	// Check if any opponent piece can capture at this position
+	for row := 0; row < 8; row++ {
+		for col := 0; col < 8; col++ {
+			oppPiece := board.GetPieceAt(engine.Position{Row: row, Col: col})
+			if oppPiece != nil && oppPiece.Color == oppColor {
+				// Check if this opponent piece can attack the position
+				if b.canPieceAttack(board, oppPiece, pos) {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+
+// canPieceAttack checks if a piece can attack a target position (simplified)
+func (b *Bot) canPieceAttack(board *engine.Board, piece *engine.Piece, target engine.Position) bool {
+	dr := target.Row - piece.Position.Row
+	dc := target.Col - piece.Position.Col
+	
+	switch piece.Type {
+	case engine.Pawn:
+		// In Royal Pawns mode, pawns attack like kings (all 8 directions)
+		if board.Mode == engine.RoyalPawns {
+			if abs(dr) <= 1 && abs(dc) <= 1 && (dr != 0 || dc != 0) {
+				return true
+			}
+			return false
+		}
+		// Standard pawns attack diagonally
+		direction := 1
+		if piece.Color == engine.Black {
+			direction = -1
+		}
+		if dr == direction && (dc == 1 || dc == -1) {
+			return true
+		}
+	case engine.Knight:
+		if (abs(dr) == 2 && abs(dc) == 1) || (abs(dr) == 1 && abs(dc) == 2) {
+			return true
+		}
+	case engine.Bishop:
+		if abs(dr) == abs(dc) && dr != 0 {
+			return b.isPathClear(board, piece.Position, target)
+		}
+	case engine.Rook:
+		if (dr == 0 || dc == 0) && (dr != 0 || dc != 0) {
+			return b.isPathClear(board, piece.Position, target)
+		}
+	case engine.Queen:
+		if abs(dr) == abs(dc) || dr == 0 || dc == 0 {
+			if dr != 0 || dc != 0 {
+				return b.isPathClear(board, piece.Position, target)
+			}
+		}
+	case engine.King:
+		if abs(dr) <= 1 && abs(dc) <= 1 && (dr != 0 || dc != 0) {
+			return true
+		}
+	}
+	return false
+}
+
+// isPathClear checks if there are no pieces between from and to
+func (b *Bot) isPathClear(board *engine.Board, from, to engine.Position) bool {
+	dr := 0
+	dc := 0
+	if to.Row > from.Row {
+		dr = 1
+	} else if to.Row < from.Row {
+		dr = -1
+	}
+	if to.Col > from.Col {
+		dc = 1
+	} else if to.Col < from.Col {
+		dc = -1
+	}
+	
+	row := from.Row + dr
+	col := from.Col + dc
+	for row != to.Row || col != to.Col {
+		if board.GetPieceAt(engine.Position{Row: row, Col: col}) != nil {
+			return false
+		}
+		row += dr
+		col += dc
+	}
 	return true
 }
 
@@ -459,4 +810,12 @@ func (b *Bot) getCurrentBoard() *engine.Board {
 func (b *Bot) getOpeningBookMove(board *engine.Board) *engine.Move {
 	// TODO: Implement opening book lookup based on move history
 	return nil
+}
+
+// abs returns absolute value of an integer
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }

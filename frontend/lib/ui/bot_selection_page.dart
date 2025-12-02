@@ -96,7 +96,7 @@ class _BotSelectionPageState extends State<BotSelectionPage> {
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<ModesEnum>(
-                          value: _selectedMode,
+                          initialValue: _selectedMode,
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: Colors.grey[100],

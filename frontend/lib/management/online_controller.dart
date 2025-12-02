@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:chessrecast/debug.dart';
 import 'package:get/get.dart';
 import '../board/utils/exporter.dart';
@@ -18,6 +19,8 @@ class OnlineController extends Controller {
   final RxString _gameId = ''.obs;
   final Rxn<String> _playerId = Rxn<String>();
   final RxString _connectionStatus = 'Offline'.obs;
+  final RxBool _isPaused = false.obs;
+  final RxBool _isSpectator = false.obs;
 
   // Getters
   bool get isOnlineMode => _isOnlineMode.value;
@@ -25,6 +28,8 @@ class OnlineController extends Controller {
   String? get gameId => _gameId.value.isEmpty ? null : _gameId.value;
   String? get playerId => _playerId.value;
   String get connectionStatus => _connectionStatus.value;
+  bool get isPaused => _isPaused.value;
+  bool get isSpectator => _isSpectator.value;
 
   @override
   void onInit() {
@@ -65,11 +70,7 @@ class OnlineController extends Controller {
     _websocket.onError = (error) {
       _connectionStatus.value = 'Error: $error';
       printDebug('❌ OnlineController: WebSocket error: $error');
-      Get.snackbar(
-        'Connection Error',
-        error,
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      _showSafeSnackbar('Connection Error', error);
     };
 
     _websocket.onGameUpdate = (data) {
@@ -80,6 +81,7 @@ class OnlineController extends Controller {
   /// Setup online game from route arguments
   Future<void> _setupOnlineGame(Map<String, dynamic>? args) async {
     _isOnlineMode.value = true;
+    _isSpectator.value = args?['isSpectator'] ?? false;
     _connectionStatus.value = 'Initializing...';
 
     try {
@@ -110,12 +112,7 @@ class OnlineController extends Controller {
     } catch (e) {
       printDebug('❌ OnlineController: Setup failed: $e');
       _connectionStatus.value = 'Failed: $e';
-      Get.snackbar(
-        'Setup Failed',
-        e.toString(),
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 5),
-      );
+      _showSafeSnackbar('Setup Failed', e.toString());
       _isOnlineMode.value = false;
     }
   }
@@ -172,11 +169,7 @@ class OnlineController extends Controller {
       printDebug('✅ OnlineController: Game state synced');
     } catch (e) {
       printDebug('❌ OnlineController: Failed to sync state: $e');
-      Get.snackbar(
-        'Sync Failed',
-        e.toString(),
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      _showSafeSnackbar('Sync Failed', e.toString());
     }
   }
 
@@ -184,44 +177,47 @@ class OnlineController extends Controller {
   void _handleGameUpdate(Map<String, dynamic> data) {
     printDebug('📨 OnlineController: Handling update: ${data['type']}');
 
+    // Backend sends flat JSON like {type, board, game_id, ...}
+    // Extract nested data if present, otherwise use the data itself
+    final nestedData = data['data'] as Map<String, dynamic>?;
+    final gameData = nestedData ?? data;
+
     switch (data['type']) {
       case 'game_state':
-        _updateBoardFromBackend(data['data']);
-        break;
-
       case 'game_update':
-        // Handle generic game update (sent by bot vs bot games)
-        // Backend sends: {type, board, game_id, state, etc}
-        // Need to pass the whole update as game data
-        _updateBoardFromBackend(data);
+        // Both types use the same update logic
+        // Backend sends: {type, board, game_id, state, current_turn, etc}
+        _updateBoardFromBackend(gameData);
         break;
 
       case 'move_made':
-        _handleMoveMade(data['data']);
+        _handleMoveMade(gameData);
         break;
 
       case 'game_over':
-        _handleGameOver(data['data']);
+        _handleGameOver(gameData);
         break;
 
       case 'player_joined':
-        printDebug('👤 Player joined: ${data['data']['player_id']}');
-        Get.snackbar(
-          'Player Joined',
-          'A player has joined the game',
-          snackPosition: SnackPosition.TOP,
-          duration: const Duration(seconds: 2),
-        );
+        final playerId = gameData['player_id'] ?? 'unknown';
+        printDebug('👤 Player joined: $playerId');
+        _showSafeSnackbar('Player Joined', 'A player has joined the game');
         break;
 
       case 'player_left':
-        printDebug('👤 Player left: ${data['data']['player_id']}');
-        Get.snackbar(
-          'Player Left',
-          'A player has left the game',
-          snackPosition: SnackPosition.TOP,
-          duration: const Duration(seconds: 2),
-        );
+        final playerId = gameData['player_id'] ?? 'unknown';
+        printDebug('👤 Player left: $playerId');
+        _showSafeSnackbar('Player Left', 'A player has left the game');
+        break;
+
+      case 'pong':
+        // Heartbeat response, ignore
+        break;
+
+      case 'error':
+        final errorMsg = gameData['error'] ?? 'Unknown error';
+        printDebug('❌ Server error: $errorMsg');
+        _showSafeSnackbar('Server Error', errorMsg.toString());
         break;
 
       default:
@@ -274,18 +270,15 @@ class OnlineController extends Controller {
       '🏁 OnlineController: Game over - Result: $result, Winner: $winner',
     );
 
-    Get.snackbar(
-      'Game Over',
-      result == 'checkmate'
-          ? '$winner wins by checkmate!'
-          : result == 'stalemate'
-          ? 'Game drawn by stalemate'
-          : result == 'draw'
-          ? 'Game drawn'
-          : result ?? 'Game ended',
-      snackPosition: SnackPosition.TOP,
-      duration: const Duration(seconds: 5),
-    );
+    final message = result == 'checkmate'
+        ? '$winner wins by checkmate!'
+        : result == 'stalemate'
+        ? 'Game drawn by stalemate'
+        : result == 'draw'
+        ? 'Game drawn'
+        : result ?? 'Game ended';
+
+    _showSafeSnackbar('Game Over', message);
 
     _syncGameState();
   }
@@ -337,12 +330,30 @@ class OnlineController extends Controller {
       _updateBoardFromBackend(result);
     } catch (e) {
       printDebug('❌ OnlineController: Move failed: $e');
-      Get.snackbar(
-        'Move Failed',
-        e.toString(),
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      _showSafeSnackbar('Move Failed', e.toString());
     }
+  }
+
+  /// Safe snackbar that uses ScaffoldMessenger to avoid Overlay issues
+  void _showSafeSnackbar(String title, String message) {
+    // Use WidgetsBinding to ensure we have a valid context
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final context = Get.context;
+      if (context != null) {
+        try {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$title: $message'),
+              duration: const Duration(seconds: 3),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } catch (e) {
+          // Fallback: just log if ScaffoldMessenger is not available
+          printDebug('⚠️ Could not show snackbar: $title - $message');
+        }
+      }
+    });
   }
 
   // positionToAlgebraic(Position) helper is provided by board_utils.dart
@@ -354,12 +365,7 @@ class OnlineController extends Controller {
     try {
       await _apiService.resignGame(_gameId.value);
       printDebug('✅ OnlineController: Resigned game');
-
-      Get.snackbar(
-        'Game Resigned',
-        'You have resigned the game',
-        snackPosition: SnackPosition.TOP,
-      );
+      _showSafeSnackbar('Game Resigned', 'You have resigned the game');
     } catch (e) {
       printDebug('❌ OnlineController: Resign failed: $e');
     }
@@ -395,11 +401,44 @@ class OnlineController extends Controller {
       printDebug('✅ OnlineController: Bot game created');
     } catch (e) {
       printDebug('❌ OnlineController: Bot challenge failed: $e');
-      Get.snackbar(
-        'Challenge Failed',
-        e.toString(),
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      _showSafeSnackbar('Challenge Failed', e.toString());
+    }
+  }
+
+  /// Pause the online game (for spectator/bot vs bot mode)
+  Future<void> pauseOnlineGame() async {
+    if (_gameId.value.isEmpty) return;
+
+    try {
+      await _apiService.pauseGame(_gameId.value);
+      _isPaused.value = true;
+      printDebug('⏸️ OnlineController: Game paused');
+    } catch (e) {
+      printDebug('❌ OnlineController: Pause failed: $e');
+      _showSafeSnackbar('Pause Failed', e.toString());
+    }
+  }
+
+  /// Resume the online game
+  Future<void> resumeOnlineGame() async {
+    if (_gameId.value.isEmpty) return;
+
+    try {
+      await _apiService.resumeGame(_gameId.value);
+      _isPaused.value = false;
+      printDebug('▶️ OnlineController: Game resumed');
+    } catch (e) {
+      printDebug('❌ OnlineController: Resume failed: $e');
+      _showSafeSnackbar('Resume Failed', e.toString());
+    }
+  }
+
+  /// Toggle pause/resume
+  Future<void> togglePause() async {
+    if (_isPaused.value) {
+      await resumeOnlineGame();
+    } else {
+      await pauseOnlineGame();
     }
   }
 }

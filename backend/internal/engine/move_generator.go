@@ -353,15 +353,19 @@ func (mg *MoveGenerator) getCastlingMoves(king *Piece) []Move {
 		(king.Color == Black && mg.board.BlackCanCastleKingside)
 		
 	if canKingside {
-		// Check squares between king and rook are empty
-		if mg.board.GetPieceAt(Position{Row: row, Col: 5}) == nil &&
-			mg.board.GetPieceAt(Position{Row: row, Col: 6}) == nil {
-			// Check squares king moves through aren't attacked
-			if !mg.isSquareAttacked(Position{Row: row, Col: 5}, king.Color.Opposite()) &&
-				!mg.isSquareAttacked(Position{Row: row, Col: 6}, king.Color.Opposite()) {
-				move := NewMove(king.Position, Position{Row: row, Col: 6}, king)
-				move.IsCastling = true
-				moves = append(moves, *move)
+		// Verify rook is actually present
+		rook := mg.board.GetPieceAt(Position{Row: row, Col: 7})
+		if rook != nil && rook.Type == Rook && rook.Color == king.Color {
+			// Check squares between king and rook are empty
+			if mg.board.GetPieceAt(Position{Row: row, Col: 5}) == nil &&
+				mg.board.GetPieceAt(Position{Row: row, Col: 6}) == nil {
+				// Check squares king moves through aren't attacked
+				if !mg.isSquareAttacked(Position{Row: row, Col: 5}, king.Color.Opposite()) &&
+					!mg.isSquareAttacked(Position{Row: row, Col: 6}, king.Color.Opposite()) {
+					move := NewMove(king.Position, Position{Row: row, Col: 6}, king)
+					move.IsCastling = true
+					moves = append(moves, *move)
+				}
 			}
 		}
 	}
@@ -371,16 +375,20 @@ func (mg *MoveGenerator) getCastlingMoves(king *Piece) []Move {
 		(king.Color == Black && mg.board.BlackCanCastleQueenside)
 		
 	if canQueenside {
-		// Check squares between king and rook are empty
-		if mg.board.GetPieceAt(Position{Row: row, Col: 1}) == nil &&
-			mg.board.GetPieceAt(Position{Row: row, Col: 2}) == nil &&
-			mg.board.GetPieceAt(Position{Row: row, Col: 3}) == nil {
-			// Check squares king moves through aren't attacked
-			if !mg.isSquareAttacked(Position{Row: row, Col: 2}, king.Color.Opposite()) &&
-				!mg.isSquareAttacked(Position{Row: row, Col: 3}, king.Color.Opposite()) {
-				move := NewMove(king.Position, Position{Row: row, Col: 2}, king)
-				move.IsCastling = true
-				moves = append(moves, *move)
+		// Verify rook is actually present
+		rook := mg.board.GetPieceAt(Position{Row: row, Col: 0})
+		if rook != nil && rook.Type == Rook && rook.Color == king.Color {
+			// Check squares between king and rook are empty
+			if mg.board.GetPieceAt(Position{Row: row, Col: 1}) == nil &&
+				mg.board.GetPieceAt(Position{Row: row, Col: 2}) == nil &&
+				mg.board.GetPieceAt(Position{Row: row, Col: 3}) == nil {
+				// Check squares king moves through aren't attacked
+				if !mg.isSquareAttacked(Position{Row: row, Col: 2}, king.Color.Opposite()) &&
+					!mg.isSquareAttacked(Position{Row: row, Col: 3}, king.Color.Opposite()) {
+					move := NewMove(king.Position, Position{Row: row, Col: 2}, king)
+					move.IsCastling = true
+					moves = append(moves, *move)
+				}
 			}
 		}
 	}
@@ -558,29 +566,72 @@ func (mg *MoveGenerator) applySaveTheQueenRules(moves []Move, piece *Piece) []Mo
 // Helper methods
 
 func (mg *MoveGenerator) canPieceReach(piece *Piece, target Position) bool {
-	// Simplified check - just verify target is in piece's move pattern
-	tempMoves := []Move{}
+	return mg.canPieceReachOnBoard(mg.board, piece, target)
+}
+
+// canPieceReachOnBoard checks if a sliding piece can reach target on the specified board
+func (mg *MoveGenerator) canPieceReachOnBoard(board *Board, piece *Piece, target Position) bool {
+	// For sliding pieces, check if path is clear and direction is valid
+	dr := target.Row - piece.Position.Row
+	dc := target.Col - piece.Position.Col
+	
 	switch piece.Type {
 	case Pawn:
-		return false // Pawns have complex movement
-	case Rook:
-		tempMoves = mg.getRookMoves(piece)
+		return false // Handled separately
 	case Knight:
-		tempMoves = mg.getKnightMoves(piece)
-	case Bishop:
-		tempMoves = mg.getBishopMoves(piece)
-	case Queen:
-		tempMoves = mg.getQueenMoves(piece)
+		return false // Handled separately
 	case King:
-		tempMoves = mg.getKingMoves(piece)
-	}
-
-	for _, move := range tempMoves {
-		if move.To.Equals(target) {
-			return true
+		return false // Handled separately
+	case Rook:
+		// Rooks move horizontally or vertically
+		if dr != 0 && dc != 0 {
+			return false
 		}
+		return mg.isPathClearOnBoard(board, piece.Position, target)
+	case Bishop:
+		// Bishops move diagonally
+		if abs(dr) != abs(dc) || dr == 0 {
+			return false
+		}
+		return mg.isPathClearOnBoard(board, piece.Position, target)
+	case Queen:
+		// Queen can move like rook or bishop
+		if (dr == 0 || dc == 0) && (dr != 0 || dc != 0) {
+			return mg.isPathClearOnBoard(board, piece.Position, target)
+		}
+		if abs(dr) == abs(dc) && dr != 0 {
+			return mg.isPathClearOnBoard(board, piece.Position, target)
+		}
+		return false
 	}
 	return false
+}
+
+// isPathClearOnBoard checks if there are no pieces between from and to on the specified board
+func (mg *MoveGenerator) isPathClearOnBoard(board *Board, from, to Position) bool {
+	dr := 0
+	dc := 0
+	if to.Row > from.Row {
+		dr = 1
+	} else if to.Row < from.Row {
+		dr = -1
+	}
+	if to.Col > from.Col {
+		dc = 1
+	} else if to.Col < from.Col {
+		dc = -1
+	}
+	
+	row := from.Row + dr
+	col := from.Col + dc
+	for row != to.Row || col != to.Col {
+		if board.GetPieceAt(Position{Row: row, Col: col}) != nil {
+			return false
+		}
+		row += dr
+		col += dc
+	}
+	return true
 }
 
 func (mg *MoveGenerator) filterCheckMoves(moves []Move) []Move {
@@ -623,20 +674,27 @@ func (mg *MoveGenerator) isKingInCheck(board *Board, color Color) bool {
 		return false // No king (possible in some game modes)
 	}
 
-	return mg.isSquareAttacked(kingPos, color.Opposite())
+	// Use the passed board for attack checking, not mg.board
+	return mg.isSquareAttackedOnBoard(board, kingPos, color.Opposite())
 }
 
+// isSquareAttacked checks if a square is attacked on the current board (mg.board)
 func (mg *MoveGenerator) isSquareAttacked(pos Position, byColor Color) bool {
+	return mg.isSquareAttackedOnBoard(mg.board, pos, byColor)
+}
+
+// isSquareAttackedOnBoard checks if a square is attacked on the specified board
+func (mg *MoveGenerator) isSquareAttackedOnBoard(board *Board, pos Position, byColor Color) bool {
 	// Check if any enemy piece can attack this square
 	for row := 0; row < 8; row++ {
 		for col := 0; col < 8; col++ {
-			piece := mg.board.GetPieceAt(Position{Row: row, Col: col})
+			piece := board.GetPieceAt(Position{Row: row, Col: col})
 			if piece == nil || piece.Color != byColor {
 				continue
 			}
 
 			// Get piece's attack squares (simplified - no recursion)
-			if mg.canAttackSquare(piece, pos) {
+			if mg.canAttackSquareOnBoard(board, piece, pos) {
 				return true
 			}
 		}
@@ -644,10 +702,23 @@ func (mg *MoveGenerator) isSquareAttacked(pos Position, byColor Color) bool {
 	return false
 }
 
+// canAttackSquare checks if a piece can attack a target on the current board (mg.board)
 func (mg *MoveGenerator) canAttackSquare(piece *Piece, target Position) bool {
+	return mg.canAttackSquareOnBoard(mg.board, piece, target)
+}
+
+// canAttackSquareOnBoard checks if a piece can attack a target on the specified board
+func (mg *MoveGenerator) canAttackSquareOnBoard(board *Board, piece *Piece, target Position) bool {
 	// Simplified attack check without generating full moves
 	switch piece.Type {
 	case Pawn:
+		// In Royal Pawns mode, pawns attack like kings (all 8 directions)
+		if board.Mode == RoyalPawns {
+			rowDiff := abs(piece.Position.Row - target.Row)
+			colDiff := abs(piece.Position.Col - target.Col)
+			return rowDiff <= 1 && colDiff <= 1 && (rowDiff > 0 || colDiff > 0)
+		}
+		// Standard pawn diagonal captures
 		direction := 1
 		if piece.Color == Black {
 			direction = -1
@@ -676,7 +747,7 @@ func (mg *MoveGenerator) canAttackSquare(piece *Piece, target Position) bool {
 	default:
 		// For sliding pieces, check if path is clear
 		// This is simplified - full implementation would check each square
-		return mg.canPieceReach(piece, target)
+		return mg.canPieceReachOnBoard(board, piece, target)
 	}
 }
 

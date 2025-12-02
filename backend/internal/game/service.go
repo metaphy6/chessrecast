@@ -3,13 +3,22 @@ package game
 import (
 	"errors"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/metaphy6/chessrecast/internal/ai"
 	"github.com/metaphy6/chessrecast/internal/engine"
+	"github.com/metaphy6/chessrecast/internal/storage"
 )
+
+// logf prints a log message with timestamp (MM-DD HH:MM:SS.mmm)
+func logf(format string, args ...interface{}) {
+	ts := time.Now().Format("01-02 15:04:05.000")
+	msg := fmt.Sprintf(format, args...)
+	fmt.Printf("[%s] %s\n", ts, msg)
+}
 
 // PlayerType represents the type of player
 type PlayerType string
@@ -41,6 +50,13 @@ type Session struct {
 	UpdatedAt     time.Time
 	LastMoveAt    time.Time
 	Spectators    []string // Player IDs watching the game
+	
+	// Bot vs Bot control
+	IsPaused      bool
+	IsStopped     bool // Flag to indicate game should stop
+	MoveDelay     int // milliseconds
+	IsBotVsBot    bool // true if this is a bot vs bot game (controlled by PlayBotVsBot)
+	stopChannel   chan struct{}
 	
 	mu            sync.RWMutex
 	moveChannel   chan MoveRequest
@@ -89,6 +105,9 @@ func (s *Service) CreateGame(mode engine.GameMode, whitePlayer, blackPlayer *Pla
 	sessionID := uuid.New().String()
 	board := engine.NewBoard(mode)
 
+	// Check if this is a bot vs bot game
+	isBotVsBot := whitePlayer.Type == AI && blackPlayer.Type == AI
+
 	session := &Session{
 		ID:          sessionID,
 		Board:       board,
@@ -99,6 +118,7 @@ func (s *Service) CreateGame(mode engine.GameMode, whitePlayer, blackPlayer *Pla
 		UpdatedAt:   time.Now(),
 		LastMoveAt:  time.Now(),
 		Spectators:  []string{},
+		IsBotVsBot:  isBotVsBot,
 		moveChannel: make(chan MoveRequest, 100),
 		subscribers: make(map[string]chan GameUpdate),
 	}
@@ -106,8 +126,9 @@ func (s *Service) CreateGame(mode engine.GameMode, whitePlayer, blackPlayer *Pla
 	// Start game loop
 	go session.run()
 
-	// If AI players, trigger their moves
-	if whitePlayer.Type == AI && board.CurrentTurn == engine.White {
+	// If AI player vs Human, trigger AI moves automatically
+	// But NOT for bot vs bot - that's controlled by PlayBotVsBot with delay
+	if !isBotVsBot && whitePlayer.Type == AI && board.CurrentTurn == engine.White {
 		go session.triggerAIMove()
 	}
 
@@ -229,11 +250,20 @@ func (s *Service) Unsubscribe(sessionID, subscriberID string) {
 	}
 
 	session.mu.Lock()
-	defer session.mu.Unlock()
-
 	if ch, exists := session.subscribers[subscriberID]; exists {
 		close(ch)
 		delete(session.subscribers, subscriberID)
+	}
+	
+	// Check if this was the last subscriber for a bot vs bot game
+	noSubscribers := len(session.subscribers) == 0
+	isBotVsBot := session.IsBotVsBot
+	session.mu.Unlock()
+	
+	// If no more subscribers and it's a bot vs bot game, stop it
+	if noSubscribers && isBotVsBot {
+		log.Printf("🛑 No more subscribers for bot vs bot game %s, stopping game", sessionID)
+		s.StopGame(sessionID)
 	}
 }
 
@@ -251,7 +281,8 @@ func (sess *Session) run() {
 			req.Response <- resp
 
 			// If move was successful and next player is AI, trigger AI move
-			if resp.Success && sess.State == engine.InProgress {
+			// But NOT for bot vs bot - that's controlled by PlayBotVsBot with delay
+			if resp.Success && sess.State == engine.InProgress && !sess.IsBotVsBot {
 				currentPlayer := sess.getCurrentPlayer()
 				if currentPlayer != nil && currentPlayer.Type == AI {
 					go sess.triggerAIMove()
@@ -460,19 +491,63 @@ func (s *Service) PlayBotVsBot(sessionID string, moveDelay int) error {
 		return errors.New("both players must be AI")
 	}
 
-	fmt.Printf("✅ PlayBotVsBot: Validation passed, starting game loop\n")
-	fmt.Printf("🎮 Game Mode: %s\n", session.Board.Mode.String())
-	fmt.Printf("🤖 White Bot: Difficulty %d\n", session.WhitePlayer.Bot.Difficulty)
-	fmt.Printf("🤖 Black Bot: Difficulty %d\n", session.BlackPlayer.Bot.Difficulty)
+	// Initialize control channels (only if not already set by ResumeGame)
+	session.mu.Lock()
+	if moveDelay > 0 {
+		session.MoveDelay = moveDelay
+	}
+	session.IsPaused = false
+	session.IsStopped = false
+	if session.stopChannel == nil {
+		session.stopChannel = make(chan struct{})
+	}
+	session.mu.Unlock()
+
+	logf("✅ PlayBotVsBot: Validation passed, starting game loop")
+	logf("🎮 Game Mode: %s", session.Board.Mode.String())
+	logf("🤖 White Bot: Difficulty %d", session.WhitePlayer.Bot.Difficulty)
+	logf("🤖 Black Bot: Difficulty %d", session.BlackPlayer.Bot.Difficulty)
+
+	// Start game recording
+	storage.StartGame(sessionID, session.Board.Mode, 
+		session.WhitePlayer.Bot.Difficulty, session.BlackPlayer.Bot.Difficulty)
 
 	// Keep playing until game ends
 	moveCount := 0
+	_ = time.Now() // gameStartTime not needed anymore
 	for session.State == engine.InProgress {
+		// Check for stop signal
+		select {
+		case <-session.stopChannel:
+			logf("🛑 PlayBotVsBot: Game stopped by user")
+			storage.EndGame(sessionID, "", "stopped")
+			return nil
+		default:
+		}
+
+		// Check if paused
+		session.mu.RLock()
+		isPaused := session.IsPaused
+		currentDelay := session.MoveDelay
+		session.mu.RUnlock()
+
+		if isPaused {
+			// Wait a bit and check again
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+
+		// Apply delay BEFORE the move (so user can see the board state)
+		if moveCount > 0 && currentDelay > 0 {
+			logf("⏳ Waiting %dms before next move...", currentDelay)
+			time.Sleep(time.Duration(currentDelay) * time.Millisecond)
+		}
+
 		session.mu.RLock()
 		currentTurn := session.Board.CurrentTurn
 		session.mu.RUnlock()
 
-		fmt.Printf("🎮 Move %d: %s's turn\n", moveCount+1, currentTurn)
+		logf("🎮 Move %d: %s's turn", moveCount+1, currentTurn)
 
 		// Get current bot player
 		var currentBot *ai.Bot
@@ -486,44 +561,180 @@ func (s *Service) PlayBotVsBot(sessionID string, moveDelay int) error {
 		}
 
 		// Calculate bot move
-		fmt.Printf("🤔 Bot calculating move...\n")
+		logf("🤔 Bot calculating move...")
 		move, err := currentBot.GetBestMove(session.Board)
-		if err != nil || move == nil {
-			fmt.Printf("❌ No valid moves available, ending game. Error: %v\n", err)
+		
+		// Check for stop signal AFTER bot calculation (in case stop was called during calculation)
+		session.mu.RLock()
+		stopped := session.IsStopped
+		session.mu.RUnlock()
+		if stopped {
+			logf("🛑 PlayBotVsBot: Game stopped during bot calculation")
+			storage.EndGame(sessionID, "", "stopped")
+			return nil
+		}
+		
+		if err != nil {
+			logf("❌ Bot returned error: %v", err)
+			break
+		}
+		
+		if move == nil {
+			logf("❌ Bot returned nil move (no valid moves available)")
+			logf("📊 Game state: %s, Turn: %s", session.State, session.Board.CurrentTurn)
 			// No valid moves, game should end
 			break
 		}
 
-		fmt.Printf("✅ Bot chose move: %+v\n", move)
+		logf("✅ Bot chose move: %s%s -> %s%s", 
+			string('a'+move.From.Col), string('1'+move.From.Row),
+			string('a'+move.To.Col), string('1'+move.To.Row))
 
 		// Make the move
 		resp, err := s.MakeMove(sessionID, playerID, *move)
 		if err != nil || !resp.Success {
-			fmt.Printf("❌ Move failed: %v\n", err)
-			// Move failed, stop game
+			logf("❌ Move failed: %v", err)
 			break
 		}
 
-		fmt.Printf("✅ Move executed successfully\n")
+		logf("✅ Move executed successfully")
 		moveCount++
 
-		// Delay before next move
-		if moveDelay > 0 {
-			time.Sleep(time.Duration(moveDelay) * time.Millisecond)
-		}
+		// Record move for game notation
+		storage.RecordMove(sessionID, move)
 
 		// Check if game ended
 		session.mu.RLock()
 		gameEnded := session.State != engine.InProgress
+		gameResult := session.Result
 		session.mu.RUnlock()
 
 		if gameEnded {
-			fmt.Printf("🏁 Game ended after %d moves\n", moveCount)
+			logf("🏁 Game ended after %d moves", moveCount)
+			
+			// Record game result
+			winner := ""
+			winReason := ""
+			if gameResult != nil {
+				switch gameResult.Winner {
+				case engine.White:
+					winner = "white"
+				case engine.Black:
+					winner = "black"
+				default:
+					winner = "draw"
+				}
+				winReason = gameResult.Reason
+			}
+			storage.EndGame(sessionID, winner, winReason)
+			
 			break
 		}
 	}
 
-	fmt.Printf("🎮 PlayBotVsBot: Game loop completed with %d moves\n", moveCount)
+	logf("🎮 PlayBotVsBot: Game loop completed with %d moves", moveCount)
 
 	return nil
+}
+
+// PauseGame pauses a bot vs bot game
+func (s *Service) PauseGame(sessionID string) error {
+	session, err := s.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+
+	session.mu.Lock()
+	session.IsPaused = true
+	session.mu.Unlock()
+
+	fmt.Printf("⏸️ Game %s paused\n", sessionID)
+	return nil
+}
+
+// ResumeGame resumes a paused or stopped bot vs bot game
+func (s *Service) ResumeGame(sessionID string) error {
+	session, err := s.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+
+	session.mu.Lock()
+	wasStopped := session.IsStopped
+	session.IsPaused = false
+	session.IsStopped = false
+	
+	// If the game was stopped (not just paused), we need to restart the game loop
+	if wasStopped && session.State == engine.InProgress {
+		// Create new stop channel
+		session.stopChannel = make(chan struct{})
+		currentDelay := session.MoveDelay
+		session.mu.Unlock()
+		
+		fmt.Printf("▶️ Game %s resumed (restarting game loop)\n", sessionID)
+		
+		// Restart the game loop in a goroutine
+		go func() {
+			if err := s.PlayBotVsBot(sessionID, currentDelay); err != nil {
+				fmt.Printf("❌ Error restarting bot game: %v\n", err)
+			}
+		}()
+		return nil
+	}
+	
+	session.mu.Unlock()
+	fmt.Printf("▶️ Game %s resumed\n", sessionID)
+	return nil
+}
+
+// SetMoveDelay updates the move delay for a bot vs bot game
+func (s *Service) SetMoveDelay(sessionID string, delayMs int) error {
+	session, err := s.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+
+	session.mu.Lock()
+	session.MoveDelay = delayMs
+	session.mu.Unlock()
+
+	fmt.Printf("⏱️ Game %s move delay set to %dms\n", sessionID, delayMs)
+	return nil
+}
+
+// StopGame stops a bot vs bot game completely
+func (s *Service) StopGame(sessionID string) error {
+	session, err := s.GetSession(sessionID)
+	if err != nil {
+		return err
+	}
+
+	session.mu.Lock()
+	session.IsStopped = true // Set flag first
+	if session.stopChannel != nil {
+		close(session.stopChannel)
+		session.stopChannel = nil
+	}
+	session.mu.Unlock()
+
+	fmt.Printf("🛑 Game %s stopped\n", sessionID)
+	return nil
+}
+
+// GetGameStatus returns the current status of a game
+func (s *Service) GetGameStatus(sessionID string) (map[string]interface{}, error) {
+	session, err := s.GetSession(sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	session.mu.RLock()
+	defer session.mu.RUnlock()
+
+	return map[string]interface{}{
+		"game_id":    session.ID,
+		"state":      session.State.String(),
+		"is_paused":  session.IsPaused,
+		"move_delay": session.MoveDelay,
+	}, nil
 }
