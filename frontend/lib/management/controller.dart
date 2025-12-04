@@ -15,6 +15,9 @@ class Controller extends GetxController {
   final BotManager botManager = Get.find<BotManager>();
   GameAnalytics? _analytics;
 
+  // BuildContext for showing snackbars without Overlay issues
+  BuildContext? _buildContext;
+
   // Game type
   late final ModesEnum gameType;
   late final bool isDevBoard;
@@ -155,6 +158,11 @@ class Controller extends GetxController {
       isWhiteBot: botManager.whiteBot != null,
       isBlackBot: botManager.blackBot != null,
     );
+  }
+
+  /// Set the BuildContext for safe snackbar display
+  void setBuildContext(BuildContext context) {
+    _buildContext = context;
   }
 
   /// Handles square selection on the chess board
@@ -672,60 +680,67 @@ class Controller extends GetxController {
 
   /// Shows a winner declaration snackbar
   void _showWinnerSnackbar(String winnerColor) {
-    // Use post-frame callback to avoid showing snackbar during build/initialization
+    if (_buildContext == null) return;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Get.snackbar(
-        '🏆 Game Over!',
-        '$winnerColor Wins!',
-        duration: const Duration(seconds: 3),
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: winnerColor.toLowerCase() == 'white'
-            ? Colors.blue.shade100
-            : Colors.grey.shade800,
-        colorText: winnerColor.toLowerCase() == 'white'
-            ? Colors.blue.shade900
-            : Colors.white,
-        icon: const Icon(Icons.emoji_events, color: Colors.amber),
-        shouldIconPulse: false,
-        margin: const EdgeInsets.all(16),
-        borderRadius: 12,
-      );
+      try {
+        ScaffoldMessenger.of(_buildContext!).showSnackBar(
+          SnackBar(
+            content: Text('$winnerColor Wins! 🏆'),
+            backgroundColor: winnerColor.toLowerCase() == 'white'
+                ? Colors.blue.shade600
+                : Colors.grey.shade800,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      } catch (e) {
+        printDebug('Failed to show winner snackbar: $e');
+      }
     });
   }
 
   /// Shows a draw declaration snackbar
   void _showDrawSnackbar(String drawType) {
-    // Use post-frame callback to avoid showing snackbar during build/initialization
+    if (_buildContext == null) return;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Get.snackbar(
-        '🤝 Game Over!',
-        '$drawType - It\'s a tie!',
-        duration: const Duration(seconds: 3),
-        snackPosition: SnackPosition.TOP,
-        backgroundColor: Colors.orange.shade100,
-        colorText: Colors.orange.shade900,
-        icon: const Icon(Icons.handshake, color: Colors.orange),
-        shouldIconPulse: false,
-        margin: const EdgeInsets.all(16),
-        borderRadius: 12,
-      );
+      try {
+        ScaffoldMessenger.of(_buildContext!).showSnackBar(
+          SnackBar(
+            content: Text('$drawType - It\'s a tie! 🤝'),
+            backgroundColor: Colors.orange.shade600,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      } catch (e) {
+        printDebug('Failed to show draw snackbar: $e');
+      }
     });
   }
 
   /// Shows a temporary message
   void _showMessage(String message) {
-    // In a real app, you might want to show this in a snackbar or toast
-    // For now, we'll just use Get.snackbar
-    // Use post-frame callback to ensure we're not in build phase
-    if (Get.isSnackbarOpen) return;
+    if (_buildContext == null) return;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (Get.isSnackbarOpen) return; // Check again after frame
-      Get.snackbar(
-        'Chess Recast',
-        message,
-        duration: const Duration(seconds: 2),
-        snackPosition: SnackPosition.BOTTOM,
-      );
+      try {
+        // Clear any existing snackbars first
+        ScaffoldMessenger.of(_buildContext!).clearSnackBars();
+        ScaffoldMessenger.of(_buildContext!).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(16),
+          ),
+        );
+      } catch (e) {
+        printDebug('Failed to show message snackbar: $e');
+      }
     });
   }
 

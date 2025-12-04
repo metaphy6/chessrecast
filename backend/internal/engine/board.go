@@ -15,10 +15,11 @@ type Board struct {
 	CurrentTurn Color
 
 	// State tracking
-	History       MoveHistory
-	EnPassantSquare *Position // Valid en passant target
-	MoveCount     int         // Total moves (half-moves)
-	FiftyMoveRule int         // Moves since last capture or pawn move
+	History            MoveHistory
+	EnPassantSquare    *Position // Valid en passant target
+	MoveCount          int       // Total moves (half-moves)
+	FiftyMoveRule      int       // Moves since last capture or pawn move
+	PositionHistory    []string  // Position keys for threefold repetition detection
 
 	// Castling rights
 	WhiteCanCastleKingside  bool
@@ -47,6 +48,7 @@ func NewBoard(mode GameMode) *Board {
 		EscapedQueens:           make(map[Color]bool),
 		PromotedKings:           make(map[Color]int),
 		TruceActive:             mode == Truce,
+		PositionHistory:         make([]string, 0),
 	}
 
 	b.setupStandardPosition()
@@ -208,6 +210,9 @@ func (b *Board) MakeMove(move Move) error {
 	b.History.Add(move)
 	b.MoveCount++
 
+	// Add position to history (before switching turns so we capture the completed move state)
+	b.PositionHistory = append(b.PositionHistory, b.GetPositionKey())
+
 	// Switch turn
 	b.CurrentTurn = b.CurrentTurn.Opposite()
 
@@ -306,7 +311,11 @@ func (b *Board) Clone() *Board {
 		PieceMoveCounter:        make(map[Position]int),
 		EscapedQueens:           make(map[Color]bool),
 		PromotedKings:           make(map[Color]int),
+		PositionHistory:         make([]string, len(b.PositionHistory)),
 	}
+
+	// Copy position history
+	copy(clone.PositionHistory, b.PositionHistory)
 
 	// Copy pieces
 	for row := 0; row < 8; row++ {
@@ -382,6 +391,71 @@ func (b *Board) ToFEN() string {
 func (b *Board) IsKingInCheck(color Color) bool {
 	mg := NewMoveGenerator(b)
 	return mg.isKingInCheck(b, color)
+}
+
+// GetPositionKey generates a unique key for the current board position
+// Key includes: piece positions, current turn, castling rights, en passant target
+func (b *Board) GetPositionKey() string {
+	// Piece placement
+	pieceKey := ""
+	for row := 7; row >= 0; row-- {
+		for col := 0; col < 8; col++ {
+			piece := b.squares[row][col]
+			if piece == nil {
+				pieceKey += "-"
+			} else {
+				pieceKey += string(piece.Type.FENChar(piece.Color))
+			}
+		}
+	}
+
+	// Current turn
+	turnKey := fmt.Sprintf("t%c", b.CurrentTurn.String()[0])
+
+	// Castling rights
+	castleKey := "c"
+	if b.WhiteCanCastleKingside {
+		castleKey += "K"
+	}
+	if b.WhiteCanCastleQueenside {
+		castleKey += "Q"
+	}
+	if b.BlackCanCastleKingside {
+		castleKey += "k"
+	}
+	if b.BlackCanCastleQueenside {
+		castleKey += "q"
+	}
+
+	// En passant
+	epKey := "e-"
+	if b.EnPassantSquare != nil {
+		epKey = fmt.Sprintf("e%d%d", b.EnPassantSquare.Row, b.EnPassantSquare.Col)
+	}
+
+	return pieceKey + "|" + turnKey + "|" + castleKey + "|" + epKey
+}
+
+// HasThreefoldRepetition checks if the same position has occurred 3 times
+func (b *Board) HasThreefoldRepetition() bool {
+	if len(b.PositionHistory) == 0 {
+		return false
+	}
+
+	currentKey := b.GetPositionKey()
+	count := 1 // Start at 1 to count the current position
+
+	// Count occurrences of current position in history
+	for _, historyKey := range b.PositionHistory {
+		if historyKey == currentKey {
+			count++
+			if count >= 3 {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // Helper function

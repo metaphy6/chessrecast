@@ -115,8 +115,7 @@ type GameState int
 
 const (
 	InProgress GameState = iota
-	WhiteWins
-	BlackWins
+	Checkmate
 	Draw
 	Stalemate
 	Resigned
@@ -127,8 +126,7 @@ const (
 func (gs GameState) String() string {
 	states := []string{
 		"in_progress",
-		"white_wins",
-		"black_wins",
+		"checkmate",
 		"draw",
 		"stalemate",
 		"resigned",
