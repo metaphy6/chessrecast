@@ -1,4 +1,3 @@
-import 'package:chessrecast/debug.dart';
 import '../board/utils/exporter.dart';
 import 'game_mode.dart';
 
@@ -18,9 +17,6 @@ class Truce extends GameMode {
     ChessPiece piece,
     ChessBoard board,
   ) {
-    printDebug(
-      '🤝 TRUCE: filterMoves called for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
-    );
     // If truce is broken, return all moves
     if (_isTruceBroken(board)) {
       return moves;
@@ -31,25 +27,15 @@ class Truce extends GameMode {
       return move.capturedPiece == null;
     }).toList();
 
-    printDebug(
-      '🤝 TRUCE: Filtered moves for ${piece.type.name} at ${piece.position.algebraic}: ${moves.length} -> ${nonCapturingMoves.length}',
-    );
-
     return nonCapturingMoves;
   }
 
   /// Validate if a move is allowed during truce
   bool validateTruceMove(ChessBoard board, ChessMove move) {
-    printDebug(
-      '🤝 TRUCE: validateTruceMove called for ${move.piece.color.name} ${move.piece.type.name} ${move.from.algebraic}->${move.to.algebraic}',
-    );
     // Check if moving the same piece too many times during truce
     if (!_isTruceBroken(board)) {
       final moveCount = _getPieceMoveCount(board, move.piece);
       if (moveCount >= 3) {
-        printDebug(
-          '🤝 TRUCE: Piece ${move.piece.type.name} at ${move.from.algebraic} has moved $moveCount times (max 3 during truce)',
-        );
         return false;
       }
     }
@@ -59,9 +45,6 @@ class Truce extends GameMode {
 
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
-    printDebug(
-      '🤝 TRUCE: handleSpecialMove called for ${move.piece.color.name} ${move.piece.type.name} ${move.from.algebraic}->${move.to.algebraic}',
-    );
     // Check if this move breaks the truce
     final wasTruceActive = !_isTruceBroken(board);
 
@@ -72,18 +55,12 @@ class Truce extends GameMode {
     // Important: Count total pieces BEFORE the move is made (board is pre-move state)
     final totalPieces = board.getPiecesOfColor(move.piece.color).length;
 
-    printDebug(
-      '🤝 TRUCE: ${move.piece.color.name} will have moved ${movedPieces.length}/$totalPieces unique pieces after this move',
-    );
-
     // Truce breaks when a player has moved ALL their pieces at least once
     final isTruceNowBroken =
         movedPieces.length >= totalPieces && totalPieces > 0;
 
     if (wasTruceActive && isTruceNowBroken) {
-      printDebug(
-        '🤝 TRUCE: BROKEN! ${move.piece.color.name} has moved all $totalPieces pieces!',
-      );
+      // Truce is now broken
     }
 
     return null; // No special board changes needed
@@ -118,10 +95,6 @@ class Truce extends GameMode {
         }
       }
 
-      printDebug(
-        '🤝 TRUCE CHECK: ${color.name} has $currentPiecesThatHaveMoved/${currentPieces.length} pieces that have moved',
-      );
-
       if (currentPiecesThatHaveMoved >= currentPieces.length &&
           currentPieces.isNotEmpty) {
         return true;
@@ -141,7 +114,6 @@ class Truce extends GameMode {
   bool isKingInCheckTruce(PieceColor kingColor, ChessBoard board) {
     // During truce, kings cannot be in check (they move freely)
     if (isTruceActive(board)) {
-      printDebug('🤝 TRUCE: Truce active - king cannot be in check');
       return false;
     }
 

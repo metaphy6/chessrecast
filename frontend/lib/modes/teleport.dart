@@ -1,13 +1,16 @@
-import 'package:chessrecast/debug.dart';
 import '../board/utils/exporter.dart';
 import 'game_mode.dart';
 
 /// TELEPORT MODE: Kings and rooks can swap positions when aligned
 ///
 /// Rules:
-/// - Kings can teleport with friendly rooks on the same rank (horizontal)
-/// - Kings can teleport with friendly rooks on the same file (vertical)
+/// - Kings can teleport with friendly rooks on the same rank or file
 /// - Teleport swaps the positions of king and rook instantly
+/// - RESTRICTIONS (safe corridor):
+///   1. King must NOT be under attack
+///   2. Rook must NOT be under attack
+///   3. No pieces between king and rook
+///   4. No opponent piece attacking ANY square on the teleport line
 /// - No castling is allowed in this mode
 /// - All other pieces move normally
 class Teleport extends GameMode {
@@ -28,79 +31,141 @@ class Teleport extends GameMode {
     return kingPos.row == rookPos.row || kingPos.col == rookPos.col;
   }
 
+  /// Gets all squares between two positions (exclusive of endpoints)
+  List<Position> _getSquaresBetween(Position from, Position to) {
+    final squares = <Position>[];
+
+    if (from.row == to.row) {
+      // Same row - horizontal line
+      final minCol = from.col < to.col ? from.col : to.col;
+      final maxCol = from.col > to.col ? from.col : to.col;
+      for (int col = minCol + 1; col < maxCol; col++) {
+        squares.add(Position(from.row, col));
+      }
+    } else if (from.col == to.col) {
+      // Same column - vertical line
+      final minRow = from.row < to.row ? from.row : to.row;
+      final maxRow = from.row > to.row ? from.row : to.row;
+      for (int row = minRow + 1; row < maxRow; row++) {
+        squares.add(Position(row, from.col));
+      }
+    }
+
+    return squares;
+  }
+
+  /// Checks if teleport is legal (safe corridor exists)
+  bool _isTeleportLegal(
+    Position kingPos,
+    Position rookPos,
+    PieceColor color,
+    ChessBoard board,
+  ) {
+    final opponentColor = color.opposite;
+
+    // 1. King must NOT be under attack
+    if (board.isPositionUnderAttack(kingPos, opponentColor)) {
+      return false;
+    }
+
+    // 2. Rook must NOT be under attack
+    if (board.isPositionUnderAttack(rookPos, opponentColor)) {
+      return false;
+    }
+
+    // 3. No pieces between king and rook
+    final squaresBetween = _getSquaresBetween(kingPos, rookPos);
+    for (final square in squaresBetween) {
+      if (board.getPieceAt(square) != null) {
+        return false;
+      }
+    }
+
+    // 4. No opponent piece attacking ANY square on the teleport line
+    for (final square in squaresBetween) {
+      if (board.isPositionUnderAttack(square, opponentColor)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   @override
   List<ChessMove> filterMoves(
     List<ChessMove> moves,
     ChessPiece piece,
     ChessBoard board,
   ) {
-    // Only modify king moves
-    if (piece.type != PieceType.king) {
-      return moves; // Other pieces move normally
+    // Handle king teleport moves
+    if (piece.type == PieceType.king) {
+      final filteredMoves = <ChessMove>[...moves];
+
+      // Add teleport moves with friendly rooks if safe corridor exists
+      final friendlyRooks = getRooks(piece.color, board);
+      for (final rook in friendlyRooks) {
+        if (_areAligned(piece.position, rook.position) &&
+            _isTeleportLegal(
+              piece.position,
+              rook.position,
+              piece.color,
+              board,
+            )) {
+          filteredMoves.add(
+            ChessMove.simple(
+              from: piece.position,
+              to: rook.position,
+              piece: piece,
+            ),
+          );
+        }
+      }
+
+      return filteredMoves;
     }
 
-    printDebugVerbose(
-      '🔄 TELEPORT: filterMoves called for King ${piece.color.name} at ${piece.position.algebraic}',
-    );
-    printDebug('🔄 TELEPORT: === FILTERING KING MOVES ===');
-    printDebug(
-      '🔄 TELEPORT: King: ${piece.color.name} at ${piece.position.algebraic}',
-    );
+    // Handle rook teleport moves
+    if (piece.type == PieceType.rook) {
+      // Get the friendly king position
+      final king = board.getKing(piece.color);
 
-    final filteredMoves = <ChessMove>[...moves];
+      // Filter out any normal rook move that would "capture" the friendly king
+      // (rooks can't capture friendly pieces, but we need to replace it with teleport)
+      final filteredMoves = <ChessMove>[];
+      for (final move in moves) {
+        // Skip moves to the king's position - these will be replaced by teleport if legal
+        if (king != null && move.to == king.position) {
+          continue;
+        }
+        filteredMoves.add(move);
+      }
 
-    // Add teleport moves with friendly rooks (no path check - it's a teleport!)
-    final friendlyRooks = getRooks(piece.color, board);
-    for (final rook in friendlyRooks) {
-      if (_areAligned(piece.position, rook.position)) {
-        printDebug(
-          '🔄 TELEPORT: ✓ Can teleport with rook at ${rook.position.algebraic}',
-        );
-
-        // Create a special move where king moves to rook's position
-        // The actual swap will be handled in handleSpecialMove
+      // Add teleport move with friendly king if safe corridor exists
+      if (king != null &&
+          _areAligned(piece.position, king.position) &&
+          _isTeleportLegal(king.position, piece.position, piece.color, board)) {
         filteredMoves.add(
           ChessMove.simple(
             from: piece.position,
-            to: rook.position,
+            to: king.position,
             piece: piece,
           ),
         );
       }
+
+      return filteredMoves;
     }
 
-    printDebugVerbose('🔄 TELEPORT: Total moves: ${filteredMoves.length}');
-    printDebug(
-      '🔄 TELEPORT: filterMoves returning ${filteredMoves.length} moves',
-    );
-    printDebug('🔄 TELEPORT: === END FILTERING ===');
-
-    return filteredMoves;
+    return moves; // Other pieces move normally
   }
 
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
-    printDebug(
-      '🔄 TELEPORT: handleSpecialMove called for move ${move.from.algebraic}->${move.to.algebraic}',
-    );
-    printDebug('🔄 TELEPORT: Move piece: ${move.piece.type.name}');
-    printDebug(
-      '🔄 TELEPORT: Move from: ${move.from.algebraic} to: ${move.to.algebraic}',
-    );
-    printDebug(
-      '🔄 TELEPORT: Move capturedPiece: ${move.capturedPiece != null ? "${move.capturedPiece!.color.name} ${move.capturedPiece!.type.name}" : "NONE"}',
-    );
-
     // Check if this is a king moving to a rook's position (teleport)
-    // The move might have capturedPiece set to the rook (from _attemptMove in controller)
-    // or it might not (from move generation)
     if (move.piece.type == PieceType.king) {
       final targetPiece = board.getPieceAt(move.to);
-      printDebug(
-        '🔄 TELEPORT: Target piece at ${move.to.algebraic}: ${targetPiece != null ? "${targetPiece.color.name} ${targetPiece.type.name}" : "NONE"}',
-      );
 
-      // Check if target is a friendly rook (either from board or from move.capturedPiece)
+      // Check if target is a friendly rook
       final isTargetFriendlyRook =
           (targetPiece != null &&
               targetPiece.type == PieceType.rook &&
@@ -110,12 +175,7 @@ class Teleport extends GameMode {
               move.capturedPiece!.color == move.piece.color);
 
       if (isTargetFriendlyRook) {
-        // Use the target piece from board (more reliable than move.capturedPiece)
         final rookPiece = targetPiece!;
-
-        printDebug(
-          '🔄 TELEPORT: ✅ Executing teleport swap: king at ${move.from.algebraic} ↔ rook at ${move.to.algebraic}',
-        );
 
         // Remove both pieces
         final newPieces = board.pieces.where((piece) {
@@ -134,12 +194,47 @@ class Teleport extends GameMode {
           moveHistory: [...board.moveHistory, move],
         );
 
-        printDebug('🔄 TELEPORT: ✅ Teleport complete!');
         return newBoard;
       }
     }
 
-    printDebug('🔄 TELEPORT: Not a teleport move, returning null');
+    // Check if this is a rook moving to a king's position (teleport)
+    if (move.piece.type == PieceType.rook) {
+      final targetPiece = board.getPieceAt(move.to);
+
+      // Check if target is a friendly king
+      final isTargetFriendlyKing =
+          (targetPiece != null &&
+              targetPiece.type == PieceType.king &&
+              targetPiece.color == move.piece.color) ||
+          (move.capturedPiece != null &&
+              move.capturedPiece!.type == PieceType.king &&
+              move.capturedPiece!.color == move.piece.color);
+
+      if (isTargetFriendlyKing) {
+        final kingPiece = targetPiece!;
+
+        // Remove both pieces
+        final newPieces = board.pieces.where((piece) {
+          return piece.position != move.from && piece.position != move.to;
+        }).toList();
+
+        // Add rook at king's old position
+        newPieces.add(move.piece.movedTo(move.to));
+
+        // Add king at rook's old position
+        newPieces.add(kingPiece.movedTo(move.from));
+
+        final newBoard = board.copyWith(
+          pieces: newPieces,
+          currentPlayer: board.currentPlayer.opposite,
+          moveHistory: [...board.moveHistory, move],
+        );
+
+        return newBoard;
+      }
+    }
+
     return null; // Not a teleport move, use standard handling
   }
 

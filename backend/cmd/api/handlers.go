@@ -1,15 +1,15 @@
 package main
 
 import (
-    "context"
-    "strconv"
+	"context"
+	"strconv"
 
-    "github.com/gin-gonic/gin"
-    "github.com/google/uuid"
-    "github.com/metaphy6/chessrecast/internal/ai"
-    "github.com/metaphy6/chessrecast/internal/engine"
-    "github.com/metaphy6/chessrecast/internal/game"
-    "github.com/metaphy6/chessrecast/internal/storage"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/metaphy6/chessrecast/internal/ai"
+	"github.com/metaphy6/chessrecast/internal/engine"
+	"github.com/metaphy6/chessrecast/internal/game"
+	"github.com/metaphy6/chessrecast/internal/storage"
 )
 
 const invalidRequestMsg = "Invalid request"
@@ -349,5 +349,25 @@ func handleDatabaseHealth(c *gin.Context) {
     c.JSON(200, gin.H{
         "status": "healthy",
         "details": result,
+    })
+}
+
+// handleDatabaseReset clears all data from database tables (for development/testing)
+func handleDatabaseReset(c *gin.Context) {
+    result, err := storage.ResetDatabase(context.Background())
+    if err != nil {
+        c.JSON(500, gin.H{
+            "status": "error",
+            "error":  err.Error(),
+        })
+        return
+    }
+
+    c.JSON(200, gin.H{
+        "status":           "success",
+        "tables_cleared":   result.TablesCleared,
+        "rows_deleted":     result.RowsDeleted,
+        "all_tables_empty": result.AllTablesEmpty,
+        "message":          result.Message,
     })
 }

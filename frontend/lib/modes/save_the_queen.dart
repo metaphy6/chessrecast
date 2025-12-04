@@ -1,4 +1,3 @@
-import 'package:chessrecast/debug.dart';
 import '../board/utils/exporter.dart';
 import 'modes_enum.dart';
 import 'game_mode.dart';
@@ -47,14 +46,7 @@ class SaveTheQueen implements GameMode {
     ChessPiece piece,
     ChessBoard board,
   ) {
-    printDebug(
-      '👸 SAVE QUEEN: filterMoves called for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
-    );
     if (piece.type != PieceType.queen) {
-      printDebug(
-        '👸 SAVE QUEEN: ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic} - passing through ${moves.length} moves',
-      );
-
       // Filter out moves that would capture a prisoner queen on its initial prison square
       // OR capture a prisoner queen when its prison square is occupied
       final filteredMoves = moves.where((move) {
@@ -66,9 +58,6 @@ class SaveTheQueen implements GameMode {
             targetPiece.color,
           );
           if (isOnPrisonSquare) {
-            printDebug(
-              '👸 SAVE QUEEN: ❌ Cannot capture ${targetPiece.color.name} queen at ${targetPiece.position.algebraic} - still in prison',
-            );
             return false; // Cannot capture queen on prison square
           }
 
@@ -87,9 +76,6 @@ class SaveTheQueen implements GameMode {
             );
 
             if (prisonOccupied) {
-              printDebug(
-                '👸 SAVE QUEEN: ❌ Cannot capture ${targetPiece.color.name} prisoner queen at ${targetPiece.position.algebraic} - prison square ${prisonPosition.algebraic} is occupied',
-              );
               return false; // Cannot capture prisoner queen if prison is occupied
             }
           }
@@ -100,42 +86,21 @@ class SaveTheQueen implements GameMode {
       return filteredMoves;
     }
 
-    printDebug('👸 SAVE QUEEN: === FILTERING QUEEN MOVES ===');
-    printDebug(
-      '👸 SAVE QUEEN: ${piece.color.name} queen at ${piece.position.algebraic}',
-    );
-
     final isInOwnHalf = _isInOwnHalf(piece.position, piece.color);
     final isInPrison = _isInPrison(piece.position, piece.color);
 
-    printDebug(
-      '👸 SAVE QUEEN: In own half: $isInOwnHalf, In prison: $isInPrison',
-    );
-
     if (isInOwnHalf) {
       // ESCAPED STATE: Queen can move and capture like normal
-      printDebug('👸 SAVE QUEEN: ✅ Queen is ESCAPED - full queen moves');
 
       // Filter out moves that would return queen to opponent's half
       final safeMoves = moves.where((move) {
         final targetInOwnHalf = _isInOwnHalf(move.to, piece.color);
-        if (!targetInOwnHalf) {
-          printDebug(
-            '👸 SAVE QUEEN: ⚠️ Move to ${move.to.algebraic} would return to prison',
-          );
-        }
         return targetInOwnHalf;
       }).toList();
 
-      printDebug(
-        '👸 SAVE QUEEN: Safe moves (staying in own half): ${safeMoves.length}',
-      );
       return safeMoves;
     } else {
       // PRISONER STATE: Queen moves like king, can't capture
-      printDebug(
-        '👸 SAVE QUEEN: 🔒 Queen is PRISONER - limited to king moves, no captures',
-      );
 
       final prisonerMoves = <ChessMove>[];
 
@@ -154,9 +119,6 @@ class SaveTheQueen implements GameMode {
 
           // Prisoner queen CANNOT capture
           if (targetPiece != null) {
-            printDebug(
-              '👸 SAVE QUEEN: ❌ Cannot capture ${targetPiece.type.name} at ${targetPos.algebraic} (prisoner)',
-            );
             continue;
           }
 
@@ -169,23 +131,15 @@ class SaveTheQueen implements GameMode {
               capturedPiece: null,
             ),
           );
-
-          printDebug('👸 SAVE QUEEN: ✅ Can move to ${targetPos.algebraic}');
         }
       }
 
-      printDebug(
-        '👸 SAVE QUEEN: Total prisoner moves: ${prisonerMoves.length}',
-      );
       return prisonerMoves;
     }
   }
 
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
-    printDebug(
-      '👸 SAVE QUEEN: handleSpecialMove called for ${move.piece.color.name} ${move.piece.type.name} move ${move.from.algebraic}->${move.to.algebraic}',
-    );
     // Check if escaped queen reached opponent's prison square = WIN!
     if (move.piece.type == PieceType.queen) {
       final isInOwnHalf = _isInOwnHalf(move.to, move.piece.color);
@@ -195,25 +149,7 @@ class SaveTheQueen implements GameMode {
           ? blackQueenPrison // d1
           : whiteQueenPrison; // d8
 
-      printDebug(
-        '👸 SAVE QUEEN: Checking win condition for ${move.piece.color.name} queen',
-      );
-      printDebug(
-        '👸 SAVE QUEEN: Moving to ${move.to.algebraic} (row ${move.to.row}, col ${move.to.col})',
-      );
-      printDebug(
-        '👸 SAVE QUEEN: Opponent prison: ${opponentPrison.algebraic} (row ${opponentPrison.row}, col ${opponentPrison.col})',
-      );
-      printDebug('👸 SAVE QUEEN: Is in own half: $isInOwnHalf');
-      printDebug(
-        '👸 SAVE QUEEN: Positions match: ${move.to == opponentPrison}',
-      );
-
       if (isInOwnHalf && move.to == opponentPrison) {
-        printDebug(
-          '👸 SAVE QUEEN: 🏆 ESCAPED QUEEN REACHED OPPONENT PRISON! ${move.piece.color.name.toUpperCase()} WINS!',
-        );
-
         final newBoard = board.makeMove(move);
         return newBoard.copyWith(gameStatus: GameStatus.checkmate);
       }
@@ -227,17 +163,10 @@ class SaveTheQueen implements GameMode {
 
       if (wasInOwnHalf) {
         // CAPTURED ESCAPED QUEEN = GAME OVER!
-        printDebug(
-          '👸 SAVE QUEEN: ⚔️ ESCAPED QUEEN CAPTURED! ${move.piece.color.name} WINS!',
-        );
-
         final newBoard = board.makeMove(move);
         return newBoard.copyWith(gameStatus: GameStatus.checkmate);
       } else {
         // CAPTURED PRISONER QUEEN = Return to prison (if prison is empty)
-        printDebug(
-          '👸 SAVE QUEEN: 🔒 Prisoner queen captured, checking if can return to prison',
-        );
 
         // Check prison position
         final prisonPosition = capturedQueen.color == PieceColor.white
@@ -251,18 +180,11 @@ class SaveTheQueen implements GameMode {
 
         if (prisonOccupied) {
           // Prison is occupied - queen is captured permanently
-          printDebug(
-            '👸 SAVE QUEEN: ❌ Prison square ${prisonPosition.algebraic} is occupied - queen captured permanently!',
-          );
-
           // Just execute the capture normally (queen disappears)
           final newBoard = board.makeMove(move);
           return newBoard;
         } else {
           // Prison is empty - return queen to prison
-          printDebug(
-            '👸 SAVE QUEEN: ✅ Prison square is empty - returning queen to prison',
-          );
 
           // Execute the capture
           var newBoard = board.makeMove(move);
@@ -278,9 +200,6 @@ class SaveTheQueen implements GameMode {
 
           newBoard = newBoard.copyWith(pieces: newPieces);
 
-          printDebug(
-            '👸 SAVE QUEEN: Queen returned to prison at ${prisonPosition.algebraic}',
-          );
           return newBoard;
         }
       }
@@ -292,10 +211,6 @@ class SaveTheQueen implements GameMode {
       final nowInOpponentHalf = !_isInOwnHalf(move.to, move.piece.color);
 
       if (wasInOwnHalf && nowInOpponentHalf) {
-        printDebug(
-          '👸 SAVE QUEEN: ⚠️ Queen moved back to opponent half - becoming prisoner',
-        );
-
         // Execute the move first
         var newBoard = board.makeMove(move);
 
@@ -318,9 +233,6 @@ class SaveTheQueen implements GameMode {
 
         newBoard = newBoard.copyWith(pieces: newPieces);
 
-        printDebug(
-          '👸 SAVE QUEEN: Queen teleported to prison at ${prisonPosition.algebraic}',
-        );
         return newBoard;
       }
     }
@@ -350,9 +262,6 @@ class SaveTheQueen implements GameMode {
 
   @override
   List<ChessMove>? getPawnMoves(ChessPiece pawn, ChessBoard board) {
-    printDebug(
-      '👸 SAVE QUEEN: getPawnMoves called for ${pawn.color.name} pawn at ${pawn.position.algebraic}',
-    );
     // Use default pawn moves
     return null;
   }

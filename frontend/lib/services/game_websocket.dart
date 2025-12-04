@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter/foundation.dart';
-import 'package:chessrecast/debug.dart';
 
 /// WebSocket service for real-time game updates
 class GameWebSocket {
@@ -56,7 +55,6 @@ class GameWebSocket {
   /// Connect to a game's WebSocket with retry logic
   void connect(String gameId, String playerId) {
     if (_channel != null) {
-      printDebug('🔌 WebSocket: Already connected, disconnecting first');
       disconnect();
     }
 
@@ -71,41 +69,29 @@ class GameWebSocket {
     final urls = _getWebSocketUrls(gameId, playerId);
 
     if (_retryAttempt >= urls.length) {
-      printDebug('❌ WebSocket: All connection attempts failed');
       onError?.call('Failed to connect after ${urls.length} attempts');
       return;
     }
 
     final wsUrl = urls[_retryAttempt];
-    printDebug(
-      '🔌 WebSocket: Attempting connection to $wsUrl (attempt ${_retryAttempt + 1}/${urls.length})',
-    );
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
 
       _channel!.stream.listen(
         (message) {
-          printDebug('📨 WebSocket: Received message');
           try {
             final data = json.decode(message);
-            printDebug('📨 WebSocket: Parsed data: ${data['type']}');
             onGameUpdate?.call(data);
           } catch (e) {
-            printDebug('❌ WebSocket: Failed to parse message: $e');
             onError?.call('Failed to parse message: $e');
           }
         },
         onError: (error) {
-          printDebug(
-            '❌ WebSocket: Connection error on attempt ${_retryAttempt + 1}: $error',
-          );
-
           // Try next URL if available
           _retryAttempt++;
           if (_retryAttempt <
               _getWebSocketUrls(_currentGameId!, _currentPlayerId!).length) {
-            printDebug('🔄 WebSocket: Retrying with next URL...');
             Future.delayed(const Duration(milliseconds: 500), () {
               _attemptConnection(_currentGameId!, _currentPlayerId!);
             });
@@ -115,16 +101,13 @@ class GameWebSocket {
           }
         },
         onDone: () {
-          printDebug('🔌 WebSocket: Connection closed');
           onDisconnected?.call();
           _cleanup();
         },
       );
 
       onConnected?.call();
-      printDebug('✅ WebSocket: Connected successfully to $wsUrl');
     } catch (e) {
-      printDebug('❌ WebSocket: Connection failed: $e');
       onError?.call('Connection failed: $e');
       _cleanup();
     }
@@ -133,7 +116,6 @@ class GameWebSocket {
   /// Disconnect from WebSocket
   void disconnect() {
     if (_channel != null) {
-      printDebug('🔌 WebSocket: Disconnecting...');
       _channel?.sink.close();
       _cleanup();
     }
@@ -144,13 +126,9 @@ class GameWebSocket {
     if (_channel != null) {
       try {
         _channel!.sink.add(json.encode(message));
-        printDebug('📤 WebSocket: Sent message');
       } catch (e) {
-        printDebug('❌ WebSocket: Failed to send: $e');
         onError?.call('Failed to send message: $e');
       }
-    } else {
-      printDebug('⚠️ WebSocket: Not connected, cannot send message');
     }
   }
 

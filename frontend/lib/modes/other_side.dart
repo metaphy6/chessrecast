@@ -1,4 +1,3 @@
-import 'package:chessrecast/debug.dart';
 import '../board/utils/exporter.dart';
 import 'game_mode.dart';
 
@@ -21,13 +20,9 @@ class OtherSide extends GameMode {
   const OtherSide();
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
-    printDebug(
-      '🏰 OTHER SIDE: handleSpecialMove called for ${move.piece.color.name} ${move.piece.type.name} ${move.from.algebraic}->${move.to.algebraic}',
-    );
     // Check if a rook was captured - instant loss for the player who lost it
     if (move.capturedPiece != null &&
         move.capturedPiece!.type == PieceType.rook) {
-      printDebug('🏰 OTHER SIDE: Rook captured! Opponent wins!');
       // Opponent wins by checkmate
       final newBoard = board.makeMove(move);
       return newBoard.copyWith(gameStatus: GameStatus.checkmate);
@@ -39,9 +34,6 @@ class OtherSide extends GameMode {
       final targetRank = movingColor == PieceColor.white ? 7 : 0; // Rank 8 or 1
 
       if (move.to.row == targetRank) {
-        printDebug(
-          '🏰 OTHER SIDE: Rook reached the back rank! ${movingColor.name} wins!',
-        );
         final newBoard = board.makeMove(move);
         return newBoard.copyWith(gameStatus: GameStatus.checkmate);
       }
@@ -52,17 +44,10 @@ class OtherSide extends GameMode {
 
   @override
   List<ChessMove>? getPawnMoves(ChessPiece pawn, ChessBoard board) {
-    printDebugVerbose(
-      '♟️ OTHER SIDE: getPawnMoves called for ${pawn.color.name} pawn at ${pawn.position.algebraic}',
-    );
     final moves = <ChessMove>[];
     final forwardDirection = pawn.color == PieceColor.white ? 1 : -1;
     final startRow = pawn.color == PieceColor.white ? 1 : 6;
     final lastRank = pawn.color == PieceColor.white ? 7 : 0;
-
-    printDebug(
-      '♟️ OTHER SIDE PAWN: ${pawn.position.algebraic} moves forward only (like classic chess)',
-    );
 
     // One square forward
     final oneForward = pawn.position.offset(forwardDirection, 0);
@@ -171,7 +156,6 @@ class OtherSide extends GameMode {
   }) {
     // Disable promotion to rook in Other Side mode
     // Only allow promotion to queen, bishop, and knight
-    printDebug('♟️ OTHER SIDE: Pawn promotion - rook promotion disabled');
     return ['q', 'b', 'n'];
   }
 
@@ -181,17 +165,10 @@ class OtherSide extends GameMode {
     ChessPiece piece,
     ChessBoard board,
   ) {
-    printDebug(
-      '🏰 OTHER SIDE: filterMoves called for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
-    );
     // Only filter rook moves - rooks can only capture opponent rooks
     if (piece.type != PieceType.rook) {
       return moves; // Other pieces use standard rules
     }
-
-    printDebug(
-      '🏰 OTHER SIDE: Filtering rook moves - can only capture opponent rooks',
-    );
 
     // Filter out moves where rook captures non-rook pieces
     return moves.where((move) {
@@ -204,12 +181,6 @@ class OtherSide extends GameMode {
       final canCapture =
           move.capturedPiece!.type == PieceType.rook &&
           move.capturedPiece!.color != piece.color;
-
-      if (!canCapture) {
-        printDebug(
-          '🏰 OTHER SIDE: Blocking rook capture of ${move.capturedPiece!.type.name} at ${move.to.algebraic}',
-        );
-      }
 
       return canCapture;
     }).toList();

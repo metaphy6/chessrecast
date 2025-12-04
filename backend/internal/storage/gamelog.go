@@ -220,11 +220,9 @@ func (gl *GameLogger) insertRecord(record GameRecord) {
 	}
 }
 
-// StartGame initializes a new game builder for tracking moves
+// StartGame initializes a new game builder for tracking moves AND creates initial DB record
 func StartGame(gameID string, mode engine.GameMode, whiteDiff, blackDiff int) {
 	buildersMu.Lock()
-	defer buildersMu.Unlock()
-
 	gameBuilders[gameID] = &GameBuilder{
 		GameID:          gameID,
 		Mode:            mode,
@@ -234,8 +232,36 @@ func StartGame(gameID string, mode engine.GameMode, whiteDiff, blackDiff int) {
 		BlackDifficulty: blackDiff,
 		StartTime:       time.Now(),
 	}
+	buildersMu.Unlock()
+
 	logf("🎮 Game started: %s (mode: %s, white: %d, black: %d)",
 		gameID[:8], mode.String(), whiteDiff, blackDiff)
+
+	// Create initial game record in database IMMEDIATELY to satisfy FK constraint for move_records
+	if logger != nil && logger.pool != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		_, err := logger.pool.Exec(ctx, `
+			INSERT INTO game_records (
+				game_id, game_mode, white_moves, black_moves,
+				winner, win_reason, total_moves,
+				white_difficulty, black_difficulty, played_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+			ON CONFLICT (game_id) DO NOTHING
+		`,
+			gameID, mode.String(), "", "",
+			nil, nil, 0,
+			whiteDiff, blackDiff, time.Now(),
+		)
+		if err != nil {
+			logf("❌ Failed to create initial game record for %s: %v", gameID[:8], err)
+		} else {
+			logf("📝 Initial game record created for %s", gameID[:8])
+		}
+	} else {
+		logf("⚠️ Logger not available, skipping initial game record for %s", gameID[:8])
+	}
 }
 
 // RecordMove adds a move to the game builder
@@ -471,4 +497,72 @@ func Shutdown() {
 	logger.wg.Wait()
 	logger.pool.Close()
 	logf("✅ Game logger shut down")
+}
+
+// DatabaseResetResult contains the result of resetting all database tables
+type DatabaseResetResult struct {
+	TablesCleared    []string          `json:"tables_cleared"`
+	RowsDeleted      map[string]int64  `json:"rows_deleted"`
+	AllTablesEmpty   bool              `json:"all_tables_empty"`
+	Message          string            `json:"message"`
+}
+
+// ResetDatabase clears all data from the database tables (move_records first due to FK constraint, then game_records)
+func ResetDatabase(ctx context.Context) (*DatabaseResetResult, error) {
+	if logger == nil || logger.pool == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+
+	pool := logger.pool
+	result := &DatabaseResetResult{
+		TablesCleared: []string{},
+		RowsDeleted:   make(map[string]int64),
+	}
+
+	// Clear move_records first (has FK to game_records)
+	moveRes, err := pool.Exec(ctx, "DELETE FROM move_records")
+	if err != nil {
+		return nil, fmt.Errorf("failed to clear move_records: %w", err)
+	}
+	movesDeleted := moveRes.RowsAffected()
+	result.RowsDeleted["move_records"] = movesDeleted
+	if movesDeleted > 0 {
+		result.TablesCleared = append(result.TablesCleared, "move_records")
+	}
+	logf("🗑️ Deleted %d rows from move_records", movesDeleted)
+
+	// Clear game_records
+	gameRes, err := pool.Exec(ctx, "DELETE FROM game_records")
+	if err != nil {
+		return nil, fmt.Errorf("failed to clear game_records: %w", err)
+	}
+	gamesDeleted := gameRes.RowsAffected()
+	result.RowsDeleted["game_records"] = gamesDeleted
+	if gamesDeleted > 0 {
+		result.TablesCleared = append(result.TablesCleared, "game_records")
+	}
+	logf("🗑️ Deleted %d rows from game_records", gamesDeleted)
+
+	// Verify tables are empty
+	var moveCount, gameCount int
+	err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM move_records").Scan(&moveCount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify move_records: %w", err)
+	}
+	err = pool.QueryRow(ctx, "SELECT COUNT(*) FROM game_records").Scan(&gameCount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify game_records: %w", err)
+	}
+
+	result.AllTablesEmpty = (moveCount == 0 && gameCount == 0)
+	
+	totalDeleted := movesDeleted + gamesDeleted
+	if totalDeleted == 0 {
+		result.Message = "All tables were already empty"
+	} else {
+		result.Message = fmt.Sprintf("Successfully deleted %d total rows. All tables are now empty.", totalDeleted)
+	}
+
+	logf("✅ Database reset complete: %s", result.Message)
+	return result, nil
 }

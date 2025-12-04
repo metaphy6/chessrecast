@@ -1,4 +1,3 @@
-import 'package:chessrecast/debug.dart';
 import '../items/piece_type.dart';
 import '../items/piece_color.dart';
 import '../game_status.dart';
@@ -130,14 +129,6 @@ extension MoveExecution on ChessBoard {
 
     // Check for automatic draw conditions (50-move rule or threefold repetition)
     if (newBoard.shouldAutoDraw()) {
-      if (newBoard.canClaimFiftyMoveRule()) {
-        printDebug(
-          '⚖️ DRAW: 50-move rule - ${newBoard.halfMoveClock} half-moves without pawn move or capture',
-        );
-      }
-      if (newBoard.hasThreefoldRepetition()) {
-        printDebug('⚖️ DRAW: Threefold repetition detected');
-      }
       return newBoard.copyWith(gameStatus: GameStatus.draw);
     }
 

@@ -1,4 +1,3 @@
-import 'package:chessrecast/debug.dart';
 import '../board/utils/exporter.dart';
 import 'game_mode.dart';
 
@@ -26,24 +25,10 @@ class KingsBattle implements GameMode {
     ChessPiece piece,
     ChessBoard board,
   ) {
-    printDebug(
-      '👑 KINGS BATTLE: filterMoves called for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
-    );
-    printDebug('👑 KINGS BATTLE: === FILTERING MOVES ===');
-    printDebug(
-      '👑 KINGS BATTLE: Piece: ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
-    );
-    printDebug('👑 KINGS BATTLE: Phase: ${_getPhase(board)}');
-
     // Check if we're in Phase 1 (before King's Kill)
     if (!_hasKingsKillHappened(board)) {
-      printDebug('👑 KINGS BATTLE: PHASE 1 - Only kings and pawns can move');
-
       // In Phase 1, only kings and pawns can move
       if (piece.type != PieceType.king && piece.type != PieceType.pawn) {
-        printDebug(
-          '👑 KINGS BATTLE: ❌ ${piece.type.name} cannot move in Phase 1',
-        );
         return []; // Other pieces cannot move yet
       }
 
@@ -52,25 +37,18 @@ class KingsBattle implements GameMode {
         final filteredMoves = moves.where((move) {
           if (move.capturedPiece != null &&
               move.capturedPiece!.type == PieceType.king) {
-            printDebug('👑 KINGS BATTLE: ❌ King cannot capture enemy king');
             return false;
           }
           return true;
         }).toList();
 
-        printDebug('👑 KINGS BATTLE: King moves: ${filteredMoves.length}');
-        printDebug(
-          '👑 KINGS BATTLE: filterMoves returning ${filteredMoves.length} moves',
-        );
         return filteredMoves;
       }
 
-      printDebug('👑 KINGS BATTLE: Pawn moves: ${moves.length}');
       return moves; // Pawns can move normally
     }
 
     // Phase 2: All pieces can move normally
-    printDebug('👑 KINGS BATTLE: PHASE 2 - All pieces can move');
     return moves;
   }
 
@@ -81,10 +59,6 @@ class KingsBattle implements GameMode {
         move.capturedPiece != null &&
         move.capturedPiece!.type == PieceType.pawn &&
         !_hasKingsKillHappened(board)) {
-      printDebug(
-        '👑 KINGS BATTLE: 🚨 KING\'S KILL detected by ${move.piece.color.name} at ${move.to.algebraic}',
-      );
-
       // Execute the move normally first
       final newBoard = board.makeMove(move);
 
@@ -95,10 +69,6 @@ class KingsBattle implements GameMode {
 
     // Check if this is a pawn promotion (also unlocks all pieces)
     if (move.isPromotion && !_hasKingsKillHappened(board)) {
-      printDebug(
-        '👑 KINGS BATTLE: 👑 PAWN PROMOTED! Unlocking Kings Battle phase',
-      );
-
       // Execute the promotion normally first
       final newBoard = board.makeMove(move);
 
@@ -171,10 +141,6 @@ class KingsBattle implements GameMode {
   /// Marks that King's Kill happened and grants a bonus move
   /// This is done by NOT switching the current player
   ChessBoard _markKingsKillAndGrantBonusMove(ChessBoard board) {
-    printDebug(
-      '👑 KINGS BATTLE: 🎁 Granting bonus move to ${board.currentPlayer.opposite.name}',
-    );
-
     // The board has already switched players after the move
     // We need to switch back to give the same player another turn
     return board.copyWith(

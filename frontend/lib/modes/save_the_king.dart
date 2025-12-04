@@ -1,4 +1,3 @@
-import 'package:chessrecast/debug.dart';
 import '../board/utils/exporter.dart';
 import 'game_mode.dart';
 import 'modes_enum.dart';
@@ -33,9 +32,6 @@ class SaveTheKing extends GameMode {
 
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
-    printDebug(
-      '👑 SAVE KING: handleSpecialMove called for ${move.piece.color.name} move ${move.from.algebraic}->${move.to.algebraic}',
-    );
     // Update halfmove clock
     if (move.capturedPiece != null || move.piece.type == PieceType.pawn) {
       _halfmoveClock = 0;
@@ -77,9 +73,6 @@ class SaveTheKing extends GameMode {
     ChessBoard board, {
     Position? promotionPosition,
   }) {
-    printDebug(
-      '👑 SAVE KING: getPromotionPieces called for $color at ${promotionPosition?.algebraic ?? "-"}',
-    );
     if (promotionPosition == null) return null;
 
     final opponentColor = color.opposite;
@@ -125,9 +118,6 @@ class SaveTheKing extends GameMode {
     bool currentPlayerInCheck,
     bool hasValidMoves,
   ) {
-    printDebug(
-      '👑 SAVE KING: updateGameStatus called for ${board.currentPlayer.name}',
-    );
     final currentColor = board.currentPlayer;
 
     // Check if current player has lost all queens

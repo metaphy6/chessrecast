@@ -8,192 +8,96 @@ import '../modes/modes.dart';
 class Orchestrator {
   /// Validates if a move is legal in the current board state
   bool isValidMove(ChessBoard board, ChessMove move) {
-    printDebug('🎯 ORCHESTRATOR: isValidMove called');
-    printDebug(
-      '🎯 ORCHESTRATOR: Checking ${move.piece.type.name} from ${move.from.algebraic} to ${move.to.algebraic}',
-    );
-    printDebug(
-      '🎯 ORCHESTRATOR: Move capturedPiece: ${move.capturedPiece != null ? move.capturedPiece!.type.name : "null"}',
-    );
-    printDebug('🎯 ORCHESTRATOR: Game type: ${board.gameType.name}');
-
     // Truce mode: Check if move violates truce rules
     if (board.gameType == ModesEnum.truce) {
       if (!modes.truce.validateTruceMove(board, move)) {
-        printDebug('🤝 ORCHESTRATOR: Move rejected by Truce mode rules');
         return false;
       }
     }
 
     final validMoves = board.getValidMovesFor(move.from);
-    printDebugVerbose(
-      '🎯 ORCHESTRATOR: Found ${validMoves.length} valid moves for this piece',
-    );
-
-    // Debug: Print all valid moves and their capturedPiece
-    for (final validMove in validMoves) {
-      printDebugVerbose(
-        '🎯 ORCHESTRATOR: Valid move option: ${validMove.from.algebraic} -> ${validMove.to.algebraic}, capturedPiece: ${validMove.capturedPiece != null ? validMove.capturedPiece!.type.name : "null"}',
-      );
-    }
 
     // For teleport mode, we need special comparison because the controller
-    // sets capturedPiece to the rook, but the generated move has capturedPiece: null
+    // sets capturedPiece to the rook/king, but the generated move has capturedPiece: null
     if (board.gameType == ModesEnum.teleport &&
-        move.piece.type == PieceType.king) {
-      printDebug('🎯 ORCHESTRATOR: Using teleport-specific validation');
+        (move.piece.type == PieceType.king ||
+            move.piece.type == PieceType.rook)) {
       final isValid = validMoves.any(
         (validMove) =>
             validMove.from == move.from &&
             validMove.to == move.to &&
             validMove.piece.type == move.piece.type,
       );
-      printDebug('🎯 ORCHESTRATOR: Teleport validation result: $isValid');
       return isValid;
     }
 
     final isValid = validMoves.any((validMove) => validMove == move);
-    printDebug('🎯 ORCHESTRATOR: Standard validation result: $isValid');
     return isValid;
   }
 
   /// Executes a move and returns the new board state
   ChessBoard executeMove(ChessBoard board, ChessMove move) {
-    printDebug(
-      '🎯 ORCHESTRATOR: executeMove called for ${board.gameType.name} mode',
-    );
-
     if (!isValidMove(board, move)) {
       throw ArgumentError('Invalid move: $move');
     }
 
     // Check for Teleport mode special move (king-rook swap)
     if (board.gameType == ModesEnum.teleport) {
-      printDebug(
-        '🔄 ORCHESTRATOR: Teleport mode detected, checking for special move',
-      );
       final teleportBoard = modes.teleport.handleSpecialMove(board, move);
-      printDebug(
-        '🔄 ORCHESTRATOR: handleSpecialMove returned: ${teleportBoard != null ? "NEW BOARD" : "NULL"}',
-      );
       if (teleportBoard != null) {
-        printDebug(
-          '🔄 ORCHESTRATOR: Updating game status with teleported board',
-        );
         return updateGameStatus(teleportBoard);
       }
-      printDebug('🔄 ORCHESTRATOR: Falling through to standard move execution');
     }
 
     // Check for Kings' Battle mode special moves (King's Kill or pawn promotion)
     if (board.gameType == ModesEnum.kingsBattle) {
-      printDebug(
-        '👑 ORCHESTRATOR: Kings Battle mode detected, checking for special move',
-      );
       final kingsBattleBoard = modes.kingsBattle.handleSpecialMove(board, move);
-      printDebug(
-        '👑 ORCHESTRATOR: handleSpecialMove returned: ${kingsBattleBoard != null ? "NEW BOARD (BONUS MOVE)" : "NULL"}',
-      );
       if (kingsBattleBoard != null) {
-        printDebug(
-          '👑 ORCHESTRATOR: Updating game status with Kings Battle board',
-        );
         return updateGameStatus(kingsBattleBoard);
       }
-      printDebug('👑 ORCHESTRATOR: Falling through to standard move execution');
     }
 
     // Check for Save the Queen mode special moves (queen capture or return to prison)
     if (board.gameType == ModesEnum.saveTheQueen) {
-      printDebug(
-        '👸 ORCHESTRATOR: Save the Queen mode detected, checking for special move',
-      );
       final saveTheQueenBoard = modes.saveTheQueen.handleSpecialMove(
         board,
         move,
       );
-      printDebug(
-        '👸 ORCHESTRATOR: handleSpecialMove returned: ${saveTheQueenBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
-      );
       if (saveTheQueenBoard != null) {
-        printDebug(
-          '👸 ORCHESTRATOR: Updating game status with Save the Queen board',
-        );
         return updateGameStatus(saveTheQueenBoard);
       }
-      printDebug('👸 ORCHESTRATOR: Falling through to standard move execution');
     }
 
     // Check for Save the King mode special moves (queen capture or King promotion)
     if (board.gameType == ModesEnum.saveTheKing) {
-      printDebug(
-        '👑 ORCHESTRATOR: Save the King mode detected, checking for special move',
-      );
       final saveTheKingBoard = modes.saveTheKing.handleSpecialMove(board, move);
-      printDebug(
-        '👑 ORCHESTRATOR: handleSpecialMove returned: ${saveTheKingBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
-      );
       if (saveTheKingBoard != null) {
-        printDebug(
-          '👑 ORCHESTRATOR: Updating game status with Save the King board',
-        );
         return updateGameStatus(saveTheKingBoard);
       }
-      printDebug('👑 ORCHESTRATOR: Falling through to standard move execution');
     }
 
     // Check for Other Side mode special moves (rook capture or back rank reached)
     if (board.gameType == ModesEnum.otherSide) {
-      printDebug(
-        '🏰 ORCHESTRATOR: Other Side mode detected, checking for special move',
-      );
       final otherSideBoard = modes.otherSide.handleSpecialMove(board, move);
-      printDebug(
-        '🏰 ORCHESTRATOR: handleSpecialMove returned: ${otherSideBoard != null ? "NEW BOARD (SPECIAL)" : "NULL"}',
-      );
       if (otherSideBoard != null) {
-        printDebug(
-          '🏰 ORCHESTRATOR: Updating game status with Other Side board',
-        );
         return updateGameStatus(otherSideBoard);
       }
-      printDebug('🏰 ORCHESTRATOR: Falling through to standard move execution');
     }
 
     // Check for Snare mode special moves (revengeful knight capture)
     if (board.gameType == ModesEnum.snare) {
-      printDebug(
-        '🕸️ ORCHESTRATOR: Snare mode detected, checking for special move',
-      );
       final snareBoard = modes.snare.handleSpecialMove(board, move);
-      printDebug(
-        '🕸️ ORCHESTRATOR: handleSpecialMove returned: ${snareBoard != null ? "NEW BOARD (REVENGE)" : "NULL"}',
-      );
       if (snareBoard != null) {
-        printDebug(
-          '🕸️ ORCHESTRATOR: Updating game status with Snare board after revenge',
-        );
         return updateGameStatus(snareBoard);
       }
-      printDebug(
-        '🕸️ ORCHESTRATOR: Falling through to standard move execution',
-      );
     }
 
     // Check for Truce mode special move handling
     if (board.gameType == ModesEnum.truce) {
-      printDebug(
-        '🤝 ORCHESTRATOR: Truce mode detected, checking for special move',
-      );
       final truceBoard = modes.truce.handleSpecialMove(board, move);
-      printDebug(
-        '🤝 ORCHESTRATOR: handleSpecialMove returned: ${truceBoard != null ? "NEW BOARD" : "NULL"}',
-      );
       if (truceBoard != null) {
-        printDebug('🤝 ORCHESTRATOR: Updating game status with Truce board');
         return updateGameStatus(truceBoard);
       }
-      printDebug('🤝 ORCHESTRATOR: Falling through to standard move execution');
     }
 
     var newBoard = board.makeMove(move);
@@ -241,9 +145,6 @@ class Orchestrator {
     if (board.gameStatus == GameStatus.checkmate ||
         board.gameStatus == GameStatus.stalemate ||
         board.gameStatus == GameStatus.draw) {
-      printDebug(
-        '👸 ORCHESTRATOR: Game already ended with status: ${board.gameStatus}',
-      );
       return board;
     }
 
@@ -376,23 +277,14 @@ class Orchestrator {
 
   /// Updates game status specifically for Truce mode
   ChessBoard _updateTruceGameStatus(ChessBoard board) {
-    printDebug(
-      '🤝 TRUCE STATUS: Checking status for ${board.currentPlayer} player',
-    );
-
     final isTruceActive = modes.truce.isTruceActive(board);
-    printDebug('🤝 TRUCE STATUS: Truce active: $isTruceActive');
 
     final hasValidMoves = _hasValidMoves(board);
-    printDebug(
-      '🤝 TRUCE STATUS: ${board.currentPlayer} has valid moves: $hasValidMoves',
-    );
 
     GameStatus newStatus;
 
     if (isTruceActive) {
       // During truce: No check or checkmate, only stalemate if no moves
-      printDebug('🤝 TRUCE STATUS: Truce active - no check/checkmate allowed');
       if (hasValidMoves) {
         newStatus = GameStatus.ongoing;
       } else {
@@ -401,13 +293,9 @@ class Orchestrator {
       }
     } else {
       // After truce breaks: Apply regular chess rules
-      printDebug('🤝 TRUCE STATUS: Truce broken - using regular chess rules');
       final currentPlayerInCheck = modes.truce.isKingInCheckTruce(
         board.currentPlayer,
         board,
-      );
-      printDebug(
-        '🤝 TRUCE STATUS: ${board.currentPlayer} king in check: $currentPlayerInCheck',
       );
 
       if (currentPlayerInCheck) {
@@ -415,7 +303,6 @@ class Orchestrator {
           newStatus = GameStatus.check;
         } else {
           newStatus = GameStatus.checkmate;
-          printDebug('🤝 TRUCE STATUS: ✅ CHECKMATE detected!');
         }
       } else {
         if (hasValidMoves) {
@@ -425,8 +312,6 @@ class Orchestrator {
         }
       }
     }
-
-    printDebug('🤝 TRUCE STATUS: New status: $newStatus');
 
     // Check for draw conditions
     if (_isDrawByInsufficientMaterial(board) ||
@@ -445,9 +330,6 @@ class Orchestrator {
     if (board.gameStatus == GameStatus.checkmate ||
         board.gameStatus == GameStatus.stalemate ||
         board.gameStatus == GameStatus.draw) {
-      printDebug(
-        '🕸️ SNARE STATUS: Game already over (${board.gameStatus}), not updating',
-      );
       return board;
     }
 
@@ -460,29 +342,16 @@ class Orchestrator {
     // Kings are allowed to freely enter existing entangle zones without penalty.
     // This prevents false checkmate when a king voluntarily moves into an existing zone.
 
-    printDebug(
-      '🕸️ SNARE STATUS: Checking status for ${board.currentPlayer} player',
-    );
-
     // SNARE MODE: Check if current player's king still has knights
     final myKnights = modes.snare.getKnights(board.currentPlayer, board);
-    printDebug(
-      '🕸️ SNARE STATUS: ${board.currentPlayer} has ${myKnights.length} knights',
-    );
 
     final hasValidMoves = _hasValidMoves(board);
-    printDebug(
-      '🕸️ SNARE STATUS: ${board.currentPlayer} has valid moves: $hasValidMoves',
-    );
 
     GameStatus newStatus;
 
     if (myKnights.isNotEmpty) {
       // King has knights - cannot be checkmated, only captured
       // King moves freely and game can only end by capture (not checkmate)
-      printDebug(
-        '🕸️ SNARE STATUS: King has knights - using knight-based rules',
-      );
       if (hasValidMoves) {
         newStatus = GameStatus.ongoing;
       } else {
@@ -491,15 +360,9 @@ class Orchestrator {
       }
     } else {
       // King has no knights - apply regular chess checkmate rules
-      printDebug(
-        '🕸️ SNARE STATUS: King has NO knights - using regular chess rules',
-      );
       final currentPlayerInCheck = modes.snare.isKingInCheckSnare(
         board.currentPlayer,
         board,
-      );
-      printDebug(
-        '🕸️ SNARE STATUS: ${board.currentPlayer} king is in check: $currentPlayerInCheck',
       );
 
       if (currentPlayerInCheck) {
@@ -507,7 +370,6 @@ class Orchestrator {
           newStatus = GameStatus.check;
         } else {
           newStatus = GameStatus.checkmate;
-          printDebug('🕸️ SNARE STATUS: ✅ CHECKMATE detected!');
         }
       } else {
         if (hasValidMoves) {
@@ -517,8 +379,6 @@ class Orchestrator {
         }
       }
     }
-
-    printDebug('🕸️ SNARE STATUS: New status: $newStatus');
 
     // Check for draw conditions
     if (_isDrawByInsufficientMaterial(board) ||
