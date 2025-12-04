@@ -115,6 +115,15 @@ func InitGameLogger() error {
 	return initErr
 }
 
+// GetDatabasePool returns the database pool for the game logger
+// Used to initialize other components like MoveRecorder
+func GetDatabasePool() *pgxpool.Pool {
+	if logger != nil {
+		return logger.pool
+	}
+	return nil
+}
+
 // createTables creates the necessary database tables
 func createTables(ctx context.Context, pool *pgxpool.Pool) error {
 	schema := `
@@ -132,9 +141,31 @@ func createTables(ctx context.Context, pool *pgxpool.Pool) error {
 		played_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 	);
 
+	CREATE TABLE IF NOT EXISTS move_records (
+		id BIGSERIAL PRIMARY KEY,
+		game_id VARCHAR(36) NOT NULL,
+		move_number INT NOT NULL,
+		from_row INT NOT NULL,
+		from_col INT NOT NULL,
+		to_row INT NOT NULL,
+		to_col INT NOT NULL,
+		piece_type VARCHAR(20) NOT NULL,
+		piece_color VARCHAR(10) NOT NULL,
+		captured_piece VARCHAR(20),
+		is_promotion BOOLEAN DEFAULT FALSE,
+		promotion_type VARCHAR(20),
+		is_castling BOOLEAN DEFAULT FALSE,
+		move_timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+		recorded_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+		FOREIGN KEY (game_id) REFERENCES game_records(game_id) ON DELETE CASCADE,
+		UNIQUE(game_id, move_number)
+	);
+
 	CREATE INDEX IF NOT EXISTS idx_game_records_game_mode ON game_records(game_mode);
 	CREATE INDEX IF NOT EXISTS idx_game_records_played_at ON game_records(played_at);
 	CREATE INDEX IF NOT EXISTS idx_game_records_winner ON game_records(winner);
+	CREATE INDEX IF NOT EXISTS idx_move_records_game_id ON move_records(game_id);
+	CREATE INDEX IF NOT EXISTS idx_move_records_timestamp ON move_records(move_timestamp);
 	`
 
 	_, err := pool.Exec(ctx, schema)

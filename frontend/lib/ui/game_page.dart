@@ -29,6 +29,9 @@ class ChessGamePage extends StatelessWidget {
       }
     }
 
+    // Set the BuildContext for safe snackbar display
+    controller.setBuildContext(context);
+
     return Scaffold(
       appBar: AppBar(
         title: Column(

@@ -650,15 +650,14 @@ class _CustomActionButtons extends StatelessWidget {
   void _startGame(BuildContext context, CustomBoardController controller) {
     // Validate board
     if (!controller.validateBoard()) {
-      // Use post-frame callback to avoid calling snackbar during build
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Get.snackbar(
-          'Invalid Board',
-          'Both white and black kings must be present',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red.shade100,
-        );
-      });
+      // Use ScaffoldMessenger instead of Get.snackbar to avoid Overlay issues
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Both white and black kings must be present'),
+          backgroundColor: Colors.red.shade600,
+          duration: const Duration(seconds: 2),
+        ),
+      );
       return;
     }
 

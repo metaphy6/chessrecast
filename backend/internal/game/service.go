@@ -50,6 +50,7 @@ type Session struct {
 	UpdatedAt     time.Time
 	LastMoveAt    time.Time
 	Spectators    []string // Player IDs watching the game
+	MoveNumber    int       // For move recording stream
 	
 	// Bot vs Bot control
 	IsPaused      bool
@@ -333,6 +334,11 @@ func (sess *Session) processMove(req MoveRequest) MoveResponse {
 	sess.UpdatedAt = time.Now()
 	sess.LastMoveAt = time.Now()
 
+	// Stream move to database for real-time recording
+	// This happens immediately after move is executed (one-way stream)
+	sess.MoveNumber++
+	storage.RecordMoveStream(sess.ID, sess.MoveNumber, &req.Move, req.Move.Piece.Color)
+
 	// Check game state
 	sess.updateGameState()
 
@@ -379,8 +385,28 @@ func (sess *Session) triggerAIMove() {
 	<-response
 }
 
-// updateGameState checks for checkmate, stalemate, etc.
+// updateGameState checks for checkmate, stalemate, draw conditions, etc.
 func (sess *Session) updateGameState() {
+	// Check for threefold repetition draw first
+	if sess.Board.HasThreefoldRepetition() {
+		sess.State = engine.Draw
+		sess.Result = &engine.GameResult{
+			State:  engine.Draw,
+			Reason: "Threefold repetition",
+		}
+		return
+	}
+
+	// Check for fifty-move rule draw
+	if sess.Board.FiftyMoveRule >= 100 {
+		sess.State = engine.Draw
+		sess.Result = &engine.GameResult{
+			State:  engine.Draw,
+			Reason: "Fifty-move rule",
+		}
+		return
+	}
+
 	// Generate all valid moves for current player
 	mg := engine.NewMoveGenerator(sess.Board)
 	hasValidMoves := false
@@ -400,21 +426,24 @@ func (sess *Session) updateGameState() {
 	}
 
 	if !hasValidMoves {
-		// Checkmate or stalemate
-		sess.State = engine.Stalemate
-		sess.Result = &engine.GameResult{
-			State:  engine.Stalemate,
-			Reason: "No valid moves available",
-		}
-		// TODO: Distinguish checkmate from stalemate
-	}
-
-	// Check fifty-move rule
-	if sess.Board.FiftyMoveRule >= 100 {
-		sess.State = engine.Draw
-		sess.Result = &engine.GameResult{
-			State:  engine.Draw,
-			Reason: "Fifty-move rule",
+		// No legal moves - check if it's checkmate or stalemate
+		isInCheck := sess.Board.IsKingInCheck(sess.Board.CurrentTurn)
+		
+		if isInCheck {
+			// Checkmate - current player loses
+			sess.State = engine.Checkmate
+			sess.Result = &engine.GameResult{
+				State:  engine.Checkmate,
+				Winner: sess.Board.CurrentTurn.Opposite(), // Opponent wins
+				Reason: "Checkmate",
+			}
+		} else {
+			// Stalemate - draw
+			sess.State = engine.Stalemate
+			sess.Result = &engine.GameResult{
+				State:  engine.Stalemate,
+				Reason: "Stalemate",
+			}
 		}
 	}
 }
@@ -600,8 +629,8 @@ func (s *Service) PlayBotVsBot(sessionID string, moveDelay int) error {
 		logf("✅ Move executed successfully")
 		moveCount++
 
-		// Record move for game notation
-		storage.RecordMove(sessionID, move)
+		// Note: Move is already streamed to DB via RecordMoveStream in processMove()
+		// No need to call RecordMove here (kept for backward compatibility with old system)
 
 		// Check if game ended
 		session.mu.RLock()
