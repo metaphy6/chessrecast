@@ -1,4 +1,3 @@
-import 'package:chessrecast/debug.dart';
 import '../board/utils/exporter.dart';
 import 'game_mode.dart';
 
@@ -18,14 +17,6 @@ class FriendlyFire implements GameMode {
     ChessPiece piece,
     ChessBoard board,
   ) {
-    printDebug(
-      '🔥 FRIENDLY FIRE: filterMoves called for ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
-    );
-    printDebug('🔥 FRIENDLY FIRE: === FILTERING MOVES ===');
-    printDebug(
-      '🔥 FRIENDLY FIRE: Piece: ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
-    );
-
     // Get all potential moves including captures of friendly pieces
     final expandedMoves = <ChessMove>[];
 
@@ -41,16 +32,8 @@ class FriendlyFire implements GameMode {
           p.position != piece.position, // Can't capture self
     );
 
-    printDebugVerbose(
-      '🔥 FRIENDLY FIRE: Found ${friendlyPieces.length} friendly pieces that have moved',
-    );
-
     for (final friendlyPiece in friendlyPieces) {
       final targetPosition = friendlyPiece.position;
-
-      printDebug(
-        '🔥 FRIENDLY FIRE: Checking if can reach ${friendlyPiece.type.name} at ${targetPosition.algebraic}',
-      );
 
       // Check if this piece can reach this friendly piece's position
       if (_canPieceReach(piece, targetPosition, board, moves)) {
@@ -67,19 +50,10 @@ class FriendlyFire implements GameMode {
           (m) => m.from == friendlyFireMove.from && m.to == friendlyFireMove.to,
         )) {
           expandedMoves.add(friendlyFireMove);
-          printDebugVerbose(
-            '🔥 FRIENDLY FIRE: ✅ Can capture friendly ${friendlyPiece.type.name} at ${targetPosition.algebraic}',
-          );
         }
-      } else {
-        printDebugVerbose(
-          '🔥 FRIENDLY FIRE: ❌ Cannot reach ${friendlyPiece.type.name} at ${targetPosition.algebraic}',
-        );
       }
     }
 
-    printDebug('🔥 FRIENDLY FIRE: Total moves: ${expandedMoves.length}');
-    printDebug('🔥 FRIENDLY FIRE: === END FILTERING ===');
     return expandedMoves;
   }
 

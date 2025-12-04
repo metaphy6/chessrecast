@@ -51,6 +51,7 @@ func registerRoutes(r *gin.Engine) {
         {
             db.GET("/test", handleDatabaseTest)
             db.GET("/health", handleDatabaseHealth)
+            db.DELETE("/reset", handleDatabaseReset)
         }
 
         // WebSocket routes

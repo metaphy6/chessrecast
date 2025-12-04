@@ -4,7 +4,6 @@ import '../../board/utils/exporter.dart';
 import '../../modes/modes_enum.dart';
 import '../../ui/piece_renderer.dart';
 import '../../ui/board_theme.dart';
-import '../../debug.dart';
 import 'custom_board_controller.dart';
 import '../../management/utils.dart';
 
@@ -35,24 +34,17 @@ class CustomBoardSetupPage extends StatelessWidget {
     final args = Get.arguments as Map<String, dynamic>?;
     final gameType = args?['gameType'] ?? ModesEnum.classic;
 
-    printDebug('🔙 CUSTOM BOARD SETUP: args=$args');
-
     // Check if returning from a game with saved state
     final pieces = args?['pieces'] as List<ChessPiece>?;
     final currentPlayer = args?['currentPlayer'] as PieceColor?;
 
     if (pieces != null && pieces.isNotEmpty) {
-      printDebug('🔙 CUSTOM BOARD: Restoring ${pieces.length} pieces');
       controller.initialize(
         gameType: gameType,
         pieces: pieces,
         currentPlayer: currentPlayer,
       );
-      printDebug(
-        '🔙 CUSTOM BOARD: Restored state - ${pieces.length} pieces, turn: ${currentPlayer?.name ?? 'white'}',
-      );
     } else {
-      printDebug('🔙 CUSTOM BOARD: Loading standard start position');
       controller.initialize(gameType: gameType);
     }
 
@@ -99,6 +91,11 @@ class _CustomBoardScaffold extends StatelessWidget {
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () => Get.offAllNamed('/'),
+        tooltip: 'Back to Home',
+      ),
       title: const Text('CUSTOM BOARD Setup'),
       backgroundColor: Colors.purple.shade700,
       actions: [

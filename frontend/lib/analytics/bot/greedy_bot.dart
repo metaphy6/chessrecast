@@ -4,7 +4,6 @@ import '../../board/moves/move.dart';
 import '../../board/moves/position.dart';
 import '../../board/items/piece_type.dart';
 import '../../board/items/piece_color.dart';
-import '../../debug.dart';
 import 'chess_bot.dart';
 
 /// Smart bot that evaluates moves using chess heuristics
@@ -62,7 +61,6 @@ class GreedyBot extends ChessBot {
     List<ChessMove> validMoves,
   ) async {
     if (validMoves.isEmpty) {
-      logBot(name, 'No valid moves available');
       return null;
     }
 
@@ -85,11 +83,6 @@ class GreedyBot extends ChessBot {
 
     // Pick randomly from best moves (adds variety)
     final selectedMove = bestMoves[_random.nextInt(bestMoves.length)];
-
-    logBot(
-      name,
-      'Selected: ${selectedMove.from.algebraic}→${selectedMove.to.algebraic} (score: $bestScore)${selectedMove.capturedPiece != null ? ' captures ${selectedMove.capturedPiece!.type}' : ''}',
-    );
 
     await Future.delayed(Duration(milliseconds: thinkingDelayMs));
     return selectedMove;

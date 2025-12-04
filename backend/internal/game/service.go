@@ -611,7 +611,33 @@ func (s *Service) PlayBotVsBot(sessionID string, moveDelay int) error {
 		if move == nil {
 			logf("❌ Bot returned nil move (no valid moves available)")
 			logf("📊 Game state: %s, Turn: %s", session.State, session.Board.CurrentTurn)
-			// No valid moves, game should end
+			
+			// Game should end - check for checkmate or stalemate
+			session.mu.Lock()
+			session.updateGameState()
+			gameEnded := session.State != engine.InProgress
+			gameResult := session.Result
+			session.mu.Unlock()
+			
+			if gameEnded {
+				logf("🏁 Game ended after %d moves", moveCount)
+				
+				// Record game result
+				winner := ""
+				winReason := ""
+				if gameResult != nil {
+					switch gameResult.Winner {
+					case engine.White:
+						winner = "white"
+					case engine.Black:
+						winner = "black"
+					default:
+						winner = "draw"
+					}
+					winReason = gameResult.Reason
+				}
+				storage.EndGame(sessionID, winner, winReason)
+			}
 			break
 		}
 

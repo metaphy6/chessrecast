@@ -1,4 +1,3 @@
-import 'package:chessrecast/debug.dart';
 import '../board/utils/exporter.dart';
 import 'game_mode.dart';
 import 'modes_enum.dart';
@@ -18,14 +17,7 @@ class RoyalPawns extends GameMode {
   const RoyalPawns();
   @override
   List<ChessMove>? getPawnMoves(ChessPiece pawn, ChessBoard board) {
-    printDebug(
-      '👑 ROYAL PAWN: getPawnMoves called for pawn at ${pawn.position.algebraic}',
-    );
     final moves = <ChessMove>[];
-
-    printDebugVerbose(
-      '👑 ROYAL PAWN: ${pawn.position.algebraic} can move and capture like a king!',
-    );
 
     // King-like moves (one square in any direction)
     final kingMoves = [
@@ -47,8 +39,6 @@ class RoyalPawns extends GameMode {
 
       if (targetPiece == null) {
         // Empty square - can move (no promotion in Royal Pawns mode)
-        printDebug('✅ ROYAL PAWN can move to ${newPos.algebraic}');
-
         moves.add(
           ChessMove.simple(from: pawn.position, to: newPos, piece: pawn),
         );
@@ -57,15 +47,8 @@ class RoyalPawns extends GameMode {
         if (targetPiece.type == PieceType.king &&
             board.gameType != ModesEnum.heir) {
           // Cannot capture the king in most modes - this should be an illegal move
-          printDebug(
-            '👑 ROYAL PAWN cannot capture king at ${newPos.algebraic} - illegal move (except in Heir mode)',
-          );
           continue; // Skip this move
         }
-
-        printDebug(
-          '⚔️ ROYAL PAWN can capture: ${targetPiece.toString()} at ${newPos.algebraic}',
-        );
 
         // No promotion in Royal Pawns mode, even when capturing on last rank
         moves.add(
@@ -75,10 +58,6 @@ class RoyalPawns extends GameMode {
             piece: pawn,
             capturedPiece: targetPiece,
           ),
-        );
-      } else {
-        printDebug(
-          '🚫 ROYAL PAWN blocked by friendly piece at ${newPos.algebraic}',
         );
       }
     }

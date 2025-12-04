@@ -1,4 +1,3 @@
-import 'package:chessrecast/debug.dart';
 import '../items/piece_color.dart';
 import '../items/piece_type.dart';
 import '../../modes/modes.dart';
@@ -251,29 +250,21 @@ extension MoveGeneration on ChessBoard {
   }) {
     // Check for Diamonds mode - only bishops allowed
     if (gameType == ModesEnum.diamonds) {
-      printDebug(
-        '💎 BOARD: Diamonds mode - restricting promotion to Bishop only',
-      );
       return ['B']; // Only bishop promotion in Diamonds mode
     }
 
     // Check for Save the Queen mode - no queen promotion allowed
     if (gameType == ModesEnum.saveTheQueen) {
-      printDebug('👸 BOARD: Save the Queen mode - no queen promotion allowed');
       return ['R', 'B', 'N']; // Rook, Bishop, Knight only
     }
 
     // Check for Other Side mode - no rook promotion allowed
     if (gameType == ModesEnum.otherSide) {
-      printDebug('🏰 BOARD: Other Side mode - no rook promotion allowed');
       return ['Q', 'B', 'N']; // Queen, Bishop, Knight only
     }
 
     // Check for Save the King mode - can promote to King
     if (gameType == ModesEnum.saveTheKing) {
-      printDebug(
-        '👑 BOARD: Save the King mode - checking King promotion options',
-      );
       final saveTheKingMode = modes.saveTheKing;
       final options = saveTheKingMode.getPromotionPieces(
         color,
@@ -281,7 +272,6 @@ extension MoveGeneration on ChessBoard {
         promotionPosition: promotionPosition,
       );
       if (options != null) {
-        printDebug('👑 BOARD: Save the King promotion options: $options');
         return options;
       }
     }

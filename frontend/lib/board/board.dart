@@ -1,4 +1,3 @@
-import 'package:chessrecast/debug.dart';
 import 'package:equatable/equatable.dart';
 import 'items/piece_color.dart';
 import 'items/piece_type.dart';
@@ -118,18 +117,6 @@ class ChessBoard extends Equatable {
             color: PieceColor.black,
             position: Position(7, col),
           ),
-        );
-      }
-    }
-
-    printDebug(
-      '👸 BOARD INIT: Creating Save the Queen board with ${pieces.length} pieces',
-    );
-    if (gameType == ModesEnum.saveTheQueen) {
-      // Debug: Print all piece positions
-      for (final piece in pieces) {
-        printDebug(
-          '👸 BOARD INIT: ${piece.color.name} ${piece.type.name} at ${piece.position.algebraic}',
         );
       }
     }
@@ -361,7 +348,6 @@ class ChessBoard extends Equatable {
       if (positionHistory[i] == currentPosition) {
         count++;
         if (count >= 3) {
-          printDebug('🔁 THREEFOLD REPETITION DETECTED');
           return true;
         }
       }

@@ -1,7 +1,6 @@
 import 'package:get/get.dart';
 import '../../board/items/piece_color.dart';
 import '../../modes/modes_enum.dart';
-import '../../debug.dart';
 import '../../management/controller.dart';
 import 'chess_bot.dart';
 import 'random_bot.dart';
@@ -43,12 +42,6 @@ class BotManager extends GetxController {
     _whiteBot = _createBot(whiteType, PieceColor.white, 'White Bot');
     _blackBot = _createBot(blackType, PieceColor.black, 'Black Bot');
     isBotGame.value = true;
-
-    logBot(
-      'Manager',
-      'Bot vs Bot game set up: ${whiteType.name} (White) vs ${blackType.name} (Black)',
-    );
-    logBot('Manager', 'Game mode: ${gameMode.displayName}');
   }
 
   /// Setup a human vs bot game
@@ -70,13 +63,6 @@ class BotManager extends GetxController {
     }
 
     isBotGame.value = true;
-
-    logBot('Manager', 'Human vs Bot game set up');
-    logBot(
-      'Manager',
-      'Human: ${humanColor.name}, Bot: ${botType.name} (${botColor.name})',
-    );
-    logBot('Manager', 'Game mode: ${gameMode.displayName}');
   }
 
   /// Start auto-playing (for bot vs bot)
@@ -84,7 +70,6 @@ class BotManager extends GetxController {
     if (_whiteBot != null && _blackBot != null) {
       isAutoPlaying.value = true;
       isPaused.value = false;
-      logBot('Manager', 'Auto-play started');
     }
   }
 
@@ -92,21 +77,19 @@ class BotManager extends GetxController {
   void pauseAutoPlay() {
     isPaused.value = true;
     update(['botControls']); // Trigger UI update
-    logBot('Manager', 'Auto-play paused');
   }
 
   /// Resume auto-play
   void resumeAutoPlay() {
     isPaused.value = false;
     update(['botControls']); // Trigger UI update
-    logBot('Manager', 'Auto-play resumed');
 
     // Trigger the next bot move after resuming
     Future.microtask(() {
       try {
         Get.find<Controller>().checkBotTurn();
-      } catch (e) {
-        logBot('Manager', 'Error triggering bot move after resume: $e');
+      } catch (_) {
+        // Silently handle error
       }
     });
   }
@@ -115,7 +98,6 @@ class BotManager extends GetxController {
   void stopAutoPlay() {
     isAutoPlaying.value = false;
     isPaused.value = false;
-    logBot('Manager', 'Auto-play stopped');
   }
 
   /// Clear all bots and reset
@@ -125,7 +107,6 @@ class BotManager extends GetxController {
     isBotGame.value = false;
     isAutoPlaying.value = false;
     isPaused.value = false;
-    logBot('Manager', 'Bots cleared');
   }
 
   /// Create a bot based on type

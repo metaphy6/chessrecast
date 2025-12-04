@@ -2,7 +2,6 @@ import 'dart:math';
 import '../../board/board.dart';
 import '../../board/moves/move.dart';
 import '../../board/items/piece_type.dart';
-import '../../debug.dart';
 import 'chess_bot.dart';
 import 'evaluation/opening_book.dart';
 import 'evaluation/position_cache.dart';
@@ -31,17 +30,12 @@ class StrategicBot extends ChessBot {
     List<ChessMove> validMoves,
   ) async {
     if (validMoves.isEmpty) {
-      logBot(name, 'No valid moves available');
       return null;
     }
 
     // Phase 1: Check opening book first
     final bookMove = OpeningBook.getBookMove(board, validMoves);
     if (bookMove != null) {
-      logBot(
-        name,
-        'Using opening book move: ${bookMove.from.algebraic}→${bookMove.to.algebraic}',
-      );
       await Future.delayed(Duration(milliseconds: thinkingDelayMs));
       return bookMove;
     }
@@ -66,18 +60,6 @@ class StrategicBot extends ChessBot {
 
     // Pick randomly from best moves
     final selectedMove = bestMoves[_random.nextInt(bestMoves.length)];
-
-    logBot(
-      name,
-      'Selected: ${selectedMove.from.algebraic}→${selectedMove.to.algebraic} '
-      '(score: $bestScore)',
-    );
-
-    // Log cache stats periodically
-    if (_random.nextInt(10) == 0) {
-      final stats = _cache.getStats();
-      logBot(name, 'Cache: ${stats['size']}/${stats['maxSize']} entries');
-    }
 
     await Future.delayed(Duration(milliseconds: thinkingDelayMs));
     return selectedMove;
@@ -106,22 +88,18 @@ class StrategicBot extends ChessBot {
     // Tactical pattern bonuses
     if (TacticalPatterns.createsFork(move, board)) {
       score += 500;
-      logBot(name, '  🍴 Fork detected at ${move.to.algebraic}!');
     }
 
     if (TacticalPatterns.createsDiscoveredAttack(move, board)) {
       score += 400;
-      logBot(name, '  ⚡ Discovered attack with ${move.piece.type}!');
     }
 
     if (TacticalPatterns.removesPin(move, board)) {
       score += 300;
-      logBot(name, '  🔓 Removes pin from ${move.from.algebraic}!');
     }
 
     if (TacticalPatterns.createsSkewer(move, board)) {
       score += 450;
-      logBot(name, '  🎣 Skewer created!');
     }
 
     return score;

@@ -72,6 +72,7 @@ class ApiService {
       body['opponent_id'] = opponentId;
     }
 
+    logApi('Creating game: mode=$mode');
     final response = await http.post(
       Uri.parse('$baseUrl/games'),
       headers: {
@@ -132,6 +133,7 @@ class ApiService {
       body['promotion'] = promotion;
     }
 
+    logApi('Sending move to backend: $from-$to');
     final response = await http.post(
       Uri.parse('$baseUrl/games/$gameId/moves'),
       headers: {
@@ -194,6 +196,7 @@ class ApiService {
       body['color'] = color;
     }
 
+    logApi('Challenging bot: mode=$mode, difficulty=$difficulty');
     final response = await http.post(
       Uri.parse('$baseUrl/bots/challenge'),
       headers: {
@@ -324,13 +327,11 @@ class ApiService {
     // Try each URL
     for (final url in urls) {
       try {
-        printDebug('Testing connection to: $url');
         final response = await http
             .get(Uri.parse(url))
             .timeout(const Duration(seconds: 5));
 
         if (response.statusCode == 200) {
-          printDebug('✅ Connected successfully to: $url');
           // Update baseUrl if we found a working alternative
           if (Platform.isAndroid && url.contains('192.168')) {
             manualBaseUrl = 'http://192.168.0.26:8080/api/v1';
@@ -342,7 +343,6 @@ class ApiService {
         continue;
       }
     }
-    printDebug('❌ All connection attempts failed');
     return false;
   }
 

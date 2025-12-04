@@ -1,10 +1,8 @@
-import 'package:chessrecast/debug.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../management/utils.dart';
 import '../board/utils/exporter.dart';
 import '../management/controller.dart';
-import '../constants.dart';
 import 'piece_renderer.dart';
 
 // Cached border decorations to avoid rebuilding BoxDecoration on every frame
@@ -54,12 +52,7 @@ class ChessSquare extends StatelessWidget {
             try {
               controller.onSquareSelected(position);
             } catch (e) {
-              // Log error during development, silent in production
-              if (AppConstants.enableDebugLogs) {
-                printDebug(
-                  '❌ Error selecting square ${position.algebraic}: $e',
-                );
-              }
+              // Log error silently in production
             }
           },
           behavior: HitTestBehavior.opaque,
@@ -80,7 +73,14 @@ class ChessSquare extends StatelessWidget {
                 children: [
                   // Valid move indicator (render first, underneath)
                   if (isValidMove)
-                    _ValidMoveIndicator(hasCapture: chessPiece != null),
+                    _ValidMoveIndicator(
+                      hasCapture:
+                          chessPiece != null &&
+                          !controller.isTeleportSwapTarget(
+                            position,
+                            chessPiece,
+                          ),
+                    ),
 
                   // Entangle zone indicator (under pieces)
                   if (isEntangleZone && chessPiece == null)

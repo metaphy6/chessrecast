@@ -1,4 +1,3 @@
-import 'package:chessrecast/debug.dart';
 import '../board/utils/exporter.dart';
 import 'game_mode.dart';
 
@@ -55,10 +54,6 @@ class Diamonds extends GameMode {
       }
     }
 
-    printDebugVerbose(
-      '💎 DIAMONDS: Bishop at ${bishopPos.algebraic} diamond capture zone: ${capturePositions.map((p) => p.algebraic).join(", ")}',
-    );
-
     return capturePositions;
   }
 
@@ -68,10 +63,6 @@ class Diamonds extends GameMode {
     ChessBoard board, {
     Position? promotionPosition,
   }) {
-    printDebug(
-      '💎 DIAMONDS: getPromotionPieces called for $color at ${promotionPosition?.algebraic ?? "-"}',
-    );
-    printDebug('💎 DIAMONDS: Pawn promotion - ONLY Bishop allowed');
     return ['B']; // Only allow bishop promotion
   }
 
@@ -86,24 +77,12 @@ class Diamonds extends GameMode {
       return moves; // Other pieces move normally
     }
 
-    printDebug(
-      '💎 DIAMONDS: filterMoves called; Bishop: ${piece.color.name} at ${piece.position.algebraic}',
-    );
-    printDebug('💎 DIAMONDS: === FILTERING BISHOP MOVES ===');
-    printDebug(
-      '💎 DIAMONDS: Bishop: ${piece.color.name} at ${piece.position.algebraic}',
-    );
-    printDebug('💎 DIAMONDS: Input moves count: ${moves.length}');
-
     final filteredMoves = <ChessMove>[];
 
     // Step 1: Keep all non-capture diagonal moves
     for (final move in moves) {
       if (move.capturedPiece == null) {
         // Non-capture diagonal move - allowed
-        printDebug(
-          '💎 DIAMONDS: MOVE to ${move.to.algebraic} - ✓ ALLOWED (no capture)',
-        );
         filteredMoves.add(move);
       }
     }
@@ -114,9 +93,6 @@ class Diamonds extends GameMode {
       final targetPiece = board.getPieceAt(capturePos);
       if (targetPiece != null && targetPiece.color != piece.color) {
         // Enemy piece in diamond zone - add capture move
-        printDebug(
-          '💎 DIAMONDS: CAPTURE to ${capturePos.algebraic} - ✓ ALLOWED (in diamond)',
-        );
         filteredMoves.add(
           ChessMove.simple(
             from: piece.position,
@@ -127,12 +103,6 @@ class Diamonds extends GameMode {
         );
       }
     }
-
-    printDebug('💎 DIAMONDS: Output moves count: ${filteredMoves.length}');
-    printDebug(
-      '💎 DIAMONDS: filterMoves returning ${filteredMoves.length} moves',
-    );
-    printDebug('💎 DIAMONDS: === END FILTERING ===');
 
     return filteredMoves;
   }

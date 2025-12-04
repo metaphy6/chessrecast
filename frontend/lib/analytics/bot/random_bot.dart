@@ -1,7 +1,6 @@
 import 'dart:math';
 import '../../board/board.dart';
 import '../../board/moves/move.dart';
-import '../../debug.dart';
 import 'chess_bot.dart';
 
 /// Simple bot that picks random moves
@@ -24,7 +23,6 @@ class RandomBot extends ChessBot {
     List<ChessMove> validMoves,
   ) async {
     if (validMoves.isEmpty) {
-      logBot(name, 'No valid moves available');
       return null;
     }
 
@@ -32,11 +30,6 @@ class RandomBot extends ChessBot {
     await Future.delayed(Duration(milliseconds: thinkingDelayMs));
 
     final selectedMove = validMoves[_random.nextInt(validMoves.length)];
-
-    logBot(
-      name,
-      'Selected random move: ${selectedMove.from.algebraic} → ${selectedMove.to.algebraic}',
-    );
 
     return selectedMove;
   }

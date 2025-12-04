@@ -184,16 +184,20 @@ class Controller extends GetxController {
     }
 
     // If another piece of the same color is clicked, select it
-    // EXCEPTION: In Teleport mode, if king is selected and clicking a rook, attempt move instead
+    // EXCEPTION: In Teleport mode, if king/rook is selected and clicking the other, attempt move instead
     // EXCEPTION: In Friendly Fire mode, if clicking a friendly piece, attempt capture instead
     final selectedPiece = board.getPieceAt(_selectedPosition.value!);
+
+    // Teleport: king→rook or rook→king
     final isTeleportMove =
         board.gameType == ModesEnum.teleport &&
         selectedPiece != null &&
-        selectedPiece.type == PieceType.king &&
         piece != null &&
-        piece.type == PieceType.rook &&
-        piece.color == currentPlayer;
+        piece.color == currentPlayer &&
+        ((selectedPiece.type == PieceType.king &&
+                piece.type == PieceType.rook) ||
+            (selectedPiece.type == PieceType.rook &&
+                piece.type == PieceType.king));
 
     final isFriendlyFireCapture =
         board.gameType == ModesEnum.friendlyFire &&
@@ -277,24 +281,13 @@ class Controller extends GetxController {
 
   /// Attempts to make a move from the selected position to the target position
   void _attemptMove(Position from, Position to) {
-    printDebug(
-      '🎯 CONTROLLER: _attemptMove called from ${from.algebraic} to ${to.algebraic}',
-    );
     try {
       final piece = board.getPieceAt(from);
       if (piece == null) {
-        printDebug('🎯 CONTROLLER: No piece at from position, returning');
         return;
       }
-      printDebug(
-        '🎯 CONTROLLER: Moving piece: ${piece.color.name} ${piece.type.name}',
-      );
 
       final capturedPiece = board.getPieceAt(to);
-      printDebug(
-        '🎯 CONTROLLER: Target square has: ${capturedPiece != null ? "${capturedPiece.color.name} ${capturedPiece.type.name}" : "EMPTY"}',
-      );
-      printDebug('🎯 CONTROLLER: Game type: ${board.gameType.name}');
 
       // Check if this is a pawn promotion move
       if (piece.type == PieceType.pawn) {
@@ -314,9 +307,6 @@ class Controller extends GetxController {
 
       // Check if this should be an en passant move
       ChessMove finalMove = move;
-      printDebug(
-        '🎯 CONTROLLER: Initial move created with capturedPiece: ${capturedPiece != null ? capturedPiece.type.name : "null"}',
-      );
 
       // If it's a pawn move and matches en passant conditions, create en passant move
       if (piece.type == PieceType.pawn &&
@@ -362,9 +352,6 @@ class Controller extends GetxController {
           capturedPiece != null &&
           capturedPiece.type == PieceType.rook &&
           capturedPiece.color == piece.color) {
-        printDebug(
-          '🔄 CONTROLLER: ✅ Detected teleport move, creating teleport move object',
-        );
         // Create a teleport move without capturedPiece (the rook is not captured, it swaps)
         finalMove = ChessMove.simple(
           from: from,
@@ -372,23 +359,30 @@ class Controller extends GetxController {
           piece: piece,
           capturedPiece: null, // Don't set capturedPiece for teleport
         );
-        printDebug('🔄 CONTROLLER: Created finalMove with capturedPiece: null');
       }
 
-      printDebug('🎯 CONTROLLER: Validating move...');
-      printDebug(
-        '🎯 CONTROLLER: finalMove.capturedPiece before validation: ${finalMove.capturedPiece != null ? finalMove.capturedPiece!.type.name : "null"}',
-      );
+      // Check if this should be a teleport move (rook moving to friendly king in Teleport mode)
+      if (board.gameType == ModesEnum.teleport &&
+          piece.type == PieceType.rook &&
+          capturedPiece != null &&
+          capturedPiece.type == PieceType.king &&
+          capturedPiece.color == piece.color) {
+        // Create a teleport move without capturedPiece (the king is not captured, it swaps)
+        finalMove = ChessMove.simple(
+          from: from,
+          to: to,
+          piece: piece,
+          capturedPiece: null, // Don't set capturedPiece for teleport
+        );
+      }
+
       if (_gameOrchestrator.isValidMove(board, finalMove)) {
-        printDebug('🎯 CONTROLLER: ✅ Move is valid, calling makeMove');
         makeMove(finalMove);
       } else {
-        printDebug('🎯 CONTROLLER: ❌ Move is INVALID');
         // No snackbar for invalid move - causes jank
         // Visual feedback: piece just doesn't move (deselected below)
       }
     } catch (e) {
-      printDebug('🎯 CONTROLLER: ❌ Exception: ${e.toString()}');
       // Only show snackbar for unexpected errors, not invalid moves
       if (AppConstants.enableDebugLogs) {
         _showMessage('Error: ${e.toString()}');
@@ -476,40 +470,72 @@ class Controller extends GetxController {
       makeMove(promotionMove);
     } else {
       // No snackbar - causes jank. Invalid promotion just doesn't execute.
-      printDebug('🎯 CONTROLLER: ❌ Invalid promotion move');
     }
   }
 
-  /// Format move in standard chess notation
+  /// Format move in standard chess notation with piece icons
   String _formatMoveNotation(ChessMove move) {
-    final pieceSymbol = move.piece.type == PieceType.pawn
-        ? ''
-        : move.piece.type.symbol.toUpperCase();
-    final capture = move.capturedPiece != null ? 'x' : '-';
+    // Get piece icons based on color and type
+    final pieceIcon = _getPieceIcon(move.piece);
+
+    // Special formatting for Teleport mode swaps
+    if (gameType == ModesEnum.teleport) {
+      // Check if this is a teleport swap (king moving to rook or rook moving to king)
+      final targetPiece = board.getPieceAt(move.to);
+      if (targetPiece != null && targetPiece.color == move.piece.color) {
+        if ((move.piece.type == PieceType.king &&
+                targetPiece.type == PieceType.rook) ||
+            (move.piece.type == PieceType.rook &&
+                targetPiece.type == PieceType.king)) {
+          // Format: ♔ e1 ⇄ ♖ h1 (piece icon + position for both)
+          final movingIcon = _getPieceIcon(move.piece);
+          final targetIcon = _getPieceIcon(targetPiece);
+          return '$movingIcon ${move.from.algebraic} ⇄ $targetIcon ${move.to.algebraic} TELEPORT';
+        }
+      }
+    }
+
+    final capture = move.capturedPiece != null ? '×' : '→';
+
+    // Build captured piece info if applicable
     final capturedInfo = move.capturedPiece != null
-        ? ' (captures ${move.capturedPiece!.type.symbol.toUpperCase()})'
+        ? ' [captured ${_getPieceIcon(move.capturedPiece!)}]'
         : '';
 
-    return '${move.piece.color.name.toUpperCase()}: $pieceSymbol${move.from.algebraic}$capture${move.to.algebraic}$capturedInfo';
+    return '$pieceIcon ${move.from.algebraic}$capture${move.to.algebraic}$capturedInfo';
+  }
+
+  /// Get emoji icon for a chess piece
+  String _getPieceIcon(ChessPiece piece) {
+    const whiteIcons = {
+      'pawn': '♙',
+      'rook': '♖',
+      'knight': '♘',
+      'bishop': '♗',
+      'queen': '♕',
+      'king': '♔',
+    };
+    const blackIcons = {
+      'pawn': '♟',
+      'rook': '♜',
+      'knight': '♞',
+      'bishop': '♝',
+      'queen': '♛',
+      'king': '♚',
+    };
+
+    final icons = piece.color == PieceColor.white ? whiteIcons : blackIcons;
+    return icons[piece.type.name] ?? '?';
   }
 
   /// Makes a move and updates the board state
   void makeMove(ChessMove move) {
     // Log the move in chess notation
     final moveNotation = _formatMoveNotation(move);
-    logGame('MOVE: $moveNotation');
+    logMove(moveNotation);
 
-    printDebug(
-      '🎯 CONTROLLER: makeMove called for ${move.piece.type.name} from ${move.from.algebraic} to ${move.to.algebraic}',
-    );
-    printDebug(
-      '🎯 CONTROLLER: Move capturedPiece: ${move.capturedPiece != null ? move.capturedPiece!.type.name : "null"}',
-    );
-    printDebug('🎯 CONTROLLER: Board game type: ${board.gameType.name}');
     try {
-      printDebug('🎯 CONTROLLER: Calling orchestrator.executeMove');
       final newBoard = _gameOrchestrator.executeMove(board, move);
-      printDebug('🎯 CONTROLLER: ✅ executeMove returned new board');
 
       // Record move in analytics
       _analytics?.recordMove(
@@ -549,15 +575,12 @@ class Controller extends GetxController {
           final blackPrison = Position(0, 3); // d1
           squaresToUpdate.add(squareIdFromPosition(whitePrison));
           squaresToUpdate.add(squareIdFromPosition(blackPrison));
-          printDebug('👸 CONTROLLER: Added prison squares to update list');
         }
       }
 
       // Single batched update for all affected squares + history
       squaresToUpdate.add('history');
       update(squaresToUpdate);
-
-      printDebug('🎯 CONTROLLER: ✅ Board updated successfully');
 
       // Check if game is over and end analytics
       if (isGameOver) {
@@ -567,7 +590,6 @@ class Controller extends GetxController {
         Future.microtask(() => checkBotTurn());
       }
     } catch (e) {
-      printDebug('🎯 CONTROLLER: ❌ makeMove exception: ${e.toString()}');
       _showMessage('Invalid move: ${e.toString()}');
       rethrow;
     }
@@ -600,7 +622,6 @@ class Controller extends GetxController {
     final allMoves = _gameOrchestrator.getAllValidMoves(board);
 
     if (allMoves.isEmpty) {
-      logBot(bot.name, 'No legal moves available');
       return;
     }
 
@@ -696,7 +717,7 @@ class Controller extends GetxController {
           ),
         );
       } catch (e) {
-        printDebug('Failed to show winner snackbar: $e');
+        // Silently ignore snackbar errors
       }
     });
   }
@@ -717,7 +738,7 @@ class Controller extends GetxController {
           ),
         );
       } catch (e) {
-        printDebug('Failed to show draw snackbar: $e');
+        // Silently ignore snackbar errors
       }
     });
   }
@@ -739,7 +760,7 @@ class Controller extends GetxController {
           ),
         );
       } catch (e) {
-        printDebug('Failed to show message snackbar: $e');
+        // Silently ignore snackbar errors
       }
     });
   }
@@ -795,17 +816,10 @@ class Controller extends GetxController {
 
   /// Navigates back to dev board setup or home
   void navigateBack() {
-    printDebug(
-      '🔙 NAVIGATE BACK: isDevBoard=$isDevBoard, _devBoardOriginalPieces=${_devBoardOriginalPieces != null ? "saved (${_devBoardOriginalPieces!.length} pieces)" : "null"}',
-    );
-
     if (isDevBoard && _devBoardOriginalPieces != null) {
-      printDebug(
-        '🔙 Navigating to dev board setup with gameType=${gameType.name}',
-      );
       // Navigate back to dev board setup with the original configuration
       Get.offAllNamed(
-        '/dev-board',
+        '/custom-board',
         arguments: {
           'gameType': gameType,
           'pieces': _devBoardOriginalPieces,
@@ -813,7 +827,6 @@ class Controller extends GetxController {
         },
       );
     } else {
-      printDebug('🔙 Navigating to home page');
       // Navigate to home for normal games
       Get.offAllNamed('/');
     }
@@ -854,6 +867,28 @@ class Controller extends GetxController {
       if (pos == position) return true;
     }
     return false;
+  }
+
+  /// Checks if a position is a teleport swap target (not a capture)
+  /// Used to avoid showing red highlight for friendly king/rook in Teleport mode
+  bool isTeleportSwapTarget(Position position, ChessPiece targetPiece) {
+    if (board.gameType != ModesEnum.teleport) return false;
+    if (_selectedPosition.value == null) return false;
+
+    final selectedPiece = board.getPieceAt(_selectedPosition.value!);
+    if (selectedPiece == null) return false;
+
+    // Check if this is a king→rook or rook→king teleport
+    final isKingToRook =
+        selectedPiece.type == PieceType.king &&
+        targetPiece.type == PieceType.rook &&
+        targetPiece.color == selectedPiece.color;
+    final isRookToKing =
+        selectedPiece.type == PieceType.rook &&
+        targetPiece.type == PieceType.king &&
+        targetPiece.color == selectedPiece.color;
+
+    return isKingToRook || isRookToKing;
   }
 
   /// Checks if a position is the selected position
