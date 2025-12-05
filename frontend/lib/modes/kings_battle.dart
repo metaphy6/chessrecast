@@ -1,4 +1,5 @@
 import '../board/utils/exporter.dart';
+import '../debug.dart';
 import 'game_mode.dart';
 
 /// Kings' Battle Mode: Two-phase game with restricted movement initially
@@ -64,6 +65,13 @@ class KingsBattle implements GameMode {
 
       // Mark that King's Kill has happened and grant bonus move
       // We'll use a custom board property for this
+      final playerColor = move.piece.color == PieceColor.white
+          ? 'White'
+          : 'Black';
+      final position =
+          '${String.fromCharCode(97 + move.to.col)}${8 - move.to.row}';
+      logKingsBattleUnlock(playerColor, position);
+
       return _markKingsKillAndGrantBonusMove(newBoard);
     }
 

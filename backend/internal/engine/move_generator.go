@@ -23,7 +23,12 @@ func (mg *MoveGenerator) GetValidMoves(pos Position) []Move {
 	case Pawn:
 		moves = mg.getPawnMoves(piece)
 	case Rook:
-		moves = mg.getRookMoves(piece)
+		// Special handling for Other Side mode
+		if mg.board.Mode == OtherSide {
+			moves = mg.getOtherSideRookMoves(piece)
+		} else {
+			moves = mg.getRookMoves(piece)
+		}
 	case Knight:
 		moves = mg.getKnightMoves(piece)
 	case Bishop:
@@ -169,9 +174,101 @@ func (mg *MoveGenerator) getRoyalPawnMoves(pawn *Piece) []Move {
 }
 
 // getOtherSidePawnMoves - Special pawn rules for Other Side mode
+// Pawns move normally (forward only), but cannot promote to rooks
 func (mg *MoveGenerator) getOtherSidePawnMoves(pawn *Piece) []Move {
-	// In Other Side mode, pawns cannot move (only rooks matter)
-	return []Move{}
+	moves := []Move{}
+	direction := 1
+	startRow := 1
+	promotionRow := 7
+
+	if pawn.Color == Black {
+		direction = -1
+		startRow = 6
+		promotionRow = 0
+	}
+
+	// Forward move
+	oneStep := pawn.Position.Offset(direction, 0)
+	if oneStep.IsValid() && mg.board.GetPieceAt(oneStep) == nil {
+		if oneStep.Row == promotionRow {
+			// Promotion - but NO ROOK allowed in Other Side mode
+			for _, promoPiece := range []PieceType{Queen, Bishop, Knight} {
+				move := NewMove(pawn.Position, oneStep, pawn)
+				move.IsPromotion = true
+				move.Promotion = promoPiece
+				moves = append(moves, *move)
+			}
+		} else {
+			moves = append(moves, *NewMove(pawn.Position, oneStep, pawn))
+
+			// Two-step move from starting position
+			if pawn.Position.Row == startRow {
+				twoStep := pawn.Position.Offset(direction*2, 0)
+				if twoStep.IsValid() && mg.board.GetPieceAt(twoStep) == nil {
+					moves = append(moves, *NewMove(pawn.Position, twoStep, pawn))
+				}
+			}
+		}
+	}
+
+	// Diagonal captures
+	for _, colOffset := range []int{-1, 1} {
+		capturePos := pawn.Position.Offset(direction, colOffset)
+		if !capturePos.IsValid() {
+			continue
+		}
+
+		targetPiece := mg.board.GetPieceAt(capturePos)
+		if targetPiece != nil && targetPiece.Color != pawn.Color {
+			if capturePos.Row == promotionRow {
+				// Capture with promotion - NO ROOK allowed
+				for _, promoPiece := range []PieceType{Queen, Bishop, Knight} {
+					move := NewMove(pawn.Position, capturePos, pawn)
+					move.CapturedPiece = targetPiece
+					move.IsPromotion = true
+					move.Promotion = promoPiece
+					moves = append(moves, *move)
+				}
+			} else {
+				move := NewMove(pawn.Position, capturePos, pawn)
+				move.CapturedPiece = targetPiece
+				moves = append(moves, *move)
+			}
+		}
+
+		// En passant
+		if mg.board.EnPassantSquare != nil && capturePos.Equals(*mg.board.EnPassantSquare) {
+			capturedPawn := mg.board.GetPieceAt(Position{Row: pawn.Position.Row, Col: capturePos.Col})
+			if capturedPawn != nil && capturedPawn.Type == Pawn {
+				move := NewMove(pawn.Position, capturePos, pawn)
+				move.IsEnPassant = true
+				move.CapturedPiece = capturedPawn
+				moves = append(moves, *move)
+			}
+		}
+	}
+
+	return moves
+}
+
+// getOtherSideRookMoves - Rooks can only capture opponent rooks in Other Side mode
+func (mg *MoveGenerator) getOtherSideRookMoves(rook *Piece) []Move {
+	allMoves := mg.getSlidingMoves(rook, [][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}})
+	
+	// Filter: rooks can only capture opponent rooks (not other pieces)
+	filteredMoves := []Move{}
+	for _, move := range allMoves {
+		if move.CapturedPiece == nil {
+			// Can move to empty squares
+			filteredMoves = append(filteredMoves, move)
+		} else if move.CapturedPiece.Type == Rook && move.CapturedPiece.Color != rook.Color {
+			// Can only capture opponent rooks (defensive: verify color even though getSlidingMoves ensures it)
+			filteredMoves = append(filteredMoves, move)
+		}
+		// Skip captures of non-rook pieces
+	}
+	
+	return filteredMoves
 }
 
 // getRookMoves generates rook moves
@@ -709,6 +806,19 @@ func (mg *MoveGenerator) canAttackSquare(piece *Piece, target Position) bool {
 
 // canAttackSquareOnBoard checks if a piece can attack a target on the specified board
 func (mg *MoveGenerator) canAttackSquareOnBoard(board *Board, piece *Piece, target Position) bool {
+	// OTHER SIDE MODE: Rooks can ONLY attack/capture opponent rooks, not the king or other pieces
+	// This means rooks should NEVER put the king in check in this mode
+	if board.Mode == OtherSide && piece.Type == Rook {
+		// Check what piece is at the target position
+		targetPiece := board.GetPieceAt(target)
+		if targetPiece == nil {
+			// Can move to empty squares but not "attack" them for check purposes
+			return false
+		}
+		// Can only attack opponent rooks - not king, not other pieces
+		return targetPiece.Type == Rook && targetPiece.Color != piece.Color
+	}
+
 	// Simplified attack check without generating full moves
 	switch piece.Type {
 	case Pawn:

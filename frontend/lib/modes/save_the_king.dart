@@ -1,4 +1,5 @@
 import '../board/utils/exporter.dart';
+import '../debug.dart';
 import 'game_mode.dart';
 import 'modes_enum.dart';
 
@@ -61,6 +62,10 @@ class SaveTheKing extends GameMode {
 
       // VICTORY! Successfully promoted to King
       final newBoard = board.makeMove(move);
+      final winner = movingColor == PieceColor.white ? 'White' : 'Black';
+      final position =
+          '${String.fromCharCode(97 + move.to.col)}${8 - move.to.row}';
+      logSaveTheKingPromotion(winner, position);
       return newBoard.copyWith(gameStatus: GameStatus.checkmate);
     }
 

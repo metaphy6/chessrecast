@@ -1,4 +1,5 @@
 import '../board/utils/exporter.dart';
+import '../debug.dart';
 import 'game_mode.dart';
 
 /// SNARE MODE: Knights create entangle zones that trap enemy pieces
@@ -494,6 +495,16 @@ class Snare extends GameMode {
         // Self-checkmate only happens if king was NOT entangled before, but IS entangled after
         // This means the knight move created a NEW zone that caught the king
         if (!kingWasEntangledBefore && kingIsEntangledAfter) {
+          final playerColor = move.piece.color == PieceColor.white
+              ? 'White'
+              : 'Black';
+          final position =
+              '${String.fromCharCode(97 + move.to.col)}${8 - move.to.row}';
+          logSnareEntangle(playerColor, position);
+          final trappedColor = kingColor == PieceColor.white
+              ? 'White'
+              : 'Black';
+          logSnareKingCaught(trappedColor);
           return newBoard.copyWith(gameStatus: GameStatus.checkmate);
         }
       }

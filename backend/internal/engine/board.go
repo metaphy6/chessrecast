@@ -63,6 +63,91 @@ func NewBoardFromFEN(fen string, mode GameMode) (*Board, error) {
 	return b, nil
 }
 
+// CustomPiece represents a piece for custom board setup
+type CustomPiece struct {
+	Type     string `json:"type"`     // "pawn", "rook", "knight", "bishop", "queen", "king"
+	Color    string `json:"color"`    // "white" or "black"
+	Position string `json:"position"` // "e4" algebraic notation
+}
+
+// NewBoardWithPieces creates a board with custom piece positions
+func NewBoardWithPieces(mode GameMode, pieces []CustomPiece, currentTurn Color) (*Board, error) {
+	b := &Board{
+		Mode:                    mode,
+		CurrentTurn:             currentTurn,
+		WhiteCanCastleKingside:  false, // Custom boards disable castling by default
+		WhiteCanCastleQueenside: false,
+		BlackCanCastleKingside:  false,
+		BlackCanCastleQueenside: false,
+		PieceMoveCounter:        make(map[Position]int),
+		EscapedQueens:           make(map[Color]bool),
+		PromotedKings:           make(map[Color]int),
+		TruceActive:             mode == Truce,
+		PositionHistory:         make([]string, 0),
+	}
+
+	// Clear board
+	for row := 0; row < 8; row++ {
+		for col := 0; col < 8; col++ {
+			b.squares[row][col] = nil
+		}
+	}
+
+	// Place pieces
+	for _, cp := range pieces {
+		pieceType, valid := parsePieceType(cp.Type)
+		if !valid {
+			continue // Skip invalid piece types
+		}
+
+		color := White
+		if cp.Color == "black" {
+			color = Black
+		}
+
+		pos := ParsePosition(cp.Position)
+		if !pos.IsValid() {
+			continue // Skip invalid positions
+		}
+
+		piece := NewPiece(pieceType, color, pos)
+		piece.HasMoved = true // Assume all pieces have moved in custom setups
+		b.setPiece(piece)
+	}
+
+	return b, nil
+}
+
+// parsePieceType converts string to PieceType
+func parsePieceType(s string) (PieceType, bool) {
+	switch s {
+	case "pawn":
+		return Pawn, true
+	case "rook":
+		return Rook, true
+	case "knight":
+		return Knight, true
+	case "bishop":
+		return Bishop, true
+	case "queen":
+		return Queen, true
+	case "king":
+		return King, true
+	default:
+		return Pawn, false // Return false to indicate invalid type
+	}
+}
+
+// ParsePosition converts algebraic notation to Position
+func ParsePosition(s string) Position {
+	if len(s) != 2 {
+		return Position{Row: -1, Col: -1}
+	}
+	col := int(s[0] - 'a')
+	row := int(s[1] - '1')
+	return Position{Row: row, Col: col}
+}
+
 // setupStandardPosition sets up the standard chess starting position
 func (b *Board) setupStandardPosition() {
 	// Clear board

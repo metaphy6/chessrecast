@@ -24,6 +24,7 @@ func registerRoutes(r *gin.Engine) {
         bots := v1.Group("/bots")
         {
             bots.POST("/vs-bot", handleBotVsBot)
+            bots.POST("/custom-board", handleCustomBoardBotVsBot)
         }
 
         // Game routes

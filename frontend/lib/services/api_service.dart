@@ -296,6 +296,46 @@ class ApiService {
     }
   }
 
+  /// Create a bot vs bot game with custom board setup
+  /// [pieces] - List of pieces with {type, color, position} format
+  /// Example: [{"type": "king", "color": "white", "position": "e1"}, ...]
+  Future<Map<String, dynamic>> createCustomBoardBotVsBotGame({
+    required String mode,
+    required List<Map<String, String>> pieces,
+    required String currentPlayer,
+    required int whiteDifficulty,
+    required int blackDifficulty,
+    bool autoPlay = true,
+    int moveDelay = 1000,
+  }) async {
+    final body = {
+      'mode': mode,
+      'pieces': pieces,
+      'current_player': currentPlayer,
+      'white_difficulty': whiteDifficulty,
+      'black_difficulty': blackDifficulty,
+      'auto_play': autoPlay,
+      'move_delay': moveDelay,
+    };
+
+    logApi(
+      'Creating custom board bot vs bot game: mode=$mode, pieces=${pieces.length}',
+    );
+    final response = await http.post(
+      Uri.parse('$baseUrl/bots/custom-board'),
+      headers: {
+        'Content-Type': 'application/json',
+        if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+      },
+      body: json.encode(body),
+    );
+
+    if (response.statusCode == 201) {
+      return json.decode(response.body);
+    }
+    throw Exception('Failed to create custom board game: ${response.body}');
+  }
+
   /// Get game status (including pause state and delay)
   Future<Map<String, dynamic>> getGameStatus(String gameId) async {
     final response = await http.get(
@@ -307,6 +347,20 @@ class ApiService {
       return json.decode(response.body);
     }
     throw Exception('Failed to get game status: ${response.statusCode}');
+  }
+
+  /// Reset database - clears all game records (for development/testing)
+  Future<Map<String, dynamic>> resetDatabase() async {
+    logApi('Resetting database...');
+    final response = await http.delete(
+      Uri.parse('$baseUrl/db/reset'),
+      headers: {if (_authToken != null) 'Authorization': 'Bearer $_authToken'},
+    );
+
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    }
+    throw Exception('Failed to reset database: ${response.body}');
   }
 
   /// Test backend connection

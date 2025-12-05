@@ -9,6 +9,17 @@ extension SpecialCases on ChessBoard {
   bool isPositionUnderAttack(Position position, PieceColor attackingColor) {
     final attackingPieces = getPiecesOfColor(attackingColor);
     return attackingPieces.any((piece) {
+      // OTHER SIDE MODE: Rooks can ONLY capture opponent rooks, not the king
+      // Rooks should NEVER put the king in check in this mode
+      if (gameType == ModesEnum.otherSide && piece.type == PieceType.rook) {
+        // Check if there's a piece at target position that is an opponent rook
+        final targetPiece = getPieceAt(position);
+        if (targetPiece == null) return false;
+        // Rook can only attack opponent rooks - not king, not other pieces
+        return targetPiece.type == PieceType.rook &&
+            targetPiece.color != piece.color;
+      }
+
       // In Save the Queen mode, prisoner queens cannot attack
       if (gameType == ModesEnum.saveTheQueen && piece.type == PieceType.queen) {
         // Check if queen is in opponent's half (still a prisoner)

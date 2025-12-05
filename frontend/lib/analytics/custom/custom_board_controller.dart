@@ -6,26 +6,56 @@ import '../../management/utils.dart';
 
 /// Controller for dev board setup with optimized ID-based updates
 class CustomBoardController extends GetxController {
-  // Game configuration
-  late ModesEnum _selectedGameType;
+  // Initialization flag
+  bool _isInitialized = false;
+  bool get isInitialized => _isInitialized;
+
+  // Game configuration - initialized with defaults
+  ModesEnum _selectedGameType = ModesEnum.classic;
   ModesEnum get selectedGameType => _selectedGameType;
 
-  late PieceColor _currentTurnColor;
+  PieceColor _currentTurnColor = PieceColor.white;
   PieceColor get currentTurnColor => _currentTurnColor;
 
-  late List<ChessPiece> _customPieces;
+  List<ChessPiece> _customPieces = [];
   List<ChessPiece> get customPieces => _customPieces;
+
+  // Bot difficulty settings - initialized with defaults
+  int _whiteDifficulty = 5;
+  int get whiteDifficulty => _whiteDifficulty;
+  set whiteDifficulty(int value) {
+    _whiteDifficulty = value.clamp(1, 10);
+    update(['bot_difficulty']);
+  }
+
+  int _blackDifficulty = 5;
+  int get blackDifficulty => _blackDifficulty;
+  set blackDifficulty(int value) {
+    _blackDifficulty = value.clamp(1, 10);
+    update(['bot_difficulty']);
+  }
 
   // Piece placement state
   PieceType? _selectedPieceType;
   PieceType? get selectedPieceType => _selectedPieceType;
 
-  late PieceColor _selectedPieceColor;
+  PieceColor _selectedPieceColor = PieceColor.white;
   PieceColor get selectedPieceColor => _selectedPieceColor;
 
-  // Board theme
-  late BoardTheme _boardTheme;
+  // Board theme - initialized with default
+  BoardTheme _boardTheme = BoardTheme.brown;
   BoardTheme get boardTheme => _boardTheme;
+
+  @override
+  void onInit() {
+    super.onInit();
+    // Load standard position if pieces are empty
+    if (_customPieces.isEmpty) {
+      Future.microtask(() {
+        loadStandardStartPosition();
+      });
+    }
+  }
 
   void initialize({
     required ModesEnum gameType,
@@ -37,15 +67,23 @@ class CustomBoardController extends GetxController {
     _selectedPieceColor = PieceColor.white;
     _boardTheme = BoardTheme.brown;
 
+    // Only reset difficulty if not already initialized
+    if (!_isInitialized) {
+      _whiteDifficulty = 5;
+      _blackDifficulty = 5;
+    }
+
     if (pieces != null && pieces.isNotEmpty) {
       _customPieces = List<ChessPiece>.from(pieces);
-    } else {
+    } else if (!_isInitialized) {
       // PERFORMANCE: Load standard position after first frame to prevent initial jank
       _customPieces = [];
       Future.microtask(() {
         loadStandardStartPosition();
       });
     }
+
+    _isInitialized = true;
   }
 
   void loadStandardStartPosition() {

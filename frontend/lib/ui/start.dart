@@ -110,7 +110,10 @@ class StartPage extends StatelessWidget {
               // Online Bot vs Bot Button
               OutlinedButton.icon(
                 onPressed: () {
-                  Get.toNamed('/online-bot-vs-bot');
+                  Get.toNamed(
+                    '/online-bot-vs-bot',
+                    arguments: {'gameType': controller.selectedGameType.value},
+                  );
                 },
                 icon: const Icon(Icons.smart_toy),
                 label: const Text('⚔️ Watch Online Bot Battle'),
