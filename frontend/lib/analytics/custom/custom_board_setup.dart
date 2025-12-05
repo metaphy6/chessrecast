@@ -34,7 +34,7 @@ class CustomBoardSetupPage extends StatelessWidget {
 
     // Check for FEN string (preferred - simple string serialization)
     final fen = args?['fen'] as String?;
-    
+
     // Legacy support: check for pieces list
     final pieces = args?['pieces'] as List<ChessPiece>?;
     final currentPlayer = args?['currentPlayer'] as PieceColor?;
@@ -42,7 +42,9 @@ class CustomBoardSetupPage extends StatelessWidget {
     final blackDifficulty = args?['blackDifficulty'] as int?;
 
     // DEBUG: Print what we received
-    debugPrint('CustomBoardSetupPage: fen=$fen, pieces=${pieces?.length}, gameType=$gameType');
+    debugPrint(
+      'CustomBoardSetupPage: fen=$fen, pieces=${pieces?.length}, gameType=$gameType',
+    );
 
     // Check if controller exists and get or create it
     final controller = Get.put(

@@ -100,15 +100,20 @@ class CustomBoardController extends GetxController {
     _currentTurnColor = currentPlayer ?? PieceColor.white;
     _selectedPieceColor = PieceColor.white;
     _customPieces = List<ChessPiece>.from(pieces);
-    
+
     // Update difficulties without triggering individual updates
     _whiteDifficulty = (whiteDifficulty ?? 5).clamp(1, 10);
     _blackDifficulty = (blackDifficulty ?? 5).clamp(1, 10);
-    
+
     _isInitialized = true;
-    
+
     // Update all UI elements at once
-    update([...getAllSquareIds(), 'bot_difficulty', 'game_mode', 'turn_selector']);
+    update([
+      ...getAllSquareIds(),
+      'bot_difficulty',
+      'game_mode',
+      'turn_selector',
+    ]);
   }
 
   /// Force initialize from FEN notation - most reliable way to transfer positions
@@ -123,22 +128,31 @@ class CustomBoardController extends GetxController {
     try {
       // Parse FEN to get board state
       final board = ChessBoard.fromFEN(fen, gameType: gameType);
-      debugPrint('forceInitializeFromFEN: parsed ${board.pieces.length} pieces');
-      
+      debugPrint(
+        'forceInitializeFromFEN: parsed ${board.pieces.length} pieces',
+      );
+
       _selectedGameType = gameType;
       _currentTurnColor = board.currentPlayer;
       _selectedPieceColor = PieceColor.white;
       _customPieces = List<ChessPiece>.from(board.pieces);
-      
+
       // Update difficulties without triggering individual updates
       _whiteDifficulty = (whiteDifficulty ?? 5).clamp(1, 10);
       _blackDifficulty = (blackDifficulty ?? 5).clamp(1, 10);
-      
+
       _isInitialized = true;
-      
-      debugPrint('forceInitializeFromFEN: updating UI with ${_customPieces.length} pieces');
+
+      debugPrint(
+        'forceInitializeFromFEN: updating UI with ${_customPieces.length} pieces',
+      );
       // Update all UI elements at once
-      update([...getAllSquareIds(), 'bot_difficulty', 'game_mode', 'turn_selector']);
+      update([
+        ...getAllSquareIds(),
+        'bot_difficulty',
+        'game_mode',
+        'turn_selector',
+      ]);
     } catch (e) {
       debugPrint('forceInitializeFromFEN: ERROR parsing FEN: $e');
       // If FEN parsing fails, just load standard position
