@@ -88,7 +88,7 @@ class SaveTheQueen implements GameMode {
     }
 
     final isInOwnHalf = _isInOwnHalf(piece.position, piece.color);
-    final isInPrison = _isInPrison(piece.position, piece.color);
+    _isInPrison(piece.position, piece.color);
 
     if (isInOwnHalf) {
       // ESCAPED STATE: Queen can move and capture like normal
