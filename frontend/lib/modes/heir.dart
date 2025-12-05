@@ -1,5 +1,4 @@
 import '../board/utils/exporter.dart';
-import '../debug.dart';
 import 'game_mode.dart';
 
 /// HEIR MODE: Pawns can promote to King

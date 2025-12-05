@@ -140,11 +140,6 @@ class KingsBattle implements GameMode {
     return false; // Still in Phase 1
   }
 
-  String _getPhase(ChessBoard board) {
-    return _hasKingsKillHappened(board)
-        ? 'PHASE 2 (All Pieces)'
-        : 'PHASE 1 (Kings & Pawns Only)';
-  }
 
   /// Marks that King's Kill happened and grants a bonus move
   /// This is done by NOT switching the current player
