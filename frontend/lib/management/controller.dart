@@ -24,6 +24,7 @@ class Controller extends GetxController {
   ChessBoard? _initialDevBoard; // Store the initial custom board setup
   List<ChessPiece>? _devBoardOriginalPieces; // Store original pieces from args
   PieceColor? _devBoardOriginalPlayer; // Store starting player from args
+  String? _devBoardOriginalFEN; // Store original FEN for reliable back navigation
   int? _devBoardWhiteDifficulty; // Store difficulty for back navigation
   int? _devBoardBlackDifficulty; // Store difficulty for back navigation
 
@@ -74,6 +75,16 @@ class Controller extends GetxController {
           args?['devBoardOriginalPlayer'] as PieceColor? ?? PieceColor.white;
       _devBoardWhiteDifficulty = args?['whiteDifficulty'] as int?;
       _devBoardBlackDifficulty = args?['blackDifficulty'] as int?;
+      
+      // Create FEN from original pieces for reliable back navigation
+      if (_devBoardOriginalPieces != null) {
+        final tempBoard = ChessBoard(
+          pieces: _devBoardOriginalPieces!,
+          currentPlayer: _devBoardOriginalPlayer ?? PieceColor.white,
+          gameType: gameType,
+        );
+        _devBoardOriginalFEN = tempBoard.toFEN();
+      }
     }
 
     // Check if custom board setup is provided
@@ -831,13 +842,15 @@ class Controller extends GetxController {
 
   /// Navigates back to dev board setup or home
   void navigateBack() {
-    if (isDevBoard && _devBoardOriginalPieces != null) {
+    if (isDevBoard && (_devBoardOriginalFEN != null || _devBoardOriginalPieces != null)) {
       // Navigate back to dev board setup with the original configuration
+      // Prefer FEN (simple string) over pieces list for reliability
       Get.offAllNamed(
         '/custom-board',
         arguments: {
           'gameType': gameType,
-          'pieces': _devBoardOriginalPieces,
+          'fen': _devBoardOriginalFEN, // FEN takes priority if available
+          'pieces': _devBoardOriginalPieces, // Fallback
           'currentPlayer': _devBoardOriginalPlayer,
           'whiteDifficulty': _devBoardWhiteDifficulty,
           'blackDifficulty': _devBoardBlackDifficulty,
