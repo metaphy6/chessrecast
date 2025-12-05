@@ -1,4 +1,5 @@
 import '../board/utils/exporter.dart';
+import '../debug.dart';
 import 'game_mode.dart';
 
 /// OTHER SIDE MODE: Race your rook to the opponent's back rank!
@@ -25,6 +26,10 @@ class OtherSide extends GameMode {
         move.capturedPiece!.type == PieceType.rook) {
       // Opponent wins by checkmate
       final newBoard = board.makeMove(move);
+      final winner = move.piece.color == PieceColor.white ? 'White' : 'Black';
+      final position =
+          '${String.fromCharCode(97 + move.to.col)}${8 - move.to.row}';
+      logOtherSideRookCapture(winner, position);
       return newBoard.copyWith(gameStatus: GameStatus.checkmate);
     }
 
@@ -35,6 +40,8 @@ class OtherSide extends GameMode {
 
       if (move.to.row == targetRank) {
         final newBoard = board.makeMove(move);
+        final winner = movingColor == PieceColor.white ? 'White' : 'Black';
+        logOtherSideBackRank(winner);
         return newBoard.copyWith(gameStatus: GameStatus.checkmate);
       }
     }

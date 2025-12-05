@@ -27,6 +27,21 @@ class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
   String? _currentGameId;
 
   @override
+  void initState() {
+    super.initState();
+    // Check if game mode was passed from home screen
+    final arguments = Get.arguments;
+    if (arguments != null && arguments is Map) {
+      if (arguments.containsKey('gameType')) {
+        final gameType = arguments['gameType'];
+        if (gameType is ModesEnum) {
+          _selectedMode = gameType;
+        }
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(

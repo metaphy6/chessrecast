@@ -4,6 +4,7 @@ import '../../board/utils/exporter.dart';
 import '../../modes/modes_enum.dart';
 import '../../ui/piece_renderer.dart';
 import '../../ui/board_theme.dart';
+import '../../services/api_service.dart';
 import 'custom_board_controller.dart';
 import '../../management/utils.dart';
 
@@ -27,8 +28,12 @@ class CustomBoardSetupPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Initialize controller once
-    final controller = Get.put(CustomBoardController(), tag: 'custom_board');
+    // Use permanent: true to preserve controller across navigations
+    final controller = Get.put(
+      CustomBoardController(),
+      tag: 'custom_board',
+      permanent: true,
+    );
 
     // Get the game type from route arguments
     final args = Get.arguments as Map<String, dynamic>?;
@@ -37,16 +42,30 @@ class CustomBoardSetupPage extends StatelessWidget {
     // Check if returning from a game with saved state
     final pieces = args?['pieces'] as List<ChessPiece>?;
     final currentPlayer = args?['currentPlayer'] as PieceColor?;
+    final whiteDifficulty = args?['whiteDifficulty'] as int?;
+    final blackDifficulty = args?['blackDifficulty'] as int?;
 
-    if (pieces != null && pieces.isNotEmpty) {
-      controller.initialize(
-        gameType: gameType,
-        pieces: pieces,
-        currentPlayer: currentPlayer,
-      );
-    } else {
-      controller.initialize(gameType: gameType);
-    }
+    // Defer initialization to after build phase to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Only reinitialize if we have explicit state from navigation
+      // Otherwise, keep existing controller state (for back navigation)
+      if (pieces != null && pieces.isNotEmpty) {
+        controller.initialize(
+          gameType: gameType,
+          pieces: pieces,
+          currentPlayer: currentPlayer,
+        );
+        if (whiteDifficulty != null) {
+          controller.whiteDifficulty = whiteDifficulty;
+        }
+        if (blackDifficulty != null) {
+          controller.blackDifficulty = blackDifficulty;
+        }
+      } else if (!controller.isInitialized) {
+        // Only initialize if not already initialized
+        controller.initialize(gameType: gameType);
+      }
+    });
 
     return _CustomBoardScaffold(controller: controller);
   }
@@ -99,6 +118,12 @@ class _CustomBoardScaffold extends StatelessWidget {
       title: const Text('CUSTOM BOARD Setup'),
       backgroundColor: Colors.purple.shade700,
       actions: [
+        // Database reset button
+        IconButton(
+          icon: const Icon(Icons.delete_forever),
+          onPressed: () => _showResetDatabaseDialog(context),
+          tooltip: 'Reset Database',
+        ),
         // Board theme selector
         GetBuilder<CustomBoardController>(
           id: 'board_theme',
@@ -135,6 +160,58 @@ class _CustomBoardScaffold extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _showResetDatabaseDialog(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset Database?'),
+        content: const Text(
+          'This will delete ALL game records from the database. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      try {
+        final apiService = ApiService();
+        final result = await apiService.resetDatabase();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Database reset! Games: ${result['game_records_deleted']}, Moves: ${result['move_records_deleted']}',
+              ),
+              backgroundColor: Colors.green.shade600,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: Colors.red.shade600,
+            ),
+          );
+        }
+      }
+    }
   }
 
   void _showInstructions(BuildContext context) {
@@ -601,47 +678,270 @@ class _PieceButton extends StatelessWidget {
 }
 
 /// OPTIMIZED: Action buttons
-class _CustomActionButtons extends StatelessWidget {
+class _CustomActionButtons extends StatefulWidget {
   final CustomBoardController controller;
 
   const _CustomActionButtons({required this.controller});
 
   @override
+  State<_CustomActionButtons> createState() => _CustomActionButtonsState();
+}
+
+class _CustomActionButtonsState extends State<_CustomActionButtons> {
+  final ApiService _apiService = ApiService();
+  bool _isStartingOnline = false;
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: controller.loadStandardStartPosition,
-              icon: const Icon(Icons.restore),
-              label: const Text('Reset to Start'),
+          // Compact Difficulty Sliders Section
+          GetBuilder<CustomBoardController>(
+            id: 'bot_difficulty',
+            tag: 'custom_board',
+            builder: (_) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  // White difficulty - compact
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Text(
+                          '⚪${widget.controller.whiteDifficulty}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Expanded(
+                          child: SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              trackHeight: 3,
+                              thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 6,
+                              ),
+                              overlayShape: const RoundSliderOverlayShape(
+                                overlayRadius: 12,
+                              ),
+                            ),
+                            child: Slider(
+                              value: widget.controller.whiteDifficulty
+                                  .toDouble(),
+                              min: 1,
+                              max: 10,
+                              divisions: 9,
+                              onChanged: (v) =>
+                                  widget.controller.whiteDifficulty = v.toInt(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Black difficulty - compact
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Text(
+                          '⚫${widget.controller.blackDifficulty}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Expanded(
+                          child: SliderTheme(
+                            data: SliderTheme.of(context).copyWith(
+                              trackHeight: 3,
+                              thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 6,
+                              ),
+                              overlayShape: const RoundSliderOverlayShape(
+                                overlayRadius: 12,
+                              ),
+                            ),
+                            child: Slider(
+                              value: widget.controller.blackDifficulty
+                                  .toDouble(),
+                              min: 1,
+                              max: 10,
+                              divisions: 9,
+                              onChanged: (v) =>
+                                  widget.controller.blackDifficulty = v.toInt(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: controller.clearBoard,
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('Clear Board'),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: widget.controller.loadStandardStartPosition,
+                  icon: const Icon(Icons.restore),
+                  label: const Text('Reset'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: widget.controller.clearBoard,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Clear'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _startGame(context, widget.controller),
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Start'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Expanded(
+          const SizedBox(height: 8),
+          // Online Bot vs Bot button (made smaller)
+          SizedBox(
+            width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () => _startGame(context, controller),
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Start Game'),
+              onPressed: _isStartingOnline
+                  ? null
+                  : () => _startOnlineBotVsBot(context),
+              icon: _isStartingOnline
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.cloud_upload, size: 18),
+              label: Text(
+                _isStartingOnline ? 'Starting...' : '🌐 Online Bot vs Bot',
+                style: const TextStyle(fontSize: 14),
+              ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
+                backgroundColor: Colors.orange.shade700,
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
               ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _startOnlineBotVsBot(BuildContext context) async {
+    // Validate board
+    if (!widget.controller.validateBoard()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Both white and black kings must be present'),
+          backgroundColor: Colors.red.shade600,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isStartingOnline = true;
+    });
+
+    try {
+      // Test connection
+      final isReachable = await _apiService.testConnection();
+      if (!isReachable) {
+        throw Exception('Backend server is not reachable');
+      }
+
+      await _apiService.loginAsGuest();
+
+      // Convert pieces to API format
+      final pieces = widget.controller.customPieces.map((p) {
+        return {
+          'type': p.type.name,
+          'color': p.color == PieceColor.white ? 'white' : 'black',
+          'position': p.position.algebraic,
+        };
+      }).toList();
+
+      final result = await _apiService.createCustomBoardBotVsBotGame(
+        mode: widget.controller.selectedGameType.toSnakeCase(),
+        pieces: pieces,
+        currentPlayer: widget.controller.currentTurnColor == PieceColor.white
+            ? 'white'
+            : 'black',
+        whiteDifficulty: widget.controller.whiteDifficulty,
+        blackDifficulty: widget.controller.blackDifficulty,
+        autoPlay: true,
+        moveDelay: 2000,
+      );
+
+      final gameId = result['game_id'];
+
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Game started: $gameId'),
+          backgroundColor: Colors.green.shade600,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
+      // Navigate to spectator view, preserving state for back navigation
+      Get.toNamed(
+        '/game',
+        arguments: {
+          'gameType': widget.controller.selectedGameType,
+          'isOnline': true,
+          'isSpectator': true,
+          'gameId': gameId,
+          // Mark as dev board so navigateBack() returns to custom board
+          'isDevBoard': true,
+          // Store original pieces for back navigation
+          'devBoardOriginalPieces': List<ChessPiece>.from(
+            widget.controller.customPieces,
+          ),
+          'devBoardOriginalPlayer': widget.controller.currentTurnColor,
+          // Also preserve difficulty settings
+          'whiteDifficulty': widget.controller.whiteDifficulty,
+          'blackDifficulty': widget.controller.blackDifficulty,
+        },
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red.shade600,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isStartingOnline = false;
+        });
+      }
+    }
   }
 
   void _startGame(BuildContext context, CustomBoardController controller) {

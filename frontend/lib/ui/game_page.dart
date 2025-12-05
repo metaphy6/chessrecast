@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../analytics/bot/bot_manager.dart';
+import '../board/piece.dart';
 import '../management/controller.dart';
 import '../management/online_controller.dart';
 import '../ui/board_theme.dart';
@@ -210,6 +211,16 @@ class ChessGamePage extends StatelessWidget {
             onSelected: (value) {
               if (value == 'reset') {
                 controller.resetGame();
+              } else if (value == 'export') {
+                // Export current position to custom board for replay
+                Get.offAllNamed(
+                  '/custom-board',
+                  arguments: {
+                    'gameType': controller.gameType,
+                    'pieces': List<ChessPiece>.from(controller.board.pieces),
+                    'currentPlayer': controller.currentPlayer,
+                  },
+                );
               }
             },
             itemBuilder: (context) => [
@@ -265,6 +276,17 @@ class ChessGamePage extends StatelessWidget {
                     const Icon(Icons.refresh, size: 20),
                     const SizedBox(width: 8),
                     Text(controller.isDevBoard ? 'Restart' : 'New Game'),
+                  ],
+                ),
+              ),
+              // Export to Custom Board
+              const PopupMenuItem<String>(
+                value: 'export',
+                child: Row(
+                  children: [
+                    Icon(Icons.open_in_new, size: 20),
+                    SizedBox(width: 8),
+                    Text('Export to Custom Board'),
                   ],
                 ),
               ),

@@ -84,6 +84,77 @@ func handleBotVsBot(c *gin.Context) {
     })
 }
 
+// CustomBoardBotVsBotRequest represents a custom board bot vs bot game request
+type CustomBoardBotVsBotRequest struct {
+    Mode            string               `json:"mode"`
+    Pieces          []engine.CustomPiece `json:"pieces"`
+    CurrentPlayer   string               `json:"current_player"` // "white" or "black"
+    WhiteDifficulty int                  `json:"white_difficulty"`
+    BlackDifficulty int                  `json:"black_difficulty"`
+    AutoPlay        bool                 `json:"auto_play"`
+    MoveDelay       int                  `json:"move_delay"`
+}
+
+// handleCustomBoardBotVsBot creates a bot vs bot game with custom board setup
+func handleCustomBoardBotVsBot(c *gin.Context) {
+    var req CustomBoardBotVsBotRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(400, gin.H{"error": invalidRequestMsg + ": " + err.Error()})
+        return
+    }
+
+    // Parse game mode
+    gameMode := parseGameMode(req.Mode)
+
+    // Parse current player
+    currentTurn := engine.White
+    if req.CurrentPlayer == "black" {
+        currentTurn = engine.Black
+    }
+
+    // Create white bot player
+    whiteBot := ai.NewBot(req.WhiteDifficulty, engine.White)
+    whitePlayer := &game.Player{
+        ID:    uuid.New().String(),
+        Type:  game.AI,
+        Color: engine.White,
+        Bot:   whiteBot,
+    }
+
+    // Create black bot player
+    blackBot := ai.NewBot(req.BlackDifficulty, engine.Black)
+    blackPlayer := &game.Player{
+        ID:    uuid.New().String(),
+        Type:  game.AI,
+        Color: engine.Black,
+        Bot:   blackBot,
+    }
+
+    // Create game session with custom board
+    session, err := gameService.CreateGameWithCustomBoard(gameMode, req.Pieces, currentTurn, whitePlayer, blackPlayer)
+    if err != nil {
+        c.JSON(500, gin.H{"error": "Failed to create game: " + err.Error()})
+        return
+    }
+
+    logf("🎲 Custom board Bot vs Bot game created: %s (mode: %s)", session.ID, gameMode)
+
+    // If auto-play, start the bot vs bot game loop
+    if req.AutoPlay {
+        go gameService.PlayBotVsBot(session.ID, req.MoveDelay)
+    }
+
+    c.JSON(201, gin.H{
+        "game_id":        session.ID,
+        "message":        "Custom Board Bot vs Bot game created",
+        "mode":           gameMode.String(),
+        "current_player": req.CurrentPlayer,
+        "pieces_count":   len(req.Pieces),
+        "white":          gin.H{"difficulty": req.WhiteDifficulty},
+        "black":          gin.H{"difficulty": req.BlackDifficulty},
+    })
+}
+
 // CreateGameRequest represents a game creation request
 type CreateGameRequest struct {
     Mode          string `json:"mode"`

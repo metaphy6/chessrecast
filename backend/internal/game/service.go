@@ -140,6 +140,44 @@ func (s *Service) CreateGame(mode engine.GameMode, whitePlayer, blackPlayer *Pla
 	return session, nil
 }
 
+// CreateGameWithCustomBoard creates a game with a custom piece layout
+func (s *Service) CreateGameWithCustomBoard(mode engine.GameMode, pieces []engine.CustomPiece, currentTurn engine.Color, whitePlayer, blackPlayer *Player) (*Session, error) {
+	sessionID := uuid.New().String()
+	
+	board, err := engine.NewBoardWithPieces(mode, pieces, currentTurn)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if this is a bot vs bot game
+	isBotVsBot := whitePlayer.Type == AI && blackPlayer.Type == AI
+
+	session := &Session{
+		ID:          sessionID,
+		Board:       board,
+		WhitePlayer: whitePlayer,
+		BlackPlayer: blackPlayer,
+		State:       engine.InProgress,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+		LastMoveAt:  time.Now(),
+		Spectators:  []string{},
+		IsBotVsBot:  isBotVsBot,
+		moveChannel: make(chan MoveRequest, 100),
+		subscribers: make(map[string]chan GameUpdate),
+	}
+
+	// Start game loop
+	go session.run()
+
+	s.mu.Lock()
+	s.sessions[sessionID] = session
+	s.mu.Unlock()
+
+	logf("🎲 Custom board game created: %s (mode: %s, turn: %s)", sessionID, mode, currentTurn)
+	return session, nil
+}
+
 // GetSession retrieves a game session
 func (s *Service) GetSession(sessionID string) (*Session, error) {
 	s.mu.RLock()
@@ -387,6 +425,11 @@ func (sess *Session) triggerAIMove() {
 
 // updateGameState checks for checkmate, stalemate, draw conditions, etc.
 func (sess *Session) updateGameState() {
+	// Check for game mode specific win conditions FIRST
+	if sess.checkGameModeVictory() {
+		return
+	}
+
 	// Check for threefold repetition draw first
 	if sess.Board.HasThreefoldRepetition() {
 		sess.State = engine.Draw
@@ -446,6 +489,63 @@ func (sess *Session) updateGameState() {
 			}
 		}
 	}
+}
+
+// checkGameModeVictory checks for game mode specific win conditions
+// Returns true if a victory condition was met
+func (sess *Session) checkGameModeVictory() bool {
+	lastMove := sess.Board.History.Last()
+	if lastMove == nil {
+		return false
+	}
+
+	switch sess.Board.Mode {
+	case engine.OtherSide:
+		return sess.checkOtherSideVictory(lastMove)
+	// Add other game modes here as needed
+	default:
+		return false
+	}
+}
+
+// checkOtherSideVictory checks Other Side mode win conditions:
+// 1. Rook reaches opponent's back rank
+// 2. Rook captures opponent's rook
+func (sess *Session) checkOtherSideVictory(lastMove *engine.Move) bool {
+	// Check if a rook was captured - captor wins!
+	if lastMove.CapturedPiece != nil && lastMove.CapturedPiece.Type == engine.Rook {
+		winner := lastMove.Piece.Color
+		sess.State = engine.Checkmate
+		sess.Result = &engine.GameResult{
+			State:  engine.Checkmate,
+			Winner: winner,
+			Reason: "Rook captured - Other Side victory!",
+		}
+		logf("🏆 Other Side: %s wins by capturing opponent's rook!", winner)
+		return true
+	}
+
+	// Check if a rook reached the opponent's back rank
+	if lastMove.Piece.Type == engine.Rook {
+		movingColor := lastMove.Piece.Color
+		targetRank := 7 // White's target is rank 8 (row 7)
+		if movingColor == engine.Black {
+			targetRank = 0 // Black's target is rank 1 (row 0)
+		}
+
+		if lastMove.To.Row == targetRank {
+			sess.State = engine.Checkmate
+			sess.Result = &engine.GameResult{
+				State:  engine.Checkmate,
+				Winner: movingColor,
+				Reason: "Rook reached back rank - Other Side victory!",
+			}
+			logf("🏆 Other Side: %s wins by reaching opponent's back rank!", movingColor)
+			return true
+		}
+	}
+
+	return false
 }
 
 // broadcastUpdate sends update to all subscribers

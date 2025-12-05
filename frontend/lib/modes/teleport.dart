@@ -1,4 +1,5 @@
 import '../board/utils/exporter.dart';
+import '../debug.dart';
 import 'game_mode.dart';
 
 /// TELEPORT MODE: Kings and rooks can swap positions when aligned
@@ -193,6 +194,15 @@ class Teleport extends GameMode {
           currentPlayer: board.currentPlayer.opposite,
           moveHistory: [...board.moveHistory, move],
         );
+
+        final playerColor = move.piece.color == PieceColor.white
+            ? 'White'
+            : 'Black';
+        final fromPos =
+            '${String.fromCharCode(97 + move.from.col)}${8 - move.from.row}';
+        final toPos =
+            '${String.fromCharCode(97 + move.to.col)}${8 - move.to.row}';
+        logTeleportSwap(playerColor, fromPos, toPos);
 
         return newBoard;
       }

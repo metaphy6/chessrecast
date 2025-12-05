@@ -24,6 +24,8 @@ class Controller extends GetxController {
   ChessBoard? _initialDevBoard; // Store the initial custom board setup
   List<ChessPiece>? _devBoardOriginalPieces; // Store original pieces from args
   PieceColor? _devBoardOriginalPlayer; // Store starting player from args
+  int? _devBoardWhiteDifficulty; // Store difficulty for back navigation
+  int? _devBoardBlackDifficulty; // Store difficulty for back navigation
 
   // UI preferences
   final Rx<BoardTheme> _boardTheme = BoardTheme.brown.obs;
@@ -61,6 +63,19 @@ class Controller extends GetxController {
     gameType = args?['gameType'] ?? ModesEnum.classic;
     isDevBoard = args?['isDevBoard'] ?? false;
 
+    // Store difficulty settings for back navigation (used by online spectator)
+    if (isDevBoard) {
+      _devBoardOriginalPieces = args?['devBoardOriginalPieces'] != null
+          ? List<ChessPiece>.from(
+              args!['devBoardOriginalPieces'] as List<ChessPiece>,
+            )
+          : null;
+      _devBoardOriginalPlayer =
+          args?['devBoardOriginalPlayer'] as PieceColor? ?? PieceColor.white;
+      _devBoardWhiteDifficulty = args?['whiteDifficulty'] as int?;
+      _devBoardBlackDifficulty = args?['blackDifficulty'] as int?;
+    }
+
     // Check if custom board setup is provided
     if (args?['customBoard'] != null &&
         args?['customBoard'] is List<ChessPiece>) {
@@ -68,13 +83,13 @@ class Controller extends GetxController {
       final customCurrentPlayer =
           args['currentPlayer'] as PieceColor? ?? PieceColor.white;
 
-      // Store original pieces from arguments for navigation back
-      _devBoardOriginalPieces = args['devBoardOriginalPieces'] != null
+      // Store original pieces from arguments for navigation back (if not already set from isDevBoard handling)
+      _devBoardOriginalPieces ??= args['devBoardOriginalPieces'] != null
           ? List<ChessPiece>.from(
               args['devBoardOriginalPieces'] as List<ChessPiece>,
             )
           : List<ChessPiece>.from(customPieces);
-      _devBoardOriginalPlayer =
+      _devBoardOriginalPlayer ??=
           args['devBoardOriginalPlayer'] as PieceColor? ?? customCurrentPlayer;
 
       // Optimize: Reduce repeated piece queries with local cache
@@ -824,6 +839,8 @@ class Controller extends GetxController {
           'gameType': gameType,
           'pieces': _devBoardOriginalPieces,
           'currentPlayer': _devBoardOriginalPlayer,
+          'whiteDifficulty': _devBoardWhiteDifficulty,
+          'blackDifficulty': _devBoardBlackDifficulty,
         },
       );
     } else {
@@ -850,14 +867,21 @@ class Controller extends GetxController {
   }
 
   /// Update the board state directly (for online mode)
+  /// Adds to history so undo/redo works for online games
   @protected
   void updateBoardState(ChessBoard newBoard) {
     _board.value = newBoard;
 
-    // Batch update using helper
-    update(
-      getAllSquareIds(),
-    ); // still use direct update for simple batched update
+    // Add to history for undo/redo in online games
+    // Clear any forward history if we're not at the end
+    if (_historyIndex.value < _boardHistory.length - 1) {
+      _boardHistory.removeRange(_historyIndex.value + 1, _boardHistory.length);
+    }
+    _boardHistory.add(newBoard);
+    _historyIndex.value = _boardHistory.length - 1;
+
+    // Update all squares and history UI
+    updateAllSquaresAndHistory(this);
   }
 
   /// Checks if a position is a valid move target (optimized for hot path)

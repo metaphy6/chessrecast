@@ -1,4 +1,5 @@
 import '../board/utils/exporter.dart';
+import '../debug.dart';
 import 'modes_enum.dart';
 import 'game_mode.dart';
 
@@ -151,6 +152,8 @@ class SaveTheQueen implements GameMode {
 
       if (isInOwnHalf && move.to == opponentPrison) {
         final newBoard = board.makeMove(move);
+        final winner = move.piece.color == PieceColor.white ? 'White' : 'Black';
+        logSaveTheQueenEscape(winner);
         return newBoard.copyWith(gameStatus: GameStatus.checkmate);
       }
     }
@@ -164,6 +167,8 @@ class SaveTheQueen implements GameMode {
       if (wasInOwnHalf) {
         // CAPTURED ESCAPED QUEEN = GAME OVER!
         final newBoard = board.makeMove(move);
+        final winner = move.piece.color == PieceColor.white ? 'White' : 'Black';
+        logSaveTheQueenCapture(winner);
         return newBoard.copyWith(gameStatus: GameStatus.checkmate);
       } else {
         // CAPTURED PRISONER QUEEN = Return to prison (if prison is empty)
