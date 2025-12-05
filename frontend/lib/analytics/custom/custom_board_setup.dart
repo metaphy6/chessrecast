@@ -28,44 +28,61 @@ class CustomBoardSetupPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Use permanent: true to preserve controller across navigations
+    // Get the game type from route arguments BEFORE controller lookup
+    final args = Get.arguments as Map<String, dynamic>?;
+    final gameType = args?['gameType'] ?? ModesEnum.classic;
+
+    // Check for FEN string (preferred - simple string serialization)
+    final fen = args?['fen'] as String?;
+    
+    // Legacy support: check for pieces list
+    final pieces = args?['pieces'] as List<ChessPiece>?;
+    final currentPlayer = args?['currentPlayer'] as PieceColor?;
+    final whiteDifficulty = args?['whiteDifficulty'] as int?;
+    final blackDifficulty = args?['blackDifficulty'] as int?;
+
+    // DEBUG: Print what we received
+    debugPrint('CustomBoardSetupPage: fen=$fen, pieces=${pieces?.length}, gameType=$gameType');
+
+    // Check if controller exists and get or create it
     final controller = Get.put(
       CustomBoardController(),
       tag: 'custom_board',
       permanent: true,
     );
 
-    // Get the game type from route arguments
-    final args = Get.arguments as Map<String, dynamic>?;
-    final gameType = args?['gameType'] ?? ModesEnum.classic;
-
-    // Check if returning from a game with saved state
-    final pieces = args?['pieces'] as List<ChessPiece>?;
-    final currentPlayer = args?['currentPlayer'] as PieceColor?;
-    final whiteDifficulty = args?['whiteDifficulty'] as int?;
-    final blackDifficulty = args?['blackDifficulty'] as int?;
-
-    // Defer initialization to after build phase to avoid setState during build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Only reinitialize if we have explicit state from navigation
-      // Otherwise, keep existing controller state (for back navigation)
-      if (pieces != null && pieces.isNotEmpty) {
-        controller.initialize(
+    // IMMEDIATE initialization if we have FEN or pieces from arguments
+    // This runs synchronously during build, before any UI is shown
+    if (fen != null && fen.isNotEmpty) {
+      debugPrint('CustomBoardSetupPage: Initializing from FEN: $fen');
+      // Use microtask to avoid setState during build but run immediately after
+      Future.microtask(() {
+        controller.forceInitializeFromFEN(
+          gameType: gameType,
+          fen: fen,
+          whiteDifficulty: whiteDifficulty,
+          blackDifficulty: blackDifficulty,
+        );
+      });
+    } else if (pieces != null && pieces.isNotEmpty) {
+      debugPrint('CustomBoardSetupPage: Initializing from pieces list');
+      Future.microtask(() {
+        controller.forceInitialize(
           gameType: gameType,
           pieces: pieces,
           currentPlayer: currentPlayer,
+          whiteDifficulty: whiteDifficulty,
+          blackDifficulty: blackDifficulty,
         );
-        if (whiteDifficulty != null) {
-          controller.whiteDifficulty = whiteDifficulty;
-        }
-        if (blackDifficulty != null) {
-          controller.blackDifficulty = blackDifficulty;
-        }
-      } else if (!controller.isInitialized) {
-        // Only initialize if not already initialized
+      });
+    } else if (!controller.isInitialized) {
+      debugPrint('CustomBoardSetupPage: First time init');
+      Future.microtask(() {
         controller.initialize(gameType: gameType);
-      }
-    });
+      });
+    } else {
+      debugPrint('CustomBoardSetupPage: Keeping existing state');
+    }
 
     return _CustomBoardScaffold(controller: controller);
   }

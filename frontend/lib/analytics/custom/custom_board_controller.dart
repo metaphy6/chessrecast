@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../../board/utils/exporter.dart';
 import '../../modes/modes_enum.dart';
@@ -84,6 +85,65 @@ class CustomBoardController extends GetxController {
     }
 
     _isInitialized = true;
+  }
+
+  /// Force initialize with new state - used when explicitly importing a position
+  /// This will override any existing state and update all UI elements
+  void forceInitialize({
+    required ModesEnum gameType,
+    required List<ChessPiece> pieces,
+    PieceColor? currentPlayer,
+    int? whiteDifficulty,
+    int? blackDifficulty,
+  }) {
+    _selectedGameType = gameType;
+    _currentTurnColor = currentPlayer ?? PieceColor.white;
+    _selectedPieceColor = PieceColor.white;
+    _customPieces = List<ChessPiece>.from(pieces);
+    
+    // Update difficulties without triggering individual updates
+    _whiteDifficulty = (whiteDifficulty ?? 5).clamp(1, 10);
+    _blackDifficulty = (blackDifficulty ?? 5).clamp(1, 10);
+    
+    _isInitialized = true;
+    
+    // Update all UI elements at once
+    update([...getAllSquareIds(), 'bot_difficulty', 'game_mode', 'turn_selector']);
+  }
+
+  /// Force initialize from FEN notation - most reliable way to transfer positions
+  /// FEN is a simple string, so no serialization issues
+  void forceInitializeFromFEN({
+    required ModesEnum gameType,
+    required String fen,
+    int? whiteDifficulty,
+    int? blackDifficulty,
+  }) {
+    debugPrint('forceInitializeFromFEN: parsing FEN: $fen');
+    try {
+      // Parse FEN to get board state
+      final board = ChessBoard.fromFEN(fen, gameType: gameType);
+      debugPrint('forceInitializeFromFEN: parsed ${board.pieces.length} pieces');
+      
+      _selectedGameType = gameType;
+      _currentTurnColor = board.currentPlayer;
+      _selectedPieceColor = PieceColor.white;
+      _customPieces = List<ChessPiece>.from(board.pieces);
+      
+      // Update difficulties without triggering individual updates
+      _whiteDifficulty = (whiteDifficulty ?? 5).clamp(1, 10);
+      _blackDifficulty = (blackDifficulty ?? 5).clamp(1, 10);
+      
+      _isInitialized = true;
+      
+      debugPrint('forceInitializeFromFEN: updating UI with ${_customPieces.length} pieces');
+      // Update all UI elements at once
+      update([...getAllSquareIds(), 'bot_difficulty', 'game_mode', 'turn_selector']);
+    } catch (e) {
+      debugPrint('forceInitializeFromFEN: ERROR parsing FEN: $e');
+      // If FEN parsing fails, just load standard position
+      loadStandardStartPosition();
+    }
   }
 
   void loadStandardStartPosition() {

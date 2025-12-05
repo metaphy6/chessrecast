@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../analytics/bot/bot_manager.dart';
-import '../board/piece.dart';
 import '../management/controller.dart';
 import '../management/online_controller.dart';
 import '../ui/board_theme.dart';
@@ -212,13 +211,13 @@ class ChessGamePage extends StatelessWidget {
               if (value == 'reset') {
                 controller.resetGame();
               } else if (value == 'export') {
-                // Export current position to custom board for replay
+                // Export current position to custom board using FEN notation
+                // FEN is a simple string - no serialization issues
                 Get.offAllNamed(
                   '/custom-board',
                   arguments: {
                     'gameType': controller.gameType,
-                    'pieces': List<ChessPiece>.from(controller.board.pieces),
-                    'currentPlayer': controller.currentPlayer,
+                    'fen': controller.board.toFEN(),
                   },
                 );
               }

@@ -420,4 +420,43 @@ class ChessBoard extends Equatable {
     blackHasPromotedKing,
     positionHistory,
   ];
+
+  /// Converts the board to FEN notation (piece placement only for simplicity)
+  /// Returns a string like: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w
+  String toFEN() {
+    final buffer = StringBuffer();
+
+    // Build piece placement from rank 8 (row 7) down to rank 1 (row 0)
+    for (int row = 7; row >= 0; row--) {
+      int emptyCount = 0;
+
+      for (int col = 0; col < 8; col++) {
+        final piece = getPieceAt(Position(row, col));
+
+        if (piece == null) {
+          emptyCount++;
+        } else {
+          if (emptyCount > 0) {
+            buffer.write(emptyCount);
+            emptyCount = 0;
+          }
+          buffer.write(piece.fenSymbol);
+        }
+      }
+
+      if (emptyCount > 0) {
+        buffer.write(emptyCount);
+      }
+
+      if (row > 0) {
+        buffer.write('/');
+      }
+    }
+
+    // Add current player
+    buffer.write(' ');
+    buffer.write(currentPlayer == PieceColor.white ? 'w' : 'b');
+
+    return buffer.toString();
+  }
 }
