@@ -67,6 +67,13 @@ extension MoveGeneration on ChessBoard {
         // After truce breaks, apply normal check rules (fall through)
       }
 
+      // Heir mode: King is a regular piece that can be captured
+      // No "check" concept - allow all moves regardless of king safety
+      if (gameType == ModesEnum.heir) {
+        safeMoves.add(move);
+        continue;
+      }
+
       // Snare mode allows suicide moves (king moving into danger) ONLY if king has knights
       if (gameType == ModesEnum.snare && piece.type == PieceType.king) {
         final myKnights = modes.snare.getKnights(currentPlayer, this);
@@ -261,6 +268,19 @@ extension MoveGeneration on ChessBoard {
     // Check for Other Side mode - no rook promotion allowed
     if (gameType == ModesEnum.otherSide) {
       return ['Q', 'B', 'N']; // Queen, Bishop, Knight only
+    }
+
+    // Check for Heir mode - can promote to King (with restrictions)
+    if (gameType == ModesEnum.heir) {
+      final heirMode = modes.heir;
+      final options = heirMode.getPromotionPieces(
+        color,
+        this,
+        promotionPosition: promotionPosition,
+      );
+      if (options != null) {
+        return options;
+      }
     }
 
     // Check for Save the King mode - can promote to King

@@ -6,37 +6,15 @@ import 'game_mode.dart';
 /// Rules:
 /// - Pawns can promote to King (in addition to Q, R, B, N)
 /// - Each player can only promote to King once
+/// - King is a REGULAR PIECE - no "check" concept, can be captured like any piece
 /// - If a King is captured and the player has pawns, they can promote one to King
 /// - If a King is captured and the player has no pawns, they lose immediately
 /// - If the second (promoted) King is captured, the player loses immediately
-/// - King promotion must not result in immediate check
 class Heir extends GameMode {
   @Deprecated(
     'Use the `modes.heir` alias from modes_cache.dart instead of direct instantiation',
   )
   const Heir();
-
-  /// Checks if promoting a pawn to King would result in immediate check
-  bool _wouldKingPromotionBeInCheck(
-    PieceColor color,
-    Position position,
-    ChessBoard board,
-  ) {
-    final newPieces = List<ChessPiece>.from(board.pieces);
-
-    newPieces.add(
-      ChessPiece(type: PieceType.king, color: color, position: position),
-    );
-
-    final tempBoard = board.copyWith(pieces: newPieces);
-
-    final wouldBeInCheck = tempBoard.isPositionUnderAttack(
-      position,
-      color.opposite,
-    );
-
-    return wouldBeInCheck;
-  }
 
   @override
   List<ChessMove>? getPawnMoves(ChessPiece pawn, ChessBoard board) {
@@ -156,11 +134,7 @@ class Heir extends GameMode {
           : board.blackHasPromotedKing;
 
       if (!hasPromotedKing) {
-        // Check if King promotion would be safe
-        if (promotionPosition != null &&
-            _wouldKingPromotionBeInCheck(color, promotionPosition, board)) {
-          return [];
-        }
+        // King is captured - MUST promote to King (no check rules in Heir mode)
         return ['K'];
       }
     }
@@ -171,12 +145,8 @@ class Heir extends GameMode {
         : board.blackHasPromotedKing;
 
     if (!hasPromotedKing) {
-      final availablePieces = ['Q', 'R', 'B', 'N'];
-      if (promotionPosition == null ||
-          !_wouldKingPromotionBeInCheck(color, promotionPosition, board)) {
-        availablePieces.add('K');
-      }
-      return availablePieces;
+      // Can promote to any piece including King (no check rules in Heir mode)
+      return ['Q', 'R', 'B', 'N', 'K'];
     }
 
     return null; // Use standard promotions if already promoted a king

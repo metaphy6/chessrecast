@@ -41,6 +41,14 @@ class Orchestrator {
       throw ArgumentError('Invalid move: $move');
     }
 
+    // Check for Heir mode special moves (king capture detection)
+    if (board.gameType == ModesEnum.heir) {
+      final heirBoard = modes.heir.handleSpecialMove(board, move);
+      if (heirBoard != null) {
+        return updateGameStatus(heirBoard);
+      }
+    }
+
     // Check for Teleport mode special move (king-rook swap)
     if (board.gameType == ModesEnum.teleport) {
       final teleportBoard = modes.teleport.handleSpecialMove(board, move);
@@ -193,12 +201,11 @@ class Orchestrator {
   }
 
   /// Updates game status specifically for Heir mode
+  /// In Heir mode, the king is a regular piece and does NOT trigger "check" status
   ChessBoard _updateHeirGameStatus(ChessBoard board) {
-    final currentPlayerInCheck = board.isKingInCheck(board.currentPlayer);
     final hasValidMoves = _hasValidMoves(board);
 
     GameStatus newStatus;
-    ChessBoard updatedBoard = board;
 
     // Check for immediate game end conditions in Heir mode
     // If a player has no king AND no pawns, they lose immediately
@@ -211,68 +218,27 @@ class Orchestrator {
           .toList();
 
       if (kings.isEmpty && pawns.isEmpty) {
+        // This player has lost - set as checkmate for opponent
         return board.copyWith(gameStatus: GameStatus.checkmate);
       }
     }
 
-    if (currentPlayerInCheck && !hasValidMoves) {
-      // Current player's king is checkmated
-
-      // Check if this should end the game immediately based on new Heir rules
-      final playerWhoLostKing = board.currentPlayer;
-      final hasPromotedKing = playerWhoLostKing == PieceColor.white
-          ? board.whiteHasPromotedKing
-          : board.blackHasPromotedKing;
-
-      final pawns = board.pieces
-          .where(
-            (p) => p.type == PieceType.pawn && p.color == playerWhoLostKing,
-          )
-          .toList();
-
-      if (hasPromotedKing) {
-        // Second (promoted) king is mated - game ends immediately (like regular checkmate)
-        newStatus = GameStatus.checkmate;
-        updatedBoard = board; // No need to remove king, game ends
-      } else if (pawns.isEmpty) {
-        // First king mated and no pawns to promote - game ends immediately
-        newStatus = GameStatus.checkmate;
-        updatedBoard = board; // No need to remove king, game ends
-      } else {
-        // First king mated but pawns available - remove king and continue
-
-        final king = board.getKing(board.currentPlayer);
-        if (king != null) {
-          // Create a new pieces list with the king removed
-          final newPieces = board.pieces
-              .where((piece) => piece != king)
-              .toList();
-
-          updatedBoard = board.copyWith(
-            pieces: newPieces,
-            // Keep currentPlayer unchanged - they get to continue after losing their king
-          );
-        }
-
-        newStatus = GameStatus
-            .ongoing; // Continue the game - player can move without king
-      }
-    } else if (currentPlayerInCheck) {
-      newStatus = GameStatus.check;
-    } else if (!hasValidMoves) {
+    // In Heir mode, king is NOT special - no check status
+    // Only check for stalemate/ongoing based on valid moves
+    if (!hasValidMoves) {
       newStatus = GameStatus.stalemate;
     } else {
       newStatus = GameStatus.ongoing;
     }
 
     // Check for draw conditions
-    if (_isDrawByInsufficientMaterial(updatedBoard) ||
-        _isDrawByRepetition(updatedBoard) ||
-        _isDrawByFiftyMoveRule(updatedBoard)) {
+    if (_isDrawByInsufficientMaterial(board) ||
+        _isDrawByRepetition(board) ||
+        _isDrawByFiftyMoveRule(board)) {
       newStatus = GameStatus.draw;
     }
 
-    return updatedBoard.copyWith(gameStatus: newStatus);
+    return board.copyWith(gameStatus: newStatus);
   }
 
   /// Updates game status specifically for Truce mode
