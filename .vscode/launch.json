@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Flutter: frontend (mobile - debug)",
+      "name": "Flutter: frontend (mobile - debug) [Windows]",
       "type": "dart",
       "request": "launch",
       "cwd": "frontend",
@@ -12,6 +12,20 @@
       "env": {
         "ANDROID_SDK_ROOT": "C:\\Users\\dev\\AppData\\Local\\Android\\sdk",
         "PATH": "${env:PATH};C:\\Users\\dev\\AppData\\Local\\Android\\sdk\\platform-tools"
+      }
+    },
+    {
+      "name": "Flutter: frontend (mobile - debug) [Linux]",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "frontend",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "deviceId": "",
+      "env": {
+        "ANDROID_SDK_ROOT": "${env:ANDROID_SDK_ROOT:-}",
+        "ANDROID_HOME": "${env:ANDROID_SDK_ROOT:-}",
+        "PATH": "${env:PATH}:${env:ANDROID_SDK_ROOT:-$HOME/Android/Sdk}/platform-tools:${env:ANDROID_SDK_ROOT:-$HOME/Android/Sdk}/emulator:${env:HOME}/Android/Sdk/platform-tools:${env:HOME}/Android/Sdk/emulator"
       }
     },
     {
@@ -31,7 +45,7 @@
       "flutterMode": "release"
     },
     {
-      "name": "Flutter: frontend (web - Chrome)",
+      "name": "Flutter: frontend (web - Chrome) [Windows]",
       "type": "dart",
       "request": "launch",
       "cwd": "frontend",
@@ -43,13 +57,52 @@
       }
     },
     {
-      "name": "Attach: frontend (running device)",
+      "name": "Flutter: frontend (web - Chrome) [Linux]",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "frontend",
+      "program": "lib/main.dart",
+      "deviceId": "chrome",
+      "env": {
+        "ANDROID_SDK_ROOT": "${env:ANDROID_SDK_ROOT:-}",
+        "ANDROID_HOME": "${env:ANDROID_SDK_ROOT:-}",
+        "PATH": "${env:PATH}:${env:ANDROID_SDK_ROOT:-$HOME/Android/Sdk}/platform-tools:${env:ANDROID_SDK_ROOT:-$HOME/Android/Sdk}/emulator:${env:HOME}/Android/Sdk/platform-tools:${env:HOME}/Android/Sdk/emulator"
+      }
+    },
+    {
+      "name": "Attach: frontend (running device) [Windows]",
       "type": "dart",
       "request": "attach",
       "cwd": "frontend",
       "env": {
         "ANDROID_SDK_ROOT": "C:\\Users\\dev\\AppData\\Local\\Android\\sdk",
         "PATH": "${env:PATH};C:\\Users\\dev\\AppData\\Local\\Android\\sdk\\platform-tools"
+      }
+    },
+    {
+      "name": "Attach: frontend (running device) [Linux]",
+      "type": "dart",
+      "request": "attach",
+      "cwd": "frontend",
+      "env": {
+        "ANDROID_SDK_ROOT": "${env:ANDROID_SDK_ROOT:-}",
+        "ANDROID_HOME": "${env:ANDROID_SDK_ROOT:-}",
+        "PATH": "${env:PATH}:${env:ANDROID_SDK_ROOT:-$HOME/Android/Sdk}/platform-tools:${env:ANDROID_SDK_ROOT:-$HOME/Android/Sdk}/emulator:${env:HOME}/Android/Sdk/platform-tools:${env:HOME}/Android/Sdk/emulator"
+      }
+    },
+    {
+      "name": "Flutter: frontend (mobile - Pixel9ProXL) [Linux]",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "frontend",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "deviceId": "Pixel9ProXL",
+      "preLaunchTask": "start-emulator-Pixel9ProXL",
+      "env": {
+        "ANDROID_SDK_ROOT": "${env:ANDROID_SDK_ROOT:-}",
+        "ANDROID_HOME": "${env:ANDROID_SDK_ROOT:-}",
+        "PATH": "${env:PATH}:${env:ANDROID_SDK_ROOT:-$HOME/Android/Sdk}/platform-tools:${env:ANDROID_SDK_ROOT:-$HOME/Android/Sdk}/emulator:${env:HOME}/Android/Sdk/platform-tools:${env:HOME}/Android/Sdk/emulator"
       }
     }
   ]
