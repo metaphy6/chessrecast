@@ -532,6 +532,13 @@ func (mg *MoveGenerator) getPromotionPieces(color Color) []PieceType {
 			return []PieceType{King, Queen, Rook, Bishop, Knight}
 		}
 		return []PieceType{Queen, Rook, Bishop, Knight}
+	case Heir:
+		// In Heir mode, can always promote to King (only once though)
+		// No check restriction since king is a regular piece
+		if mg.board.PromotedKings[color] == 0 {
+			return []PieceType{Queen, Rook, Bishop, Knight, King}
+		}
+		return []PieceType{Queen, Rook, Bishop, Knight}
 	default:
 		return []PieceType{Queen, Rook, Bishop, Knight}
 	}

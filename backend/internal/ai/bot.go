@@ -715,22 +715,103 @@ func (b *Bot) getModeSpecificScore(board *engine.Board) float64 {
 		}
 
 	case engine.Heir:
-		// Count how many kings we have vs opponent - more kings = better!
+		// Heir Mode Strategy:
+		// 1. Protect your king (it can be captured!)
+		// 2. If king is captured, prioritize pawn promotion to get a new king
+		// 3. Try to capture opponent's king
+		// 4. Advanced pawns are extremely valuable (potential kings)
+		
+		// Count kings and find their positions
 		myKings := 0
 		oppKings := 0
+		var myKingPos engine.Position
+		var oppKingPos engine.Position
+		
 		for row := 0; row < 8; row++ {
 			for col := 0; col < 8; col++ {
 				piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
 				if piece != nil && piece.Type == engine.King {
 					if piece.Color == b.Color {
 						myKings++
+						myKingPos = engine.Position{Row: row, Col: col}
 					} else {
 						oppKings++
+						oppKingPos = engine.Position{Row: row, Col: col}
 					}
 				}
 			}
 		}
-		score += float64(myKings-oppKings) * 500.0
+		
+		// King count difference is critical
+		score += float64(myKings-oppKings) * 800.0
+		
+		// If we have no king, URGENTLY need to promote a pawn
+		if myKings == 0 {
+			// Find our most advanced pawn
+			for row := 0; row < 8; row++ {
+				for col := 0; col < 8; col++ {
+					piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
+					if piece != nil && piece.Type == engine.Pawn && piece.Color == b.Color {
+						// HUGE bonus for advanced pawns when we have no king
+						if b.Color == engine.White {
+							score += float64(row) * 150.0 // Row 6 = 900 bonus!
+							if row == 6 { // One step from promotion
+								score += 500.0
+							}
+						} else {
+							score += float64(7-row) * 150.0
+							if row == 1 { // One step from promotion
+								score += 500.0
+							}
+						}
+					}
+				}
+			}
+		} else {
+			// We have a king - protect it!
+			// Penalty if king is under attack
+			if !b.isPieceSafe(board, myKingPos) {
+				score -= 400.0 // King in danger!
+			}
+			
+			// Bonus for pieces defending the king
+			defenders := countDefendingPieces(board, myKingPos, b.Color)
+			score += float64(defenders) * 50.0
+		}
+		
+		// If opponent has a king, bonus for attacking it
+		if oppKings > 0 {
+			// Count our pieces attacking opponent's king
+			for row := 0; row < 8; row++ {
+				for col := 0; col < 8; col++ {
+					piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
+					if piece != nil && piece.Color == b.Color {
+						if b.canPieceAttack(board, piece, oppKingPos) {
+							score += 200.0 // Attacking opponent's king!
+						}
+					}
+				}
+			}
+		}
+		
+		// If opponent has no king and no pawns, we've won
+		if oppKings == 0 {
+			oppPawns := 0
+			for row := 0; row < 8; row++ {
+				for col := 0; col < 8; col++ {
+					piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
+					if piece != nil && piece.Type == engine.Pawn && piece.Color != b.Color {
+						oppPawns++
+					}
+				}
+			}
+			if oppPawns == 0 {
+				score += 10000.0 // Opponent can't get a king back - victory!
+			} else {
+				// Opponent has pawns but no king - try to capture their pawns
+				score += 500.0 // Good position
+			}
+		}
 	}
 
 	return score

@@ -286,7 +286,9 @@ class CustomBoardController extends GetxController {
     update(getAllSquareIds());
   }
 
-  bool validateBoard() {
+  /// Validates the board for the selected game type
+  /// Returns a tuple of (isValid, errorMessage)
+  (bool, String?) validateBoard() {
     final whiteKing = _customPieces.any(
       (p) => p.type == PieceType.king && p.color == PieceColor.white,
     );
@@ -294,7 +296,22 @@ class CustomBoardController extends GetxController {
       (p) => p.type == PieceType.king && p.color == PieceColor.black,
     );
 
-    return whiteKing && blackKing;
+    // Heir mode: kings can be missing (they can be captured and promoted back)
+    // Save the King mode: starts with no kings (must promote to get one)
+    if (_selectedGameType == ModesEnum.heir ||
+        _selectedGameType == ModesEnum.saveTheKing) {
+      // In these modes, at least one piece must exist
+      if (_customPieces.isEmpty) {
+        return (false, 'Board must have at least one piece');
+      }
+      return (true, null);
+    }
+
+    // All other modes require both kings
+    if (!whiteKing || !blackKing) {
+      return (false, 'Both white and black kings must be present');
+    }
+    return (true, null);
   }
 
   // Note: We now use getAllSquareIds() from management/utils.dart directly

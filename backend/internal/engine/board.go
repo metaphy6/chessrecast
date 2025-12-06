@@ -270,6 +270,10 @@ func (b *Board) MakeMove(move Move) error {
 	// Handle pawn promotion
 	if move.IsPromotion {
 		piece.Type = move.Promotion
+		// Track king promotions for Heir and SaveTheKing modes
+		if move.Promotion == King {
+			b.PromotedKings[piece.Color]++
+		}
 	}
 
 	// Update state
@@ -540,6 +544,32 @@ func (b *Board) HasThreefoldRepetition() bool {
 		}
 	}
 
+	return false
+}
+
+// HasKing checks if the given color has a king on the board
+func (b *Board) HasKing(color Color) bool {
+	for row := 0; row < 8; row++ {
+		for col := 0; col < 8; col++ {
+			piece := b.squares[row][col]
+			if piece != nil && piece.Type == King && piece.Color == color {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// HasPawns checks if the given color has any pawns on the board
+func (b *Board) HasPawns(color Color) bool {
+	for row := 0; row < 8; row++ {
+		for col := 0; col < 8; col++ {
+			piece := b.squares[row][col]
+			if piece != nil && piece.Type == Pawn && piece.Color == color {
+				return true
+			}
+		}
+	}
 	return false
 }
 

@@ -430,6 +430,24 @@ func (sess *Session) updateGameState() {
 		return
 	}
 
+	// Heir mode: Check if a player has no king AND no pawns - they lose immediately
+	if sess.Board.Mode == engine.Heir {
+		for _, color := range []engine.Color{engine.White, engine.Black} {
+			hasKing := sess.Board.HasKing(color)
+			hasPawns := sess.Board.HasPawns(color)
+			if !hasKing && !hasPawns {
+				// This player has lost - no king and no pawns to promote
+				sess.State = engine.Checkmate
+				sess.Result = &engine.GameResult{
+					State:  engine.Checkmate,
+					Winner: color.Opposite(),
+					Reason: "No king and no pawns remaining",
+				}
+				return
+			}
+		}
+	}
+
 	// Check for threefold repetition draw first
 	if sess.Board.HasThreefoldRepetition() {
 		sess.State = engine.Draw
@@ -470,6 +488,17 @@ func (sess *Session) updateGameState() {
 
 	if !hasValidMoves {
 		// No legal moves - check if it's checkmate or stalemate
+		// In Heir mode, king doesn't trigger "check", so no valid moves = stalemate
+		if sess.Board.Mode == engine.Heir {
+			// In Heir mode, no valid moves is always stalemate (king is a regular piece)
+			sess.State = engine.Stalemate
+			sess.Result = &engine.GameResult{
+				State:  engine.Stalemate,
+				Reason: "Stalemate - no legal moves",
+			}
+			return
+		}
+
 		isInCheck := sess.Board.IsKingInCheck(sess.Board.CurrentTurn)
 		
 		if isInCheck {
