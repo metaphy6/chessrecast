@@ -884,10 +884,11 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
 
   Future<void> _startOnlineBotVsBot(BuildContext context) async {
     // Validate board
-    if (!widget.controller.validateBoard()) {
+    final (isValid, errorMessage) = widget.controller.validateBoard();
+    if (!isValid) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Both white and black kings must be present'),
+          content: Text(errorMessage ?? 'Invalid board configuration'),
           backgroundColor: Colors.red.shade600,
           duration: const Duration(seconds: 2),
         ),
@@ -981,11 +982,12 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
 
   void _startGame(BuildContext context, CustomBoardController controller) {
     // Validate board
-    if (!controller.validateBoard()) {
+    final (isValid, errorMessage) = controller.validateBoard();
+    if (!isValid) {
       // Use ScaffoldMessenger instead of Get.snackbar to avoid Overlay issues
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Both white and black kings must be present'),
+          content: Text(errorMessage ?? 'Invalid board configuration'),
           backgroundColor: Colors.red.shade600,
           duration: const Duration(seconds: 2),
         ),
