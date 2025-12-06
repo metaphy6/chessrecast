@@ -10,7 +10,9 @@ class InfoPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Use GetBuilder with specific ID for smoother updates (only rebuild when status changes)
     return GetBuilder<Controller>(
+      id: 'statusMessage',
       builder: (controller) {
         final displayColor = isTopPanel ? PieceColor.black : PieceColor.white;
         final isCurrentPlayer = controller.currentPlayer == displayColor;

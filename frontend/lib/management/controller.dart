@@ -259,8 +259,8 @@ class Controller extends GetxController {
     _selectedPosition.value = position;
     final moves = board.getValidMovesFor(position);
 
-    // Optimized: use direct assignment instead of map + toList
-    _validMoves.value = <Position>[];
+    // Fix: clear and repopulate the same RxList instead of assigning a new list
+    _validMoves.clear();
     for (final move in moves) {
       _validMoves.add(move.to);
     }

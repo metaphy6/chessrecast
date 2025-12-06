@@ -294,11 +294,9 @@ class ChessGamePage extends StatelessWidget {
         ],
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isPortrait = constraints.maxHeight > constraints.maxWidth;
-
-            if (isPortrait) {
+        child: OrientationBuilder(
+          builder: (context, orientation) {
+            if (orientation == Orientation.portrait) {
               return _buildPortraitLayout();
             } else {
               return _buildLandscapeLayout();

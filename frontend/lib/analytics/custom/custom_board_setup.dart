@@ -83,7 +83,11 @@ class CustomBoardSetupPage extends StatelessWidget {
         controller.initialize(gameType: gameType);
       });
     } else {
-      debugPrint('CustomBoardSetupPage: Keeping existing state');
+      // Update game type even when keeping existing state
+      debugPrint('CustomBoardSetupPage: Updating game type to $gameType');
+      Future.microtask(() {
+        controller.setGameType(gameType);
+      });
     }
 
     return _CustomBoardScaffold(controller: controller);
@@ -291,52 +295,64 @@ class _CustomControlPanel extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: DropdownButtonFormField<ModesEnum>(
-                initialValue: controller.selectedGameType,
+              child: InputDecorator(
                 decoration: const InputDecoration(
                   labelText: 'Game Mode',
                   border: OutlineInputBorder(),
                   filled: true,
                   fillColor: Colors.white,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
                 ),
-                items: ModesEnum.values.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(type.displayName),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    controller.setGameType(value);
-                  }
-                },
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<ModesEnum>(
+                    value: controller.selectedGameType,
+                    isExpanded: true,
+                    items: ModesEnum.values.map((type) {
+                      return DropdownMenuItem(
+                        value: type,
+                        child: Text(type.displayName),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        controller.setGameType(value);
+                      }
+                    },
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: DropdownButtonFormField<PieceColor>(
-                initialValue: controller.currentTurnColor,
+              child: InputDecorator(
                 decoration: const InputDecoration(
                   labelText: 'Turn',
                   border: OutlineInputBorder(),
                   filled: true,
                   fillColor: Colors.white,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
                 ),
-                items: const [
-                  DropdownMenuItem(
-                    value: PieceColor.white,
-                    child: Text('White'),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<PieceColor>(
+                    value: controller.currentTurnColor,
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(
+                        value: PieceColor.white,
+                        child: Text('White'),
+                      ),
+                      DropdownMenuItem(
+                        value: PieceColor.black,
+                        child: Text('Black'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        controller.setCurrentTurnColor(value);
+                      }
+                    },
                   ),
-                  DropdownMenuItem(
-                    value: PieceColor.black,
-                    child: Text('Black'),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    controller.setCurrentTurnColor(value);
-                  }
-                },
+                ),
               ),
             ),
           ],
