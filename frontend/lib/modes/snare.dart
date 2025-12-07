@@ -479,6 +479,14 @@ class Snare extends GameMode {
 
       // If capturing the last knight, activate revenge
       if (defendingKnights.length == 1) {
+        // Log revengeful knight capture
+        final attackerColorStr = move.piece.color == PieceColor.white
+            ? 'White'
+            : 'Black';
+        final position =
+            '${String.fromCharCode(97 + move.to.col)}${8 - move.to.row}';
+        logSnareRevengefulKnight(attackerColorStr, position);
+
         // Execute the move first to get the new board state
         final newBoard = board.makeMove(move);
 
@@ -487,9 +495,12 @@ class Snare extends GameMode {
           return piece.position != move.to;
         }).toList();
 
-        // Don't switch turn back - keep it as is after makeMove
-        // If the attacker was a King, the game will end with the attacker losing
-        return newBoard.copyWith(pieces: newPieces);
+        // Switch turn back to attacker (makeMove already switched it, but we need it to stay with attacker)
+        // The attacker lost their piece, so it's still their turn but they can't continue
+        return newBoard.copyWith(
+          pieces: newPieces,
+          currentPlayer: move.piece.color,
+        );
       }
     }
 

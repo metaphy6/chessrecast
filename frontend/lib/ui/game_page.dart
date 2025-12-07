@@ -40,12 +40,15 @@ class ChessGamePage extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Text(
-                  'Chess Recast',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    fontSize: 18,
+                const Flexible(
+                  child: Text(
+                    'Chess Recast',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 18,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (controller.isDevBoard) ...[

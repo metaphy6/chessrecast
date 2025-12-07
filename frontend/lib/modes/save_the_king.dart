@@ -18,7 +18,7 @@ import 'modes_enum.dart';
 /// 5. Lose immediately if:
 ///    - Any of your queens are captured
 ///    - You run out of pawns (no way to promote to King)
-/// 6. Draw if 50 moves (25 per side) with no captures or pawn moves
+/// 6. Draw if 50 full moves (100 half-moves) with no captures or pawn moves
 ///
 /// STARTING POSITION:
 /// White: Two queens on d1 and e1

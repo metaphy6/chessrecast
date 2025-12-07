@@ -526,7 +526,7 @@ class Controller extends GetxController {
 
     // Build captured piece info if applicable
     final capturedInfo = move.capturedPiece != null
-        ? ' [captured ${_getPieceIcon(move.capturedPiece!)}]'
+        ? ' × ${_getPieceIcon(move.capturedPiece!)}'
         : '';
 
     return '$pieceIcon ${move.from.algebraic}$capture${move.to.algebraic}$capturedInfo';
@@ -557,7 +557,7 @@ class Controller extends GetxController {
 
   /// Makes a move and updates the board state
   void makeMove(ChessMove move) {
-    // Log the move in chess notation
+    // Log the move in chess notation with piece icon
     final moveNotation = _formatMoveNotation(move);
     logMove(moveNotation);
 
@@ -742,12 +742,15 @@ class Controller extends GetxController {
           drawReason = 'Threefold Repetition';
           _statusMessage.value = 'Draw by threefold repetition!';
         } else {
-          _statusMessage.value = 'Game is a draw.';
+          drawReason = 'Insufficient Material';
+          _statusMessage.value = 'Draw by insufficient material!';
         }
         // Show draw snackbar
         _showDrawSnackbar(drawReason);
         break;
     }
+    // CRITICAL: Notify GetBuilder that status message has changed
+    update(['statusMessage']);
   }
 
   /// Shows a winner declaration snackbar
@@ -756,13 +759,29 @@ class Controller extends GetxController {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
+        final icon = winnerColor.toLowerCase() == 'white' ? '♔' : '♚';
         ScaffoldMessenger.of(_buildContext!).showSnackBar(
           SnackBar(
-            content: Text('$winnerColor Wins! 🏆'),
+            content: Row(
+              children: [
+                Text(icon, style: const TextStyle(fontSize: 24)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '$winnerColor Wins by Checkmate!',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const Text('🏆', style: TextStyle(fontSize: 24)),
+              ],
+            ),
             backgroundColor: winnerColor.toLowerCase() == 'white'
-                ? Colors.blue.shade600
+                ? Colors.blue.shade700
                 : Colors.grey.shade800,
-            duration: const Duration(seconds: 3),
+            duration: const Duration(seconds: 4),
             behavior: SnackBarBehavior.floating,
             margin: const EdgeInsets.all(16),
           ),
@@ -781,9 +800,30 @@ class Controller extends GetxController {
       try {
         ScaffoldMessenger.of(_buildContext!).showSnackBar(
           SnackBar(
-            content: Text('$drawType - It\'s a tie! 🤝'),
-            backgroundColor: Colors.orange.shade600,
-            duration: const Duration(seconds: 3),
+            content: Row(
+              children: [
+                const Text('🤝', style: TextStyle(fontSize: 24)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Game Drawn',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(drawType, style: const TextStyle(fontSize: 14)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.orange.shade700,
+            duration: const Duration(seconds: 4),
             behavior: SnackBarBehavior.floating,
             margin: const EdgeInsets.all(16),
           ),
@@ -909,14 +949,17 @@ class Controller extends GetxController {
   /// Adds to history so undo/redo works for online games
   @protected
   void updateBoardState(ChessBoard newBoard) {
-    _board.value = newBoard;
+    // CRITICAL: Evaluate game status to trigger logging and check/checkmate detection
+    // This ensures online games log events just like local games
+    final evaluatedBoard = _gameOrchestrator.updateGameStatus(newBoard);
+    _board.value = evaluatedBoard;
 
     // Add to history for undo/redo in online games
     // Clear any forward history if we're not at the end
     if (_historyIndex.value < _boardHistory.length - 1) {
       _boardHistory.removeRange(_historyIndex.value + 1, _boardHistory.length);
     }
-    _boardHistory.add(newBoard);
+    _boardHistory.add(evaluatedBoard);
     _historyIndex.value = _boardHistory.length - 1;
 
     // Update all squares and history UI

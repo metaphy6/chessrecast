@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../board/utils/exporter.dart';
+import '../debug.dart';
 import '../modes/modes_enum.dart';
 import '../services/api_service.dart';
 import '../services/game_websocket.dart';
@@ -18,6 +19,9 @@ class OnlineController extends Controller {
   final RxString _gameId = ''.obs;
   final Rxn<String> _playerId = Rxn<String>();
   final RxString _connectionStatus = 'Offline'.obs;
+
+  // Move validation toggle - set to false if performance issues occur
+  static const bool enableMoveValidation = true;
   final RxBool _isPaused = false.obs;
   final RxBool _isSpectator = false.obs;
 
@@ -215,6 +219,9 @@ class OnlineController extends Controller {
       // Parse FEN and update board
       final newBoard = ChessBoard.fromFEN(fen, gameType: board.gameType);
 
+      // Detect and log the move that was made (especially for bot moves)
+      _logMoveFromBoardChange(board, newBoard);
+
       // Update the board state (this will trigger UI rebuild)
       updateBoardState(newBoard);
     } catch (e) {
@@ -261,6 +268,10 @@ class OnlineController extends Controller {
   /// Send move to backend and handle response
   Future<void> makeMoveOnline(ChessMove move) async {
     try {
+      // Log the move in chess notation with piece icon
+      final moveNotation = _formatMoveNotation(move);
+      logMove(moveNotation);
+
       // Convert positions to algebraic notation
       final from = positionToAlgebraic(move.from);
       final to = positionToAlgebraic(move.to);
@@ -276,10 +287,64 @@ class OnlineController extends Controller {
         promotion: promotion,
       );
 
+      // Double validation: Compare backend response with frontend game rules
+      // This ensures both backend and frontend agree on move legality
+      // Can be disabled if performance issues occur (set enableMoveValidation = false)
+      if (enableMoveValidation && !_validateBackendMove(result, move)) {
+        _showSafeSnackbar(
+          'Validation Error',
+          'Backend and frontend rules disagree on move legality. Please refresh the game.',
+        );
+        // Re-sync game state to recover
+        await _syncGameState();
+        return;
+      }
+
       // Update local board from backend response
       _updateBoardFromBackend(result);
     } catch (e) {
       _showSafeSnackbar('Move Failed', e.toString());
+    }
+  }
+
+  /// Validate that backend move response matches frontend game rules
+  /// Returns true if validation passes, false if there's a discrepancy
+  bool _validateBackendMove(
+    Map<String, dynamic> backendResult,
+    ChessMove frontendMove,
+  ) {
+    try {
+      // Extract FEN from backend response
+      final backendFen =
+          (backendResult['fen'] ?? backendResult['board']) as String?;
+      if (backendFen == null) {
+        // No FEN in response - skip validation (backend might send different format)
+        return true;
+      }
+
+      // Simulate the move on frontend board
+      final testBoard = board.makeMove(frontendMove);
+      final frontendFen = testBoard.toFEN();
+
+      // Compare FEN strings (they should match if both backend and frontend agree)
+      if (backendFen == frontendFen) {
+        return true;
+      }
+
+      // FEN mismatch detected - log for debugging
+      debugPrint('⚠️ VALIDATION ERROR: Backend/Frontend FEN mismatch');
+      debugPrint('Backend FEN:  $backendFen');
+      debugPrint('Frontend FEN: $frontendFen');
+      debugPrint(
+        'Move: ${positionToAlgebraic(frontendMove.from)}-${positionToAlgebraic(frontendMove.to)}',
+      );
+
+      return false;
+    } catch (e) {
+      // If validation fails due to exception, log and allow move
+      // (don't block gameplay due to validation issues)
+      debugPrint('⚠️ Move validation error: $e');
+      return true; // Allow move to proceed
     }
   }
 
@@ -378,6 +443,127 @@ class OnlineController extends Controller {
       await resumeOnlineGame();
     } else {
       await pauseOnlineGame();
+    }
+  }
+
+  /// Format move notation (replicated from parent private method)
+  String _formatMoveNotation(ChessMove move) {
+    final pieceIcon = _getPieceIcon(move.piece);
+
+    // Special formatting for Teleport mode swaps
+    if (gameType == ModesEnum.teleport) {
+      final targetPiece = board.getPieceAt(move.to);
+      if (targetPiece != null && targetPiece.color == move.piece.color) {
+        if ((move.piece.type == PieceType.king &&
+                targetPiece.type == PieceType.rook) ||
+            (move.piece.type == PieceType.rook &&
+                targetPiece.type == PieceType.king)) {
+          final movingIcon = _getPieceIcon(move.piece);
+          final targetIcon = _getPieceIcon(targetPiece);
+          return '$movingIcon ${move.from.algebraic} ⇄ $targetIcon ${move.to.algebraic} TELEPORT';
+        }
+      }
+    }
+
+    final capture = move.capturedPiece != null ? '×' : '→';
+    final capturedInfo = move.capturedPiece != null
+        ? ' [captured ${_getPieceIcon(move.capturedPiece!)}]'
+        : '';
+
+    return '$pieceIcon ${move.from.algebraic}$capture${move.to.algebraic}$capturedInfo';
+  }
+
+  /// Get emoji icon for a chess piece
+  String _getPieceIcon(ChessPiece piece) {
+    const whiteIcons = {
+      'pawn': '♙',
+      'rook': '♖',
+      'knight': '♘',
+      'bishop': '♗',
+      'queen': '♕',
+      'king': '♔',
+    };
+    const blackIcons = {
+      'pawn': '♟',
+      'rook': '♜',
+      'knight': '♞',
+      'bishop': '♝',
+      'queen': '♛',
+      'king': '♚',
+    };
+
+    final icons = piece.color == PieceColor.white ? whiteIcons : blackIcons;
+    return icons[piece.type.name] ?? '?';
+  }
+
+  /// Detect and log move from board state change (for bot moves received via backend)
+  void _logMoveFromBoardChange(ChessBoard oldBoard, ChessBoard newBoard) {
+    // Compare piece positions to detect the move
+    // This is needed for bot moves that come through WebSocket/backend updates
+    try {
+      // Find pieces that moved or were captured
+      ChessPiece? movedPiece;
+      Position? fromPos;
+      Position? toPos;
+      ChessPiece? capturedPiece;
+
+      // Check for pieces that disappeared (moved or captured)
+      for (final oldPiece in oldBoard.pieces) {
+        final newPieceAtSamePos = newBoard.pieces.firstWhere(
+          (p) => p.position == oldPiece.position,
+          orElse: () => ChessPiece(
+            type: PieceType.pawn,
+            color: PieceColor.white,
+            position: Position(-1, -1),
+          ),
+        );
+
+        if (newPieceAtSamePos.position.row == -1) {
+          // Piece disappeared from this position
+          fromPos = oldPiece.position;
+          movedPiece = oldPiece;
+        }
+      }
+
+      // Check for pieces that appeared (moved to)
+      for (final newPiece in newBoard.pieces) {
+        final oldPieceAtSamePos = oldBoard.pieces.firstWhere(
+          (p) => p.position == newPiece.position,
+          orElse: () => ChessPiece(
+            type: PieceType.pawn,
+            color: PieceColor.white,
+            position: Position(-1, -1),
+          ),
+        );
+
+        if (oldPieceAtSamePos.position.row == -1) {
+          // New piece appeared at this position
+          toPos = newPiece.position;
+          // Check if something was captured
+          for (final oldPiece in oldBoard.pieces) {
+            if (oldPiece.position == toPos &&
+                oldPiece.color != newPiece.color) {
+              capturedPiece = oldPiece;
+            }
+          }
+        }
+      }
+
+      // If we detected a move, log it
+      if (movedPiece != null && fromPos != null && toPos != null) {
+        final move = ChessMove.simple(
+          from: fromPos,
+          to: toPos,
+          piece: movedPiece,
+          capturedPiece: capturedPiece,
+        );
+        // Format the move with piece icon
+        final notation = _formatMoveNotation(move);
+        logMove(notation);
+      }
+    } catch (e) {
+      // If move detection fails, just skip logging (don't block gameplay)
+      debugPrint('Failed to detect move for logging: $e');
     }
   }
 }

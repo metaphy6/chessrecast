@@ -178,22 +178,35 @@ class Orchestrator {
 
     if (currentPlayerInCheck) {
       if (hasValidMoves) {
+        logCheck(board.currentPlayer.name);
         newStatus = GameStatus.check;
       } else {
+        final winner = board.currentPlayer == PieceColor.white
+            ? 'black'
+            : 'white';
+        logCheckmate(winner);
         newStatus = GameStatus.checkmate;
       }
     } else {
       if (hasValidMoves) {
         newStatus = GameStatus.ongoing;
       } else {
+        logStalemate();
         newStatus = GameStatus.stalemate;
       }
     }
 
     // Check for draw conditions
-    if (_isDrawByInsufficientMaterial(board) ||
-        _isDrawByRepetition(board) ||
-        _isDrawByFiftyMoveRule(board)) {
+    if (_isDrawByInsufficientMaterial(board)) {
+      logDrawInsufficientMaterial();
+      newStatus = GameStatus.draw;
+    } else if (_isDrawByRepetition(board)) {
+      logDrawRepetition();
+      newStatus = GameStatus.draw;
+    } else if (_isDrawByFiftyMoveRule(board)) {
+      logDrawFiftyMoveRule(
+        isSpecialEndgame: _isSpecialEndgameRequiringFasterMate(board),
+      );
       newStatus = GameStatus.draw;
     }
 
@@ -219,6 +232,8 @@ class Orchestrator {
 
       if (kings.isEmpty && pawns.isEmpty) {
         // This player has lost - set as checkmate for opponent
+        final winner = color == PieceColor.white ? 'black' : 'white';
+        logCheckmate(winner);
         return board.copyWith(gameStatus: GameStatus.checkmate);
       }
     }
@@ -232,16 +247,22 @@ class Orchestrator {
     }
 
     // Check for draw conditions
-    if (_isDrawByInsufficientMaterial(board) ||
-        _isDrawByRepetition(board) ||
-        _isDrawByFiftyMoveRule(board)) {
+    if (_isDrawByInsufficientMaterial(board)) {
+      logDrawInsufficientMaterial();
+      newStatus = GameStatus.draw;
+    } else if (_isDrawByRepetition(board)) {
+      logDrawRepetition();
+      newStatus = GameStatus.draw;
+    } else if (_isDrawByFiftyMoveRule(board)) {
+      logDrawFiftyMoveRule(
+        isSpecialEndgame: _isSpecialEndgameRequiringFasterMate(board),
+      );
       newStatus = GameStatus.draw;
     }
 
     return board.copyWith(gameStatus: newStatus);
   }
 
-  /// Updates game status specifically for Truce mode
   ChessBoard _updateTruceGameStatus(ChessBoard board) {
     final isTruceActive = modes.truce.isTruceActive(board);
 
@@ -255,6 +276,7 @@ class Orchestrator {
         newStatus = GameStatus.ongoing;
       } else {
         // No valid moves during truce - stalemate
+        logStalemate();
         newStatus = GameStatus.stalemate;
       }
     } else {
@@ -266,23 +288,36 @@ class Orchestrator {
 
       if (currentPlayerInCheck) {
         if (hasValidMoves) {
+          logCheck(board.currentPlayer.name);
           newStatus = GameStatus.check;
         } else {
+          final winner = board.currentPlayer == PieceColor.white
+              ? 'black'
+              : 'white';
+          logCheckmate(winner);
           newStatus = GameStatus.checkmate;
         }
       } else {
         if (hasValidMoves) {
           newStatus = GameStatus.ongoing;
         } else {
+          logStalemate();
           newStatus = GameStatus.stalemate;
         }
       }
     }
 
     // Check for draw conditions
-    if (_isDrawByInsufficientMaterial(board) ||
-        _isDrawByRepetition(board) ||
-        _isDrawByFiftyMoveRule(board)) {
+    if (_isDrawByInsufficientMaterial(board)) {
+      logDrawInsufficientMaterial();
+      newStatus = GameStatus.draw;
+    } else if (_isDrawByRepetition(board)) {
+      logDrawRepetition();
+      newStatus = GameStatus.draw;
+    } else if (_isDrawByFiftyMoveRule(board)) {
+      logDrawFiftyMoveRule(
+        isSpecialEndgame: _isSpecialEndgameRequiringFasterMate(board),
+      );
       newStatus = GameStatus.draw;
     }
 
@@ -304,6 +339,11 @@ class Orchestrator {
     // 1. Custom board setups where king starts entangled
     // 2. Kings that became entangled from knight moves (via handleSpecialMove)
     if (modes.snare.isKingEntangled(board.currentPlayer, board)) {
+      // Log the entangle checkmate event
+      final trappedColor = board.currentPlayer == PieceColor.white
+          ? 'White'
+          : 'Black';
+      logSnareKingCaught(trappedColor);
       return board.copyWith(gameStatus: GameStatus.checkmate);
     }
 
@@ -313,9 +353,10 @@ class Orchestrator {
     // SNARE MODE: Special rule - if ALL knights are lost (both players), it's stalemate
     final whiteKnights = modes.snare.getKnights(PieceColor.white, board);
     final blackKnights = modes.snare.getKnights(PieceColor.black, board);
-    
+
     if (whiteKnights.isEmpty && blackKnights.isEmpty) {
       // All knights lost from both sides - game ends in stalemate
+      logSnareAllKnightsLost();
       return board.copyWith(gameStatus: GameStatus.stalemate);
     }
 
@@ -344,30 +385,42 @@ class Orchestrator {
 
       if (currentPlayerInCheck) {
         if (hasValidMoves) {
+          logCheck(board.currentPlayer.name);
           newStatus = GameStatus.check;
         } else {
+          final winner = board.currentPlayer == PieceColor.white
+              ? 'black'
+              : 'white';
+          logCheckmate(winner);
           newStatus = GameStatus.checkmate;
         }
       } else {
         if (hasValidMoves) {
           newStatus = GameStatus.ongoing;
         } else {
+          logStalemate();
           newStatus = GameStatus.stalemate;
         }
       }
     }
 
     // Check for draw conditions
-    if (_isDrawByInsufficientMaterial(board) ||
-        _isDrawByRepetition(board) ||
-        _isDrawByFiftyMoveRule(board)) {
+    if (_isDrawByInsufficientMaterial(board)) {
+      logDrawInsufficientMaterial();
+      newStatus = GameStatus.draw;
+    } else if (_isDrawByRepetition(board)) {
+      logDrawRepetition();
+      newStatus = GameStatus.draw;
+    } else if (_isDrawByFiftyMoveRule(board)) {
+      logDrawFiftyMoveRule(
+        isSpecialEndgame: _isSpecialEndgameRequiringFasterMate(board),
+      );
       newStatus = GameStatus.draw;
     }
 
     return board.copyWith(gameStatus: newStatus);
   }
 
-  /// Checks if the current player has any valid moves
   bool _hasValidMoves(ChessBoard board) {
     final playerPieces = board.getPiecesOfColor(board.currentPlayer);
 
@@ -385,13 +438,26 @@ class Orchestrator {
     final whitePieces = board.getPiecesOfColor(PieceColor.white);
     final blackPieces = board.getPiecesOfColor(PieceColor.black);
 
-    // Royal Pawns mode: special insufficient material rules
-    if (board.gameType == ModesEnum.royalPawns) {
-      return _isDrawByInsufficientMaterialRoyalPawns(whitePieces, blackPieces);
+    // Apply classic chess insufficient material rules first
+    if (_isDrawByInsufficientMaterialClassic(whitePieces, blackPieces)) {
+      return true;
     }
 
-    // Classic chess insufficient material rules
-    return _isDrawByInsufficientMaterialClassic(whitePieces, blackPieces);
+    // Snare mode: special insufficient material rules
+    if (board.gameType == ModesEnum.snare) {
+      if (_isDrawByInsufficientMaterialSnare(whitePieces, blackPieces, board)) {
+        return true;
+      }
+    }
+
+    // Royal Pawns mode: special insufficient material rules
+    if (board.gameType == ModesEnum.royalPawns) {
+      if (_isDrawByInsufficientMaterialRoyalPawns(whitePieces, blackPieces)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   /// Classic chess insufficient material rules
@@ -449,6 +515,59 @@ class Orchestrator {
     return false;
   }
 
+  /// Snare mode insufficient material rules
+  /// In Snare mode, knights are critical for creating entangle zones
+  /// Knights can defend each other and trap kings in entangle zones
+  bool _isDrawByInsufficientMaterialSnare(
+    List<ChessPiece> whitePieces,
+    List<ChessPiece> blackPieces,
+    ChessBoard board,
+  ) {
+    // First apply classic chess insufficient material rules
+    if (_isDrawByInsufficientMaterialClassic(whitePieces, blackPieces)) {
+      return true;
+    }
+
+    // Snare-specific rules:
+    // K+N vs K+N: NOT insufficient material - both knights can defend and create entangle zones
+    // K+N+N vs K: NOT immediate insufficient material - use 50-move rule (knights can checkmate)
+    // K+N+N vs K+N+N: Insufficient material - symmetrical position, neither can gain advantage
+
+    // Check for K+N+N vs K+N+N (two knights each) - this IS insufficient
+    if (whitePieces.length == 3 && blackPieces.length == 3) {
+      final whiteKnights = whitePieces
+          .where((p) => p.type == PieceType.knight)
+          .length;
+      final blackKnights = blackPieces
+          .where((p) => p.type == PieceType.knight)
+          .length;
+
+      if (whiteKnights == 2 && blackKnights == 2) {
+        // Both players have only king + two knights
+        final whiteNonKnights = whitePieces
+            .where(
+              (p) => p.type != PieceType.knight && p.type != PieceType.king,
+            )
+            .length;
+        final blackNonKnights = blackPieces
+            .where(
+              (p) => p.type != PieceType.knight && p.type != PieceType.king,
+            )
+            .length;
+
+        if (whiteNonKnights == 0 && blackNonKnights == 0) {
+          return true; // K+N+N vs K+N+N is insufficient material (symmetrical)
+        }
+      }
+    }
+
+    // K+N vs K+N: NOT insufficient - knights can create entangle zones
+    // K+N+N vs K: NOT insufficient - handled by 50-move rule
+    // (Two knights CAN checkmate a lone king in Snare mode via entangle zones)
+
+    return false;
+  }
+
   /// Royal Pawns mode insufficient material rules
   /// Pawns can't promote, so they're weaker. Apply relaxed rules.
   bool _isDrawByInsufficientMaterialRoyalPawns(
@@ -464,18 +583,10 @@ class Orchestrator {
 
     final totalPieces = whitePieces.length + blackPieces.length;
 
-    // King vs King
-    if (totalPieces == 2) {
-      return true;
-    }
-
     // Two kings and one pawn (K+P vs K)
-    if (totalPieces == 3) {
-      final totalPawns = whitePawns + blackPawns;
-      if (totalPawns == 1) {
-        return true; // One pawn can't force checkmate in Royal Pawns
-      }
-    }
+    // In Royal Pawns, one pawn can potentially checkmate a lone king
+    // within 50 moves. This is checked separately by fifty-move rule.
+    // Do NOT declare immediate insufficient material for K+P vs K
 
     // Two kings and two pawns - ONLY if each player has one pawn
     // (K+P vs K+P is draw, but K+P+P vs K is not)
@@ -532,9 +643,65 @@ class Orchestrator {
     return false;
   }
 
+  /// Checks if current position is a special endgame requiring mate within 50 total moves
+  /// Snare: K+N+N vs K (knights must mate within 50 half-moves = 25 white + 25 black)
+  /// Royal Pawns: K+pieces vs K (must mate within 50 half-moves = 25 white + 25 black)
+  bool _isSpecialEndgameRequiringFasterMate(ChessBoard board) {
+    final whitePieces = board.getPiecesOfColor(PieceColor.white);
+    final blackPieces = board.getPiecesOfColor(PieceColor.black);
+
+    // Snare mode: K+N+N vs K or K vs K+N+N
+    if (board.gameType == ModesEnum.snare) {
+      int whiteKnights = 0;
+      int blackKnights = 0;
+      int whiteNonKingPieces = 0;
+      int blackNonKingPieces = 0;
+
+      for (final p in whitePieces) {
+        if (p.type == PieceType.knight) {
+          whiteKnights++;
+        } else if (p.type != PieceType.king) {
+          whiteNonKingPieces++;
+        }
+      }
+
+      for (final p in blackPieces) {
+        if (p.type == PieceType.knight) {
+          blackKnights++;
+        } else if (p.type != PieceType.king) {
+          blackNonKingPieces++;
+        }
+      }
+
+      // K+N+N vs K: Must mate within 50 moves
+      if ((whiteKnights == 2 && blackNonKingPieces == 0 && blackKnights == 0) ||
+          (blackKnights == 2 && whiteNonKingPieces == 0 && whiteKnights == 0)) {
+        return true;
+      }
+    }
+
+    // Royal Pawns mode: K+pieces vs K or K vs K+pieces
+    if (board.gameType == ModesEnum.royalPawns) {
+      // Check if one side has only king
+      final whiteOnlyKing = whitePieces.length == 1;
+      final blackOnlyKing = blackPieces.length == 1;
+
+      if (whiteOnlyKing || blackOnlyKing) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   /// Checks for draw by fifty-move rule
+  /// Special endgames (Snare K+N+N vs K, Royal Pawns K+pieces vs K): 50 half-moves total (25+25)
+  /// Normal games: 50 full moves (100 half-moves) without capture or pawn move
   bool _isDrawByFiftyMoveRule(ChessBoard board) {
-    return board.halfMoveClock >= 100; // 50 moves by each player
+    final fiftyMoveLimit = _isSpecialEndgameRequiringFasterMate(board)
+        ? 50
+        : 100;
+    return board.halfMoveClock >= fiftyMoveLimit;
   }
 
   /// Gets all possible moves for the current player

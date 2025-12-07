@@ -1,4 +1,5 @@
 import '../board/utils/exporter.dart';
+import '../debug.dart';
 import 'game_mode.dart';
 
 /// TRUCE MODE: Players cannot attack until all pieces have moved once
@@ -61,6 +62,7 @@ class Truce extends GameMode {
 
     if (wasTruceActive && isTruceNowBroken) {
       // Truce is now broken
+      logTruceBroken(move.piece.color == PieceColor.white ? 'white' : 'black');
     }
 
     return null; // No special board changes needed
