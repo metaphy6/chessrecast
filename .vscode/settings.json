@@ -5,5 +5,15 @@
     "spellright.documentTypes": [
         "latex",
         "plaintext"
-    ]
+    ],
+    "files.watcherExclude": {
+        "**/node_modules": true,
+        "**/.git": true,
+        "**/build/**": true,
+        "**/.dart_tool/**": true,
+        "**/Android/Sdk/**": true,
+        "**/.gradle/**": true,
+        "**/ios/**": true,
+        "**/android/build/**": true
+    }
 }

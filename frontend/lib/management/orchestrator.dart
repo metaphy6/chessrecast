@@ -299,14 +299,25 @@ class Orchestrator {
       return board;
     }
 
-    // NOTE: We do NOT check for king entanglement here!
-    // Entanglement-based checkmate is ONLY triggered by handleSpecialMove when:
-    // 1. A knight move is made
-    // 2. That move creates a NEW entangle zone
-    // 3. The opponent's king is caught in that new zone
-    //
-    // Kings are allowed to freely enter existing entangle zones without penalty.
-    // This prevents false checkmate when a king voluntarily moves into an existing zone.
+    // CRITICAL: Check if current player's king is entangled (instant checkmate)
+    // This handles both:
+    // 1. Custom board setups where king starts entangled
+    // 2. Kings that became entangled from knight moves (via handleSpecialMove)
+    if (modes.snare.isKingEntangled(board.currentPlayer, board)) {
+      return board.copyWith(gameStatus: GameStatus.checkmate);
+    }
+
+    // NOTE: Entanglement-based checkmate from knight moves is primarily handled in handleSpecialMove
+    // but we also check here to catch custom board initial states where king is already entangled
+
+    // SNARE MODE: Special rule - if ALL knights are lost (both players), it's stalemate
+    final whiteKnights = modes.snare.getKnights(PieceColor.white, board);
+    final blackKnights = modes.snare.getKnights(PieceColor.black, board);
+    
+    if (whiteKnights.isEmpty && blackKnights.isEmpty) {
+      // All knights lost from both sides - game ends in stalemate
+      return board.copyWith(gameStatus: GameStatus.stalemate);
+    }
 
     // SNARE MODE: Check if current player's king still has knights
     final myKnights = modes.snare.getKnights(board.currentPlayer, board);

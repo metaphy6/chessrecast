@@ -16,7 +16,8 @@ import 'game_mode.dart';
 /// - Pieces moving through entangle zones are captured in the zone
 /// - Suicide moves (putting own king in check/mate) are legal
 /// - When the last knight is captured, it's "revengeful" - both pieces are destroyed
-/// - Promotion restrictions: No knights = no promotions, 1 knight = must promote to knight
+/// - Promotion restrictions: No knights = no promotions, 1 knight = must promote to knight, 2 knights = Q/R/B only (no knight)
+/// - If all knights are lost (both players), the game ends in stalemate
 class Snare extends GameMode {
   @Deprecated(
     'Use the `modes.snare` alias from modes_cache.dart instead of direct instantiation',
@@ -77,6 +78,7 @@ class Snare extends GameMode {
   }
 
   /// SNARE MODE: Gets the entangle zone positions between two defending knights
+  /// Example: Knights at d4 (row=4, col=3) and e2 (row=6, col=4) create zone at d3 and e3
   List<Position> _getEntangleZone(ChessPiece knight1, ChessPiece knight2) {
     final zone = <Position>[];
 
@@ -91,14 +93,16 @@ class Snare extends GameMode {
 
     // For a knight move, one diff is 1 and the other is 2
     if (rowDiff == 1 && colDiff == 2) {
-      // Vertical corridor (2 column difference)
+      // Horizontal corridor (2 column difference, 1 row difference)
+      // Example: knights at (4,3) and (5,5) -> zone at (4,4) and (5,4)
       final minCol = col1 < col2 ? col1 : col2;
       final middleCol = minCol + 1; // The column between the knights
 
       zone.add(Position(row1, middleCol));
       zone.add(Position(row2, middleCol));
     } else if (rowDiff == 2 && colDiff == 1) {
-      // Horizontal corridor (2 row difference)
+      // Vertical corridor (2 row difference, 1 column difference)
+      // Example: knights at (4,3) and (6,4) -> zone at (5,3) and (5,4)
       final minRow = row1 < row2 ? row1 : row2;
       final middleRow = minRow + 1; // The row between the knights
 
@@ -336,12 +340,15 @@ class Snare extends GameMode {
     final knights = getKnights(color, board);
 
     if (knights.isEmpty) {
+      // No knights = no promotion at all
       return [];
     } else if (knights.length == 1) {
+      // One knight = can only promote to knight (to get back to 2 knights)
       return ['N'];
+    } else {
+      // Two knights = can promote to Q, R, B (but NOT knight, max 2 knights allowed)
+      return ['Q', 'R', 'B'];
     }
-
-    return null; // Use standard promotions if 2 knights exist
   }
 
   @override
@@ -377,6 +384,15 @@ class Snare extends GameMode {
             final isAlreadyInZone = zone.any((pos) => pos == move.from);
 
             if (!isAdjacentMove && !isAlreadyInZone) {
+              moveIntercepted = true;
+              break;
+            }
+
+            // CRITICAL: King cannot voluntarily move into ANY entangle zone
+            // King can only be trapped by knights creating a zone around it (self-checkmate)
+            // but cannot walk into a zone by its own move (regardless of knight color)
+            if (piece.type == PieceType.king) {
+              // King cannot enter any entangle zone by its own move
               moveIntercepted = true;
               break;
             }
@@ -481,8 +497,7 @@ class Snare extends GameMode {
     final newBoard = board.makeMove(move);
 
     // Only trigger checkmate if a knight move CREATES a NEW entangle zone that traps a king
-    // Self-checkmate happens when a player moves their own knight in a way that creates
-    // an entangle zone catching a king (could be own or opponent's king)
+    // The player who creates the entangle zone WINS (entangling knights' owner wins)
     if (move.piece.type == PieceType.knight) {
       // Check both players' kings
       for (final kingColor in [PieceColor.white, PieceColor.black]) {
@@ -492,7 +507,7 @@ class Snare extends GameMode {
         // Check if king is entangled AFTER this move
         final kingIsEntangledAfter = isKingEntangled(kingColor, newBoard);
 
-        // Self-checkmate only happens if king was NOT entangled before, but IS entangled after
+        // Entanglement checkmate happens if king was NOT entangled before, but IS entangled after
         // This means the knight move created a NEW zone that caught the king
         if (!kingWasEntangledBefore && kingIsEntangledAfter) {
           final playerColor = move.piece.color == PieceColor.white
@@ -505,6 +520,25 @@ class Snare extends GameMode {
               ? 'White'
               : 'Black';
           logSnareKingCaught(trappedColor);
+
+          // CRITICAL: The entangling player (knight owner) wins, so they need to make another move
+          // But since the entangled king's player can't move, we set checkmate
+          // The winner is determined by whose turn it is NOT (the entangled king loses)
+          // So we need to ensure currentPlayer in the new board is the LOSING side
+          // Since makeMove already switched turns, if entangled king is black and it's now black's turn,
+          // that's correct (black loses). If it's white's turn, white loses.
+          // The newBoard.currentPlayer should be the entangled king's color for proper winner detection
+
+          // If the entangled king color matches the NEW currentPlayer, that's correct
+          // (the entangled player is about to move but can't, so they lose)
+          if (newBoard.currentPlayer != kingColor) {
+            // Need to switch turn back so the entangled player is currentPlayer
+            return newBoard.copyWith(
+              gameStatus: GameStatus.checkmate,
+              currentPlayer: kingColor,
+            );
+          }
+
           return newBoard.copyWith(gameStatus: GameStatus.checkmate);
         }
       }

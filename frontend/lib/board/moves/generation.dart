@@ -74,18 +74,11 @@ extension MoveGeneration on ChessBoard {
         continue;
       }
 
-      // Snare mode allows suicide moves (king moving into danger) ONLY if king has knights
-      if (gameType == ModesEnum.snare && piece.type == PieceType.king) {
-        final myKnights = modes.snare.getKnights(currentPlayer, this);
-
-        if (myKnights.isNotEmpty) {
-          // King has knights - allow the move even if it puts king in check
-          // King can freely move into entangle zones
-          safeMoves.add(move);
-          continue;
-        }
-        // King has no knights - apply normal check rules (fall through)
-      }
+      // Snare mode: King cannot be checkmated while it has knights, but still cannot
+      // move into attacked squares. Knights attack normally in L-shape pattern.
+      // King can only end up in entangle zone if knights create it around the king,
+      // not by king's own movement (already filtered in snare.dart filterMoves).
+      // No special handling needed here - let normal check rules apply.
 
       if (!kingInCheck) {
         safeMoves.add(move);
@@ -287,6 +280,19 @@ extension MoveGeneration on ChessBoard {
     if (gameType == ModesEnum.saveTheKing) {
       final saveTheKingMode = modes.saveTheKing;
       final options = saveTheKingMode.getPromotionPieces(
+        color,
+        this,
+        promotionPosition: promotionPosition,
+      );
+      if (options != null) {
+        return options;
+      }
+    }
+
+    // Check for Snare mode - knight-based promotion restrictions
+    if (gameType == ModesEnum.snare) {
+      final snareMode = modes.snare;
+      final options = snareMode.getPromotionPieces(
         color,
         this,
         promotionPosition: promotionPosition,

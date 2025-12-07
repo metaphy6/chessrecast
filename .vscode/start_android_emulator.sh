@@ -32,8 +32,8 @@ if pgrep -af "emulator" | grep -q "-avd\s\+$AVD_NAME"; then
   exit 0
 fi
 
-# Start emulator in background
-nohup "$EMU_BIN" @"$AVD_NAME" >/dev/null 2>&1 &
+# Start emulator in background with optimizations for UI responsiveness
+nohup "$EMU_BIN" @"$AVD_NAME" -no-snapshot-save -no-accel >/dev/null 2>&1 &
 EMUPID=$!
 echo "Starting AVD $AVD_NAME (pid=$EMUPID). Waiting for device to appear..."
 

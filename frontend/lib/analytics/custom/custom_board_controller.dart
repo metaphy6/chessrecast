@@ -311,6 +311,38 @@ class CustomBoardController extends GetxController {
     if (!whiteKing || !blackKing) {
       return (false, 'Both white and black kings must be present');
     }
+
+    // Ensure the non-current player's king is not under attack
+    // This prevents invalid board setups where the wrong player is in check
+    final tempBoard = ChessBoard(
+      pieces: _customPieces,
+      currentPlayer: _currentTurnColor,
+      gameType: _selectedGameType,
+    );
+
+    final nonCurrentPlayer = _currentTurnColor.opposite;
+    final nonCurrentKing = tempBoard.getKing(nonCurrentPlayer);
+
+    if (nonCurrentKing != null) {
+      final isNonCurrentKingUnderAttack = tempBoard.isPositionUnderAttack(
+        nonCurrentKing.position,
+        _currentTurnColor,
+      );
+
+      if (isNonCurrentKingUnderAttack) {
+        final playerName = nonCurrentPlayer == PieceColor.white
+            ? 'White'
+            : 'Black';
+        final currentPlayerName = _currentTurnColor == PieceColor.white
+            ? 'White'
+            : 'Black';
+        return (
+          false,
+          '$playerName king is under attack but it\'s $currentPlayerName\'s turn. This violates game consistency.',
+        );
+      }
+    }
+
     return (true, null);
   }
 
