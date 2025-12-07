@@ -591,6 +591,30 @@ class Controller extends GetxController {
         squareIdFromPosition(move.from),
         squareIdFromPosition(move.to),
       ];
+
+      // CASTLING: Also update rook squares
+      if (move.isCastling) {
+        final kingRow = move.from.row;
+        final isKingside = move.to.col == 6; // g-file
+        if (isKingside) {
+          // Kingside: rook moves from h to f
+          squaresToUpdate.add(
+            squareIdFromPosition(Position(kingRow, 7)),
+          ); // h-file
+          squaresToUpdate.add(
+            squareIdFromPosition(Position(kingRow, 5)),
+          ); // f-file
+        } else {
+          // Queenside: rook moves from a to d
+          squaresToUpdate.add(
+            squareIdFromPosition(Position(kingRow, 0)),
+          ); // a-file
+          squaresToUpdate.add(
+            squareIdFromPosition(Position(kingRow, 3)),
+          ); // d-file
+        }
+      }
+
       if (move.capturedPiece != null) {
         squaresToUpdate.add(squareIdFromPosition(move.capturedPiece!.position));
 
