@@ -362,11 +362,28 @@ func (sess *Session) processMove(req MoveRequest) MoveResponse {
 	}
 
 	// Execute move
+	// Check if this is a revengeful knight scenario BEFORE making the move
+	isRevengefulKnight := false
+	if sess.Board.Mode == engine.Snare && req.Move.CapturedPiece != nil && 
+		req.Move.CapturedPiece.Type == engine.Knight {
+		capturedColor := req.Move.CapturedPiece.Color
+		remainingKnights := sess.Board.CountKnights(capturedColor)
+		if remainingKnights == 1 { // This will become 0 after capture
+			isRevengefulKnight = true
+		}
+	}
+
 	if err := sess.Board.MakeMove(req.Move); err != nil {
 		return MoveResponse{
 			Success: false,
 			Error:   err,
 		}
+	}
+
+	// Log revengeful knight after move is confirmed
+	if isRevengefulKnight {
+		log.Printf("💥 SNARE - Revengeful Knight: %s captured the last knight at %v! Both pieces destroyed!", 
+			req.Move.Piece.Color, req.Move.To)
 	}
 
 	sess.UpdatedAt = time.Now()
@@ -376,6 +393,9 @@ func (sess *Session) processMove(req MoveRequest) MoveResponse {
 	// This happens immediately after move is executed (one-way stream)
 	sess.MoveNumber++
 	storage.RecordMoveStream(sess.ID, sess.MoveNumber, &req.Move, req.Move.Piece.Color)
+	
+	// Also update GameBuilder for final game record summary
+	storage.RecordMove(sess.ID, &req.Move)
 
 	// Check game state
 	sess.updateGameState()
@@ -430,6 +450,36 @@ func (sess *Session) updateGameState() {
 		return
 	}
 
+	// Snare mode: Check if all knights are lost (both players) - stalemate
+	if sess.Board.Mode == engine.Snare {
+		whiteKnights := sess.Board.CountKnights(engine.White)
+		blackKnights := sess.Board.CountKnights(engine.Black)
+		
+		if whiteKnights == 0 && blackKnights == 0 {
+			log.Printf("🏳️ SNARE - Stalemate: All knights have been lost! Game ends in stalemate!")
+			sess.State = engine.Stalemate
+			sess.Result = &engine.GameResult{
+				State:  engine.Stalemate,
+				Reason: "Stalemate - all knights lost",
+			}
+			return
+		}
+	}
+
+	// Snare mode: Check if current player's king is entangled (instant checkmate)
+	if sess.Board.Mode == engine.Snare {
+		if sess.Board.IsKingEntangled(sess.Board.CurrentTurn) {
+			log.Printf("🪤 SNARE - Trapped: %s King caught in entangle zone! CHECKMATE!", sess.Board.CurrentTurn)
+			sess.State = engine.Checkmate
+			sess.Result = &engine.GameResult{
+				State:  engine.Checkmate,
+				Winner: sess.Board.CurrentTurn.Opposite(),
+				Reason: "Checkmate - king entangled",
+			}
+			return
+		}
+	}
+
 	// Heir mode: Check if a player has no king AND no pawns - they lose immediately
 	if sess.Board.Mode == engine.Heir {
 		for _, color := range []engine.Color{engine.White, engine.Black} {
@@ -459,11 +509,40 @@ func (sess *Session) updateGameState() {
 	}
 
 	// Check for fifty-move rule draw
-	if sess.Board.FiftyMoveRule >= 100 {
+	// Special endgames (Snare K+N+N vs K, Royal Pawns K+pieces vs K): 50 total moves (half-moves)
+	// Normal games: 50 full moves = 100 half-moves
+	fiftyMoveLimit := 100
+	isSpecialEndgame := sess.isSpecialEndgameRequiringFasterMate()
+	if isSpecialEndgame {
+		fiftyMoveLimit = 50 // Must mate within 50 total moves (white 25 + black 25)
+		log.Printf("🔍 Special endgame detected - fifty-move limit set to %d (current: %d)", fiftyMoveLimit, sess.Board.FiftyMoveRule)
+	}
+
+	if sess.Board.FiftyMoveRule >= fiftyMoveLimit {
+		if fiftyMoveLimit == 50 {
+			log.Printf("🏳️ Draw: Special endgame fifty-move rule triggered (%d moves without capture or pawn move - must mate within 50 moves)", sess.Board.FiftyMoveRule)
+			sess.State = engine.Draw
+			sess.Result = &engine.GameResult{
+				State:  engine.Draw,
+				Reason: "Draw - failed to mate within 50 moves",
+			}
+		} else {
+			log.Printf("🏳️ Draw: Fifty-move rule triggered (%d half-moves without capture or pawn move)", sess.Board.FiftyMoveRule)
+			sess.State = engine.Draw
+			sess.Result = &engine.GameResult{
+				State:  engine.Draw,
+				Reason: "Draw - 50 moves without capture or pawn move",
+			}
+		}
+		return
+	}
+
+	// Check for insufficient material draw
+	if sess.isDrawByInsufficientMaterial() {
 		sess.State = engine.Draw
 		sess.Result = &engine.GameResult{
 			State:  engine.Draw,
-			Reason: "Fifty-move rule",
+			Reason: "Insufficient material",
 		}
 		return
 	}
@@ -573,6 +652,220 @@ func (sess *Session) checkOtherSideVictory(lastMove *engine.Move) bool {
 			return true
 		}
 	}
+
+	return false
+}
+
+// isDrawByInsufficientMaterial checks if the game is a draw due to insufficient material
+func (sess *Session) isDrawByInsufficientMaterial() bool {
+	whitePieces := sess.Board.GetPiecesOfColor(engine.White)
+	blackPieces := sess.Board.GetPiecesOfColor(engine.Black)
+
+	// Apply classic chess insufficient material rules first (applies to all modes)
+	if sess.isDrawByInsufficientMaterialClassic(whitePieces, blackPieces) {
+		return true
+	}
+
+	// Snare mode: special insufficient material rules
+	if sess.Board.Mode == engine.Snare {
+		if sess.isDrawByInsufficientMaterialSnare(whitePieces, blackPieces) {
+			return true
+		}
+	}
+
+	// Royal Pawns mode: special insufficient material rules
+	if sess.Board.Mode == engine.RoyalPawns {
+		if sess.isDrawByInsufficientMaterialRoyalPawns(whitePieces, blackPieces) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isDrawByInsufficientMaterialClassic checks classic chess insufficient material rules
+func (sess *Session) isDrawByInsufficientMaterialClassic(whitePieces, blackPieces []*engine.Piece) bool {
+	// King vs King
+	if len(whitePieces) == 1 && len(blackPieces) == 1 {
+		return true
+	}
+
+	// King and Bishop vs King or King and Knight vs King
+	if (len(whitePieces) == 2 && len(blackPieces) == 1) ||
+		(len(whitePieces) == 1 && len(blackPieces) == 2) {
+		allPieces := append(whitePieces, blackPieces...)
+		nonKingPieces := []*engine.Piece{}
+		for _, p := range allPieces {
+			if p.Type != engine.King {
+				nonKingPieces = append(nonKingPieces, p)
+			}
+		}
+
+		if len(nonKingPieces) == 1 {
+			piece := nonKingPieces[0]
+			if piece.Type == engine.Bishop || piece.Type == engine.Knight {
+				return true
+			}
+		}
+	}
+
+	// King and Bishop vs King and Bishop (same color squares)
+	if len(whitePieces) == 2 && len(blackPieces) == 2 {
+		whiteBishops := []*engine.Piece{}
+		blackBishops := []*engine.Piece{}
+		for _, p := range whitePieces {
+			if p.Type == engine.Bishop {
+				whiteBishops = append(whiteBishops, p)
+			}
+		}
+		for _, p := range blackPieces {
+			if p.Type == engine.Bishop {
+				blackBishops = append(blackBishops, p)
+			}
+		}
+
+		if len(whiteBishops) == 1 && len(blackBishops) == 1 {
+			// Check if bishops are on same color squares
+			whiteSquareColor := (whiteBishops[0].Position.Row + whiteBishops[0].Position.Col) % 2
+			blackSquareColor := (blackBishops[0].Position.Row + blackBishops[0].Position.Col) % 2
+
+			if whiteSquareColor == blackSquareColor {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// isDrawByInsufficientMaterialSnare checks Snare mode insufficient material rules
+func (sess *Session) isDrawByInsufficientMaterialSnare(whitePieces, blackPieces []*engine.Piece) bool {
+	// First apply classic chess insufficient material rules
+	if sess.isDrawByInsufficientMaterialClassic(whitePieces, blackPieces) {
+		return true
+	}
+
+	// Snare-specific rules:
+	// K+N vs K+N: NOT insufficient material - both knights can defend and create entangle zones
+	// K+N+N vs K: NOT immediate insufficient material - use 50-move rule (knights can checkmate via entangle)
+	// K+N+N vs K+N+N: Insufficient material - symmetrical position, neither can gain advantage
+
+	// Check for K+N+N vs K+N+N (two knights each) - this IS insufficient
+	if len(whitePieces) == 3 && len(blackPieces) == 3 {
+		whiteKnights := 0
+		blackKnights := 0
+		whiteNonKnightsNonKings := 0
+		blackNonKnightsNonKings := 0
+
+		for _, p := range whitePieces {
+			if p.Type == engine.Knight {
+				whiteKnights++
+			} else if p.Type != engine.King {
+				whiteNonKnightsNonKings++
+			}
+		}
+
+		for _, p := range blackPieces {
+			if p.Type == engine.Knight {
+				blackKnights++
+			} else if p.Type != engine.King {
+				blackNonKnightsNonKings++
+			}
+		}
+
+		if whiteKnights == 2 && blackKnights == 2 &&
+			whiteNonKnightsNonKings == 0 && blackNonKnightsNonKings == 0 {
+			return true // K+N+N vs K+N+N is insufficient material (symmetrical)
+		}
+	}
+
+	// K+N vs K+N: NOT insufficient - knights can create entangle zones
+	// K+N+N vs K: NOT insufficient - handled by 50-move rule
+	// (Two knights CAN checkmate a lone king in Snare mode via entangle zones)
+
+	return false
+}
+
+// isSpecialEndgameRequiringFasterMate checks if current position requires mate within 50 total moves
+// Snare: K+N+N vs K (knights must mate within 50 half-moves = 25 white + 25 black)
+// Royal Pawns: K+pieces vs K (must mate within 50 half-moves = 25 white + 25 black)
+func (sess *Session) isSpecialEndgameRequiringFasterMate() bool {
+	whitePieces := sess.Board.GetPiecesOfColor(engine.White)
+	blackPieces := sess.Board.GetPiecesOfColor(engine.Black)
+
+	// Snare mode: K+N+N vs K or K vs K+N+N
+	if sess.Board.Mode == engine.Snare {
+		whiteKnights := 0
+		blackKnights := 0
+		whiteNonKingPieces := 0
+		blackNonKingPieces := 0
+
+		for _, p := range whitePieces {
+			if p.Type == engine.Knight {
+				whiteKnights++
+			} else if p.Type != engine.King {
+				whiteNonKingPieces++
+			}
+		}
+
+		for _, p := range blackPieces {
+			if p.Type == engine.Knight {
+				blackKnights++
+			} else if p.Type != engine.King {
+				blackNonKingPieces++
+			}
+		}
+
+		// K+N+N vs K: Must mate within 50 moves
+		if (whiteKnights == 2 && blackNonKingPieces == 0 && blackKnights == 0) ||
+			(blackKnights == 2 && whiteNonKingPieces == 0 && whiteKnights == 0) {
+			return true
+		}
+	}
+
+	// Royal Pawns mode: K+pieces vs K or K vs K+pieces
+	if sess.Board.Mode == engine.RoyalPawns {
+		// Check if one side has only king
+		whiteOnlyKing := len(whitePieces) == 1
+		blackOnlyKing := len(blackPieces) == 1
+
+		if whiteOnlyKing || blackOnlyKing {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isDrawByInsufficientMaterialRoyalPawns checks Royal Pawns mode insufficient material rules
+func (sess *Session) isDrawByInsufficientMaterialRoyalPawns(whitePieces, blackPieces []*engine.Piece) bool {
+	whitePawns := 0
+	blackPawns := 0
+
+	for _, p := range whitePieces {
+		if p.Type == engine.Pawn {
+			whitePawns++
+		}
+	}
+
+	for _, p := range blackPieces {
+		if p.Type == engine.Pawn {
+			blackPawns++
+		}
+	}
+
+	totalPieces := len(whitePieces) + len(blackPieces)
+
+	// Two kings and two pawns - ONLY if each player has one pawn
+	// (K+P vs K+P is draw, but K+P+P vs K is not)
+	if totalPieces == 4 {
+		if whitePawns == 1 && blackPawns == 1 {
+			return true // Each player has one pawn - insufficient material
+		}
+	}
+
+	// Classic insufficient material for non-pawn pieces still applies
+	// (handled by isDrawByInsufficientMaterialClassic)
 
 	return false
 }
@@ -755,13 +1048,18 @@ func (s *Service) PlayBotVsBot(sessionID string, moveDelay int) error {
 				winner := ""
 				winReason := ""
 				if gameResult != nil {
-					switch gameResult.Winner {
-					case engine.White:
-						winner = "white"
-					case engine.Black:
-						winner = "black"
-					default:
-						winner = "draw"
+					// Check game state first - stalemate/draw should have no winner
+					if gameResult.State == engine.Stalemate || gameResult.State == engine.Draw {
+						winner = "" // No winner for stalemate/draw
+					} else {
+						switch gameResult.Winner {
+						case engine.White:
+							winner = "white"
+						case engine.Black:
+							winner = "black"
+						default:
+							winner = "draw"
+						}
 					}
 					winReason = gameResult.Reason
 				}
@@ -785,7 +1083,8 @@ func (s *Service) PlayBotVsBot(sessionID string, moveDelay int) error {
 		moveCount++
 
 		// Note: Move is already streamed to DB via RecordMoveStream in processMove()
-		// No need to call RecordMove here (kept for backward compatibility with old system)
+		// Also update GameBuilder for final game record summary
+		storage.RecordMove(sessionID, move)
 
 		// Check if game ended
 		session.mu.RLock()
@@ -800,13 +1099,18 @@ func (s *Service) PlayBotVsBot(sessionID string, moveDelay int) error {
 			winner := ""
 			winReason := ""
 			if gameResult != nil {
-				switch gameResult.Winner {
-				case engine.White:
-					winner = "white"
-				case engine.Black:
-					winner = "black"
-				default:
-					winner = "draw"
+				// Check game state first - stalemate/draw should have no winner
+				if gameResult.State == engine.Stalemate || gameResult.State == engine.Draw {
+					winner = "" // No winner for stalemate/draw
+				} else {
+					switch gameResult.Winner {
+					case engine.White:
+						winner = "white"
+					case engine.Black:
+						winner = "black"
+					default:
+						winner = "draw"
+					}
 				}
 				winReason = gameResult.Reason
 			}

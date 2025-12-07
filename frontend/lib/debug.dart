@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
 
 /// Log game moves only - shows which player moved what piece where
+/// @param message - The move notation with piece icon (e.g., '♘ b8→c6', '♔ e1 ⇄ ♖ h1')
 void logMove(String message) {
-  debugPrint('♟️ MOVE: $message');
+  debugPrint(message);
 }
 
 /// Log game end status - checkmate, stalemate, draw, etc
@@ -108,6 +109,20 @@ void logSnareKingCaught(String playerColor) {
   );
 }
 
+/// Snare Mode: Revengeful knight capture (last knight destroyed with attacker)
+void logSnareRevengefulKnight(String attackerColor, String position) {
+  debugPrint(
+    '💥 SNARE - Revengeful Knight: $attackerColor captured the last knight at $position! Both pieces destroyed!',
+  );
+}
+
+/// Snare Mode: All knights lost - game ends in stalemate
+void logSnareAllKnightsLost() {
+  debugPrint(
+    '🏳️ SNARE - Stalemate: All knights have been lost! Game ends in stalemate!',
+  );
+}
+
 /// Heir Mode: King promoted from pawn
 void logHeirKingPromotion(String playerColor, String position) {
   debugPrint(
@@ -148,4 +163,44 @@ void logTruceBroken(String playerColor) {
   debugPrint(
     '⚔️ TRUCE - Broken: $playerColor broke the truce! Normal rules resume!',
   );
+}
+
+// ===== GAME STATE LOGGING =====
+
+/// Log when a player is in check
+void logCheck(String playerColor) {
+  debugPrint('⚠️ CHECK: $playerColor King is in check!');
+}
+
+/// Log checkmate - includes winner
+void logCheckmate(String winner) {
+  debugPrint('🏁 CHECKMATE: $winner wins!');
+}
+
+/// Log stalemate
+void logStalemate() {
+  debugPrint('🤝 STALEMATE: Game ends in a draw - no legal moves available');
+}
+
+/// Log draw by insufficient material
+void logDrawInsufficientMaterial() {
+  debugPrint('🤝 DRAW: Insufficient material - impossible to checkmate');
+}
+
+/// Log draw by threefold repetition
+void logDrawRepetition() {
+  debugPrint('🤝 DRAW: Threefold repetition - same position occurred 3 times');
+}
+
+/// Log draw by fifty-move rule
+void logDrawFiftyMoveRule({bool isSpecialEndgame = false}) {
+  if (isSpecialEndgame) {
+    debugPrint(
+      '🤝 DRAW: Failed to mate within 50 moves (special endgame rule)',
+    );
+  } else {
+    debugPrint(
+      '🤝 DRAW: Fifty-move rule - 50 moves without capture or pawn move',
+    );
+  }
 }

@@ -331,6 +331,8 @@ class ChessBoard extends Equatable {
   }
 
   /// Checks if the 50-move rule applies (draw available)
+  /// The fifty-move rule: 50 consecutive full moves (100 half-moves/plies)
+  /// by both players without any pawn move or capture
   bool canClaimFiftyMoveRule() {
     return halfMoveClock >= 100; // 100 half-moves = 50 full moves
   }

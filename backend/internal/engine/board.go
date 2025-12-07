@@ -244,6 +244,9 @@ func (b *Board) MakeMove(move Move) error {
 		return errors.New("not your turn")
 	}
 
+	// Track revengeful knight for turn logic
+	revengefulKnight := false
+
 	// Execute the move
 	b.removePiece(move.From)
 	
@@ -251,6 +254,20 @@ func (b *Board) MakeMove(move Move) error {
 	if move.CapturedPiece != nil {
 		b.removePiece(move.To)
 		b.FiftyMoveRule = 0
+		
+		// SNARE MODE: Revengeful knight - if capturing the last knight, both pieces are destroyed
+		if b.Mode == Snare && move.CapturedPiece.Type == Knight {
+			capturedColor := move.CapturedPiece.Color
+			remainingKnights := b.CountKnights(capturedColor)
+			
+			// If this was the last knight, the attacker is also destroyed (revengeful)
+			if remainingKnights == 0 {
+				// Don't place the attacking piece on the destination
+				// Both pieces are removed (captured knight already removed above)
+				piece = nil // Prevent piece from being placed
+				revengefulKnight = true
+			}
+		}
 	}
 
 	// Handle special moves
@@ -262,23 +279,25 @@ func (b *Board) MakeMove(move Move) error {
 		b.executeTeleport(move)
 	}
 
-	// Move piece to destination
-	piece.Position = move.To
-	piece.HasMoved = true
-	b.setPiece(piece)
+	// Move piece to destination (unless revengeful knight destroyed it)
+	if piece != nil {
+		piece.Position = move.To
+		piece.HasMoved = true
+		b.setPiece(piece)
 
-	// Handle pawn promotion
-	if move.IsPromotion {
-		piece.Type = move.Promotion
-		// Track king promotions for Heir and SaveTheKing modes
-		if move.Promotion == King {
-			b.PromotedKings[piece.Color]++
+		// Handle pawn promotion
+		if move.IsPromotion {
+			piece.Type = move.Promotion
+			// Track king promotions for Heir and SaveTheKing modes
+			if move.Promotion == King {
+				b.PromotedKings[piece.Color]++
+			}
 		}
 	}
 
 	// Update state
 	b.EnPassantSquare = nil
-	if piece.Type == Pawn {
+	if piece != nil && piece.Type == Pawn {
 		b.FiftyMoveRule = 0
 		// Check for en passant opportunity
 		if abs(move.From.Row-move.To.Row) == 2 {
@@ -291,8 +310,10 @@ func (b *Board) MakeMove(move Move) error {
 		b.FiftyMoveRule++
 	}
 
-	// Update castling rights
-	b.updateCastlingRights(piece, move)
+	// Update castling rights (only if piece still exists after revengeful knight)
+	if piece != nil {
+		b.updateCastlingRights(piece, move)
+	}
 
 	// Add to history
 	move.MoveNumber = b.MoveCount
@@ -302,8 +323,11 @@ func (b *Board) MakeMove(move Move) error {
 	// Add position to history (before switching turns so we capture the completed move state)
 	b.PositionHistory = append(b.PositionHistory, b.GetPositionKey())
 
-	// Switch turn
-	b.CurrentTurn = b.CurrentTurn.Opposite()
+	// Switch turn (unless revengeful knight destroyed the attacker)
+	if !revengefulKnight {
+		b.CurrentTurn = b.CurrentTurn.Opposite()
+	}
+	// If revengeful knight, turn stays with the attacker who lost their piece
 
 	return nil
 }
@@ -571,6 +595,60 @@ func (b *Board) HasPawns(color Color) bool {
 		}
 	}
 	return false
+}
+
+// CountKnights returns the number of knights of the specified color
+func (b *Board) CountKnights(color Color) int {
+	count := 0
+	for row := 0; row < 8; row++ {
+		for col := 0; col < 8; col++ {
+			piece := b.squares[row][col]
+			if piece != nil && piece.Type == Knight && piece.Color == color {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+// IsKingEntangled checks if the king of the specified color is in an entangle zone
+func (b *Board) IsKingEntangled(color Color) bool {
+	// Find king
+	var king *Piece
+	for row := 0; row < 8; row++ {
+		for col := 0; col < 8; col++ {
+			piece := b.squares[row][col]
+			if piece != nil && piece.Type == King && piece.Color == color {
+				king = piece
+				break
+			}
+		}
+		if king != nil {
+			break
+		}
+	}
+	
+	if king == nil {
+		return false
+	}
+
+	// Check if king is in any entangle zone
+	mg := NewMoveGenerator(b)
+	return mg.isInAnyEntangleZone(king.Position)
+}
+
+// GetPiecesOfColor returns all pieces of the specified color
+func (b *Board) GetPiecesOfColor(color Color) []*Piece {
+	pieces := []*Piece{}
+	for row := 0; row < 8; row++ {
+		for col := 0; col < 8; col++ {
+			piece := b.squares[row][col]
+			if piece != nil && piece.Color == color {
+				pieces = append(pieces, piece)
+			}
+		}
+	}
+	return pieces
 }
 
 // Helper function

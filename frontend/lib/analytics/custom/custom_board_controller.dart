@@ -14,6 +14,7 @@ class CustomBoardController extends GetxController {
   // Game configuration - initialized with defaults
   ModesEnum _selectedGameType = ModesEnum.classic;
   ModesEnum get selectedGameType => _selectedGameType;
+  set selectedGameTypeInternal(ModesEnum value) => _selectedGameType = value;
 
   PieceColor _currentTurnColor = PieceColor.white;
   PieceColor get currentTurnColor => _currentTurnColor;

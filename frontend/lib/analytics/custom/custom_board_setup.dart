@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../board/utils/exporter.dart';
@@ -5,6 +6,7 @@ import '../../modes/modes_enum.dart';
 import '../../ui/piece_renderer.dart';
 import '../../ui/board_theme.dart';
 import '../../services/api_service.dart';
+import '../../analytics/bot/bot_manager.dart';
 import 'custom_board_controller.dart';
 import '../../management/utils.dart';
 
@@ -85,8 +87,11 @@ class CustomBoardSetupPage extends StatelessWidget {
     } else {
       // Update game type even when keeping existing state
       debugPrint('CustomBoardSetupPage: Updating game type to $gameType');
-      Future.microtask(() {
-        controller.setGameType(gameType);
+      // Update internal state immediately so dropdown shows correct value
+      controller.selectedGameTypeInternal = gameType;
+      // Force UI update using scheduleMicrotask for immediate execution
+      scheduleMicrotask(() {
+        controller.update(['control_panel']);
       });
     }
 
@@ -995,6 +1000,16 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
       return;
     }
 
+    // Setup bot vs bot game - use Greedy bots with custom board
+    final botManager = Get.find<BotManager>();
+    botManager.setupBotVsBot(
+      whiteType: BotType.greedy,
+      blackType: BotType.greedy,
+      gameMode: controller.selectedGameType,
+    );
+    botManager.startAutoPlay();
+    botManager.moveDelay.value = 1000;
+
     // Navigate to game
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Get.toNamed(
@@ -1009,6 +1024,9 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
             controller.customPieces,
           ),
           'devBoardOriginalPlayer': controller.currentTurnColor,
+          // Pass bot difficulty settings for restart functionality
+          'whiteDifficulty': controller.whiteDifficulty,
+          'blackDifficulty': controller.blackDifficulty,
         },
       );
     });
