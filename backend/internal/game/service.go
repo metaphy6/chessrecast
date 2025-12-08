@@ -373,11 +373,19 @@ func (sess *Session) processMove(req MoveRequest) MoveResponse {
 		}
 	}
 
+	// Track if First Blood happened before the move (for Kings' Battle logging)
+	wasUnlocked := sess.Board.KingsKillUnlock
+
 	if err := sess.Board.MakeMove(req.Move); err != nil {
 		return MoveResponse{
 			Success: false,
 			Error:   err,
 		}
+	}
+
+	// Log Kings' Battle First Blood event (only once when it happens)
+	if sess.Board.Mode == engine.KingsBattle && !wasUnlocked && sess.Board.KingsKillUnlock {
+		log.Printf("⚔️ FIRST BLOOD! %s King captured a Pawn - all pieces unlocked, bonus move granted", req.Move.Piece.Color)
 	}
 
 	// Log revengeful knight after move is confirmed
