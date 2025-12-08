@@ -9,6 +9,14 @@ extension SpecialCases on ChessBoard {
   bool isPositionUnderAttack(Position position, PieceColor attackingColor) {
     final attackingPieces = getPiecesOfColor(attackingColor);
     return attackingPieces.any((piece) {
+      // KINGS' BATTLE PHASE 1: Only pawns and kings can attack/control squares before First Blood
+      // Kings and pawns follow classic chess rules between themselves
+      if (gameType == ModesEnum.kingsBattle && !_hasKingsKillHappened()) {
+        if (piece.type != PieceType.pawn && piece.type != PieceType.king) {
+          return false; // Other pieces have no effect before First Blood
+        }
+      }
+
       // OTHER SIDE MODE: Rooks can ONLY capture opponent rooks, not the king
       // Rooks should NEVER put the king in check in this mode
       if (gameType == ModesEnum.otherSide && piece.type == PieceType.rook) {
@@ -42,8 +50,28 @@ extension SpecialCases on ChessBoard {
       if (gameType == ModesEnum.diamonds && piece.type == PieceType.bishop) {
         return _canBishopAttackInDiamondsMode(piece.position, position);
       }
-      return piece.canAttack(position, pieces);
+      return piece.canAttack(
+        position,
+        pieces,
+        gameType,
+        _hasKingsKillHappened(),
+      );
     });
+  }
+
+  /// Helper to check if King's Kill has happened in Kings' Battle mode
+  bool _hasKingsKillHappened() {
+    for (final move in moveHistory) {
+      if (move.piece.type == PieceType.king &&
+          move.capturedPiece != null &&
+          move.capturedPiece!.type == PieceType.pawn) {
+        return true;
+      }
+      if (move.isPromotion) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Checks if a pawn can attack a position in Royal Pawns mode (like a king)

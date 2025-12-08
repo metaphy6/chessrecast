@@ -278,7 +278,7 @@ class PositionEvaluator {
         final pos = Position(piece.position.row + dr, piece.position.col + dc);
         if (!pos.isValid) continue;
 
-        if (piece.canAttack(pos, board.pieces)) {
+        if (piece.canAttack(pos, board.pieces, board.gameType, true)) {
           count++;
         }
       }

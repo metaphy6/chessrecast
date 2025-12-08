@@ -613,14 +613,17 @@ func (mg *MoveGenerator) applyFriendlyFireRules(moves []Move, piece *Piece) []Mo
 // applyKingsBattleRules locks pieces until king captures pawn
 func (mg *MoveGenerator) applyKingsBattleRules(moves []Move, piece *Piece) []Move {
 	if mg.board.KingsKillUnlock {
-		return moves // All pieces unlocked
+		// All pieces unlocked after First Blood
+		return moves
 	}
 
-	// Only kings and pawns can move
+	// Phase 1: Only kings and pawns can move
 	if piece.Type != King && piece.Type != Pawn {
+		// Lock this piece - return no moves
 		return []Move{}
 	}
 
+	// Kings and pawns can move
 	return moves
 }
 
@@ -1017,6 +1020,14 @@ func (mg *MoveGenerator) canPieceReach(piece *Piece, target Position) bool {
 
 // canPieceReachOnBoard checks if a sliding piece can reach target on the specified board
 func (mg *MoveGenerator) canPieceReachOnBoard(board *Board, piece *Piece, target Position) bool {
+	// KINGS' BATTLE PHASE 1: Only pawns and kings can reach targets (they have effect)
+	// Other pieces are placeholders with no effect
+	if board.Mode == KingsBattle && !board.KingsKillUnlock {
+		if piece.Type != Pawn && piece.Type != King {
+			return false // Other pieces are placeholders
+		}
+	}
+
 	// For sliding pieces, check if path is clear and direction is valid
 	dr := target.Row - piece.Position.Row
 	dc := target.Col - piece.Position.Col
@@ -1071,8 +1082,19 @@ func (mg *MoveGenerator) isPathClearOnBoard(board *Board, from, to Position) boo
 	row := from.Row + dr
 	col := from.Col + dc
 	for row != to.Row || col != to.Col {
-		if board.GetPieceAt(Position{Row: row, Col: col}) != nil {
-			return false
+		blockingPiece := board.GetPieceAt(Position{Row: row, Col: col})
+		if blockingPiece != nil {
+			// KINGS' BATTLE PHASE 1: Only pawns and kings block paths (they have effect)
+			// Other pieces are placeholders with no effect
+			if board.Mode == KingsBattle && !board.KingsKillUnlock {
+				if blockingPiece.Type != Pawn && blockingPiece.Type != King {
+					// Ignore other pieces - they have no effect
+					row += dr
+					col += dc
+					continue
+				}
+			}
+			return false // Path is blocked
 		}
 		row += dr
 		col += dc
@@ -1154,6 +1176,14 @@ func (mg *MoveGenerator) isSquareAttackedOnBoard(board *Board, pos Position, byC
 				continue
 			}
 
+			// Kings' Battle Phase 1: Only pawns and kings can attack/control squares
+			// Kings and pawns follow classic chess rules between themselves
+			if board.Mode == KingsBattle && !board.KingsKillUnlock {
+				if piece.Type != Pawn && piece.Type != King {
+					continue // Other pieces have no effect before First Blood
+				}
+			}
+
 			// Get piece's attack squares (simplified - no recursion)
 			if mg.canAttackSquareOnBoard(board, piece, pos) {
 				return true
@@ -1170,6 +1200,14 @@ func (mg *MoveGenerator) canAttackSquare(piece *Piece, target Position) bool {
 
 // canAttackSquareOnBoard checks if a piece can attack a target on the specified board
 func (mg *MoveGenerator) canAttackSquareOnBoard(board *Board, piece *Piece, target Position) bool {
+	// KINGS' BATTLE PHASE 1: Only pawns and kings can attack/control squares before First Blood
+	// Kings and pawns follow classic chess rules between themselves
+	if board.Mode == KingsBattle && !board.KingsKillUnlock {
+		if piece.Type != Pawn && piece.Type != King {
+			return false // Other pieces are placeholders with no effect
+		}
+	}
+
 	// OTHER SIDE MODE: Rooks can ONLY attack/capture opponent rooks, not the king or other pieces
 	// This means rooks should NEVER put the king in check in this mode
 	if board.Mode == OtherSide && piece.Type == Rook {

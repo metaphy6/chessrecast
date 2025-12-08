@@ -3,6 +3,7 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"log"
 )
 
 // Board represents the chess board with all pieces and game state
@@ -323,7 +324,18 @@ func (b *Board) MakeMove(move Move) error {
 	// Add position to history (before switching turns so we capture the completed move state)
 	b.PositionHistory = append(b.PositionHistory, b.GetPositionKey())
 
-	// Switch turn (unless revengeful knight destroyed the attacker)
+	// Kings' Battle mode: Check for King's Kill (First Blood)
+	if b.Mode == KingsBattle && !b.KingsKillUnlock {
+		if piece != nil && piece.Type == King && move.CapturedPiece != nil && move.CapturedPiece.Type == Pawn {
+			// King captured a pawn - unlock all pieces and grant bonus move
+			b.KingsKillUnlock = true
+			log.Printf("⚔️ FIRST BLOOD! %s King captured a Pawn - all pieces unlocked, bonus move granted", b.CurrentTurn)
+			// Don't switch turn - grant bonus move to the player who made King's Kill
+			return nil
+		}
+	}
+
+	// Switch turn (unless revengeful knight destroyed the attacker or Kings' Kill bonus move)
 	if !revengefulKnight {
 		b.CurrentTurn = b.CurrentTurn.Opposite()
 	}
