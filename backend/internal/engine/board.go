@@ -3,7 +3,6 @@ package engine
 import (
 	"errors"
 	"fmt"
-	"log"
 )
 
 // Board represents the chess board with all pieces and game state
@@ -329,7 +328,7 @@ func (b *Board) MakeMove(move Move) error {
 		if piece != nil && piece.Type == King && move.CapturedPiece != nil && move.CapturedPiece.Type == Pawn {
 			// King captured a pawn - unlock all pieces and grant bonus move
 			b.KingsKillUnlock = true
-			log.Printf("⚔️ FIRST BLOOD! %s King captured a Pawn - all pieces unlocked, bonus move granted", b.CurrentTurn)
+			// Note: First Blood unlocked all pieces and grants bonus move
 			// Don't switch turn - grant bonus move to the player who made King's Kill
 			return nil
 		}
