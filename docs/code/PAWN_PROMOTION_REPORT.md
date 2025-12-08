@@ -52,7 +52,7 @@ if (gameType == ModesEnum.royalPawns) {
 |------|------------------|---------|----------------|
 | **Diamonds** | `['B']` | Bishop-focused variant, only bishop promotion allowed | Direct return in mode class |
 | **Save the Queen** | `['R', 'B', 'N']` | NO QUEEN promotion (queens start as prisoners) | Direct return in mode class |
-| **Other Side** | `['Q', 'B', 'N']` | NO ROOK promotion (mode focuses on rooks racing) | Returns lowercase `['q', 'b', 'n']` ⚠️ |
+| **Other Side** | `['Q', 'B', 'N']` | NO ROOK promotion (mode focuses on rooks racing) | Direct return in mode class ✅ |
 | **Snare** (1 knight) | `['N']` | Can ONLY promote to knight (to get back to 2 knights) | Returns `['N']` when `knights.length == 1` |
 | **Snare** (2 knights) | `['Q', 'R', 'B']` | Can promote to Q/R/B but NOT knight (max 2 knights allowed) | Returns `['Q', 'R', 'B']` when `knights.length == 2` |
 
@@ -75,7 +75,7 @@ if (gameType == ModesEnum.royalPawns) {
 | **Teleport** | Standard promotion (returns `null` = use default) | `['Q', 'R', 'B', 'N']` |
 | **Truce** | Standard promotion | `['Q', 'R', 'B', 'N']` |
 | **Friendly Fire** | Standard promotion (returns `null` = use default) | `['Q', 'R', 'B', 'N']` |
-| **Kings' Battle** | Standard promotion (returns `null` = use default)<br>Note: Promotion unlocks all pieces | `['Q', 'R', 'B', 'N']` |
+| **Kings' Battle** | Standard promotion (returns `null` = use default)<br>**Note:** Promotion unlocks all pieces via `handleSpecialMove()` - acts as "King's Kill" trigger | `['Q', 'R', 'B', 'N']` |
 
 ---
 
@@ -162,34 +162,33 @@ List<String> getPromotionPieces(PieceColor color, {Position? promotionPosition})
 
 ## Potential Issues Found
 
-### ⚠️ Issue 1: Inconsistent Case in Other Side Mode
+### ✅ Issue 1: Other Side Case Inconsistency (FIXED)
 **Location:** `lib/modes/other_side.dart` line 165
-```dart
-return ['q', 'b', 'n']; // Lowercase letters
-```
 
-**Expected:** `['Q', 'B', 'N']` (uppercase like all other modes)
+**Issue:** Was returning `['q', 'b', 'n']` (lowercase)
 
-**Impact:** May cause promotion piece name resolution to fail
+**Impact:** Would cause promotion piece name resolution to fail in `promotionPieceNameReadable()` and execution switch statements
 
-**Recommendation:** Change to uppercase for consistency
+**Fix Applied:** Changed to `['Q', 'B', 'N']` (uppercase) for consistency
 
 ---
 
-### ⚠️ Issue 2: Kings' Battle Unlocking Logic
-**Observation:** `kings_battle.dart` returns `null` (standard promotion), but mode description says "Pawn promotion unlocks all pieces"
+### ✅ Issue 2: Kings' Battle Unlocking Logic (VERIFIED)
+**Location:** `lib/modes/kings_battle.dart` lines 79-86
 
-**Location:** `lib/modes/kings_battle.dart` line 107
+**Observation:** Mode returns `null` for standard promotion pieces, but description says "Pawn promotion unlocks all pieces"
+
+**Verification Result:** ✅ Unlock logic IS properly implemented in `handleSpecialMove()`:
 ```dart
-List<String>? getPromotionPieces(...) {
-  // Standard promotion to any piece
-  return null; // Use default
+// Check if this is a pawn promotion (also unlocks all pieces)
+if (move.isPromotion && !_hasKingsKillHappened(board)) {
+  final newBoard = board.makeMove(move);
+  // Mark that King's Kill equivalent has happened (pawn promoted)
+  return _markKingsKillAndGrantBonusMove(newBoard);
 }
 ```
 
-**Question:** Where is the "unlock all pieces" logic implemented?
-
-**Recommendation:** Verify if promotion unlock is handled in `handleSpecialMove()` or elsewhere
+**Conclusion:** Working as intended. Promotion uses standard pieces but triggers phase unlock. This is called "Greedy Pawn" - pawn continues capturing until stopped or captured
 
 ---
 
@@ -238,15 +237,21 @@ bool shouldShowPromotionDialog(ModesEnum gameType) {
 2. ✅ `lib/board/moves/generation.dart` (lines 251-254)
    - Added Royal Pawns check returning empty list
 
+3. ✅ `lib/modes/other_side.dart` (line 166)
+   - Fixed lowercase `['q', 'b', 'n']` to uppercase `['Q', 'B', 'N']`
+
 ---
 
 ## Conclusion
 
-**Promotion System Status:** ✅ Mostly Working
+**Promotion System Status:** ✅ Fully Working
 
-**Critical Bugs:** ✅ Royal Pawns fixed
+**Critical Bugs Fixed:** 
+- ✅ Royal Pawns promotion dialog (was appearing incorrectly)
+- ✅ Other Side lowercase letters (would break promotion dialog)
 
-**Minor Issues:** ⚠️ Other Side lowercase letters, Kings' Battle unlock verification needed
+**Verified Features:**
+- ✅ Kings' Battle "Greedy Pawn" unlock properly implemented in `handleSpecialMove()`
 
 **Architectural Concern:** Promotion logic split across controller and generation - consider consolidation
 
