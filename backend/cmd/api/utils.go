@@ -16,22 +16,8 @@ func logf(format string, args ...interface{}) {
 
 // parseGameMode converts string to GameMode
 func parseGameMode(mode string) engine.GameMode {
-    switch mode {
-    case "classic":
-        return engine.Classic
-    case "other_side":
-        return engine.OtherSide
-    case "royal_pawns":
-        return engine.RoyalPawns
-    case "save_the_queen":
-        return engine.SaveTheQueen
-    case "save_the_king":
-        return engine.SaveTheKing
-    case "snare":
-        return engine.Snare
-    default:
-        return engine.Classic
-    }
+    // Use the engine's ParseGameMode function which has all modes
+    return engine.ParseGameMode(mode)
 }
 
 // parsePosition converts algebraic notation to Position

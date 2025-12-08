@@ -1,3 +1,5 @@
+// ignore_for_file: curly_braces_in_flow_control_structures
+
 import '../board/utils/exporter.dart';
 import '../debug.dart';
 import 'game_mode.dart';
@@ -65,15 +67,27 @@ class Snare extends GameMode {
   }
 
   /// SNARE MODE: Checks if two knights defend each other (creating an entangle zone)
-  bool _areKnightsDefending(
+  static bool _areKnightsDefending(
     ChessPiece knight1,
     ChessPiece knight2,
     ChessBoard board,
   ) {
     // Check if knight1 can attack knight2's position
-    if (!knight1.canAttack(knight2.position, board.pieces)) return false;
+    if (!knight1.canAttack(
+      knight2.position,
+      board.pieces,
+      board.gameType,
+      true,
+    ))
+      return false;
     // Check if knight2 can attack knight1's position
-    if (!knight2.canAttack(knight1.position, board.pieces)) return false;
+    if (!knight2.canAttack(
+      knight1.position,
+      board.pieces,
+      board.gameType,
+      true,
+    ))
+      return false;
     return true;
   }
 

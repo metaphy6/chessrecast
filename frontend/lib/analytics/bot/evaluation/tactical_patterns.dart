@@ -151,7 +151,8 @@ class TacticalPatterns {
     for (int row = 0; row < 8; row++) {
       for (int col = 0; col < 8; col++) {
         final pos = Position(row, col);
-        if (pos != from && piece.canAttack(pos, board.pieces)) {
+        if (pos != from &&
+            piece.canAttack(pos, board.pieces, board.gameType, true)) {
           attacked.add(pos);
         }
       }
