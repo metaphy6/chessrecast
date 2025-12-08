@@ -248,6 +248,11 @@ extension MoveGeneration on ChessBoard {
     PieceColor color, {
     Position? promotionPosition,
   }) {
+    // Check for Royal Pawns mode - NO promotion
+    if (gameType == ModesEnum.royalPawns) {
+      return []; // No promotion in Royal Pawns mode
+    }
+
     // Check for Diamonds mode - only bishops allowed
     if (gameType == ModesEnum.diamonds) {
       return ['B']; // Only bishop promotion in Diamonds mode

@@ -317,7 +317,9 @@ class Controller extends GetxController {
       final capturedPiece = board.getPieceAt(to);
 
       // Check if this is a pawn promotion move
-      if (piece.type == PieceType.pawn) {
+      // Note: Royal Pawns mode has NO promotion
+      if (piece.type == PieceType.pawn &&
+          board.gameType != ModesEnum.royalPawns) {
         final lastRank = piece.color == PieceColor.white ? 7 : 0;
         if (to.row == lastRank) {
           _showPromotionDialog(from, to, piece, capturedPiece);
