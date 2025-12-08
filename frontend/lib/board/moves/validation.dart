@@ -172,11 +172,14 @@ extension MoveValidation on ChessBoard {
       }
     }
 
-    // For validation, preserve the current en passant target
+    // KINGS' BATTLE FIX: Don't add the test move to history yet when validating
+    // This prevents First Blood from being detected during validation checks
+    // The move will be added to history properly when actually executed
     final result = copyWith(
       pieces: newPieces,
       currentPlayer: currentPlayer.opposite,
-      moveHistory: [...moveHistory, move],
+      moveHistory:
+          moveHistory, // Use original history, not [...moveHistory, move]
       enPassantTarget: enPassantTarget, // Keep current en passant target
     );
     return result;

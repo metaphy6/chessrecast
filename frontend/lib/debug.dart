@@ -77,7 +77,7 @@ void logTeleportSwap(String playerColor, String fromPos, String toPos) {
 /// King's Battle Mode: King unlocks by capturing pawn
 void logKingsBattleUnlock(String playerColor, String position) {
   debugPrint(
-    '🔓 KING\'S BATTLE - Unlock: $playerColor King captured pawn at $position, pieces unlocked!',
+    '⚔️ FIRST BLOOD! $playerColor King captured pawn at $position - all pieces unlocked, bonus move granted',
   );
 }
 
