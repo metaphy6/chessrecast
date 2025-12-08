@@ -163,7 +163,7 @@ class OtherSide extends GameMode {
   }) {
     // Disable promotion to rook in Other Side mode
     // Only allow promotion to queen, bishop, and knight
-    return ['q', 'b', 'n'];
+    return ['Q', 'B', 'N'];
   }
 
   @override
