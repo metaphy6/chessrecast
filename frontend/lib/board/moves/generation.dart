@@ -67,11 +67,27 @@ extension MoveGeneration on ChessBoard {
         // After truce breaks, apply normal check rules (fall through)
       }
 
-      // Heir mode: King is a regular piece that can be captured
-      // No "check" concept - allow all moves regardless of king safety
+      // Heir mode: King is a regular piece UNLESS player has promoted or has no pawns
       if (gameType == ModesEnum.heir) {
-        safeMoves.add(move);
-        continue;
+        // CRITICAL: Kings must ALWAYS respect adjacency rule, regardless of check rules
+        if (move.piece.type == PieceType.king) {
+          // Check if move would place king adjacent to opponent king
+          final opponentKing = boardAfterMove.getKing(currentPlayer.opposite);
+          if (opponentKing != null) {
+            final rowDiff = (opponentKing.position.row - move.to.row).abs();
+            final colDiff = (opponentKing.position.col - move.to.col).abs();
+            if (rowDiff <= 1 && colDiff <= 1 && (rowDiff != 0 || colDiff != 0)) {
+              continue; // Skip - would be adjacent to opponent king
+            }
+          }
+        }
+
+        final heirMode = modes.heir;
+        if (!heirMode.shouldApplyCheckRules(currentPlayer, this)) {
+          safeMoves.add(move); // No check rules yet
+          continue;
+        }
+        // Check rules apply, fall through to standard validation
       }
 
       // Snare mode: King cannot be checkmated while it has knights, but still cannot
