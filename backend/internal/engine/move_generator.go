@@ -381,13 +381,21 @@ func (mg *MoveGenerator) getKingMoves(king *Piece) []Move {
 		}
 
 		targetPiece := mg.board.GetPieceAt(newPos)
+		
+		// HEIR MODE: Kings follow classic chess rules with each other
+		// Kings can NEVER capture each other or be adjacent
+		if targetPiece != nil && targetPiece.Type == King {
+			continue // Skip this move - kings can't capture each other or be adjacent
+		}
+		
+		// Check if moving to this square would put king adjacent to opponent king
+		if mg.isKingAdjacentToSquare(newPos, king.Color.Opposite()) {
+			continue // Skip - would be adjacent to opponent king
+		}
+		
 		if targetPiece == nil {
 			moves = append(moves, *NewMove(king.Position, newPos, king))
 		} else if targetPiece.Color != king.Color {
-			// Can't capture king unless in Heir mode
-			if targetPiece.Type == King && mg.board.Mode != Heir {
-				continue
-			}
 			move := NewMove(king.Position, newPos, king)
 			move.CapturedPiece = targetPiece
 			moves = append(moves, *move)
@@ -537,8 +545,9 @@ func (mg *MoveGenerator) getPromotionPieces(color Color) []PieceType {
 		}
 		return []PieceType{Queen, Rook, Bishop, Knight}
 	case Heir:
-		// In Heir mode, can always promote to King (only once though)
-		// No check restriction since king is a regular piece
+		// In Heir mode, can promote to King only once
+		// BUT: the promoted King becomes the "last" king, so classic check rules apply
+		// Therefore, cannot promote to King if the promotion square is under attack
 		if mg.board.PromotedKings[color] == 0 {
 			return []PieceType{Queen, Rook, Bishop, Knight, King}
 		}
@@ -575,6 +584,8 @@ func (mg *MoveGenerator) applyGameModeRules(moves []Move, piece *Piece) []Move {
 		return mg.applySnareRules(moves, piece)
 	case SaveTheQueen:
 		return mg.applySaveTheQueenRules(moves, piece)
+	case Heir:
+		return mg.applyHeirRules(moves, piece)
 	default:
 		return moves
 	}
@@ -1012,6 +1023,59 @@ func (mg *MoveGenerator) applySaveTheQueenRules(moves []Move, piece *Piece) []Mo
 	return restrictedMoves
 }
 
+// applyHeirRules applies Heir mode specific rules
+// Main rule: Cannot promote pawn to King if the promotion square is under attack
+// This is because the promoted King becomes the "last" king and classic check rules apply
+// If player has no king, they MUST promote to King, so if square is under attack, NO promotion is legal
+func (mg *MoveGenerator) applyHeirRules(moves []Move, piece *Piece) []Move {
+	if piece.Type != Pawn {
+		return moves
+	}
+
+	// Check if player has already promoted a king
+	if mg.board.PromotedKings[piece.Color] > 0 {
+		return moves // Already promoted a king, no special filtering needed
+	}
+
+	// Check if player currently has a king
+	hasKing := mg.board.HasKing(piece.Color)
+
+	// Filter promotion moves based on whether player has a king
+	filteredMoves := []Move{}
+	for _, move := range moves {
+		if move.IsPromotion {
+			// Check if the promotion square is under attack
+			isUnderAttack := mg.isSquareAttacked(move.To, piece.Color.Opposite())
+
+			if !hasKing {
+				// No king = MUST promote to King only
+				if move.Promotion == King {
+					if !isUnderAttack {
+						filteredMoves = append(filteredMoves, move) // King promotion is legal
+					}
+					// If under attack, skip this move (can't promote to King into check)
+				}
+				// Skip all non-King promotions when player has no king
+			} else {
+				// Has king = can promote to any piece
+				if move.Promotion == King {
+					if !isUnderAttack {
+						filteredMoves = append(filteredMoves, move) // King promotion is legal
+					}
+					// If under attack, skip King promotion
+				} else {
+					filteredMoves = append(filteredMoves, move) // Other promotions are always legal
+				}
+			}
+		} else {
+			// Non-promotion moves are always included
+			filteredMoves = append(filteredMoves, move)
+		}
+	}
+
+	return filteredMoves
+}
+
 // Helper methods
 
 func (mg *MoveGenerator) canPieceReach(piece *Piece, target Position) bool {
@@ -1183,6 +1247,29 @@ func (mg *MoveGenerator) isSquareAttacked(pos Position, byColor Color) bool {
 
 // isSquareAttackedOnBoard checks if a square is attacked on the specified board
 func (mg *MoveGenerator) isSquareAttackedOnBoard(board *Board, pos Position, byColor Color) bool {
+	// HEIR MODE: Kings ALWAYS control adjacent squares to prevent opponent king from moving there
+	// This ensures king-to-king respect regardless of check rule state
+	if board.Mode == Heir {
+		targetPiece := board.GetPieceAt(pos)
+		if targetPiece != nil && targetPiece.Type == King {
+			// Checking if a king position is under attack - kings always control adjacent squares
+			for row := 0; row < 8; row++ {
+				for col := 0; col < 8; col++ {
+					piece := board.squares[row][col]
+					if piece == nil || piece.Color != byColor || piece.Type != King {
+						continue
+					}
+					// Check if this king is adjacent to the position
+					rowDiff := abs(piece.Position.Row - pos.Row)
+					colDiff := abs(piece.Position.Col - pos.Col)
+					if rowDiff <= 1 && colDiff <= 1 && (rowDiff != 0 || colDiff != 0) {
+						return true // King controls this adjacent square
+					}
+				}
+			}
+		}
+	}
+
 	// Check if any enemy piece can attack this square
 	for row := 0; row < 8; row++ {
 		for col := 0; col < 8; col++ {
@@ -1278,8 +1365,41 @@ func (mg *MoveGenerator) canAttackSquareOnBoard(board *Board, piece *Piece, targ
 	}
 }
 
+// isKingAdjacentToSquare checks if opponent king is adjacent to given square
+func (mg *MoveGenerator) isKingAdjacentToSquare(pos Position, kingColor Color) bool {
+	// Find opponent king
+	for row := 0; row < 8; row++ {
+		for col := 0; col < 8; col++ {
+			piece := mg.board.squares[row][col]
+			if piece != nil && piece.Type == King && piece.Color == kingColor {
+				// Check if king is adjacent to pos (within 1 square)
+				rowDiff := abs(piece.Position.Row - pos.Row)
+				colDiff := abs(piece.Position.Col - pos.Col)
+				if rowDiff <= 1 && colDiff <= 1 && (rowDiff != 0 || colDiff != 0) {
+					return true // Kings would be adjacent
+				}
+			}
+		}
+	}
+	return false
+}
+
 func (mg *MoveGenerator) allowsSelfCheck() bool {
-	// Heir mode allows the king to be captured like a regular piece
+	// Heir mode: allows king to be captured like a regular piece UNTIL:
+	// 1. Player promotes a king (no more replacements possible), OR
+	// 2. Player has no pawns left (can't get a replacement king)
+	if mg.board.Mode == Heir {
+		// Check if the current player has promoted a king
+		if mg.board.PromotedKings[mg.board.CurrentTurn] > 0 {
+			return false // Promoted king → must follow classic check rules
+		}
+		// Check if player has any pawns left
+		if !mg.board.HasPawns(mg.board.CurrentTurn) {
+			return false // No pawns → can't get replacement king → must follow classic check rules
+		}
+		// Has pawns and hasn't promoted → king can be captured freely
+		return true
+	}
 	// Snare mode uses normal chess rules for check - king cannot move into attacked squares
-	return mg.board.Mode == Heir
+	return false
 }

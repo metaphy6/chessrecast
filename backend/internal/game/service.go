@@ -149,6 +149,19 @@ func (s *Service) CreateGameWithCustomBoard(mode engine.GameMode, pieces []engin
 		return nil, err
 	}
 
+	// Log custom board setup
+	logf("📋 Custom board piece positions:")
+	for row := 0; row < 8; row++ {
+		for col := 0; col < 8; col++ {
+			piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
+			if piece != nil {
+				colStr := string(rune('a' + col))
+				rowStr := string(rune('1' + row))
+				logf("  %s at %s%s", piece.String(), colStr, rowStr)
+			}
+		}
+	}
+
 	// Check if this is a bot vs bot game
 	isBotVsBot := whitePlayer.Type == AI && blackPlayer.Type == AI
 

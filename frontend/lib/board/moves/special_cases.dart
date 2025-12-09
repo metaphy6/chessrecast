@@ -9,6 +9,16 @@ extension SpecialCases on ChessBoard {
   bool isPositionUnderAttack(Position position, PieceColor attackingColor) {
     final attackingPieces = getPiecesOfColor(attackingColor);
     return attackingPieces.any((piece) {
+      // HEIR MODE: Kings ALWAYS control adjacent squares vs opponent king
+      // This ensures kings can never be adjacent regardless of check rule state
+      if (gameType == ModesEnum.heir && piece.type == PieceType.king) {
+        final targetPiece = getPieceAt(position);
+        // If checking for king adjacency, always apply king control
+        if (targetPiece != null && targetPiece.type == PieceType.king) {
+          return piece.canAttack(position, pieces, gameType, false);
+        }
+      }
+
       // KINGS' BATTLE PHASE 1: Only pawns and kings can attack/control squares before First Blood
       // Kings and pawns follow classic chess rules between themselves
       if (gameType == ModesEnum.kingsBattle && !_hasKingsKillHappened()) {

@@ -17,6 +17,76 @@ class Heir extends GameMode {
   const Heir();
 
   @override
+  List<ChessMove>? getKingMoves(ChessPiece king, ChessBoard board) {
+    // In Heir mode, kings follow classic chess rules with each other:
+    // - Kings can NEVER capture each other
+    // - Kings can NEVER be adjacent to each other
+    final moves = <ChessMove>[];
+    final offsets = [
+      [-1, -1],
+      [-1, 0],
+      [-1, 1],
+      [0, -1],
+      [0, 1],
+      [1, -1],
+      [1, 0],
+      [1, 1],
+    ];
+
+    for (final offset in offsets) {
+      final newPos = king.position.offset(offset[0], offset[1]);
+      if (!newPos.isValid) continue;
+
+      final targetPiece = board.getPieceAt(newPos);
+
+      // Can't capture opponent king
+      if (targetPiece != null && targetPiece.type == PieceType.king) {
+        continue; // Skip this move
+      }
+
+      // Can't move adjacent to opponent king
+      if (_isKingAdjacentToSquare(newPos, king.color.opposite, board)) {
+        continue; // Skip - would be adjacent to opponent king
+      }
+
+      if (targetPiece == null) {
+        // Empty square
+        moves.add(
+          ChessMove.simple(from: king.position, to: newPos, piece: king),
+        );
+      } else if (targetPiece.color != king.color) {
+        // Enemy piece (but not king)
+        moves.add(
+          ChessMove.simple(
+            from: king.position,
+            to: newPos,
+            piece: king,
+            capturedPiece: targetPiece,
+          ),
+        );
+      }
+    }
+
+    return moves;
+  }
+
+  /// Helper to check if opponent king is adjacent to a given square
+  bool _isKingAdjacentToSquare(
+    Position pos,
+    PieceColor kingColor,
+    ChessBoard board,
+  ) {
+    final opponentKing = board.getKing(kingColor);
+    if (opponentKing == null) return false;
+
+    final rowDiff = (opponentKing.position.row - pos.row).abs();
+    final colDiff = (opponentKing.position.col - pos.col).abs();
+
+    // Kings are adjacent if within 1 square (but not same square)
+    return rowDiff <= 1 && colDiff <= 1 && (rowDiff != 0 || colDiff != 0);
+  }
+
+  @override
   List<ChessMove>? getPawnMoves(ChessPiece pawn, ChessBoard board) {
     final moves = <ChessMove>[];
     final direction = pawn.color == PieceColor.white ? 1 : -1;
@@ -127,29 +197,41 @@ class Heir extends GameMode {
   }) {
     // Check if player currently has a king
     final hasKing = board.getKing(color) != null;
-
-    if (!hasKing) {
-      final hasPromotedKing = color == PieceColor.white
-          ? board.whiteHasPromotedKing
-          : board.blackHasPromotedKing;
-
-      if (!hasPromotedKing) {
-        // King is captured - MUST promote to King (no check rules in Heir mode)
-        return ['K'];
-      }
-    }
-
-    // If player has a king, check if they can still promote to King
     final hasPromotedKing = color == PieceColor.white
         ? board.whiteHasPromotedKing
         : board.blackHasPromotedKing;
 
-    if (!hasPromotedKing) {
-      // Can promote to any piece including King (no check rules in Heir mode)
+    // Check if promotion square is under attack by opponent
+    // This matters for King promotion since the promoted King becomes the "last" king
+    // and classic chess check rules apply
+    bool canPromoteToKing = !hasPromotedKing;
+    if (canPromoteToKing && promotionPosition != null) {
+      final isUnderAttack = board.isPositionUnderAttack(
+        promotionPosition,
+        color.opposite,
+      );
+      if (isUnderAttack) {
+        canPromoteToKing = false; // Can't promote to King into check
+      }
+    }
+
+    if (!hasKing && !hasPromotedKing) {
+      // King is captured - MUST promote to King
+      if (canPromoteToKing) {
+        return ['K']; // Only King promotion allowed
+      }
+      // If can't promote to King (square under attack), NO promotion is legal
+      // This will effectively block this pawn from promoting on this square
+      // Player must find a different pawn or clear the attack on this square
+      return []; // Empty list = no valid promotions
+    }
+
+    if (canPromoteToKing) {
+      // Can promote to any piece including King
       return ['Q', 'R', 'B', 'N', 'K'];
     }
 
-    return null; // Use standard promotions if already promoted a king
+    return null; // Use standard promotions if already promoted a king or can't promote to king
   }
 
   @override
@@ -167,15 +249,38 @@ class Heir extends GameMode {
 
     if (kings.isEmpty) {
       if (hasPromotedKing) {
-        return true;
+        return true; // Second king lost
       } else if (pawns.isEmpty) {
-        return true;
+        return true; // No king and no pawns to promote
       } else {
-        return false;
+        return false; // Can still promote a pawn to king
       }
     }
 
     return false;
+  }
+
+  /// In Heir mode, check rules apply if:
+  /// 1. Player has promoted a king (no more replacements), OR
+  /// 2. Player has no pawns left (can't get a replacement king)
+  bool shouldApplyCheckRules(PieceColor color, ChessBoard board) {
+    final hasPromotedKing = color == PieceColor.white
+        ? board.whiteHasPromotedKing
+        : board.blackHasPromotedKing;
+
+    if (hasPromotedKing) {
+      return true; // Promoted king → check rules apply
+    }
+
+    final pawns = board.pieces
+        .where((p) => p.type == PieceType.pawn && p.color == color)
+        .toList();
+
+    if (pawns.isEmpty) {
+      return true; // No pawns → can't get replacement king → check rules apply
+    }
+
+    return false; // Has pawns and hasn't promoted → king is regular piece
   }
 
   @override
