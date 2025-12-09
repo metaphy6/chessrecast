@@ -76,7 +76,9 @@ extension MoveGeneration on ChessBoard {
           if (opponentKing != null) {
             final rowDiff = (opponentKing.position.row - move.to.row).abs();
             final colDiff = (opponentKing.position.col - move.to.col).abs();
-            if (rowDiff <= 1 && colDiff <= 1 && (rowDiff != 0 || colDiff != 0)) {
+            if (rowDiff <= 1 &&
+                colDiff <= 1 &&
+                (rowDiff != 0 || colDiff != 0)) {
               continue; // Skip - would be adjacent to opponent king
             }
           }
