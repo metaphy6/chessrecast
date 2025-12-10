@@ -33,11 +33,10 @@ class Orchestrator {
 
     // For Diamonds mode, we need to check if the move exists by position
     // because the bishop capture moves are specially generated
-    if (board.gameType == ModesEnum.diamonds && move.piece.type == PieceType.bishop) {
+    if (board.gameType == ModesEnum.diamonds &&
+        move.piece.type == PieceType.bishop) {
       final isValid = validMoves.any(
-        (validMove) =>
-            validMove.from == move.from &&
-            validMove.to == move.to,
+        (validMove) => validMove.from == move.from && validMove.to == move.to,
       );
       return isValid;
     }
