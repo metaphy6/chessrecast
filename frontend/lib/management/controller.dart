@@ -280,7 +280,7 @@ class Controller extends GetxController {
         }
       }
     }
-    
+
     squaresToUpdate.add(squareIdFromPosition(position));
 
     // If current selection is a bishop in Diamonds mode, update its diamond zone
@@ -327,7 +327,7 @@ class Controller extends GetxController {
         }
       }
     }
-    
+
     for (final pos in previousValidMoves) {
       squaresToUpdate.add(squareIdFromPosition(pos));
     }
@@ -638,7 +638,9 @@ class Controller extends GetxController {
         }
         // If a bishop was captured, update its diamond zone
         if (move.capturedPiece?.type == PieceType.bishop) {
-          for (final pos in _getDiamondCapturePositions(move.capturedPiece!.position)) {
+          for (final pos in _getDiamondCapturePositions(
+            move.capturedPiece!.position,
+          )) {
             squaresToUpdate.add(squareIdFromPosition(pos));
           }
         }
