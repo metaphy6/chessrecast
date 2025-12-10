@@ -124,12 +124,16 @@ class OnlineController extends Controller {
         : args?['gameType']?.toString().split('.').last ?? 'classic';
     final botDifficulty = args?['botDifficulty'] as int?;
 
-    final gameId = await _apiService.createGame(
+    final gameData = await _apiService.createGame(
       mode: gameMode,
       botDifficulty: botDifficulty,
     );
 
-    _gameId.value = gameId;
+    _gameId.value = gameData['game_id'];
+    // Store the player_id returned by backend (if present)
+    if (gameData['player_id'] != null) {
+      _playerId.value = gameData['player_id'];
+    }
 
     // Connect WebSocket
     _websocket.connect(_gameId.value, _playerId.value!);
@@ -155,9 +159,12 @@ class OnlineController extends Controller {
     if (_gameId.value.isEmpty) return;
 
     try {
+      print('🔄 DEBUG: Syncing game state for game: ${_gameId.value}');
       final gameData = await _apiService.getGame(_gameId.value);
+      print('📥 DEBUG: Received game data from API: $gameData');
       _updateBoardFromBackend(gameData);
     } catch (e) {
+      print('❌ DEBUG: Error syncing game state: $e');
       _showSafeSnackbar('Sync Failed', e.toString());
     }
   }
@@ -210,14 +217,22 @@ class OnlineController extends Controller {
   /// Update board from backend game state
   void _updateBoardFromBackend(Map<String, dynamic> gameData) {
     try {
+      print('🔍 DEBUG: _updateBoardFromBackend called with data: $gameData');
+
       // Backend can send 'fen' or 'board' field depending on the endpoint
       final fen = (gameData['fen'] ?? gameData['board']) as String?;
+      print('🔍 DEBUG: FEN extracted: $fen');
+
       if (fen == null) {
+        print('⚠️ DEBUG: FEN is null, returning early');
         return;
       }
 
       // Parse FEN and update board
       final newBoard = ChessBoard.fromFEN(fen, gameType: board.gameType);
+      print(
+        '✅ DEBUG: Board parsed successfully, pieces count: ${newBoard.pieces.length}',
+      );
 
       // Detect and log the move that was made (especially for bot moves)
       _logMoveFromBoardChange(board, newBoard);
@@ -225,7 +240,7 @@ class OnlineController extends Controller {
       // Update the board state (this will trigger UI rebuild)
       updateBoardState(newBoard);
     } catch (e) {
-      // Error handling without debug logging
+      print('❌ DEBUG: Error in _updateBoardFromBackend: $e');
     }
   }
 
@@ -285,6 +300,7 @@ class OnlineController extends Controller {
         from: from,
         to: to,
         promotion: promotion,
+        playerId: _playerId.value,
       );
 
       // Double validation: Compare backend response with frontend game rules

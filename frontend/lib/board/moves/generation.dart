@@ -379,8 +379,8 @@ extension MoveGeneration on ChessBoard {
     ];
     final moves = generateStepMoves(king, directions);
 
-    // Add castling moves if conditions are met (not in Teleport mode)
-    if (gameType != ModesEnum.teleport) {
+    // Add castling moves if conditions are met (not in Teleport or OtherSide mode)
+    if (gameType != ModesEnum.teleport && gameType != ModesEnum.otherSide) {
       if (king.color == PieceColor.white) {
         // White kingside castling (O-O)
         if (whiteCanCastleKingside && canCastleKingside(king.color)) {

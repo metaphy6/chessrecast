@@ -25,6 +25,7 @@ func registerRoutes(r *gin.Engine) {
         {
             bots.POST("/vs-bot", handleBotVsBot)
             bots.POST("/custom-board", handleCustomBoardBotVsBot)
+            bots.POST("/custom-board-vs-bot", handleCustomBoardHumanVsBot)
         }
 
         // Game routes
