@@ -127,15 +127,18 @@ func (s *Service) CreateGame(mode engine.GameMode, whitePlayer, blackPlayer *Pla
 	// Start game loop
 	go session.run()
 
-	// If AI player vs Human, trigger AI moves automatically
-	// But NOT for bot vs bot - that's controlled by PlayBotVsBot with delay
-	if !isBotVsBot && whitePlayer.Type == AI && board.CurrentTurn == engine.White {
-		go session.triggerAIMove()
-	}
-
 	s.mu.Lock()
 	s.sessions[sessionID] = session
 	s.mu.Unlock()
+
+	// If it's not bot vs bot and the starting player is a bot, trigger initial AI move
+	if !isBotVsBot {
+		currentPlayer := session.getCurrentPlayer()
+		if currentPlayer != nil && currentPlayer.Type == AI {
+			logf("🤖 Initial turn is bot's (%s), triggering AI move", board.CurrentTurn)
+			go session.triggerAIMove()
+		}
+	}
 
 	return session, nil
 }
@@ -188,6 +191,16 @@ func (s *Service) CreateGameWithCustomBoard(mode engine.GameMode, pieces []engin
 	s.mu.Unlock()
 
 	logf("🎲 Custom board game created: %s (mode: %s, turn: %s)", sessionID, mode, currentTurn)
+	
+	// If it's not bot vs bot and the starting player is a bot, trigger initial AI move
+	if !isBotVsBot {
+		currentPlayer := session.getCurrentPlayer()
+		if currentPlayer != nil && currentPlayer.Type == AI {
+			logf("🤖 Initial turn is bot's (%s), triggering AI move", currentTurn)
+			go session.triggerAIMove()
+		}
+	}
+	
 	return session, nil
 }
 
