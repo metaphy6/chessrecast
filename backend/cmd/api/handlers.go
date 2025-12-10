@@ -95,7 +95,92 @@ type CustomBoardBotVsBotRequest struct {
     MoveDelay       int                  `json:"move_delay"`
 }
 
-// handleCustomBoardBotVsBot creates a bot vs bot game with custom board setup
+// CustomBoardHumanVsBotRequest represents a custom board human vs bot game request
+type CustomBoardHumanVsBotRequest struct {
+    Mode          string                `json:"mode"`
+    Pieces        []engine.CustomPiece `json:"pieces"`
+    CurrentPlayer string                `json:"current_player"`
+    BotDifficulty int                   `json:"bot_difficulty"`
+    HumanColor    string                `json:"human_color"` // "white" or "black"
+}
+
+// handleCustomBoardHumanVsBot creates a human vs bot game with custom board
+func handleCustomBoardHumanVsBot(c *gin.Context) {
+    var req CustomBoardHumanVsBotRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(400, gin.H{"error": invalidRequestMsg + ": " + err.Error()})
+        return
+    }
+
+    gameMode := parseGameMode(req.Mode)
+    currentPlayer := engine.White
+    if req.CurrentPlayer == "black" {
+        currentPlayer = engine.Black
+    }
+
+    humanColor := engine.White
+    if req.HumanColor == "black" {
+        humanColor = engine.Black
+    }
+    botColor := humanColor.Opposite()
+
+    // Create players
+    humanPlayer := &game.Player{
+        ID:    uuid.New().String(),
+        Type:  game.Human,
+        Color: humanColor,
+    }
+
+    bot := ai.NewBot(req.BotDifficulty, botColor)
+    botPlayer := &game.Player{
+        ID:    uuid.New().String(),
+        Type:  game.AI,
+        Color: botColor,
+        Bot:   bot,
+    }
+
+    // Determine white and black players based on colors
+    var whitePlayer, blackPlayer *game.Player
+    if humanColor == engine.White {
+        whitePlayer = humanPlayer
+        blackPlayer = botPlayer
+    } else {
+        whitePlayer = botPlayer
+        blackPlayer = humanPlayer
+    }
+
+    // Create game session
+    session, err := gameService.CreateGameWithCustomBoard(
+        gameMode,
+        req.Pieces,
+        currentPlayer,
+        whitePlayer,
+        blackPlayer,
+    )
+    if err != nil {
+        c.JSON(500, gin.H{"error": "Failed to create game: " + err.Error()})
+        return
+    }
+
+    // Create initial game record
+    whiteDiff := 0
+    blackDiff := 0
+    if whitePlayer.Type == game.AI {
+        whiteDiff = req.BotDifficulty
+    } else {
+        blackDiff = req.BotDifficulty
+    }
+    storage.InitGameRecord(session.ID, gameMode.String(), whiteDiff, blackDiff)
+
+    logf("✅ Custom board game created: %s (mode: %s, human: %s, bot: %s)", session.ID, gameMode.String(), humanColor, botColor)
+
+    c.JSON(201, gin.H{
+        "game_id":   session.ID,
+        "player_id": humanPlayer.ID,
+    })
+}
+
+// handleCustomBoardBotVsBot creates a bot vs bot game with custom board
 func handleCustomBoardBotVsBot(c *gin.Context) {
     var req CustomBoardBotVsBotRequest
     if err := c.ShouldBindJSON(&req); err != nil {
@@ -136,6 +221,9 @@ func handleCustomBoardBotVsBot(c *gin.Context) {
         c.JSON(500, gin.H{"error": "Failed to create game: " + err.Error()})
         return
     }
+
+    // Create initial game record in database
+    storage.InitGameRecord(session.ID, gameMode.String(), req.WhiteDifficulty, req.BlackDifficulty)
 
     logf("🎲 Custom board Bot vs Bot game created: %s (mode: %s)", session.ID, gameMode)
 
@@ -203,8 +291,19 @@ func handleCreateGame(c *gin.Context) {
         return
     }
 
+    // Create initial game record in database to satisfy foreign key constraint for move streaming
+    whiteDiff := 0
+    blackDiff := 0
+    if opponent.Type == game.AI && opponent.Bot != nil {
+        blackDiff = opponent.Bot.Difficulty
+    }
+    storage.InitGameRecord(session.ID, gameMode.String(), whiteDiff, blackDiff)
+
+    logf("✅ Game created: %s (mode: %s, white: human, black: %s)", session.ID, gameMode.String(), opponent.Type)
+
     c.JSON(201, gin.H{
-        "game_id": session.ID,
+        "game_id":   session.ID,
+        "player_id": humanPlayer.ID,
     })
 }
 
@@ -222,6 +321,7 @@ func handleGetGame(c *gin.Context) {
         "game_id":      session.ID,
         "state":        session.State.String(),
         "current_turn": session.Board.CurrentTurn.String(),
+        "board":        session.Board.ToFEN(),
         "created_at":   session.CreatedAt,
     })
 }
@@ -231,6 +331,7 @@ type MoveRequest struct {
     From      string `json:"from"`
     To        string `json:"to"`
     Promotion string `json:"promotion,omitempty"`
+    PlayerID  string `json:"player_id,omitempty"`
 }
 
 // handleMakeMove processes a move
@@ -239,20 +340,25 @@ func handleMakeMove(c *gin.Context) {
 
     var req MoveRequest
     if err := c.ShouldBindJSON(&req); err != nil {
-        c.JSON(400, gin.H{"error": "Invalid request"})
+        logf("❌ Move request parse error for game %s: %v", gameID, err)
+        c.JSON(400, gin.H{"error": "Invalid request: " + err.Error()})
         return
     }
+
+    logf("🎯 Move request for game %s: from=%s to=%s promotion=%s", gameID, req.From, req.To, req.Promotion)
 
     // Parse positions
     from, err := parsePosition(req.From)
     if err != nil {
-        c.JSON(400, gin.H{"error": "Invalid from position"})
+        logf("❌ Invalid from position '%s' for game %s: %v", req.From, gameID, err)
+        c.JSON(400, gin.H{"error": "Invalid from position: " + req.From})
         return
     }
 
     to, err := parsePosition(req.To)
     if err != nil {
-        c.JSON(400, gin.H{"error": "Invalid to position"})
+        logf("❌ Invalid to position '%s' for game %s: %v", req.To, gameID, err)
+        c.JSON(400, gin.H{"error": "Invalid to position: " + req.To})
         return
     }
 
@@ -261,20 +367,31 @@ func handleMakeMove(c *gin.Context) {
         To:   to,
     }
 
-    // TODO: Get player ID from auth token
-    playerID := "temp-player"
+    // Get player ID from request body, or use query param, or fallback to temp
+    playerID := req.PlayerID
+    if playerID == "" {
+        playerID = c.Query("player_id")
+    }
+    if playerID == "" {
+        // For backward compatibility or testing
+        playerID = "temp-player"
+        logf("⚠️ No player_id provided for game %s, using temp-player", gameID)
+    }
 
     resp, err := gameService.MakeMove(gameID, playerID, move)
     if err != nil {
+        logf("❌ MakeMove service error for game %s: %v", gameID, err)
         c.JSON(500, gin.H{"error": err.Error()})
         return
     }
 
     if !resp.Success {
+        logf("❌ Move failed for game %s: %v", gameID, resp.Error)
         c.JSON(400, gin.H{"error": resp.Error.Error()})
         return
     }
 
+    logf("✅ Move successful for game %s: %s -> %s", gameID, req.From, req.To)
     c.JSON(200, gin.H{
         "success": true,
         "state":   resp.Update.State.String(),

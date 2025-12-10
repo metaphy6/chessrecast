@@ -402,8 +402,8 @@ func (mg *MoveGenerator) getKingMoves(king *Piece) []Move {
 		}
 	}
 
-	// Castling (not in Teleport mode)
-	if mg.board.Mode != Teleport && !king.HasMoved {
+	// Castling (not in Teleport or OtherSide mode)
+	if mg.board.Mode != Teleport && mg.board.Mode != OtherSide && !king.HasMoved {
 		moves = append(moves, mg.getCastlingMoves(king)...)
 	}
 

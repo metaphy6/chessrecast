@@ -58,7 +58,8 @@ class ApiService {
   /// [mode] - Game mode (e.g., 'classic', 'royal_pawns')
   /// [botDifficulty] - AI difficulty level (1-10), null for PvP
   /// [opponentId] - Opponent player ID for PvP, null for bot game
-  Future<String> createGame({
+  /// Returns game data including game_id and player_id
+  Future<Map<String, dynamic>> createGame({
     required String mode,
     int? botDifficulty,
     String? opponentId,
@@ -84,7 +85,7 @@ class ApiService {
 
     if (response.statusCode == 201) {
       final data = json.decode(response.body);
-      return data['game_id'];
+      return data;
     }
     throw Exception('Failed to create game: ${response.body}');
   }
@@ -121,19 +122,26 @@ class ApiService {
   /// [from] - Source position in algebraic notation (e.g., 'e2')
   /// [to] - Destination position in algebraic notation (e.g., 'e4')
   /// [promotion] - Promotion piece type for pawn promotion (e.g., 'queen')
+  /// [playerId] - Player ID making the move
   Future<Map<String, dynamic>> makeMove({
     required String gameId,
     required String from,
     required String to,
     String? promotion,
+    String? playerId,
   }) async {
     final body = <String, dynamic>{'from': from, 'to': to};
 
     if (promotion != null) {
       body['promotion'] = promotion;
     }
+    if (playerId != null) {
+      body['player_id'] = playerId;
+    }
 
-    logApi('Sending move to backend: $from-$to');
+    logApi(
+      'Sending move to backend: $from-$to (player: ${playerId ?? "none"})',
+    );
     final response = await http.post(
       Uri.parse('$baseUrl/games/$gameId/moves'),
       headers: {
@@ -301,7 +309,7 @@ class ApiService {
   /// Example: [{"type": "king", "color": "white", "position": "e1"}, ...]
   Future<Map<String, dynamic>> createCustomBoardBotVsBotGame({
     required String mode,
-    required List<Map<String, String>> pieces,
+    required List<Map<String, dynamic>> pieces,
     required String currentPlayer,
     required int whiteDifficulty,
     required int blackDifficulty,
@@ -334,6 +342,42 @@ class ApiService {
       return json.decode(response.body);
     }
     throw Exception('Failed to create custom board game: ${response.body}');
+  }
+
+  /// Create custom board human vs bot game
+  Future<Map<String, dynamic>> createCustomBoardHumanVsBot({
+    required String mode,
+    required List<Map<String, dynamic>> pieces,
+    required String currentPlayer,
+    required int botDifficulty,
+    required String humanColor,
+  }) async {
+    final body = {
+      'mode': mode,
+      'pieces': pieces,
+      'current_player': currentPlayer,
+      'bot_difficulty': botDifficulty,
+      'human_color': humanColor,
+    };
+
+    logApi(
+      'Creating custom board human vs bot game: mode=$mode, pieces=${pieces.length}, human=$humanColor',
+    );
+    final response = await http.post(
+      Uri.parse('$baseUrl/bots/custom-board-vs-bot'),
+      headers: {
+        'Content-Type': 'application/json',
+        if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+      },
+      body: json.encode(body),
+    );
+
+    if (response.statusCode == 201) {
+      return json.decode(response.body);
+    }
+    throw Exception(
+      'Failed to create custom board vs bot game: ${response.body}',
+    );
   }
 
   /// Get game status (including pause state and delay)

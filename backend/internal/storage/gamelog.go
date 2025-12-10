@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"sync"
@@ -122,6 +123,30 @@ func GetDatabasePool() *pgxpool.Pool {
 		return logger.pool
 	}
 	return nil
+}
+
+// InitGameRecord creates an initial game record to satisfy foreign key constraints
+// This allows moves to be streamed immediately even before the game ends
+func InitGameRecord(gameID, gameMode string, whiteDiff, blackDiff int) {
+	if logger == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := `
+		INSERT INTO game_records (game_id, game_mode, white_moves, black_moves, total_moves, white_difficulty, black_difficulty)
+		VALUES ($1, $2, '', '', 0, $3, $4)
+		ON CONFLICT (game_id) DO NOTHING
+	`
+
+	_, err := logger.pool.Exec(ctx, query, gameID, gameMode, whiteDiff, blackDiff)
+	if err != nil {
+		log.Printf("❌ Failed to initialize game record %s: %v", gameID[:8], err)
+	} else {
+		log.Printf("📊 Initialized game record: %s (%s)", gameID[:8], gameMode)
+	}
 }
 
 // createTables creates the necessary database tables

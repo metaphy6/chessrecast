@@ -725,6 +725,7 @@ class _CustomActionButtons extends StatefulWidget {
 class _CustomActionButtonsState extends State<_CustomActionButtons> {
   final ApiService _apiService = ApiService();
   bool _isStartingOnline = false;
+  bool _isStartingVsBot = false;
 
   @override
   Widget build(BuildContext context) {
@@ -849,6 +850,33 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
             ],
           ),
           const SizedBox(height: 8),
+          // Play vs Bot button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isStartingVsBot ? null : () => _startVsBot(context),
+              icon: _isStartingVsBot
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.smart_toy, size: 18),
+              label: Text(
+                _isStartingVsBot ? 'Starting...' : '🤖 Play vs Bot',
+                style: const TextStyle(fontSize: 14),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue.shade700,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
           // Online Bot vs Bot button (made smaller)
           SizedBox(
             width: double.infinity,
@@ -880,6 +908,129 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
         ],
       ),
     );
+  }
+
+  Future<void> _startVsBot(BuildContext context) async {
+    // Validate board
+    final (isValid, errorMessage) = widget.controller.validateBoard();
+    if (!isValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage ?? 'Invalid board configuration'),
+          backgroundColor: Colors.red.shade600,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isStartingVsBot = true;
+    });
+
+    try {
+      // Show bot difficulty selector
+      final difficulty = await showDialog<int>(
+        context: context,
+        builder: (context) => _BotDifficultyDialog(),
+      );
+
+      if (difficulty == null) {
+        setState(() {
+          _isStartingVsBot = false;
+        });
+        return;
+      }
+
+      // Show color selection dialog
+      final humanColor = await showDialog<String>(
+        // ignore: use_build_context_synchronously
+        context: context,
+        builder: (context) => _ColorSelectionDialog(),
+      );
+
+      if (humanColor == null) {
+        setState(() {
+          _isStartingVsBot = false;
+        });
+        return;
+      }
+
+      final apiService = ApiService();
+
+      // Test connection
+      final isReachable = await apiService.testConnection();
+      if (!isReachable) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Backend server is not reachable'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() {
+          _isStartingVsBot = false;
+        });
+        return;
+      }
+
+      // Create game with custom board
+      final pieces = widget.controller.customPieces
+          .map(
+            (p) => {
+              'type': p.type.name,
+              'color': p.color == PieceColor.white ? 'white' : 'black',
+              'position': p.position.algebraic,
+            },
+          )
+          .toList();
+
+      final currentPlayer =
+          widget.controller.currentTurnColor == PieceColor.white
+          ? 'white'
+          : 'black';
+      final mode = widget.controller.selectedGameType.toSnakeCase();
+
+      final response = await _apiService.createCustomBoardHumanVsBot(
+        mode: mode,
+        pieces: pieces,
+        currentPlayer: currentPlayer,
+        botDifficulty: difficulty,
+        humanColor: humanColor,
+      );
+
+      final gameId = response['game_id'];
+      final playerId = response['player_id'];
+
+      if (context.mounted) {
+        // Navigate to game page
+        Get.toNamed(
+          '/game',
+          arguments: {
+            'gameType': widget.controller.selectedGameType,
+            'isOnline': true,
+            'gameId': gameId,
+            'playerId': playerId,
+          },
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to start game: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isStartingVsBot = false;
+        });
+      }
+    }
   }
 
   Future<void> _startOnlineBotVsBot(BuildContext context) async {
@@ -1015,6 +1166,85 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
         'whiteDifficulty': controller.whiteDifficulty,
         'blackDifficulty': controller.blackDifficulty,
       },
+    );
+  }
+}
+
+/// Bot difficulty selection dialog
+class _BotDifficultyDialog extends StatefulWidget {
+  @override
+  State<_BotDifficultyDialog> createState() => _BotDifficultyDialogState();
+}
+
+class _BotDifficultyDialogState extends State<_BotDifficultyDialog> {
+  int _difficulty = 5;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Select Bot Difficulty'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Difficulty: $_difficulty',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          Slider(
+            value: _difficulty.toDouble(),
+            min: 1,
+            max: 10,
+            divisions: 9,
+            label: _difficulty.toString(),
+            onChanged: (value) {
+              setState(() {
+                _difficulty = value.toInt();
+              });
+            },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(_difficulty),
+          child: const Text('Confirm'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Color selection dialog for human vs bot
+class _ColorSelectionDialog extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Choose Your Color'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.circle, color: Colors.white),
+            title: const Text('Play as White'),
+            onTap: () => Navigator.of(context).pop('white'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.circle, color: Colors.black),
+            title: const Text('Play as Black'),
+            onTap: () => Navigator.of(context).pop('black'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ],
     );
   }
 }
