@@ -21,6 +21,7 @@ class _ColorOverlays {
   static final selected = Colors.yellow.withValues(alpha: 0.5);
   static final validMove = Colors.green.withValues(alpha: 0.3);
   static final entangleZone = Colors.purple.withValues(alpha: 0.2);
+  static final diamondZone = Colors.cyan.withValues(alpha: 0.25);
   static const transparent = Colors.transparent;
 }
 
@@ -47,6 +48,9 @@ class ChessSquare extends StatelessWidget {
         final hasEntangledPiece =
             chessPiece != null && controller.isPieceEntangled(position);
 
+        // DIAMONDS MODE: Check if this square is in a bishop's diamond zone
+        final isDiamondZone = controller.isPositionInDiamondZone(position);
+
         return GestureDetector(
           onTap: () {
             try {
@@ -62,6 +66,7 @@ class ChessSquare extends StatelessWidget {
               isSelected,
               isValidMove,
               isEntangleZone,
+              isDiamondZone,
             ),
             child: Container(
               decoration: isSelected
@@ -85,6 +90,10 @@ class ChessSquare extends StatelessWidget {
                   // Entangle zone indicator (under pieces)
                   if (isEntangleZone && chessPiece == null)
                     const _EntangleZoneIndicator(),
+
+                  // DIAMONDS MODE: Diamond zone indicator (under pieces)
+                  if (isDiamondZone && chessPiece == null)
+                    const _DiamondZoneIndicator(),
 
                   // Chess piece (main content, rendered on top)
                   if (chessPiece != null)
@@ -126,6 +135,7 @@ class ChessSquare extends StatelessWidget {
     bool isSelected,
     bool isValidMove,
     bool isEntangleZone,
+    bool isDiamondZone,
   ) {
     // Since we're using a background image, make squares transparent
     // Only add color overlays for selected/valid moves
@@ -140,6 +150,11 @@ class ChessSquare extends StatelessWidget {
     // SNARE MODE: Entangle zone gets a purple tint
     if (isEntangleZone) {
       return _ColorOverlays.entangleZone;
+    }
+
+    // DIAMONDS MODE: Diamond zone gets a cyan/blue tint
+    if (isDiamondZone) {
+      return _ColorOverlays.diamondZone;
     }
 
     // Transparent for normal squares to show board image
@@ -190,6 +205,30 @@ class _EntangleZoneIndicator extends StatelessWidget {
           Icons.warning_amber_rounded,
           size: 16,
           color: Colors.purple.shade900,
+        ),
+      ),
+    );
+  }
+}
+
+/// Const widget for diamond zone indicator - prevents rebuilds
+class _DiamondZoneIndicator extends StatelessWidget {
+  const _DiamondZoneIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: Colors.cyan.withValues(alpha: 0.3),
+          border: Border.all(color: Colors.cyan.shade700, width: 2),
+        ),
+        child: Icon(
+          Icons.change_history, // Diamond/triangle shape
+          size: 18,
+          color: Colors.cyan.shade900,
         ),
       ),
     );

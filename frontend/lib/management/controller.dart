@@ -270,8 +270,28 @@ class Controller extends GetxController {
 
     if (previousSelection != null) {
       squaresToUpdate.add(squareIdFromPosition(previousSelection));
+      // If previous selection was a bishop in Diamonds mode, update its diamond zone
+      if (board.gameType == ModesEnum.diamonds) {
+        final prevPiece = board.getPieceAt(previousSelection);
+        if (prevPiece?.type == PieceType.bishop) {
+          for (final pos in _getDiamondCapturePositions(previousSelection)) {
+            squaresToUpdate.add(squareIdFromPosition(pos));
+          }
+        }
+      }
     }
+    
     squaresToUpdate.add(squareIdFromPosition(position));
+
+    // If current selection is a bishop in Diamonds mode, update its diamond zone
+    if (board.gameType == ModesEnum.diamonds) {
+      final currentPiece = board.getPieceAt(position);
+      if (currentPiece?.type == PieceType.bishop) {
+        for (final pos in _getDiamondCapturePositions(position)) {
+          squaresToUpdate.add(squareIdFromPosition(pos));
+        }
+      }
+    }
 
     for (final pos in previousValidMoves) {
       squaresToUpdate.add(squareIdFromPosition(pos));
@@ -297,7 +317,17 @@ class Controller extends GetxController {
 
     if (previousSelection != null) {
       squaresToUpdate.add(squareIdFromPosition(previousSelection));
+      // If deselecting a bishop in Diamonds mode, update its diamond zone
+      if (board.gameType == ModesEnum.diamonds) {
+        final prevPiece = board.getPieceAt(previousSelection);
+        if (prevPiece?.type == PieceType.bishop) {
+          for (final pos in _getDiamondCapturePositions(previousSelection)) {
+            squaresToUpdate.add(squareIdFromPosition(pos));
+          }
+        }
+      }
     }
+    
     for (final pos in previousValidMoves) {
       squaresToUpdate.add(squareIdFromPosition(pos));
     }
@@ -593,6 +623,26 @@ class Controller extends GetxController {
         squareIdFromPosition(move.from),
         squareIdFromPosition(move.to),
       ];
+
+      // DIAMONDS MODE: If a bishop moved or was involved, update diamond zones
+      if (board.gameType == ModesEnum.diamonds) {
+        // If the moved piece was a bishop, update its old diamond zone
+        if (move.piece.type == PieceType.bishop) {
+          for (final pos in _getDiamondCapturePositions(move.from)) {
+            squaresToUpdate.add(squareIdFromPosition(pos));
+          }
+          // And its new diamond zone
+          for (final pos in _getDiamondCapturePositions(move.to)) {
+            squaresToUpdate.add(squareIdFromPosition(pos));
+          }
+        }
+        // If a bishop was captured, update its diamond zone
+        if (move.capturedPiece?.type == PieceType.bishop) {
+          for (final pos in _getDiamondCapturePositions(move.capturedPiece!.position)) {
+            squaresToUpdate.add(squareIdFromPosition(pos));
+          }
+        }
+      }
 
       // CASTLING: Also update rook squares
       if (move.isCastling) {
@@ -1029,5 +1079,57 @@ class Controller extends GetxController {
       return false;
     }
     return false;
+  }
+
+  /// DIAMONDS MODE: Checks if a position is in the selected bishop's diamond influence zone
+  bool isPositionInDiamondZone(Position position) {
+    if (board.gameType != ModesEnum.diamonds) {
+      return false;
+    }
+
+    // Only show diamond zone if a bishop is currently selected
+    if (selectedPosition == null) {
+      return false;
+    }
+
+    final selectedPiece = board.getPieceAt(selectedPosition!);
+    if (selectedPiece == null || selectedPiece.type != PieceType.bishop) {
+      return false;
+    }
+
+    // Get diamond pattern positions for the selected bishop only
+    final diamondPositions = _getDiamondCapturePositions(selectedPosition!);
+    return diamondPositions.any((pos) => pos == position);
+  }
+
+  /// Helper: Gets the diamond capture pattern positions for a bishop
+  /// Returns up to 8 positions forming a diamond around the bishop
+  List<Position> _getDiamondCapturePositions(Position bishopPos) {
+    final capturePositions = <Position>[];
+
+    // Diamond pattern:
+    // - 4 diagonal squares (1 square diagonally)
+    // - 4 orthogonal squares (2 squares straight)
+    final offsets = [
+      // Diagonal adjacent (1 square away diagonally)
+      [-1, -1], // top-left diagonal
+      [-1, 1], // top-right diagonal
+      [1, -1], // bottom-left diagonal
+      [1, 1], // bottom-right diagonal
+      // Orthogonal 2 squares away
+      [-2, 0], // 2 up
+      [0, 2], // 2 right
+      [2, 0], // 2 down
+      [0, -2], // 2 left
+    ];
+
+    for (final offset in offsets) {
+      final pos = bishopPos.offset(offset[0], offset[1]);
+      if (pos.isValid) {
+        capturePositions.add(pos);
+      }
+    }
+
+    return capturePositions;
   }
 }
