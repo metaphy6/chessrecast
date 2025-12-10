@@ -318,14 +318,23 @@ func (mg *MoveGenerator) getBishopMoves(bishop *Piece) []Move {
 
 // getDiamondBishopMoves - Bishops capture in diamond pattern in Diamonds mode
 func (mg *MoveGenerator) getDiamondBishopMoves(bishop *Piece) []Move {
-	// Move diagonally but capture in 8 squares around
+	// Move diagonally but capture in diamond pattern
 	moves := mg.getSlidingMoves(bishop, [][2]int{{-1, -1}, {-1, 1}, {1, -1}, {1, 1}})
 	
-	// Add diamond capture pattern
+	// Add diamond capture pattern:
+	// - 4 diagonal squares (1 square away diagonally)
+	// - 4 orthogonal squares (2 squares away)
 	diamondOffsets := [][2]int{
-		{-1, -1}, {-1, 0}, {-1, 1},
-		{0, -1}, {0, 1},
-		{1, -1}, {1, 0}, {1, 1},
+		// Diagonal adjacent (1 square away diagonally)
+		{-1, -1}, // top-left diagonal
+		{-1, 1},  // top-right diagonal
+		{1, -1},  // bottom-left diagonal
+		{1, 1},   // bottom-right diagonal
+		// Orthogonal 2 squares away
+		{-2, 0}, // 2 up
+		{0, 2},  // 2 right
+		{2, 0},  // 2 down
+		{0, -2}, // 2 left
 	}
 
 	for _, offset := range diamondOffsets {
