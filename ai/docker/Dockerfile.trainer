@@ -1,0 +1,18 @@
+# Use PyTorch base image with CUDA support (works on CPU too)
+FROM pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime
+
+# Install dependencies
+RUN pip install --no-cache-dir \
+    numpy==1.24.3 \
+    chess==1.10.0 \
+    tensorflow==2.15.0 \
+    tqdm==4.66.1
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy training code
+COPY trainer/ /workspace/trainer/
+
+# Default command - improved training (30 min, strategic AI)
+CMD ["python", "trainer/train_improved.py"]
