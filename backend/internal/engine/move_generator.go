@@ -1003,33 +1003,55 @@ func (mg *MoveGenerator) getPathBetween(from, to Position) []Position {
 	return path
 }
 
-// applySaveTheQueenRules handles imprisoned queen movement
+// applySaveTheQueenRules handles imprisoned queen movement and capture restrictions
 func (mg *MoveGenerator) applySaveTheQueenRules(moves []Move, piece *Piece) []Move {
-	if piece.Type != Queen {
-		return moves
-	}
+	if piece.Type == Queen {
+		// Check if queen has escaped
+		escaped := mg.board.EscapedQueens[piece.Color]
+		if escaped {
+			return moves // Full queen power
+		}
 
-	// Check if queen has escaped
-	escaped := mg.board.EscapedQueens[piece.Color]
-	if escaped {
-		return moves // Full queen power
-	}
-
-	// Queen is imprisoned - moves like king only
-	restrictedMoves := []Move{}
-	for _, move := range moves {
-		// Only allow one-square moves
-		rowDiff := abs(move.To.Row - move.From.Row)
-		colDiff := abs(move.To.Col - move.From.Col)
-		if rowDiff <= 1 && colDiff <= 1 {
-			// Can't capture while imprisoned
-			if move.CapturedPiece == nil {
-				restrictedMoves = append(restrictedMoves, move)
+		// Queen is imprisoned - moves like king only
+		restrictedMoves := []Move{}
+		for _, move := range moves {
+			// Only allow one-square moves
+			rowDiff := abs(move.To.Row - move.From.Row)
+			colDiff := abs(move.To.Col - move.From.Col)
+			if rowDiff <= 1 && colDiff <= 1 {
+				// Can't capture while imprisoned
+				if move.CapturedPiece == nil {
+					restrictedMoves = append(restrictedMoves, move)
+				}
 			}
 		}
+
+		return restrictedMoves
 	}
 
-	return restrictedMoves
+	// For non-queen pieces: filter out captures of queens on prison squares
+	filteredMoves := []Move{}
+	for _, move := range moves {
+		// Check if this move captures a queen on its prison square
+		if move.CapturedPiece != nil && move.CapturedPiece.Type == Queen {
+			// Check if the queen is on its prison square
+			whitePrison := Position{Row: 7, Col: 3} // d8
+			blackPrison := Position{Row: 0, Col: 3} // d1
+			
+			isPrisonCapture := (move.CapturedPiece.Color == White && move.To == whitePrison) ||
+				(move.CapturedPiece.Color == Black && move.To == blackPrison)
+			
+			if isPrisonCapture {
+				// Cannot capture queen on prison square - skip this move
+				continue
+			}
+		}
+		
+		// Keep all other moves
+		filteredMoves = append(filteredMoves, move)
+	}
+	
+	return filteredMoves
 }
 
 // applyHeirRules applies Heir mode specific rules
@@ -1341,6 +1363,17 @@ func (mg *MoveGenerator) canAttackSquareOnBoard(board *Board, piece *Piece, targ
 
 	// Simplified attack check without generating full moves
 	switch piece.Type {
+	case Queen:
+		// SAVE THE QUEEN MODE: Prisoner queens (not escaped) cannot attack/check
+		if board.Mode == SaveTheQueen {
+			escaped := board.EscapedQueens[piece.Color]
+			if !escaped {
+				return false // Prisoner queen cannot attack
+			}
+		}
+		// Regular queen attack
+		return mg.canPieceReachOnBoard(board, piece, target)
+		
 	case Pawn:
 		// In Royal Pawns mode, pawns attack like kings (all 8 directions)
 		if board.Mode == RoyalPawns {
