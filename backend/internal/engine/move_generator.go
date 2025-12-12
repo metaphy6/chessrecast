@@ -1107,11 +1107,18 @@ func (mg *MoveGenerator) canPieceReachOnBoard(board *Board, piece *Piece, target
 	
 	switch piece.Type {
 	case Pawn:
-		return false // Handled separately
+		// Pawns can only capture diagonally
+		direction := 1
+		if piece.Color == Black {
+			direction = -1
+		}
+		return dr == direction && (dc == -1 || dc == 1)
 	case Knight:
-		return false // Handled separately
+		// Knight L-shape
+		return (abs(dr) == 2 && abs(dc) == 1) || (abs(dr) == 1 && abs(dc) == 2)
 	case King:
-		return false // Handled separately
+		// King can move one square in any direction
+		return abs(dr) <= 1 && abs(dc) <= 1 && (dr != 0 || dc != 0)
 	case Rook:
 		// Rooks move horizontally or vertically
 		if dr != 0 && dc != 0 {
