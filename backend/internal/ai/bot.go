@@ -673,7 +673,7 @@ func (b *Bot) getModeSpecificScore(board *engine.Board) float64 {
 		if board.EscapedQueens[b.Color] {
 			score += 2000.0
 		} else {
-			// Prioritize moving queen toward board edges (escape routes)
+			// Prioritize moving queen toward own half to escape
 			var queenPos engine.Position
 			queenFound := false
 			for row := 0; row < 8; row++ {
@@ -690,9 +690,26 @@ func (b *Bot) getModeSpecificScore(board *engine.Board) float64 {
 				}
 			}
 			if queenFound {
-				// Big bonus for queen being on edge (closer to escape)
-				if queenPos.Row == 0 || queenPos.Row == 7 || queenPos.Col == 0 || queenPos.Col == 7 {
-					score += 300.0
+				// White queen starts at d8 (row 7), needs to reach rows 0-3 (own half)
+				// Black queen starts at d1 (row 0), needs to reach rows 4-7 (own half)
+				if b.Color == engine.White {
+					// White wants to be in rows 0-3
+					if queenPos.Row <= 3 {
+						score += 1500.0 // Escaped!
+					} else {
+						// Give bonus for being closer to row 3 (escape line)
+						distance := queenPos.Row - 3
+						score += float64(4-distance) * 200.0
+					}
+				} else {
+					// Black wants to be in rows 4-7
+					if queenPos.Row >= 4 {
+						score += 1500.0 // Escaped!
+					} else {
+						// Give bonus for being closer to row 4 (escape line)
+						distance := 4 - queenPos.Row
+						score += float64(4-distance) * 200.0
+					}
 				}
 			}
 		}

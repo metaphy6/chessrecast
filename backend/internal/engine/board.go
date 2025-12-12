@@ -181,21 +181,29 @@ func (b *Board) setupStandardPosition() {
 
 // setupSaveTheQueen - Queens start as prisoners on opponent's side
 func (b *Board) setupSaveTheQueen() {
-	// Move white queen to black's side (imprisoned)
+	// Get both queens before moving them (since they swap positions)
 	whiteQueen := b.GetPieceAt(Position{Row: 0, Col: 3})
+	blackQueen := b.GetPieceAt(Position{Row: 7, Col: 3})
+
+	// Clear both positions first
+	b.squares[0][3] = nil
+	b.squares[7][3] = nil
+
+	// Move white queen to black's side (imprisoned at d8)
 	if whiteQueen != nil {
-		b.squares[0][3] = nil
 		whiteQueen.Position = Position{Row: 7, Col: 3}
 		b.setPiece(whiteQueen)
 	}
 
-	// Move black queen to white's side (imprisoned)
-	blackQueen := b.GetPieceAt(Position{Row: 7, Col: 3})
+	// Move black queen to white's side (imprisoned at d1)
 	if blackQueen != nil {
-		b.squares[7][3] = nil
-		blackQueen.Position = Position{Row: 0, Col: 4}
+		blackQueen.Position = Position{Row: 0, Col: 3}
 		b.setPiece(blackQueen)
 	}
+
+	// Initialize both queens as prisoners (not escaped)
+	b.EscapedQueens[White] = false
+	b.EscapedQueens[Black] = false
 }
 
 // setupSaveTheKing - Start with two queens, no kings initially
@@ -252,7 +260,38 @@ func (b *Board) MakeMove(move Move) error {
 	
 	// Handle capture
 	if move.CapturedPiece != nil {
-		b.removePiece(move.To)
+		// SAVE THE QUEEN MODE: If capturing a prisoner queen, return it to prison instead of removing
+		if b.Mode == SaveTheQueen && move.CapturedPiece.Type == Queen {
+			capturedQueenInOwnHalf := (move.CapturedPiece.Color == White && move.To.Row <= 3) ||
+				(move.CapturedPiece.Color == Black && move.To.Row >= 4)
+			
+			if !capturedQueenInOwnHalf {
+				// Queen was a prisoner (in opponent's half), return to prison
+				prisonPos := Position{Row: 7, Col: 3} // White queen prison (d8)
+				if move.CapturedPiece.Color == Black {
+					prisonPos = Position{Row: 0, Col: 3} // Black queen prison (d1)
+				}
+				
+				// Only return to prison if prison square is not occupied
+				if b.GetPieceAt(prisonPos) == nil {
+					move.CapturedPiece.Position = prisonPos
+					move.CapturedPiece.HasMoved = false
+					b.setPiece(move.CapturedPiece)
+					b.EscapedQueens[move.CapturedPiece.Color] = false
+					// Don't fully remove - just moved back to prison
+				} else {
+					// Prison occupied, queen is actually captured (removed)
+					b.removePiece(move.To)
+				}
+			} else {
+				// Escaped queen captured = game over (but we remove it normally here)
+				b.removePiece(move.To)
+			}
+		} else {
+			// Normal capture
+			b.removePiece(move.To)
+		}
+		
 		b.FiftyMoveRule = 0
 		
 		// SNARE MODE: Revengeful knight - if capturing the last knight, both pieces are destroyed
@@ -292,6 +331,13 @@ func (b *Board) MakeMove(move Move) error {
 			if move.Promotion == King {
 				b.PromotedKings[piece.Color]++
 			}
+		}
+
+		// Save the Queen mode: Check if queen has escaped to own half
+		if b.Mode == SaveTheQueen && piece.Type == Queen {
+			inOwnHalf := (piece.Color == White && piece.Position.Row <= 3) ||
+				(piece.Color == Black && piece.Position.Row >= 4)
+			b.EscapedQueens[piece.Color] = inOwnHalf
 		}
 	}
 
