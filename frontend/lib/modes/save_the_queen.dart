@@ -47,95 +47,80 @@ class SaveTheQueen implements GameMode {
     ChessPiece piece,
     ChessBoard board,
   ) {
-    if (piece.type != PieceType.queen) {
-      // Filter out moves that would capture a prisoner queen on its initial prison square
-      // OR capture a prisoner queen when its prison square is occupied
+    if (piece.type == PieceType.queen) {
+      // QUEENS CANNOT CAPTURE OTHER QUEENS in Save the Queen mode
+      final filteredMoves = moves.where((move) {
+        final targetPiece = board.getPieceAt(move.to);
+        // Block any attempt to capture another queen
+        if (targetPiece != null && targetPiece.type == PieceType.queen) {
+          return false;
+        }
+        return true;
+      }).toList();
+
+      // Now apply queen movement rules (imprisoned vs escaped)
+      final isInOwnHalf = _isInOwnHalf(piece.position, piece.color);
+
+      if (isInOwnHalf) {
+        // ESCAPED STATE: Queen has full queen power - can move and capture anywhere
+        return filteredMoves;
+      } else {
+        // PRISONER STATE: Queen moves like king, can't capture
+
+        final prisonerMoves = <ChessMove>[];
+
+        // Generate king-like moves (one square in any direction)
+        for (int rowDelta = -1; rowDelta <= 1; rowDelta++) {
+          for (int colDelta = -1; colDelta <= 1; colDelta++) {
+            if (rowDelta == 0 && colDelta == 0) continue;
+
+            final newRow = piece.position.row + rowDelta;
+            final newCol = piece.position.col + colDelta;
+
+            if (newRow < 0 || newRow > 7 || newCol < 0 || newCol > 7) continue;
+
+            final targetPos = Position(newRow, newCol);
+            final targetPiece = board.getPieceAt(targetPos);
+
+            // Prisoner queen CANNOT capture
+            if (targetPiece != null) {
+              continue;
+            }
+
+            // Can only move to empty squares
+            prisonerMoves.add(
+              ChessMove.simple(
+                from: piece.position,
+                to: targetPos,
+                piece: piece,
+                capturedPiece: null,
+              ),
+            );
+          }
+        }
+
+        return prisonerMoves;
+      }
+    } else {
+      // Non-queen pieces
+      // Filter out moves that would capture a queen on its prison square
       final filteredMoves = moves.where((move) {
         final targetPiece = board.getPieceAt(move.to);
         if (targetPiece != null && targetPiece.type == PieceType.queen) {
-          // Check if the enemy queen is still on its initial prison square
+          // Check if the enemy queen is on its initial prison square
           final isOnPrisonSquare = _isInPrison(
             targetPiece.position,
             targetPiece.color,
           );
           if (isOnPrisonSquare) {
-            return false; // Cannot capture queen on prison square
-          }
-
-          // Check if queen is prisoner (in opponent's half) and its prison square is occupied
-          final queenInOwnHalf = _isInOwnHalf(
-            targetPiece.position,
-            targetPiece.color,
-          );
-          if (!queenInOwnHalf) {
-            // Queen is a prisoner, check if prison square is occupied
-            final prisonPosition = targetPiece.color == PieceColor.white
-                ? whiteQueenPrison
-                : blackQueenPrison;
-            final prisonOccupied = board.pieces.any(
-              (p) => p.position == prisonPosition,
-            );
-
-            if (prisonOccupied) {
-              return false; // Cannot capture prisoner queen if prison is occupied
-            }
+            // Cannot capture queen on prison square
+            return false;
           }
         }
         return true;
       }).toList();
 
       return filteredMoves;
-    }
-
-    final isInOwnHalf = _isInOwnHalf(piece.position, piece.color);
-    _isInPrison(piece.position, piece.color);
-
-    if (isInOwnHalf) {
-      // ESCAPED STATE: Queen can move and capture like normal
-
-      // Filter out moves that would return queen to opponent's half
-      final safeMoves = moves.where((move) {
-        final targetInOwnHalf = _isInOwnHalf(move.to, piece.color);
-        return targetInOwnHalf;
-      }).toList();
-
-      return safeMoves;
-    } else {
-      // PRISONER STATE: Queen moves like king, can't capture
-
-      final prisonerMoves = <ChessMove>[];
-
-      // Generate king-like moves (one square in any direction)
-      for (int rowDelta = -1; rowDelta <= 1; rowDelta++) {
-        for (int colDelta = -1; colDelta <= 1; colDelta++) {
-          if (rowDelta == 0 && colDelta == 0) continue;
-
-          final newRow = piece.position.row + rowDelta;
-          final newCol = piece.position.col + colDelta;
-
-          if (newRow < 0 || newRow > 7 || newCol < 0 || newCol > 7) continue;
-
-          final targetPos = Position(newRow, newCol);
-          final targetPiece = board.getPieceAt(targetPos);
-
-          // Prisoner queen CANNOT capture
-          if (targetPiece != null) {
-            continue;
-          }
-
-          // Can only move to empty squares
-          prisonerMoves.add(
-            ChessMove.simple(
-              from: piece.position,
-              to: targetPos,
-              piece: piece,
-              capturedPiece: null,
-            ),
-          );
-        }
-      }
-
-      return prisonerMoves;
     }
   }
 
