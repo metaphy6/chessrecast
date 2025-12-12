@@ -132,6 +132,8 @@ Chess Recast is a novel chess game featuring 14 unique game modes, each introduc
 **Special Rules:**
 - If escaped queen moves back to opponent's half = becomes prisoner again
 - Pawns CANNOT promote to Queen
+- Queens CANNOT be captured while on their initial prison squares (d1 for black, d8 for white)
+- Capturing an escaped queen (in own territory) = instant win/checkmate
 - Regular checkmate possible with other pieces
 
 ---

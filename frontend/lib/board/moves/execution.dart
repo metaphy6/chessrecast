@@ -98,6 +98,19 @@ extension MoveExecution on ChessBoard {
       }
     }
 
+    // Track queen escapes for Save the Queen mode
+    Map<PieceColor, bool> newEscapedQueens = Map.from(escapedQueens);
+    if (gameType == ModesEnum.saveTheQueen &&
+        move.piece.type == PieceType.queen) {
+      // Check if queen reached its own half
+      bool inOwnHalf =
+          (move.piece.color == PieceColor.white && move.to.row >= 4) ||
+          (move.piece.color == PieceColor.black && move.to.row <= 3);
+      if (inOwnHalf) {
+        newEscapedQueens[move.piece.color] = true;
+      }
+    }
+
     // Update halfMoveClock for 50-move rule
     // Reset to 0 on pawn move or capture, otherwise increment
     final newHalfMoveClock =
@@ -125,6 +138,7 @@ extension MoveExecution on ChessBoard {
       halfMoveClock: newHalfMoveClock,
       fullMoveNumber: newFullMoveNumber,
       positionHistory: [...positionHistory, getPositionKey()],
+      escapedQueens: newEscapedQueens,
     );
 
     // Check for automatic draw conditions (50-move rule or threefold repetition)

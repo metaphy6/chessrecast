@@ -24,6 +24,7 @@ class ChessBoard extends Equatable {
   final bool whiteHasPromotedKing;
   final bool blackHasPromotedKing;
   final List<String> positionHistory; // For threefold repetition
+  final Map<PieceColor, bool> escapedQueens; // For Save the Queen mode
 
   const ChessBoard({
     required this.pieces,
@@ -41,6 +42,7 @@ class ChessBoard extends Equatable {
     this.whiteHasPromotedKing = false,
     this.blackHasPromotedKing = false,
     this.positionHistory = const [],
+    this.escapedQueens = const {},
   });
 
   /// Creates the initial chess board setup
@@ -121,7 +123,13 @@ class ChessBoard extends Equatable {
       }
     }
 
-    final board = ChessBoard(pieces: pieces, gameType: gameType);
+    final board = ChessBoard(
+      pieces: pieces,
+      gameType: gameType,
+      escapedQueens: gameType == ModesEnum.saveTheQueen
+          ? {PieceColor.white: false, PieceColor.black: false}
+          : const {},
+    );
     // Add initial position to history for threefold repetition tracking
     return board.copyWith(positionHistory: [board.getPositionKey()]);
   }
@@ -380,6 +388,7 @@ class ChessBoard extends Equatable {
     bool? whiteHasPromotedKing,
     bool? blackHasPromotedKing,
     List<String>? positionHistory,
+    Map<PieceColor, bool>? escapedQueens,
   }) {
     return ChessBoard(
       pieces: pieces ?? this.pieces,
@@ -401,6 +410,7 @@ class ChessBoard extends Equatable {
       whiteHasPromotedKing: whiteHasPromotedKing ?? this.whiteHasPromotedKing,
       blackHasPromotedKing: blackHasPromotedKing ?? this.blackHasPromotedKing,
       positionHistory: positionHistory ?? this.positionHistory,
+      escapedQueens: escapedQueens ?? this.escapedQueens,
     );
   }
 
@@ -421,6 +431,7 @@ class ChessBoard extends Equatable {
     whiteHasPromotedKing,
     blackHasPromotedKing,
     positionHistory,
+    escapedQueens,
   ];
 
   /// Converts the board to FEN notation (piece placement only for simplicity)

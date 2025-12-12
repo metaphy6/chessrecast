@@ -1032,20 +1032,20 @@ func (mg *MoveGenerator) applySaveTheQueenRules(moves []Move, piece *Piece) []Mo
 		return restrictedMoves
 	}
 
-	// For non-queen pieces: filter out captures of queens on prison squares
+	// For non-queen pieces: filter out captures of queens on their prison squares
 	filteredMoves := []Move{}
 	for _, move := range moves {
-		// Check if this move captures a queen on its prison square
+		// Check if this move captures a queen
 		if move.CapturedPiece != nil && move.CapturedPiece.Type == Queen {
-			// Check if the queen is on its prison square
+			// Check if the captured queen is on its initial prison square
 			whitePrison := Position{Row: 7, Col: 3} // d8
 			blackPrison := Position{Row: 0, Col: 3} // d1
 			
-			isPrisonCapture := (move.CapturedPiece.Color == White && move.To == whitePrison) ||
+			isOnPrisonSquare := (move.CapturedPiece.Color == White && move.To == whitePrison) ||
 				(move.CapturedPiece.Color == Black && move.To == blackPrison)
 			
-			if isPrisonCapture {
-				// Cannot capture queen on prison square - skip this move
+			if isOnPrisonSquare {
+				// Cannot capture queen on its prison square - skip this move
 				continue
 			}
 		}
