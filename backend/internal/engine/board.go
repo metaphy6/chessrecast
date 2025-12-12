@@ -274,9 +274,11 @@ func (b *Board) MakeMove(move Move) error {
 				
 				// Only return to prison if prison square is not occupied
 				if b.GetPieceAt(prisonPos) == nil {
-					move.CapturedPiece.Position = prisonPos
-					move.CapturedPiece.HasMoved = false
-					b.setPiece(move.CapturedPiece)
+					// IMPORTANT: Clone the captured piece to avoid modifying the original
+					returnedQueen := move.CapturedPiece.Clone()
+					returnedQueen.Position = prisonPos
+					returnedQueen.HasMoved = false
+					b.setPiece(returnedQueen)
 					b.EscapedQueens[move.CapturedPiece.Color] = false
 					// Don't fully remove - just moved back to prison
 				} else {

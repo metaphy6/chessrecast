@@ -363,12 +363,35 @@ func (sess *Session) run() {
 
 // processMove handles a move request
 func (sess *Session) processMove(req MoveRequest) MoveResponse {
+	log.Printf("🔒 processMove: Acquiring write lock...")
 	sess.mu.Lock()
-	defer sess.mu.Unlock()
+	log.Printf("✅ processMove: Write lock acquired")
+	defer func() {
+		sess.mu.Unlock()
+		log.Printf("🔓 processMove: Write lock released")
+	}()
 
 	// Validate move is legal
 	mg := engine.NewMoveGenerator(sess.Board)
 	validMoves := mg.GetValidMoves(req.Move.From)
+	
+	// Log what piece is at the source position (for debugging)
+	piece := sess.Board.GetPieceAt(req.Move.From)
+	if piece == nil {
+		logf("⚠️ processMove: NO PIECE at %s%s (requested by move)", 
+			string('a'+req.Move.From.Col), string('1'+req.Move.From.Row))
+	} else {
+		// Check if king and if in check
+		inCheckInfo := ""
+		if piece.Type == engine.King {
+			if sess.Board.IsKingInCheck(piece.Color) {
+				inCheckInfo = " (IN CHECK!)"
+			}
+		}
+		logf("🔍 processMove: Piece at %s%s is %s %s%s, %d valid moves", 
+			string('a'+req.Move.From.Col), string('1'+req.Move.From.Row),
+			piece.Color, piece.Type, inCheckInfo, len(validMoves))
+	}
 	
 	isValid := false
 	for _, validMove := range validMoves {
@@ -381,6 +404,11 @@ func (sess *Session) processMove(req MoveRequest) MoveResponse {
 	}
 
 	if !isValid {
+		logf("❌ Invalid move: %s%s -> %s%s (from %d valid moves for piece at %s%s)", 
+			string('a'+req.Move.From.Col), string('1'+req.Move.From.Row),
+			string('a'+req.Move.To.Col), string('1'+req.Move.To.Row),
+			len(validMoves),
+			string('a'+req.Move.From.Col), string('1'+req.Move.From.Row))
 		return MoveResponse{
 			Success: false,
 			Error:   errors.New("invalid move"),
@@ -1036,30 +1064,30 @@ func (s *Service) PlayBotVsBot(sessionID string, moveDelay int) error {
 
 		// Get current bot player
 		var currentBot *ai.Bot
-		var playerID string
 		if currentTurn == engine.White {
 			currentBot = session.WhitePlayer.Bot
-			playerID = session.WhitePlayer.ID
 		} else {
 			currentBot = session.BlackPlayer.Bot
-			playerID = session.BlackPlayer.ID
 		}
 
-		// Calculate bot move
+		// Calculate bot move and execute atomically with write lock to prevent race conditions
 		logf("🤔 Bot calculating move...")
+		session.mu.Lock()
+		
+		// Calculate move on current board state (holding write lock for entire operation)
 		move, err := currentBot.GetBestMove(session.Board)
 		
-		// Check for stop signal AFTER bot calculation (in case stop was called during calculation)
-		session.mu.RLock()
+		// Check for stop signal
 		stopped := session.IsStopped
-		session.mu.RUnlock()
 		if stopped {
+			session.mu.Unlock()
 			logf("🛑 PlayBotVsBot: Game stopped during bot calculation")
 			storage.EndGame(sessionID, "", "stopped")
 			return nil
 		}
 		
 		if err != nil {
+			session.mu.Unlock()
 			logf("❌ Bot returned error: %v", err)
 			break
 		}
@@ -1069,7 +1097,6 @@ func (s *Service) PlayBotVsBot(sessionID string, moveDelay int) error {
 			logf("📊 Game state: %s, Turn: %s", session.State, session.Board.CurrentTurn)
 			
 			// Game should end - check for checkmate or stalemate
-			session.mu.Lock()
 			session.updateGameState()
 			gameEnded := session.State != engine.InProgress
 			gameResult := session.Result
@@ -1106,13 +1133,31 @@ func (s *Service) PlayBotVsBot(sessionID string, moveDelay int) error {
 			string('a'+move.From.Col), string('1'+move.From.Row),
 			string('a'+move.To.Col), string('1'+move.To.Row))
 
-		// Make the move
-		resp, err := s.MakeMove(sessionID, playerID, *move)
-		if err != nil || !resp.Success {
-			logf("❌ Move failed: %v", err)
+		// Execute move directly on the board (we already hold the lock)
+		if err := session.Board.MakeMove(*move); err != nil {
+			session.mu.Unlock()
+			logf("❌ Move execution failed: %v", err)
 			break
 		}
-
+		
+		// Update session state
+		session.UpdatedAt = time.Now()
+		session.LastMoveAt = time.Now()
+		session.updateGameState()
+		
+		// Broadcast move update to WebSocket clients before releasing lock
+		session.broadcastUpdate(GameUpdate{
+			GameID:    sessionID,
+			Board:     session.Board,
+			LastMove:  move,
+			State:     session.State,
+			Result:    session.Result,
+			Timestamp: time.Now(),
+		})
+		
+		// Release lock after move is fully executed
+		session.mu.Unlock()
+		
 		logf("✅ Move executed successfully")
 		moveCount++
 
