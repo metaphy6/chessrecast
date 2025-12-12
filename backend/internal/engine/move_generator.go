@@ -553,6 +553,9 @@ func (mg *MoveGenerator) getPromotionPieces(color Color) []PieceType {
 			return []PieceType{King, Queen, Rook, Bishop, Knight}
 		}
 		return []PieceType{Queen, Rook, Bishop, Knight}
+	case SaveTheQueen:
+		// Cannot promote to queen (only one queen per side allowed)
+		return []PieceType{Rook, Bishop, Knight}
 	case Heir:
 		// In Heir mode, can promote to King only once
 		// BUT: the promoted King becomes the "last" king, so classic check rules apply
