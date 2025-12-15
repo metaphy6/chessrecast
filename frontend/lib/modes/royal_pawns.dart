@@ -10,6 +10,7 @@ import 'modes_enum.dart';
 /// - Pawns CANNOT promote (they remain pawns even on the last rank)
 /// - No two-square initial move
 /// - No en passant in this mode
+/// - Pawn moves count as regular moves (increment fifty-move counter)
 class RoyalPawns extends GameMode {
   @Deprecated(
     'Use the `modes.royalPawns` alias from modes_cache.dart instead of direct instantiation',

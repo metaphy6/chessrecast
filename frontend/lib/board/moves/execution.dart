@@ -114,10 +114,11 @@ extension MoveExecution on ChessBoard {
 
     // Update halfMoveClock for 50-move rule
     // Reset to 0 on pawn move or capture, otherwise increment
-    final newHalfMoveClock =
-        (move.piece.type == PieceType.pawn || move.capturedPiece != null)
-        ? 0
-        : halfMoveClock + 1;
+    // Exception: In Royal Pawns mode, pawn moves don't reset the counter
+    final isPawnMove = move.piece.type == PieceType.pawn;
+    final shouldResetClock = move.capturedPiece != null ||
+        (isPawnMove && gameType != ModesEnum.royalPawns);
+    final newHalfMoveClock = shouldResetClock ? 0 : halfMoveClock + 1;
 
     // Update fullMoveNumber (increments after black's move)
     final newFullMoveNumber = currentPlayer == PieceColor.black
