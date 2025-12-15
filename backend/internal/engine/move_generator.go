@@ -23,9 +23,9 @@ func (mg *MoveGenerator) GetValidMoves(pos Position) []Move {
 	case Pawn:
 		moves = mg.getPawnMoves(piece)
 	case Rook:
-		// Special handling for Other Side mode
-		if mg.board.Mode == OtherSide {
-			moves = mg.getOtherSideRookMoves(piece)
+		// Special handling for Coyote mode
+		if mg.board.Mode == Coyote {
+			moves = mg.getCoyoteRookMoves(piece)
 		} else {
 			moves = mg.getRookMoves(piece)
 		}
@@ -61,9 +61,9 @@ func (mg *MoveGenerator) getPawnMoves(pawn *Piece) []Move {
 		return mg.getRoyalPawnMoves(pawn)
 	}
 
-	// Special handling for Other Side mode
-	if mg.board.Mode == OtherSide {
-		return mg.getOtherSidePawnMoves(pawn)
+	// Special handling for Coyote mode
+	if mg.board.Mode == Coyote {
+		return mg.getCoyotePawnMoves(pawn)
 	}
 
 	moves := []Move{}
@@ -177,9 +177,9 @@ func (mg *MoveGenerator) getRoyalPawnMoves(pawn *Piece) []Move {
 	return moves
 }
 
-// getOtherSidePawnMoves - Special pawn rules for Other Side mode
+// getCoyotePawnMoves - Special pawn rules for Coyote mode
 // Pawns move normally (forward only), but cannot promote to rooks
-func (mg *MoveGenerator) getOtherSidePawnMoves(pawn *Piece) []Move {
+func (mg *MoveGenerator) getCoyotePawnMoves(pawn *Piece) []Move {
 	moves := []Move{}
 	direction := 1
 	startRow := 1
@@ -195,7 +195,7 @@ func (mg *MoveGenerator) getOtherSidePawnMoves(pawn *Piece) []Move {
 	oneStep := pawn.Position.Offset(direction, 0)
 	if oneStep.IsValid() && mg.board.GetPieceAt(oneStep) == nil {
 		if oneStep.Row == promotionRow {
-			// Promotion - but NO ROOK allowed in Other Side mode
+			// Promotion - but NO ROOK allowed in Coyote mode
 			for _, promoPiece := range []PieceType{Queen, Bishop, Knight} {
 				move := NewMove(pawn.Position, oneStep, pawn)
 				move.IsPromotion = true
@@ -255,8 +255,8 @@ func (mg *MoveGenerator) getOtherSidePawnMoves(pawn *Piece) []Move {
 	return moves
 }
 
-// getOtherSideRookMoves - Rooks can only capture opponent rooks in Other Side mode
-func (mg *MoveGenerator) getOtherSideRookMoves(rook *Piece) []Move {
+// getCoyoteRookMoves - Rooks can only capture opponent rooks in Coyote mode
+func (mg *MoveGenerator) getCoyoteRookMoves(rook *Piece) []Move {
 	allMoves := mg.getSlidingMoves(rook, [][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}})
 	
 	// Filter: rooks can only capture opponent rooks (not other pieces)
@@ -411,8 +411,8 @@ func (mg *MoveGenerator) getKingMoves(king *Piece) []Move {
 		}
 	}
 
-	// Castling (not in Teleport or OtherSide mode)
-	if mg.board.Mode != Teleport && mg.board.Mode != OtherSide && !king.HasMoved {
+	// Castling (not in Teleport or Coyote mode)
+	if mg.board.Mode != Teleport && mg.board.Mode != Coyote && !king.HasMoved {
 		moves = append(moves, mg.getCastlingMoves(king)...)
 	}
 
@@ -1400,9 +1400,9 @@ func (mg *MoveGenerator) canAttackSquareOnBoard(board *Board, piece *Piece, targ
 		}
 	}
 
-	// OTHER SIDE MODE: Rooks can ONLY attack/capture opponent rooks, not the king or other pieces
+	// COYOTE MODE: Rooks can ONLY attack/capture opponent rooks, not the king or other pieces
 	// This means rooks should NEVER put the king in check in this mode
-	if board.Mode == OtherSide && piece.Type == Rook {
+	if board.Mode == Coyote && piece.Type == Rook {
 		// Check what piece is at the target position
 		targetPiece := board.GetPieceAt(target)
 		if targetPiece == nil {

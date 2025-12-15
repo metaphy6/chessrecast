@@ -6,7 +6,7 @@ type GameMode int
 const (
 	Classic GameMode = iota
 	RoyalPawns
-	OtherSide
+	Coyote
 	Heir
 	Truce
 	Snare
@@ -22,7 +22,7 @@ func (gm GameMode) String() string {
 	names := []string{
 		"classic",
 		"royal_pawns",
-		"other_side",
+		"coyote",
 		"heir",
 		"truce",
 		"snare",
@@ -44,7 +44,7 @@ func ParseGameMode(s string) GameMode {
 	modes := map[string]GameMode{
 		"classic":         Classic,
 		"royal_pawns":     RoyalPawns,
-		"other_side":      OtherSide,
+		"coyote":           Coyote,
 		"heir":            Heir,
 		"truce":           Truce,
 		"snare":           Snare,

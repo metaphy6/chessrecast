@@ -94,11 +94,11 @@ class Orchestrator {
       }
     }
 
-    // Check for Other Side mode special moves (rook capture or back rank reached)
-    if (board.gameType == ModesEnum.otherSide) {
-      final otherSideBoard = modes.otherSide.handleSpecialMove(board, move);
-      if (otherSideBoard != null) {
-        return updateGameStatus(otherSideBoard);
+    // Check for Coyote mode special moves (rook capture or back rank reached)
+    if (board.gameType == ModesEnum.coyote) {
+      final coyoteBoard = modes.coyote.handleSpecialMove(board, move);
+      if (coyoteBoard != null) {
+        return updateGameStatus(coyoteBoard);
       }
     }
 

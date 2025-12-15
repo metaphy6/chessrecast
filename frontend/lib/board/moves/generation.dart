@@ -126,8 +126,8 @@ extension MoveGeneration on ChessBoard {
         return modes.kingsBattle.filterMoves(potentialMoves, piece, this);
       case ModesEnum.saveTheQueen:
         return modes.saveTheQueen.filterMoves(potentialMoves, piece, this);
-      case ModesEnum.otherSide:
-        return modes.otherSide.filterMoves(potentialMoves, piece, this);
+      case ModesEnum.coyote:
+        return modes.coyote.filterMoves(potentialMoves, piece, this);
       default:
         return potentialMoves;
     }
@@ -153,8 +153,8 @@ extension MoveGeneration on ChessBoard {
 
   List<ChessMove> _getPawnMoves(ChessPiece pawn) {
     // Check if the game mode has custom pawn moves
-    if (gameType == ModesEnum.otherSide) {
-      final customMoves = modes.otherSide.getPawnMoves(pawn, this);
+    if (gameType == ModesEnum.coyote) {
+      final customMoves = modes.coyote.getPawnMoves(pawn, this);
       if (customMoves != null) return customMoves;
     }
 
@@ -281,8 +281,8 @@ extension MoveGeneration on ChessBoard {
       return ['R', 'B', 'N']; // Rook, Bishop, Knight only
     }
 
-    // Check for Other Side mode - no rook promotion allowed
-    if (gameType == ModesEnum.otherSide) {
+    // Check for Coyote mode - no rook promotion allowed
+    if (gameType == ModesEnum.coyote) {
       return ['Q', 'B', 'N']; // Queen, Bishop, Knight only
     }
 
@@ -379,8 +379,8 @@ extension MoveGeneration on ChessBoard {
     ];
     final moves = generateStepMoves(king, directions);
 
-    // Add castling moves if conditions are met (not in Teleport or OtherSide mode)
-    if (gameType != ModesEnum.teleport && gameType != ModesEnum.otherSide) {
+    // Add castling moves if conditions are met (not in Teleport or Coyote mode)
+    if (gameType != ModesEnum.teleport && gameType != ModesEnum.coyote) {
       if (king.color == PieceColor.white) {
         // White kingside castling (O-O)
         if (whiteCanCastleKingside && canCastleKingside(king.color)) {

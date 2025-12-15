@@ -25,17 +25,17 @@ void logError(dynamic message, [Object? error, StackTrace? stackTrace]) {
 
 // ===== GAME MODE SPECIFIC LOGGING =====
 
-/// Other Side Mode: Rook reached opponent's back rank
-void logOtherSideBackRank(String playerColor) {
+/// Coyote Mode: Rook reached opponent's back rank
+void logCoyoteBackRank(String playerColor) {
   debugPrint(
-    '🏆 OTHER SIDE - Back Rank: $playerColor rook reached opponent\'s back rank! VICTORY!',
+    '🏆 COYOTE - Back Rank: $playerColor rook reached opponent\'s back rank! VICTORY!',
   );
 }
 
-/// Other Side Mode: Rook was captured
-void logOtherSideRookCapture(String capturedBy, String position) {
+/// Coyote Mode: Both rooks were captured
+void logCoyoteRookCapture(String capturedBy, String position) {
   debugPrint(
-    '⚔️ OTHER SIDE - Rook Capture: Rook captured by $capturedBy at $position! VICTORY!',
+    '⚔️ COYOTE - Both Rooks Captured: Final rook captured by $capturedBy at $position! VICTORY!',
   );
 }
 

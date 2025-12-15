@@ -11,7 +11,7 @@ export 'friendly_fire.dart';
 export 'heir.dart';
 export 'kings_battle.dart';
 // modes_enum exported above
-export 'other_side.dart';
+export 'coyote.dart';
 export 'royal_pawns.dart';
 export 'save_the_queen.dart';
 export 'succession.dart';

@@ -531,7 +531,7 @@ func (b *Bot) getModeSpecificScore(board *engine.Board) float64 {
 			}
 		}
 
-	case engine.OtherSide:
+	case engine.Coyote:
 		// Goal: Get rook to opponent's back rank - this is the PRIMARY objective
 		// ALSO: Defend your rook and attack opponent's rook
 		targetRow := 7
