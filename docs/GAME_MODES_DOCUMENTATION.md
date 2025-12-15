@@ -104,8 +104,9 @@ Chess Recast is a novel chess game featuring 14 unique game modes, each introduc
 - Can promote to Rook, Bishop, or Knight (NOT Queen - already have 2)
 - Your LAST pawn MUST promote to King (no choice)
 - Cannot promote to King if promotion square is under attack
-- Capturing any queen = instant win for captor
-- Running out of pawns = instant loss (no way to promote to King)
+- **Instant loss conditions:**
+  - Any of your queens are captured
+  - You lose all of your pawns (no way to promote to King)
 - 50 half-move draw rule applies (25 white + 25 black with no captures/pawn moves)
 
 ---
