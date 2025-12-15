@@ -216,8 +216,11 @@ class SaveTheQueen implements GameMode {
           // Track repeated queen captures
           final captureKey =
               '${move.piece.color}_${move.from.row}_${move.from.col}_captures_${capturedQueen.color}';
-          final newCaptureCounter = Map<String, int>.from(board.queenCaptureCounter);
-          newCaptureCounter[captureKey] = (newCaptureCounter[captureKey] ?? 0) + 1;
+          final newCaptureCounter = Map<String, int>.from(
+            board.queenCaptureCounter,
+          );
+          newCaptureCounter[captureKey] =
+              (newCaptureCounter[captureKey] ?? 0) + 1;
 
           // Execute the capture
           var newBoard = board.makeMove(move);

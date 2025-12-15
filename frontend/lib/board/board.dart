@@ -25,7 +25,8 @@ class ChessBoard extends Equatable {
   final bool blackHasPromotedKing;
   final List<String> positionHistory; // For threefold repetition
   final Map<PieceColor, bool> escapedQueens; // For Save the Queen mode
-  final Map<String, int> queenCaptureCounter; // For Save the Queen mode - repeated captures
+  final Map<String, int>
+  queenCaptureCounter; // For Save the Queen mode - repeated captures
 
   const ChessBoard({
     required this.pieces,
@@ -378,7 +379,7 @@ class ChessBoard extends Equatable {
     if (canClaimFiftyMoveRule() || hasThreefoldRepetition()) {
       return true;
     }
-    
+
     // Save the Queen: Check for repeated queen capture (6 times)
     if (gameType == ModesEnum.saveTheQueen) {
       for (final count in queenCaptureCounter.values) {
@@ -387,7 +388,7 @@ class ChessBoard extends Equatable {
         }
       }
     }
-    
+
     return false;
   }
 
