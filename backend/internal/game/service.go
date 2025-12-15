@@ -571,32 +571,55 @@ func (sess *Session) updateGameState() {
 	}
 
 	// Check for fifty-move rule draw
+	// Save the Queen mode: 50 total half-moves (25 white + 25 black)
 	// Special endgames (Snare K+N+N vs K, Royal Pawns K+pieces vs K): 50 total moves (half-moves)
 	// Normal games: 50 full moves = 100 half-moves
 	fiftyMoveLimit := 100
-	isSpecialEndgame := sess.isSpecialEndgameRequiringFasterMate()
-	if isSpecialEndgame {
-		fiftyMoveLimit = 50 // Must mate within 50 total moves (white 25 + black 25)
-		log.Printf("🔍 Special endgame detected - fifty-move limit set to %d (current: %d)", fiftyMoveLimit, sess.Board.FiftyMoveRule)
+	
+	if sess.Board.Mode == engine.SaveTheQueen {
+		fiftyMoveLimit = 50 // Save the Queen: 50 half-moves (25 white + 25 black)
+	} else {
+		isSpecialEndgame := sess.isSpecialEndgameRequiringFasterMate()
+		if isSpecialEndgame {
+			fiftyMoveLimit = 50 // Must mate within 50 total moves (white 25 + black 25)
+			log.Printf("🔍 Special endgame detected - fifty-move limit set to %d (current: %d)", fiftyMoveLimit, sess.Board.FiftyMoveRule)
+		}
 	}
 
 	if sess.Board.FiftyMoveRule >= fiftyMoveLimit {
-		if fiftyMoveLimit == 50 {
-			log.Printf("🏳️ Draw: Special endgame fifty-move rule triggered (%d moves without capture or pawn move - must mate within 50 moves)", sess.Board.FiftyMoveRule)
-			sess.State = engine.Draw
-			sess.Result = &engine.GameResult{
-				State:  engine.Draw,
-				Reason: "Draw - failed to mate within 50 moves",
-			}
+		reasonMsg := ""
+		if sess.Board.Mode == engine.SaveTheQueen {
+			reasonMsg = "Draw - 50 moves without capture (Save the Queen rule)"
+			log.Printf("🏳️ Draw: Save the Queen fifty-move rule triggered (%d half-moves)", sess.Board.FiftyMoveRule)
+		} else if fiftyMoveLimit == 50 {
+			reasonMsg = "Draw - failed to mate within 50 moves"
+			log.Printf("🏳️ Draw: Special endgame fifty-move rule triggered (%d moves)", sess.Board.FiftyMoveRule)
 		} else {
-			log.Printf("🏳️ Draw: Fifty-move rule triggered (%d half-moves without capture or pawn move)", sess.Board.FiftyMoveRule)
-			sess.State = engine.Draw
-			sess.Result = &engine.GameResult{
-				State:  engine.Draw,
-				Reason: "Draw - 50 moves without capture or pawn move",
-			}
+			reasonMsg = "Draw - 50 moves without capture or pawn move"
+			log.Printf("🏳️ Draw: Fifty-move rule triggered (%d half-moves)", sess.Board.FiftyMoveRule)
+		}
+		
+		sess.State = engine.Draw
+		sess.Result = &engine.GameResult{
+			State:  engine.Draw,
+			Reason: reasonMsg,
 		}
 		return
+	}
+
+	// Save the Queen: Check for repeated queen capture draw (6 times)
+	if sess.Board.Mode == engine.SaveTheQueen {
+		for captureKey, count := range sess.Board.QueenCaptureCounter {
+			if count >= 6 {
+				log.Printf("🏳️ Draw: Save the Queen - same queen captured 6 times (%s)", captureKey)
+				sess.State = engine.Draw
+				sess.Result = &engine.GameResult{
+					State:  engine.Draw,
+					Reason: "Draw - queen captured 6 times by same piece",
+				}
+				return
+			}
+		}
 	}
 
 	// Check for insufficient material draw

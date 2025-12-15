@@ -25,6 +25,7 @@ class ChessBoard extends Equatable {
   final bool blackHasPromotedKing;
   final List<String> positionHistory; // For threefold repetition
   final Map<PieceColor, bool> escapedQueens; // For Save the Queen mode
+  final Map<String, int> queenCaptureCounter; // For Save the Queen mode - repeated captures
 
   const ChessBoard({
     required this.pieces,
@@ -43,6 +44,7 @@ class ChessBoard extends Equatable {
     this.blackHasPromotedKing = false,
     this.positionHistory = const [],
     this.escapedQueens = const {},
+    this.queenCaptureCounter = const {},
   });
 
   /// Creates the initial chess board setup
@@ -129,6 +131,7 @@ class ChessBoard extends Equatable {
       escapedQueens: gameType == ModesEnum.saveTheQueen
           ? {PieceColor.white: false, PieceColor.black: false}
           : const {},
+      queenCaptureCounter: gameType == ModesEnum.saveTheQueen ? {} : const {},
     );
     // Add initial position to history for threefold repetition tracking
     return board.copyWith(positionHistory: [board.getPositionKey()]);
@@ -339,9 +342,12 @@ class ChessBoard extends Equatable {
   }
 
   /// Checks if the 50-move rule applies (draw available)
-  /// The fifty-move rule: 50 consecutive full moves (100 half-moves/plies)
-  /// by both players without any pawn move or capture
+  /// Save the Queen mode: 50 half-moves (25 white + 25 black)
+  /// Normal games: 100 half-moves (50 full moves)
   bool canClaimFiftyMoveRule() {
+    if (gameType == ModesEnum.saveTheQueen) {
+      return halfMoveClock >= 50; // Save the Queen: 50 half-moves total
+    }
     return halfMoveClock >= 100; // 100 half-moves = 50 full moves
   }
 
@@ -368,7 +374,21 @@ class ChessBoard extends Equatable {
 
   /// Checks if draw conditions are met (50-move rule or threefold repetition)
   bool shouldAutoDraw() {
-    return canClaimFiftyMoveRule() || hasThreefoldRepetition();
+    // Check standard draw conditions
+    if (canClaimFiftyMoveRule() || hasThreefoldRepetition()) {
+      return true;
+    }
+    
+    // Save the Queen: Check for repeated queen capture (6 times)
+    if (gameType == ModesEnum.saveTheQueen) {
+      for (final count in queenCaptureCounter.values) {
+        if (count >= 6) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
   }
 
   /// Creates a copy of the board with updated properties
@@ -389,6 +409,7 @@ class ChessBoard extends Equatable {
     bool? blackHasPromotedKing,
     List<String>? positionHistory,
     Map<PieceColor, bool>? escapedQueens,
+    Map<String, int>? queenCaptureCounter,
   }) {
     return ChessBoard(
       pieces: pieces ?? this.pieces,
@@ -411,6 +432,7 @@ class ChessBoard extends Equatable {
       blackHasPromotedKing: blackHasPromotedKing ?? this.blackHasPromotedKing,
       positionHistory: positionHistory ?? this.positionHistory,
       escapedQueens: escapedQueens ?? this.escapedQueens,
+      queenCaptureCounter: queenCaptureCounter ?? this.queenCaptureCounter,
     );
   }
 
@@ -432,6 +454,7 @@ class ChessBoard extends Equatable {
     blackHasPromotedKing,
     positionHistory,
     escapedQueens,
+    queenCaptureCounter,
   ];
 
   /// Converts the board to FEN notation (piece placement only for simplicity)

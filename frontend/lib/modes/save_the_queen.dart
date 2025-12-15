@@ -66,7 +66,7 @@ class SaveTheQueen implements GameMode {
         // but can only move like a king when crossing back to opponent's half
         final safeMoves = filteredMoves.where((move) {
           final targetInOwnHalf = _isInOwnHalf(move.to, piece.color);
-          
+
           if (targetInOwnHalf) {
             // Target is in own half - allow full queen power
             return true;
@@ -119,6 +119,7 @@ class SaveTheQueen implements GameMode {
     } else {
       // Non-queen pieces
       // Filter out moves that would capture a queen on its prison square
+      // OR capture a prisoner queen when its prison is occupied
       final filteredMoves = moves.where((move) {
         final targetPiece = board.getPieceAt(move.to);
         if (targetPiece != null && targetPiece.type == PieceType.queen) {
@@ -130,6 +131,27 @@ class SaveTheQueen implements GameMode {
           if (isOnPrisonSquare) {
             // Cannot capture queen on prison square
             return false;
+          }
+
+          // Check if capturing a prisoner queen (in opponent's half)
+          final queenInOwnHalf = _isInOwnHalf(
+            targetPiece.position,
+            targetPiece.color,
+          );
+          if (!queenInOwnHalf) {
+            // Queen is a prisoner - check if prison is occupied
+            final prisonPosition = targetPiece.color == PieceColor.white
+                ? whiteQueenPrison
+                : blackQueenPrison;
+
+            final prisonOccupied = board.pieces.any(
+              (p) => p.position == prisonPosition,
+            );
+
+            if (prisonOccupied) {
+              // Prison is occupied - cannot capture prisoner queen
+              return false;
+            }
           }
         }
         return true;
@@ -191,6 +213,12 @@ class SaveTheQueen implements GameMode {
         } else {
           // Prison is empty - return queen to prison
 
+          // Track repeated queen captures
+          final captureKey =
+              '${move.piece.color}_${move.from.row}_${move.from.col}_captures_${capturedQueen.color}';
+          final newCaptureCounter = Map<String, int>.from(board.queenCaptureCounter);
+          newCaptureCounter[captureKey] = (newCaptureCounter[captureKey] ?? 0) + 1;
+
           // Execute the capture
           var newBoard = board.makeMove(move);
 
@@ -203,7 +231,10 @@ class SaveTheQueen implements GameMode {
           final newPieces = newBoard.pieces.toList();
           newPieces.add(prisonedQueen);
 
-          newBoard = newBoard.copyWith(pieces: newPieces);
+          newBoard = newBoard.copyWith(
+            pieces: newPieces,
+            queenCaptureCounter: newCaptureCounter,
+          );
 
           return newBoard;
         }
