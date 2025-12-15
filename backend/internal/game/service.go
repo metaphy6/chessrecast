@@ -858,7 +858,12 @@ func (sess *Session) isDrawByInsufficientMaterial() bool {
 	whitePieces := sess.Board.GetPiecesOfColor(engine.White)
 	blackPieces := sess.Board.GetPiecesOfColor(engine.Black)
 
-	// Apply classic chess insufficient material rules first (applies to all modes)
+	// Royal Pawns mode: special insufficient material rules (check first)
+	if sess.Board.Mode == engine.RoyalPawns {
+		return sess.isDrawByInsufficientMaterialRoyalPawns(whitePieces, blackPieces)
+	}
+
+	// Apply classic chess insufficient material rules (applies to all other modes)
 	if sess.isDrawByInsufficientMaterialClassic(whitePieces, blackPieces) {
 		return true
 	}
@@ -866,13 +871,6 @@ func (sess *Session) isDrawByInsufficientMaterial() bool {
 	// Snare mode: special insufficient material rules
 	if sess.Board.Mode == engine.Snare {
 		if sess.isDrawByInsufficientMaterialSnare(whitePieces, blackPieces) {
-			return true
-		}
-	}
-
-	// Royal Pawns mode: special insufficient material rules
-	if sess.Board.Mode == engine.RoyalPawns {
-		if sess.isDrawByInsufficientMaterialRoyalPawns(whitePieces, blackPieces) {
 			return true
 		}
 	}
@@ -1035,6 +1033,7 @@ func (sess *Session) isSpecialEndgameRequiringFasterMate() bool {
 }
 
 // isDrawByInsufficientMaterialRoyalPawns checks Royal Pawns mode insufficient material rules
+// Pawns can't promote but move like kings, so they can assist in checkmates
 func (sess *Session) isDrawByInsufficientMaterialRoyalPawns(whitePieces, blackPieces []*engine.Piece) bool {
 	whitePawns := 0
 	blackPawns := 0
@@ -1053,18 +1052,43 @@ func (sess *Session) isDrawByInsufficientMaterialRoyalPawns(whitePieces, blackPi
 
 	totalPieces := len(whitePieces) + len(blackPieces)
 
-	// Two kings and two pawns - ONLY if each player has one pawn
-	// (K+P vs K+P is draw, but K+P+P vs K is not)
+	// King vs King - draw
+	if totalPieces == 2 {
+		return true
+	}
+
+	// K+P vs K+P where each has exactly one pawn - draw
+	if totalPieces == 4 && whitePawns == 1 && blackPawns == 1 {
+		return true
+	}
+
+	// If there are pawns, they can assist in checkmate (don't draw yet)
+	if whitePawns > 0 || blackPawns > 0 {
+		return false
+	}
+
+	// No pawns left - check Royal Pawns specific insufficient material
+	// K+N vs K+N is insufficient in Royal Pawns (can't checkmate without pawns to promote)
 	if totalPieces == 4 {
-		if whitePawns == 1 && blackPawns == 1 {
-			return true // Each player has one pawn - insufficient material
+		whiteKnights := 0
+		blackKnights := 0
+		for _, p := range whitePieces {
+			if p.Type == engine.Knight {
+				whiteKnights++
+			}
+		}
+		for _, p := range blackPieces {
+			if p.Type == engine.Knight {
+				blackKnights++
+			}
+		}
+		if whiteKnights == 1 && blackKnights == 1 {
+			return true // K+N vs K+N is insufficient
 		}
 	}
 
-	// Classic insufficient material for non-pawn pieces still applies
-	// (handled by isDrawByInsufficientMaterialClassic)
-
-	return false
+	// Apply classic insufficient material for remaining pieces
+	return sess.isDrawByInsufficientMaterialClassic(whitePieces, blackPieces)
 }
 
 // broadcastUpdate sends update to all subscribers
