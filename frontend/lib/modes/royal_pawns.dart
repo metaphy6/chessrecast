@@ -11,6 +11,11 @@ import 'modes_enum.dart';
 /// - No two-square initial move
 /// - No en passant in this mode
 /// - Pawn moves count as regular moves (increment fifty-move counter)
+///
+/// Draw Conditions:
+/// - Standard 100 half-move rule (50 full moves)
+/// - Insufficient material: K vs K, K+P vs K+P, or K+N vs K+N (no pawns)
+/// - With pawns on board, checkmate is possible (pawns assist like kings)
 class RoyalPawns extends GameMode {
   @Deprecated(
     'Use the `modes.royalPawns` alias from modes_cache.dart instead of direct instantiation',
