@@ -714,7 +714,7 @@ func (b *Bot) getModeSpecificScore(board *engine.Board) float64 {
 			}
 		}
 
-	case engine.SaveTheKing:
+	case engine.Succession:
 		// Bonus for having promoted kings - win condition!
 		score += float64(board.PromotedKings[b.Color]) * 1500.0
 		// Strong bonus for pawns near promotion

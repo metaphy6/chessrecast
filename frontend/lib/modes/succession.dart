@@ -3,7 +3,7 @@ import '../debug.dart';
 import 'game_mode.dart';
 import 'modes_enum.dart';
 
-/// Save the King Mode: Race to promote a pawn to King!
+/// Succession Mode: Race to promote a pawn to King!
 ///
 /// SETUP:
 /// - Each side starts with TWO queens (no king initially)
@@ -12,39 +12,35 @@ import 'modes_enum.dart';
 ///
 /// RULES:
 /// 1. First player to promote a pawn to King wins immediately
-/// 2. Can promote to any piece (not King) during the game
+/// 2. Can promote to Rook, Bishop, or Knight (NOT Queen - already have 2)
 /// 3. Your LAST pawn must promote to King (no choice)
 /// 4. Cannot promote to King if the promotion square is under attack
 /// 5. Lose immediately if:
-///    - Any of your queens are captured
+///    - Any of your queens are captured (instant win for opponent)
 ///    - You run out of pawns (no way to promote to King)
-/// 6. Draw if 50 full moves (100 half-moves) with no captures or pawn moves
+/// 6. Draw if 50 half-moves (25 white + 25 black) with no captures or pawn moves
 ///
 /// STARTING POSITION:
 /// White: Two queens on d1 and e1
 /// Black: Two queens on d8 and e8
-class SaveTheKing extends GameMode {
+class Succession extends GameMode {
   @Deprecated(
-    'Use the `modes.saveTheKing` alias from modes_cache.dart instead of direct instantiation',
+    'Use the `modes.succession` alias from modes_cache.dart instead of direct instantiation',
   )
-  const SaveTheKing();
-  // Track halfmoves for 50-move draw rule (static to persist across instances)
-  static int _halfmoveClock = 0;
+  const Succession();
 
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
-    // Update halfmove clock
-    if (move.capturedPiece != null || move.piece.type == PieceType.pawn) {
-      _halfmoveClock = 0;
-    } else {
-      _halfmoveClock++;
-    }
-
     // Check if a queen was captured - instant loss for the player who lost the queen
     if (move.capturedPiece != null &&
         move.capturedPiece!.type == PieceType.queen) {
       // Opponent wins by checkmate
       final newBoard = board.makeMove(move);
+      final winner = move.piece.color == PieceColor.white ? 'White' : 'Black';
+      final loser = move.piece.color == PieceColor.white ? 'Black' : 'White';
+      final position =
+          '${String.fromCharCode(97 + move.to.col)}${8 - move.to.row}';
+      logSuccessionQueenCapture(winner, loser, position);
       return newBoard.copyWith(gameStatus: GameStatus.checkmate);
     }
 
@@ -65,7 +61,7 @@ class SaveTheKing extends GameMode {
       final winner = movingColor == PieceColor.white ? 'White' : 'Black';
       final position =
           '${String.fromCharCode(97 + move.to.col)}${8 - move.to.row}';
-      logSaveTheKingPromotion(winner, position);
+      logSuccessionPromotion(winner, position);
       return newBoard.copyWith(gameStatus: GameStatus.checkmate);
     }
 
@@ -106,8 +102,8 @@ class SaveTheKing extends GameMode {
       return ['K']; // King
     }
 
-    // Not the last pawn - can promote to any piece
-    final options = ['Q', 'R', 'B', 'N']; // Queen, Rook, Bishop, Knight
+    // Not the last pawn - can promote to Rook, Bishop, or Knight (NOT Queen)
+    final options = ['R', 'B', 'N']; // Rook, Bishop, Knight
 
     // Can also promote to King if square is safe
     if (!squareUnderAttack) {
@@ -145,11 +141,6 @@ class SaveTheKing extends GameMode {
       return GameStatus.checkmate;
     }
 
-    // Check for 50-move draw (25 moves per side)
-    if (_halfmoveClock >= 50) {
-      return GameStatus.draw;
-    }
-
     // Check for stalemate
     if (!hasValidMoves && !currentPlayerInCheck) {
       return GameStatus.draw;
@@ -158,7 +149,7 @@ class SaveTheKing extends GameMode {
     return null; // Use default status logic
   }
 
-  /// Creates the initial board for Save the King mode
+  /// Creates the initial board for Succession mode
   static ChessBoard getInitialBoard() {
     final pieces = <ChessPiece>[];
 
@@ -300,14 +291,11 @@ class SaveTheKing extends GameMode {
       );
     }
 
-    // Reset halfmove clock
-    _halfmoveClock = 0;
-
     return ChessBoard(
       pieces: pieces,
       currentPlayer: PieceColor.white,
       gameStatus: GameStatus.ongoing,
-      gameType: ModesEnum.saveTheKing,
+      gameType: ModesEnum.succession,
     );
   }
 }

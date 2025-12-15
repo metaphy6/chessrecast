@@ -40,8 +40,8 @@ enum ModesEnum {
     'Save the Queen',
     'Queens start as prisoners on opponent\'s side, moving like kings and unable to capture. Escape to your half to gain full power. Captured escaped queen = instant win!',
   ),
-  saveTheKing(
-    'Save the King',
+  succession(
+    'Succession',
     'Start with two queens each. Race to promote a pawn to King! Lose if a queen is captured or you run out of pawns. Last pawn auto-promotes to King.',
   );
 

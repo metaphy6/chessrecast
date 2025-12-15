@@ -53,17 +53,17 @@ void logSaveTheQueenCapture(String capturedBy) {
   );
 }
 
-/// Save the King Mode: Promoted to King
-void logSaveTheKingPromotion(String playerColor, String position) {
+/// Succession Mode: Promoted to King
+void logSuccessionPromotion(String playerColor, String position) {
   debugPrint(
-    '👸 SAVE THE KING - Promotion: $playerColor pawn promoted to King at $position!',
+    '👑 SUCCESSION - Promotion: $playerColor pawn promoted to King at $position - Victory!',
   );
 }
 
-/// Save the King Mode: Promoted King captured
-void logSaveTheKingKingCapture(String capturedBy, String position) {
+/// Succession Mode: Queen captured
+void logSuccessionQueenCapture(String winner, String loser, String position) {
   debugPrint(
-    '💀 SAVE THE KING - King Capture: Promoted King captured by $capturedBy at $position!',
+    '♕ SUCCESSION - Queen Capture: $winner captured $loser\'s queen at $position - Victory!',
   );
 }
 

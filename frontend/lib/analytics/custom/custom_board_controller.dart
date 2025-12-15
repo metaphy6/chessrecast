@@ -298,9 +298,9 @@ class CustomBoardController extends GetxController {
     );
 
     // Heir mode: kings can be missing (they can be captured and promoted back)
-    // Save the King mode: starts with no kings (must promote to get one)
+    // Succession mode: starts with no kings (must promote to get one)
     if (_selectedGameType == ModesEnum.heir ||
-        _selectedGameType == ModesEnum.saveTheKing) {
+        _selectedGameType == ModesEnum.succession) {
       // In these modes, at least one piece must exist
       if (_customPieces.isEmpty) {
         return (false, 'Board must have at least one piece');

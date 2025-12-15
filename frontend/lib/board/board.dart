@@ -50,9 +50,13 @@ class ChessBoard extends Equatable {
 
   /// Creates the initial chess board setup
   factory ChessBoard.initial({ModesEnum gameType = ModesEnum.classic}) {
-    // Special handling for Save the King mode - uses custom initial setup
-    if (gameType == ModesEnum.saveTheKing) {
-      return SaveTheKing.getInitialBoard();
+    // Special handling for Save the Queen mode
+    if (gameType == ModesEnum.saveTheQueen) {
+      return SaveTheQueen.getInitialBoard();
+    }
+    // Special handling for Succession mode - uses custom initial setup
+    if (gameType == ModesEnum.succession) {
+      return Succession.getInitialBoard();
     }
 
     final pieces = <ChessPiece>[];
@@ -344,10 +348,12 @@ class ChessBoard extends Equatable {
 
   /// Checks if the 50-move rule applies (draw available)
   /// Save the Queen mode: 50 half-moves (25 white + 25 black)
+  /// Succession mode: 50 half-moves (25 white + 25 black)
   /// Normal games: 100 half-moves (50 full moves)
   bool canClaimFiftyMoveRule() {
-    if (gameType == ModesEnum.saveTheQueen) {
-      return halfMoveClock >= 50; // Save the Queen: 50 half-moves total
+    if (gameType == ModesEnum.saveTheQueen ||
+        gameType == ModesEnum.succession) {
+      return halfMoveClock >= 50; // 50 half-moves total (25 white + 25 black)
     }
     return halfMoveClock >= 100; // 100 half-moves = 50 full moves
   }

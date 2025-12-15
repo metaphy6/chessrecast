@@ -572,12 +572,13 @@ func (sess *Session) updateGameState() {
 
 	// Check for fifty-move rule draw
 	// Save the Queen mode: 50 total half-moves (25 white + 25 black)
+	// Succession mode: 50 total half-moves (25 white + 25 black)
 	// Special endgames (Snare K+N+N vs K, Royal Pawns K+pieces vs K): 50 total moves (half-moves)
 	// Normal games: 50 full moves = 100 half-moves
 	fiftyMoveLimit := 100
 	
-	if sess.Board.Mode == engine.SaveTheQueen {
-		fiftyMoveLimit = 50 // Save the Queen: 50 half-moves (25 white + 25 black)
+	if sess.Board.Mode == engine.SaveTheQueen || sess.Board.Mode == engine.Succession {
+		fiftyMoveLimit = 50 // 50 half-moves (25 white + 25 black)
 	} else {
 		isSpecialEndgame := sess.isSpecialEndgameRequiringFasterMate()
 		if isSpecialEndgame {
@@ -591,6 +592,9 @@ func (sess *Session) updateGameState() {
 		if sess.Board.Mode == engine.SaveTheQueen {
 			reasonMsg = "Draw - 50 moves without capture (Save the Queen rule)"
 			log.Printf("🏳️ Draw: Save the Queen fifty-move rule triggered (%d half-moves)", sess.Board.FiftyMoveRule)
+		} else if sess.Board.Mode == engine.Succession {
+			reasonMsg = "Draw - 50 moves without capture (Succession rule)"
+			log.Printf("🏳️ Draw: Succession fifty-move rule triggered (%d half-moves)", sess.Board.FiftyMoveRule)
 		} else if fiftyMoveLimit == 50 {
 			reasonMsg = "Draw - failed to mate within 50 moves"
 			log.Printf("🏳️ Draw: Special endgame fifty-move rule triggered (%d moves)", sess.Board.FiftyMoveRule)
@@ -697,6 +701,8 @@ func (sess *Session) checkGameModeVictory() bool {
 		return sess.checkOtherSideVictory(lastMove)
 	case engine.SaveTheQueen:
 		return sess.checkSaveTheQueenVictory(lastMove)
+	case engine.Succession:
+		return sess.checkSuccessionVictory(lastMove)
 	// Add other game modes here as needed
 	default:
 		return false
@@ -805,6 +811,25 @@ func (sess *Session) checkSaveTheQueenVictory(lastMove *engine.Move) bool {
 			logf("🏆 Save the Queen: %s wins by reaching opponent's prison!", winner)
 			return true
 		}
+	}
+
+	return false
+}
+
+// checkSuccessionVictory checks Succession mode win conditions:
+// 1. Any queen is captured - instant loss for the player who lost the queen
+func (sess *Session) checkSuccessionVictory(lastMove *engine.Move) bool {
+	// Check if a queen was captured - captor wins!
+	if lastMove.CapturedPiece != nil && lastMove.CapturedPiece.Type == engine.Queen {
+		winner := lastMove.Piece.Color
+		sess.State = engine.Checkmate
+		sess.Result = &engine.GameResult{
+			State:  engine.Checkmate,
+			Winner: winner,
+			Reason: "Queen captured - Succession victory!",
+		}
+		logf("🏆 Succession: %s wins by capturing opponent's queen!", winner)
+		return true
 	}
 
 	return false

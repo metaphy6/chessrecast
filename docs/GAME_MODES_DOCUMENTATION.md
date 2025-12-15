@@ -92,7 +92,7 @@ Chess Recast is a novel chess game featuring 14 unique game modes, each introduc
 
 ---
 
-## Save the King Mode
+## Succession Mode
 **Description:** Race to promote a pawn to King; each side starts with two queens.
 **Setup:**
 - Each side has TWO queens (no king initially)
@@ -101,12 +101,12 @@ Chess Recast is a novel chess game featuring 14 unique game modes, each introduc
 
 **Rules:**
 - First player to promote a pawn to King wins immediately
-- Can promote to any piece except King during normal play
+- Can promote to Rook, Bishop, or Knight (NOT Queen - already have 2)
 - Your LAST pawn MUST promote to King (no choice)
 - Cannot promote to King if promotion square is under attack
-- Capturing any queen = instant loss
+- Capturing any queen = instant win for captor
 - Running out of pawns = instant loss (no way to promote to King)
-- 50-move draw rule applies (25 moves per side with no captures/pawn moves)
+- 50 half-move draw rule applies (25 white + 25 black with no captures/pawn moves)
 
 ---
 
@@ -190,7 +190,7 @@ Chess Recast is a novel chess game featuring 14 unique game modes, each introduc
 | Kings' Battle | Two-phase movement | Medium | Checkmate (after unlock) |
 | Other Side | Rook race | Medium | Rook to back rank |
 | Royal Pawns | King-like pawns | Low | Checkmate |
-| Save the King | Two queens, pawn race | High | First king promotion |
+| Succession | Two queens, pawn race | High | First king promotion |
 | Save the Queen | Prisoner queen escape | High | Queen escape + capture |
 | Snare | Knight entangle zones | Very High | Checkmate (knights alive) |
 | Teleport | King-rook swap | Medium | Checkmate |
@@ -202,6 +202,6 @@ Chess Recast is a novel chess game featuring 14 unique game modes, each introduc
 
 1. **Movement Restrictions:** Diamonds, Royal Pawns
 2. **Piece State Management:** Heir, Save the Queen
-3. **Asymmetric Objectives:** Other Side, Save the King, Teleport
+3. **Asymmetric Objectives:** Other Side, Succession, Teleport
 4. **Dynamic Board Rules:** Kings' Battle, Truce, Snare
 5. **Capture Modifications:** Diamonds, Friendly Fire, Snare
