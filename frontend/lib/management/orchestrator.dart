@@ -448,7 +448,15 @@ class Orchestrator {
     final whitePieces = board.getPiecesOfColor(PieceColor.white);
     final blackPieces = board.getPiecesOfColor(PieceColor.black);
 
-    // Apply classic chess insufficient material rules first
+    // Royal Pawns mode: special insufficient material rules (check first)
+    if (board.gameType == ModesEnum.royalPawns) {
+      if (_isDrawByInsufficientMaterialRoyalPawns(whitePieces, blackPieces)) {
+        return true;
+      }
+      return false; // Don't apply classic rules for Royal Pawns
+    }
+
+    // Apply classic chess insufficient material rules for other modes
     if (_isDrawByInsufficientMaterialClassic(whitePieces, blackPieces)) {
       return true;
     }
@@ -456,13 +464,6 @@ class Orchestrator {
     // Snare mode: special insufficient material rules
     if (board.gameType == ModesEnum.snare) {
       if (_isDrawByInsufficientMaterialSnare(whitePieces, blackPieces, board)) {
-        return true;
-      }
-    }
-
-    // Royal Pawns mode: special insufficient material rules
-    if (board.gameType == ModesEnum.royalPawns) {
-      if (_isDrawByInsufficientMaterialRoyalPawns(whitePieces, blackPieces)) {
         return true;
       }
     }
@@ -579,7 +580,7 @@ class Orchestrator {
   }
 
   /// Royal Pawns mode insufficient material rules
-  /// Pawns can't promote, so they're weaker. Apply relaxed rules.
+  /// Pawns can't promote but move like kings, so they can assist in checkmates
   bool _isDrawByInsufficientMaterialRoyalPawns(
     List<ChessPiece> whitePieces,
     List<ChessPiece> blackPieces,
@@ -593,57 +594,37 @@ class Orchestrator {
 
     final totalPieces = whitePieces.length + blackPieces.length;
 
-    // Two kings and one pawn (K+P vs K)
-    // In Royal Pawns, one pawn can potentially checkmate a lone king
-    // within 50 moves. This is checked separately by fifty-move rule.
-    // Do NOT declare immediate insufficient material for K+P vs K
+    // King vs King - draw
+    if (totalPieces == 2) {
+      return true;
+    }
 
-    // Two kings and two pawns - ONLY if each player has one pawn
-    // (K+P vs K+P is draw, but K+P+P vs K is not)
+    // K+P vs K+P where each has exactly one pawn - draw
+    if (totalPieces == 4 && whitePawns == 1 && blackPawns == 1) {
+      return true;
+    }
+
+    // If there are pawns, they can assist in checkmate (don't draw yet)
+    if (whitePawns > 0 || blackPawns > 0) {
+      return false;
+    }
+
+    // No pawns left - check Royal Pawns specific insufficient material
+    // K+N vs K+N is insufficient in Royal Pawns (can't checkmate without pawns to promote)
     if (totalPieces == 4) {
-      if (whitePawns == 1 && blackPawns == 1) {
-        return true; // Each player has one pawn - insufficient material
+      final whiteKnights = whitePieces
+          .where((p) => p.type == PieceType.knight)
+          .length;
+      final blackKnights = blackPieces
+          .where((p) => p.type == PieceType.knight)
+          .length;
+      if (whiteKnights == 1 && blackKnights == 1) {
+        return true; // K+N vs K+N is insufficient
       }
     }
 
-    // Classic insufficient material for non-pawn pieces still applies
-    final whiteNonPawns = <ChessPiece>[];
-    final blackNonPawns = <ChessPiece>[];
-
-    for (final p in whitePieces) {
-      if (p.type != PieceType.pawn) whiteNonPawns.add(p);
-    }
-    for (final p in blackPieces) {
-      if (p.type != PieceType.pawn) blackNonPawns.add(p);
-    }
-
-    // If there are only kings and one minor piece, it's a draw
-    if (whiteNonPawns.length + blackNonPawns.length == 3) {
-      // Two kings + one minor piece - find the non-king piece
-      ChessPiece? nonKingPiece;
-      for (final p in whiteNonPawns) {
-        if (p.type != PieceType.king) {
-          nonKingPiece = p;
-          break;
-        }
-      }
-      if (nonKingPiece == null) {
-        for (final p in blackNonPawns) {
-          if (p.type != PieceType.king) {
-            nonKingPiece = p;
-            break;
-          }
-        }
-      }
-
-      if (nonKingPiece != null &&
-          (nonKingPiece.type == PieceType.bishop ||
-              nonKingPiece.type == PieceType.knight)) {
-        return true;
-      }
-    }
-
-    return false;
+    // Apply classic insufficient material for remaining pieces
+    return _isDrawByInsufficientMaterialClassic(whitePieces, blackPieces);
   }
 
   /// Checks for draw by threefold repetition

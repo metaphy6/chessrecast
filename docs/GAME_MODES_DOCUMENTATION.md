@@ -90,6 +90,8 @@ Chess Recast is a novel chess game featuring 14 unique game modes, each introduc
 - No en passant
 - Significantly more mobile and dangerous pawn structure
 - Standard 100 half-move draw rule applies (pawn moves count as regular moves)
+- **Insufficient material:** K vs K, K+P vs K+P, K+N vs K+N (when no pawns remain)
+- Pawns can assist in checkmates (like extra kings), so K+N vs K with pawns is NOT insufficient
 
 ---
 
