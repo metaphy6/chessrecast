@@ -17,7 +17,7 @@ import 'modes_enum.dart';
 /// 4. Cannot promote to King if the promotion square is under attack
 /// 5. Lose immediately if:
 ///    - Any of your queens are captured (instant win for opponent)
-///    - You run out of pawns (no way to promote to King)
+///    - You lose all of your pawns (no way to promote to King)
 /// 6. Draw if 50 half-moves (25 white + 25 black) with no captures or pawn moves
 ///
 /// STARTING POSITION:
@@ -42,6 +42,27 @@ class Succession extends GameMode {
           '${String.fromCharCode(97 + move.to.col)}${8 - move.to.row}';
       logSuccessionQueenCapture(winner, loser, position);
       return newBoard.copyWith(gameStatus: GameStatus.checkmate);
+    }
+
+    // Check if a pawn was captured - check if opponent has any pawns left after this move
+    if (move.capturedPiece != null &&
+        move.capturedPiece!.type == PieceType.pawn) {
+      final newBoard = board.makeMove(move);
+      final opponentColor = move.capturedPiece!.color;
+
+      // Count remaining pawns for opponent
+      final opponentPawns = newBoard.pieces
+          .where((p) => p.color == opponentColor && p.type == PieceType.pawn)
+          .length;
+
+      if (opponentPawns == 0) {
+        // Opponent has no pawns left - instant loss
+        final winner = move.piece.color == PieceColor.white ? 'White' : 'Black';
+        logSuccessionNoPawns(winner);
+        return newBoard.copyWith(gameStatus: GameStatus.checkmate);
+      }
+
+      return newBoard;
     }
 
     // Check for promotion to King

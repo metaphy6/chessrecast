@@ -67,6 +67,13 @@ void logSuccessionQueenCapture(String winner, String loser, String position) {
   );
 }
 
+/// Succession Mode: Opponent lost all pawns
+void logSuccessionNoPawns(String winner) {
+  debugPrint(
+    '🏆 SUCCESSION - No Pawns: $winner wins - opponent has no pawns left!',
+  );
+}
+
 /// Teleport Mode: King-Rook swap
 void logTeleportSwap(String playerColor, String fromPos, String toPos) {
   debugPrint(
