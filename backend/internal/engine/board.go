@@ -361,8 +361,13 @@ func (b *Board) MakeMove(move Move) error {
 	// Update state
 	b.EnPassantSquare = nil
 	if piece != nil && piece.Type == Pawn {
-		b.FiftyMoveRule = 0
-		// Check for en passant opportunity
+		// In Royal Pawns mode, pawns move like kings and don't reset the counter
+		if b.Mode != RoyalPawns {
+			b.FiftyMoveRule = 0
+		} else {
+			b.FiftyMoveRule++ // Treat pawn moves like regular piece moves in Royal Pawns
+		}
+		// Check for en passant opportunity (not applicable in Royal Pawns mode)
 		if abs(move.From.Row-move.To.Row) == 2 {
 			b.EnPassantSquare = &Position{
 				Row: (move.From.Row + move.To.Row) / 2,
