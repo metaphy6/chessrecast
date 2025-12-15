@@ -28,11 +28,12 @@ type Board struct {
 	BlackCanCastleQueenside bool
 
 	// Mode-specific state
-	TruceActive      bool              // For Truce mode
-	PieceMoveCounter map[Position]int  // For Truce mode
-	KingsKillUnlock  bool              // For Kings' Battle mode
-	EscapedQueens    map[Color]bool    // For Save the Queen mode
-	PromotedKings    map[Color]int     // For Save the King mode
+	TruceActive         bool              // For Truce mode
+	PieceMoveCounter    map[Position]int  // For Truce mode
+	KingsKillUnlock     bool              // For Kings' Battle mode
+	EscapedQueens       map[Color]bool    // For Save the Queen mode
+	QueenCaptureCounter map[string]int    // For Save the Queen mode - tracks repeated queen captures
+	PromotedKings       map[Color]int     // For Save the King mode
 }
 
 // NewBoard creates a standard starting position
@@ -46,6 +47,7 @@ func NewBoard(mode GameMode) *Board {
 		BlackCanCastleQueenside: true,
 		PieceMoveCounter:        make(map[Position]int),
 		EscapedQueens:           make(map[Color]bool),
+		QueenCaptureCounter:     make(map[string]int),
 		PromotedKings:           make(map[Color]int),
 		TruceActive:             mode == Truce,
 		PositionHistory:         make([]string, 0),
@@ -185,6 +187,8 @@ func (b *Board) setupSaveTheQueen() {
 	whiteQueen := b.GetPieceAt(Position{Row: 0, Col: 3})
 	blackQueen := b.GetPieceAt(Position{Row: 7, Col: 3})
 
+	fmt.Printf("🔍 DEBUG setupSaveTheQueen: whiteQueen=%v, blackQueen=%v\n", whiteQueen, blackQueen)
+
 	// Clear both positions first
 	b.squares[0][3] = nil
 	b.squares[7][3] = nil
@@ -193,17 +197,21 @@ func (b *Board) setupSaveTheQueen() {
 	if whiteQueen != nil {
 		whiteQueen.Position = Position{Row: 7, Col: 3}
 		b.setPiece(whiteQueen)
+		fmt.Printf("✅ Moved white queen to d8 (row 7, col 3)\n")
 	}
 
 	// Move black queen to white's side (imprisoned at d1)
 	if blackQueen != nil {
 		blackQueen.Position = Position{Row: 0, Col: 3}
 		b.setPiece(blackQueen)
+		fmt.Printf("✅ Moved black queen to d1 (row 0, col 3)\n")
 	}
 
 	// Initialize both queens as prisoners (not escaped)
 	b.EscapedQueens[White] = false
 	b.EscapedQueens[Black] = false
+
+	fmt.Printf("🎯 Save the Queen setup complete. FEN: %s\n", b.ToFEN())
 }
 
 // setupSaveTheKing - Start with two queens, no kings initially
@@ -274,6 +282,13 @@ func (b *Board) MakeMove(move Move) error {
 				
 				// Only return to prison if prison square is not occupied
 				if b.GetPieceAt(prisonPos) == nil {
+					// Track queen capture repetition (capturer queen + captured queen color)
+					captureKey := fmt.Sprintf("%s_%d_%d_captures_%s",
+						piece.Color.String(),
+						move.From.Row, move.From.Col,
+						move.CapturedPiece.Color.String())
+					b.QueenCaptureCounter[captureKey]++
+					
 					// IMPORTANT: Clone the captured piece to avoid modifying the original
 					returnedQueen := move.CapturedPiece.Clone()
 					returnedQueen.Position = prisonPos
@@ -482,6 +497,7 @@ func (b *Board) Clone() *Board {
 		KingsKillUnlock:         b.KingsKillUnlock,
 		PieceMoveCounter:        make(map[Position]int),
 		EscapedQueens:           make(map[Color]bool),
+		QueenCaptureCounter:     make(map[string]int),
 		PromotedKings:           make(map[Color]int),
 		PositionHistory:         make([]string, len(b.PositionHistory)),
 	}
@@ -510,6 +526,9 @@ func (b *Board) Clone() *Board {
 	}
 	for k, v := range b.EscapedQueens {
 		clone.EscapedQueens[k] = v
+	}
+	for k, v := range b.QueenCaptureCounter {
+		clone.QueenCaptureCounter[k] = v
 	}
 	for k, v := range b.PromotedKings {
 		clone.PromotedKings[k] = v
