@@ -672,6 +672,8 @@ func (sess *Session) checkGameModeVictory() bool {
 	switch sess.Board.Mode {
 	case engine.OtherSide:
 		return sess.checkOtherSideVictory(lastMove)
+	case engine.SaveTheQueen:
+		return sess.checkSaveTheQueenVictory(lastMove)
 	// Add other game modes here as needed
 	default:
 		return false
@@ -711,6 +713,73 @@ func (sess *Session) checkOtherSideVictory(lastMove *engine.Move) bool {
 				Reason: "Rook reached back rank - Other Side victory!",
 			}
 			logf("🏆 Other Side: %s wins by reaching opponent's back rank!", movingColor)
+			return true
+		}
+	}
+
+	return false
+}
+
+// checkSaveTheQueenVictory checks Save the Queen mode win conditions:
+// 1. Queen reaches opponent's initial prison square (d1 for black, d8 for white)
+// 2. An escaped queen is captured
+func (sess *Session) checkSaveTheQueenVictory(lastMove *engine.Move) bool {
+	// Check if a queen was captured
+	if lastMove.CapturedPiece != nil && lastMove.CapturedPiece.Type == engine.Queen {
+		capturedColor := lastMove.CapturedPiece.Color
+		capturedPos := lastMove.To
+
+		// Check if the captured queen was in its own half (i.e., it had escaped)
+		wasInOwnHalf := false
+		if capturedColor == engine.White {
+			wasInOwnHalf = capturedPos.Row <= 3 // White's own half is rows 0-3
+		} else {
+			wasInOwnHalf = capturedPos.Row >= 4 // Black's own half is rows 4-7
+		}
+
+		if wasInOwnHalf {
+			// Escaped queen was captured - capturer wins!
+			winner := lastMove.Piece.Color
+			sess.State = engine.Checkmate
+			sess.Result = &engine.GameResult{
+				State:  engine.Checkmate,
+				Winner: winner,
+				Reason: "Escaped queen captured - Save the Queen victory!",
+			}
+			logf("🏆 Save the Queen: %s wins by capturing escaped queen!", winner)
+			return true
+		}
+	}
+
+	// Check if a queen reached opponent's prison square
+	if lastMove.Piece.Type == engine.Queen {
+		movingColor := lastMove.Piece.Color
+		targetPos := lastMove.To
+
+		// Determine opponent's prison square
+		opponentPrison := engine.Position{Row: 0, Col: 3} // d1 (black's prison)
+		if movingColor == engine.Black {
+			opponentPrison = engine.Position{Row: 7, Col: 3} // d8 (white's prison)
+		}
+
+		// Check if queen reached opponent's prison square AND is in own half
+		isInOwnHalf := false
+		if movingColor == engine.White {
+			isInOwnHalf = targetPos.Row <= 3 // White's own half is rows 0-3
+		} else {
+			isInOwnHalf = targetPos.Row >= 4 // Black's own half is rows 4-7
+		}
+
+		if targetPos == opponentPrison && isInOwnHalf {
+			// Queen reached opponent's prison while in own half - instant win!
+			winner := movingColor
+			sess.State = engine.Checkmate
+			sess.Result = &engine.GameResult{
+				State:  engine.Checkmate,
+				Winner: winner,
+				Reason: "Queen reached opponent's prison - Save the Queen victory!",
+			}
+			logf("🏆 Save the Queen: %s wins by reaching opponent's prison!", winner)
 			return true
 		}
 	}

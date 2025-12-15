@@ -1009,27 +1009,55 @@ func (mg *MoveGenerator) getPathBetween(from, to Position) []Position {
 // applySaveTheQueenRules handles imprisoned queen movement and capture restrictions
 func (mg *MoveGenerator) applySaveTheQueenRules(moves []Move, piece *Piece) []Move {
 	if piece.Type == Queen {
-		// Check if queen has escaped
-		escaped := mg.board.EscapedQueens[piece.Color]
-		if escaped {
-			return moves // Full queen power
+		// Check if queen is currently in its own half
+		currentlyInOwnHalf := false
+		if piece.Color == White {
+			currentlyInOwnHalf = piece.Position.Row <= 3 // White's own half is rows 0-3
+		} else {
+			currentlyInOwnHalf = piece.Position.Row >= 4 // Black's own half is rows 4-7
 		}
 
-		// Queen is imprisoned - moves like king only
-		restrictedMoves := []Move{}
+		if !currentlyInOwnHalf {
+			// Queen is imprisoned (in opponent's half) - moves like king only
+			restrictedMoves := []Move{}
+			for _, move := range moves {
+				// Only allow one-square moves
+				rowDiff := abs(move.To.Row - move.From.Row)
+				colDiff := abs(move.To.Col - move.From.Col)
+				if rowDiff <= 1 && colDiff <= 1 {
+					// Can't capture while imprisoned
+					if move.CapturedPiece == nil {
+						restrictedMoves = append(restrictedMoves, move)
+					}
+				}
+			}
+			return restrictedMoves
+		}
+
+		// Queen is escaped (in own half) - has full queen power within own half,
+		// but can only move like a king when crossing back to opponent's half
+		filteredMoves := []Move{}
 		for _, move := range moves {
-			// Only allow one-square moves
-			rowDiff := abs(move.To.Row - move.From.Row)
-			colDiff := abs(move.To.Col - move.From.Col)
-			if rowDiff <= 1 && colDiff <= 1 {
-				// Can't capture while imprisoned
-				if move.CapturedPiece == nil {
-					restrictedMoves = append(restrictedMoves, move)
+			targetInOwnHalf := false
+			if piece.Color == White {
+				targetInOwnHalf = move.To.Row <= 3 // White's own half is rows 0-3
+			} else {
+				targetInOwnHalf = move.To.Row >= 4 // Black's own half is rows 4-7
+			}
+
+			if targetInOwnHalf {
+				// Target is in own half - allow full queen power
+				filteredMoves = append(filteredMoves, move)
+			} else {
+				// Target is in opponent's half - only allow king-like moves (becoming prisoner again)
+				rowDiff := abs(move.To.Row - move.From.Row)
+				colDiff := abs(move.To.Col - move.From.Col)
+				if rowDiff <= 1 && colDiff <= 1 && move.CapturedPiece == nil {
+					filteredMoves = append(filteredMoves, move)
 				}
 			}
 		}
-
-		return restrictedMoves
+		return filteredMoves
 	}
 
 	// For non-queen pieces: filter out captures of queens on their prison squares

@@ -62,8 +62,23 @@ class SaveTheQueen implements GameMode {
       final isInOwnHalf = _isInOwnHalf(piece.position, piece.color);
 
       if (isInOwnHalf) {
-        // ESCAPED STATE: Queen has full queen power - can move and capture anywhere
-        return filteredMoves;
+        // ESCAPED STATE: Queen has full queen power within own half,
+        // but can only move like a king when crossing back to opponent's half
+        final safeMoves = filteredMoves.where((move) {
+          final targetInOwnHalf = _isInOwnHalf(move.to, piece.color);
+          
+          if (targetInOwnHalf) {
+            // Target is in own half - allow full queen power
+            return true;
+          } else {
+            // Target is in opponent's half - only allow king-like moves (becoming prisoner again)
+            final rowDiff = (move.to.row - piece.position.row).abs();
+            final colDiff = (move.to.col - piece.position.col).abs();
+            // Only 1-square moves, no captures when crossing back
+            return rowDiff <= 1 && colDiff <= 1 && move.capturedPiece == null;
+          }
+        }).toList();
+        return safeMoves;
       } else {
         // PRISONER STATE: Queen moves like king, can't capture
 
@@ -192,38 +207,6 @@ class SaveTheQueen implements GameMode {
 
           return newBoard;
         }
-      }
-    }
-
-    // Check if queen moved back to opponent's half (becomes prisoner)
-    if (move.piece.type == PieceType.queen) {
-      final wasInOwnHalf = _isInOwnHalf(move.from, move.piece.color);
-      final nowInOpponentHalf = !_isInOwnHalf(move.to, move.piece.color);
-
-      if (wasInOwnHalf && nowInOpponentHalf) {
-        // Execute the move first
-        var newBoard = board.makeMove(move);
-
-        // Teleport queen back to prison
-        final prisonPosition = move.piece.color == PieceColor.white
-            ? whiteQueenPrison
-            : blackQueenPrison;
-
-        // Remove queen from current position
-        final newPieces = newBoard.pieces
-            .where((p) => p.position != move.to)
-            .toList();
-
-        // Add queen at prison
-        final prisonedQueen = move.piece.copyWith(
-          position: prisonPosition,
-          hasMoved: false,
-        );
-        newPieces.add(prisonedQueen);
-
-        newBoard = newBoard.copyWith(pieces: newPieces);
-
-        return newBoard;
       }
     }
 
