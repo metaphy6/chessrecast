@@ -33,7 +33,7 @@ type Board struct {
 	KingsKillUnlock     bool              // For Kings' Battle mode
 	EscapedQueens       map[Color]bool    // For Save the Queen mode
 	QueenCaptureCounter map[string]int    // For Save the Queen mode - tracks repeated queen captures
-	PromotedKings       map[Color]int     // For Save the King mode
+	PromotedKings       map[Color]int     // For Succession mode
 }
 
 // NewBoard creates a standard starting position
@@ -176,8 +176,8 @@ func (b *Board) setupStandardPosition() {
 	switch b.Mode {
 	case SaveTheQueen:
 		b.setupSaveTheQueen()
-	case SaveTheKing:
-		b.setupSaveTheKing()
+	case Succession:
+		b.setupSuccession()
 	}
 }
 
@@ -214,8 +214,8 @@ func (b *Board) setupSaveTheQueen() {
 	fmt.Printf("🎯 Save the Queen setup complete. FEN: %s\n", b.ToFEN())
 }
 
-// setupSaveTheKing - Start with two queens, no kings initially
-func (b *Board) setupSaveTheKing() {
+// setupSuccession - Start with two queens, no kings initially
+func (b *Board) setupSuccession() {
 	// Remove kings
 	b.squares[0][4] = nil
 	b.squares[7][4] = nil
@@ -344,7 +344,7 @@ func (b *Board) MakeMove(move Move) error {
 		// Handle pawn promotion
 		if move.IsPromotion {
 			piece.Type = move.Promotion
-			// Track king promotions for Heir and SaveTheKing modes
+			// Track king promotions for Heir and Succession modes
 			if move.Promotion == King {
 				b.PromotedKings[piece.Color]++
 			}

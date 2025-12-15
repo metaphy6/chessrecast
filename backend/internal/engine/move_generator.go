@@ -547,12 +547,13 @@ func (mg *MoveGenerator) getPromotionPieces(color Color) []PieceType {
 	switch mg.board.Mode {
 	case Diamonds:
 		return []PieceType{Bishop} // Only bishop promotion
-	case SaveTheKing:
+	case Succession:
+		// Cannot promote to queen (each side has two queens already)
 		// Check if can promote to king
 		if mg.board.PromotedKings[color] == 0 {
-			return []PieceType{King, Queen, Rook, Bishop, Knight}
+			return []PieceType{King, Rook, Bishop, Knight}
 		}
-		return []PieceType{Queen, Rook, Bishop, Knight}
+		return []PieceType{Rook, Bishop, Knight}
 	case SaveTheQueen:
 		// Cannot promote to queen (only one queen per side allowed)
 		return []PieceType{Rook, Bishop, Knight}

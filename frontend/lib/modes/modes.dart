@@ -13,8 +13,8 @@ export 'kings_battle.dart';
 // modes_enum exported above
 export 'other_side.dart';
 export 'royal_pawns.dart';
-export 'save_the_king.dart';
 export 'save_the_queen.dart';
+export 'succession.dart';
 export 'snare.dart';
 export 'teleport.dart';
 export 'truce.dart';

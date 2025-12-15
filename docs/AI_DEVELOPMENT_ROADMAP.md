@@ -804,7 +804,7 @@ class FederatedAggregator:
 |------|------|-------------|
 | 5-6 | Train Heir, Royal Pawns, Diamonds modes | 3 mode models |
 | 7-8 | Train Kings' Battle, Truce, Teleport, Other Side | 4 mode models |
-| 9-10 | Train Snare, Save the Queen, Save the King, Friendly Fire | 4 mode models |
+| 9-10 | Train Snare, Save the Queen, Succession, Friendly Fire | 4 mode models |
 
 **Success Criteria:**
 - ✅ All 14 modes have 900-1600 Elo bots

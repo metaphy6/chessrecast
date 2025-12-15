@@ -86,11 +86,11 @@ class Orchestrator {
       }
     }
 
-    // Check for Save the King mode special moves (queen capture or King promotion)
-    if (board.gameType == ModesEnum.saveTheKing) {
-      final saveTheKingBoard = modes.saveTheKing.handleSpecialMove(board, move);
-      if (saveTheKingBoard != null) {
-        return updateGameStatus(saveTheKingBoard);
+    // Check for Succession mode special moves (queen capture or King promotion)
+    if (board.gameType == ModesEnum.succession) {
+      final successionBoard = modes.succession.handleSpecialMove(board, move);
+      if (successionBoard != null) {
+        return updateGameStatus(successionBoard);
       }
     }
 
@@ -129,9 +129,9 @@ class Orchestrator {
     // CRITICAL: Check if any king is missing (should never happen in most modes)
     // Exceptions:
     // - Heir mode: allows king captures, player can promote pawn to get new king
-    // - Save the King mode: starts with no kings, must promote to get one
+    // - Succession mode: starts with no kings, must promote to get one
     if (board.gameType != ModesEnum.heir &&
-        board.gameType != ModesEnum.saveTheKing) {
+        board.gameType != ModesEnum.succession) {
       final whiteKing = board.getKing(PieceColor.white);
       final blackKing = board.getKing(PieceColor.black);
 

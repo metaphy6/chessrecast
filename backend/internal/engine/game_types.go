@@ -15,7 +15,7 @@ const (
 	FriendlyFire
 	KingsBattle
 	SaveTheQueen
-	SaveTheKing
+	Succession
 )
 
 func (gm GameMode) String() string {
@@ -31,7 +31,7 @@ func (gm GameMode) String() string {
 		"friendly_fire",
 		"kings_battle",
 		"save_the_queen",
-		"save_the_king",
+		"succession",
 	}
 	if int(gm) < len(names) {
 		return names[gm]
@@ -53,7 +53,7 @@ func ParseGameMode(s string) GameMode {
 		"friendly_fire":   FriendlyFire,
 		"kings_battle":    KingsBattle,
 		"save_the_queen":  SaveTheQueen,
-		"save_the_king":   SaveTheKing,
+		"succession":      Succession,
 	}
 	if mode, ok := modes[s]; ok {
 		return mode

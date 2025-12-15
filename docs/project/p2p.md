@@ -1113,7 +1113,7 @@ Read [](file:///c%3A/code/mobile/chessrecast/backend/internal/ai/bot.go#280-280)
 
 Read [](file:///c%3A/code/mobile/chessrecast/backend/internal/ai/bot.go#350-350), lines 350 to 400
 
-I see the issue now! The **`getModeSpecificScore` function is incomplete** - it only handles `OtherSide`, `SaveTheQueen`, and `SaveTheKing` modes. It's missing scoring for:
+I see the issue now! The **`getModeSpecificScore` function is incomplete** - it only handles `OtherSide`, `SaveTheQueen`, and `Succession` modes. It's missing scoring for:
 - `RoyalPawns` - should prioritize pawn advancement since they move like kings
 - `Diamonds` - should prioritize bishop control  
 - `Teleport` - should value king-rook alignment
@@ -1268,7 +1268,7 @@ Let me provide a summary of the fixes:
 3. **Reduced time limits**: Changed from 10-30 seconds to 2-5 seconds max for high difficulties
 
 ### Issue 2: AI not making logical moves for game modes
-**Root Cause**: The `getModeSpecificScore()` function only had scoring for 3 modes (OtherSide, SaveTheQueen, SaveTheKing) and was missing all others.
+**Root Cause**: The `getModeSpecificScore()` function only had scoring for 3 modes (OtherSide, SaveTheQueen, Succession) and was missing all others.
 
 **Fixes Applied**:
 Added mode-specific scoring for:
@@ -1278,7 +1278,7 @@ Added mode-specific scoring for:
 - **Teleport**: Rewards king-rook alignment for teleportation
 - **KingsBattle**: Rewards king proximity to enemy pawns when locked
 - **SaveTheQueen**: Rewards queen positioning toward edge for escape
-- **SaveTheKing**: Rewards pawn advancement for promotion
+- **Succession**: Rewards pawn advancement for promotion
 - **Heir**: Rewards having more kings than opponent
 
 Now the bots will make moves that actually work toward the game mode objectives!
@@ -1557,7 +1557,7 @@ func (s *Service) Unsubscribe(sessionID, subscriberID string) {
    - **OtherSide**: Rook advancement 60×row (was 10×row), target row bonus 1000 (was 200)
    - **Diamonds**: Center bishop bonus 100 (was 20), active bishop bonus 50 (was 10)
    - **SaveTheQueen**: Escape bonus 2000 (was 200), edge queen bonus 300 (was 50)
-   - **SaveTheKing**: Promoted king bonus 1500 (was 300), pawn advancement 50×row (was 10×row)
+   - **Succession**: Promoted king bonus 1500 (was 300), pawn advancement 50×row (was 10×row)
    - **Heir**: King count difference 500 (was 100)
    - And more...
 

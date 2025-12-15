@@ -299,10 +299,10 @@ extension MoveGeneration on ChessBoard {
       }
     }
 
-    // Check for Save the King mode - can promote to King
-    if (gameType == ModesEnum.saveTheKing) {
-      final saveTheKingMode = modes.saveTheKing;
-      final options = saveTheKingMode.getPromotionPieces(
+    // Check for Succession mode - can promote to King
+    if (gameType == ModesEnum.succession) {
+      final successionMode = modes.succession;
+      final options = successionMode.getPromotionPieces(
         color,
         this,
         promotionPosition: promotionPosition,
