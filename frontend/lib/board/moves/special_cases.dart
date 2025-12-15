@@ -27,9 +27,9 @@ extension SpecialCases on ChessBoard {
         }
       }
 
-      // OTHER SIDE MODE: Rooks can ONLY capture opponent rooks, not the king
+      // COYOTE MODE: Rooks can ONLY capture opponent rooks, not the king
       // Rooks should NEVER put the king in check in this mode
-      if (gameType == ModesEnum.otherSide && piece.type == PieceType.rook) {
+      if (gameType == ModesEnum.coyote && piece.type == PieceType.rook) {
         // Check if there's a piece at target position that is an opponent rook
         final targetPiece = getPieceAt(position);
         if (targetPiece == null) return false;

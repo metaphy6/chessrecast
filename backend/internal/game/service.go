@@ -697,8 +697,8 @@ func (sess *Session) checkGameModeVictory() bool {
 	}
 
 	switch sess.Board.Mode {
-	case engine.OtherSide:
-		return sess.checkOtherSideVictory(lastMove)
+	case engine.Coyote:
+		return sess.checkCoyoteVictory(lastMove)
 	case engine.SaveTheQueen:
 		return sess.checkSaveTheQueenVictory(lastMove)
 	case engine.Succession:
@@ -709,21 +709,35 @@ func (sess *Session) checkGameModeVictory() bool {
 	}
 }
 
-// checkOtherSideVictory checks Other Side mode win conditions:
+// checkCoyoteVictory checks Coyote mode win conditions:
 // 1. Rook reaches opponent's back rank
-// 2. Rook captures opponent's rook
-func (sess *Session) checkOtherSideVictory(lastMove *engine.Move) bool {
-	// Check if a rook was captured - captor wins!
+// 2. Capture TWO of opponent's rooks (not just one)
+func (sess *Session) checkCoyoteVictory(lastMove *engine.Move) bool {
+	// Check if a rook was captured
 	if lastMove.CapturedPiece != nil && lastMove.CapturedPiece.Type == engine.Rook {
-		winner := lastMove.Piece.Color
-		sess.State = engine.Checkmate
-		sess.Result = &engine.GameResult{
-			State:  engine.Checkmate,
-			Winner: winner,
-			Reason: "Rook captured - Other Side victory!",
+		capturedColor := lastMove.CapturedPiece.Color
+		
+		// Count remaining rooks for the player who lost the rook
+		remainingRooks := 0
+		pieces := sess.Board.GetPiecesOfColor(capturedColor)
+		for _, p := range pieces {
+			if p.Type == engine.Rook {
+				remainingRooks++
+			}
 		}
-		logf("🏆 Other Side: %s wins by capturing opponent's rook!", winner)
-		return true
+		
+		// Win condition: opponent has lost both rooks (0 remaining)
+		if remainingRooks == 0 {
+			winner := lastMove.Piece.Color
+			sess.State = engine.Checkmate
+			sess.Result = &engine.GameResult{
+				State:  engine.Checkmate,
+				Winner: winner,
+				Reason: "Both rooks captured - Coyote victory!",
+			}
+			logf("🏆 Coyote: %s wins by capturing both opponent rooks!", winner)
+			return true
+		}
 	}
 
 	// Check if a rook reached the opponent's back rank
@@ -739,9 +753,9 @@ func (sess *Session) checkOtherSideVictory(lastMove *engine.Move) bool {
 			sess.Result = &engine.GameResult{
 				State:  engine.Checkmate,
 				Winner: movingColor,
-				Reason: "Rook reached back rank - Other Side victory!",
+				Reason: "Rook reached back rank - Coyote victory!",
 			}
-			logf("🏆 Other Side: %s wins by reaching opponent's back rank!", movingColor)
+			logf("🏆 Coyote: %s wins by reaching opponent's back rank!", movingColor)
 			return true
 		}
 	}

@@ -2,35 +2,50 @@ import '../board/utils/exporter.dart';
 import '../debug.dart';
 import 'game_mode.dart';
 
-/// OTHER SIDE MODE: Race your rook to the opponent's back rank!
+/// COYOTE MODE: Race your rook to the opponent's back rank!
 ///
 /// WIN CONDITIONS:
 /// - Your rook reaches the opponent's back rank (rank 8 for white, rank 1 for black)
 /// - You checkmate the opponent's king
-/// - You capture an opponent's rook (instant win)
+/// - You capture BOTH opponent's rooks (instant win)
 ///
 /// SPECIAL RULES:
 /// 1. Pawns move normally (forward only, like classic chess)
 /// 2. Pawns cannot promote to rooks (only queen, bishop, knight)
-/// 3. Losing a rook results in immediate game loss
+/// 3. Losing both rooks results in immediate game loss
 /// 4. Rooks can only capture opponent rooks (cannot capture other pieces)
-class OtherSide extends GameMode {
+class Coyote extends GameMode {
   @Deprecated(
-    'Use the `modes.otherSide` alias from modes_cache.dart instead of direct instantiation',
+    'Use the `modes.coyote` alias from modes_cache.dart instead of direct instantiation',
   )
-  const OtherSide();
+  const Coyote();
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
-    // Check if a rook was captured - instant loss for the player who lost it
+    // Check if a rook was captured - count remaining rooks
     if (move.capturedPiece != null &&
         move.capturedPiece!.type == PieceType.rook) {
-      // Opponent wins by checkmate
       final newBoard = board.makeMove(move);
-      final winner = move.piece.color == PieceColor.white ? 'White' : 'Black';
-      final position =
-          '${String.fromCharCode(97 + move.to.col)}${8 - move.to.row}';
-      logOtherSideRookCapture(winner, position);
-      return newBoard.copyWith(gameStatus: GameStatus.checkmate);
+      final capturedColor = move.capturedPiece!.color;
+
+      // Count remaining rooks for the side that lost a rook
+      int remainingRooks = 0;
+      for (final piece in newBoard.pieces) {
+        if (piece.type == PieceType.rook && piece.color == capturedColor) {
+          remainingRooks++;
+        }
+      }
+
+      // Win only if both rooks captured (0 remaining)
+      if (remainingRooks == 0) {
+        final winner = move.piece.color == PieceColor.white ? 'White' : 'Black';
+        final position =
+            '${String.fromCharCode(97 + move.to.col)}${8 - move.to.row}';
+        logCoyoteRookCapture(winner, position);
+        return newBoard.copyWith(gameStatus: GameStatus.checkmate);
+      }
+
+      // First rook captured but game continues
+      return newBoard;
     }
 
     // Check if a rook reached the opponent's back rank
@@ -41,7 +56,7 @@ class OtherSide extends GameMode {
       if (move.to.row == targetRank) {
         final newBoard = board.makeMove(move);
         final winner = movingColor == PieceColor.white ? 'White' : 'Black';
-        logOtherSideBackRank(winner);
+        logCoyoteBackRank(winner);
         return newBoard.copyWith(gameStatus: GameStatus.checkmate);
       }
     }
@@ -161,7 +176,7 @@ class OtherSide extends GameMode {
     ChessBoard board, {
     Position? promotionPosition,
   }) {
-    // Disable promotion to rook in Other Side mode
+    // Disable promotion to rook in Coyote mode
     // Only allow promotion to queen, bishop, and knight
     return ['Q', 'B', 'N'];
   }

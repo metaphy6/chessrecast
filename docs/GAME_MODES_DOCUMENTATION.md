@@ -66,17 +66,18 @@ Chess Recast is a novel chess game featuring 14 unique game modes, each introduc
 
 ---
 
-## Other Side Mode
+## Coyote Mode
 **Description:** Race to get your rook to opponent's back rank.
 **Win Conditions:**
 - Your rook reaches opponent's back rank (rank 8 for white, rank 1 for black)
 - Checkmate opponent's king
-- Capture opponent's rook (instant win)
+- Capture BOTH opponent's rooks (instant win)
 
 **Special Rules:**
 - Pawns move normally but cannot promote to rooks
-- Losing your rook = immediate loss
+- Losing both rooks = immediate loss
 - Rooks can only capture opponent rooks (not other pieces)
+- No castling allowed
 
 ---
 
@@ -192,7 +193,7 @@ Chess Recast is a novel chess game featuring 14 unique game modes, each introduc
 | Friendly Fire | Capture own pieces | Medium | Checkmate (with sacrifice) |
 | Heir | King as regular piece | High | Capture king + pawns |
 | Kings' Battle | Two-phase movement | Medium | Checkmate (after unlock) |
-| Other Side | Rook race | Medium | Rook to back rank |
+| Coyote | Rook race | Medium | Rook to back rank |
 | Royal Pawns | King-like pawns | Low | Checkmate |
 | Succession | Two queens, pawn race | High | First king promotion |
 | Save the Queen | Prisoner queen escape | High | Queen escape + capture |
@@ -206,6 +207,6 @@ Chess Recast is a novel chess game featuring 14 unique game modes, each introduc
 
 1. **Movement Restrictions:** Diamonds, Royal Pawns
 2. **Piece State Management:** Heir, Save the Queen
-3. **Asymmetric Objectives:** Other Side, Succession, Teleport
+3. **Asymmetric Objectives:** Coyote, Succession, Teleport
 4. **Dynamic Board Rules:** Kings' Battle, Truce, Snare
 5. **Capture Modifications:** Diamonds, Friendly Fire, Snare

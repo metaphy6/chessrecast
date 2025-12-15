@@ -5,7 +5,7 @@ import 'diamonds.dart';
 import 'friendly_fire.dart';
 import 'heir.dart';
 import 'kings_battle.dart';
-import 'other_side.dart';
+import 'coyote.dart';
 import 'royal_pawns.dart';
 import 'save_the_queen.dart';
 import 'succession.dart';
@@ -27,7 +27,7 @@ class ModesCache {
   static const KingsBattle kingsBattle = KingsBattle();
   static const SaveTheQueen saveTheQueen = SaveTheQueen();
   static const Succession succession = Succession();
-  static const OtherSide otherSide = OtherSide();
+  static const Coyote coyote = Coyote();
   static const Diamonds diamonds = Diamonds();
   static const FriendlyFire friendlyFire = FriendlyFire();
   static const RoyalPawns royalPawns = RoyalPawns();
@@ -44,7 +44,7 @@ class ModesAlias {
   KingsBattle get kingsBattle => ModesCache.kingsBattle;
   SaveTheQueen get saveTheQueen => ModesCache.saveTheQueen;
   Succession get succession => ModesCache.succession;
-  OtherSide get otherSide => ModesCache.otherSide;
+  Coyote get coyote => ModesCache.coyote;
   Diamonds get diamonds => ModesCache.diamonds;
   FriendlyFire get friendlyFire => ModesCache.friendlyFire;
   RoyalPawns get royalPawns => ModesCache.royalPawns;

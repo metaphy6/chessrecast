@@ -4,9 +4,9 @@ enum ModesEnum {
     'Royal Pawns',
     'Pawns move and capture like kings (one square in any direction). Pawns cannot promote. No two-square initial move. No en passant.',
   ),
-  otherSide(
-    'Other Side',
-    'Race your rook to the opponent\'s back rank! Rooks can only capture rooks. Capturing a rook or reaching the back rank wins instantly.',
+  coyote(
+    'Coyote',
+    'Race your rook to the opponent\'s back rank! Rooks can only capture rooks. Capturing both rooks or reaching the back rank wins instantly.',
   ),
   heir(
     'Heir',
