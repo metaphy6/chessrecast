@@ -102,13 +102,14 @@ extension MoveExecution on ChessBoard {
     Map<PieceColor, bool> newEscapedQueens = Map.from(escapedQueens);
     if (gameType == ModesEnum.saveTheQueen &&
         move.piece.type == PieceType.queen) {
-      // Check if queen reached its own half
+      // Check if queen is currently in its own half
+      // White's own half: rows 0-3 (rows 4-7 are black's)
+      // Black's own half: rows 4-7 (rows 0-3 are white's)
       bool inOwnHalf =
-          (move.piece.color == PieceColor.white && move.to.row >= 4) ||
-          (move.piece.color == PieceColor.black && move.to.row <= 3);
-      if (inOwnHalf) {
-        newEscapedQueens[move.piece.color] = true;
-      }
+          (move.piece.color == PieceColor.white && move.to.row <= 3) ||
+          (move.piece.color == PieceColor.black && move.to.row >= 4);
+      // Update escaped status based on current position
+      newEscapedQueens[move.piece.color] = inOwnHalf;
     }
 
     // Update halfMoveClock for 50-move rule
