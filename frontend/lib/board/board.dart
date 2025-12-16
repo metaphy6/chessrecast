@@ -6,6 +6,7 @@ import 'moves/position.dart';
 import 'piece.dart';
 import 'moves/move.dart';
 import '../modes/modes.dart';
+import '../debug.dart';
 
 /// Core ChessBoard class with state and basic operations
 class ChessBoard extends Equatable {
@@ -371,6 +372,7 @@ class ChessBoard extends Equatable {
       if (positionHistory[i] == currentPosition) {
         count++;
         if (count >= 3) {
+          logGameEnd('Threefold repetition - position appeared $count times');
           return true;
         }
       }
