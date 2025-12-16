@@ -127,7 +127,7 @@ extension MoveExecution on ChessBoard {
         : fullMoveNumber;
 
     // Create the new board state first
-    final newBoard = copyWith(
+    var newBoard = copyWith(
       pieces: newPieces,
       currentPlayer: currentPlayer.opposite,
       moveHistory: [...moveHistory, move],
@@ -140,8 +140,12 @@ extension MoveExecution on ChessBoard {
       blackHasPromotedKing: newBlackHasPromotedKing,
       halfMoveClock: newHalfMoveClock,
       fullMoveNumber: newFullMoveNumber,
-      positionHistory: [...positionHistory, getPositionKey()],
       escapedQueens: newEscapedQueens,
+    );
+
+    // Add the NEW position to history (after turn switch) for correct threefold repetition tracking
+    newBoard = newBoard.copyWith(
+      positionHistory: [...positionHistory, newBoard.getPositionKey()],
     );
 
     // Check for automatic draw conditions (50-move rule or threefold repetition)

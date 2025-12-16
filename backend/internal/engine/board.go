@@ -56,6 +56,10 @@ func NewBoard(mode GameMode) *Board {
 	}
 
 	b.setupStandardPosition()
+	
+	// Add initial position to history for threefold repetition tracking
+	b.PositionHistory = append(b.PositionHistory, b.GetPositionKey())
+	
 	return b
 }
 
@@ -118,6 +122,9 @@ func NewBoardWithPieces(mode GameMode, pieces []CustomPiece, currentTurn Color) 
 		piece.HasMoved = true // Assume all pieces have moved in custom setups
 		b.setPiece(piece)
 	}
+
+	// Add initial position to history for threefold repetition tracking
+	b.PositionHistory = append(b.PositionHistory, b.GetPositionKey())
 
 	return b, nil
 }
@@ -402,9 +409,6 @@ func (b *Board) MakeMove(move Move) error {
 	b.History.Add(move)
 	b.MoveCount++
 
-	// Add position to history (before switching turns so we capture the completed move state)
-	b.PositionHistory = append(b.PositionHistory, b.GetPositionKey())
-
 	// Kings' Battle mode: Check for King's Kill (First Blood)
 	if b.Mode == KingsBattle && !b.KingsKillUnlock {
 		if piece != nil && piece.Type == King && move.CapturedPiece != nil && move.CapturedPiece.Type == Pawn {
@@ -421,6 +425,9 @@ func (b *Board) MakeMove(move Move) error {
 		b.CurrentTurn = b.CurrentTurn.Opposite()
 	}
 	// If revengeful knight, turn stays with the attacker who lost their piece
+
+	// Add position to history AFTER switching turns so we capture the state with correct next player
+	b.PositionHistory = append(b.PositionHistory, b.GetPositionKey())
 
 	return nil
 }
@@ -666,6 +673,8 @@ func (b *Board) HasThreefoldRepetition() bool {
 		if historyKey == currentKey {
 			count++
 			if count >= 3 {
+				log.Printf("🔄 THREEFOLD REPETITION DETECTED! Position appeared %d times", count)
+				log.Printf("🔑 Position key: %s", currentKey)
 				return true
 			}
 		}
