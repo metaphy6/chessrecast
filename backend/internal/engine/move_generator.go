@@ -56,9 +56,9 @@ func (mg *MoveGenerator) GetValidMoves(pos Position) []Move {
 
 // getPawnMoves generates pawn moves
 func (mg *MoveGenerator) getPawnMoves(pawn *Piece) []Move {
-	// Special handling for Royal Pawns mode
-	if mg.board.Mode == RoyalPawns {
-		return mg.getRoyalPawnMoves(pawn)
+	// Special handling for Mercenary mode
+	if mg.board.Mode == Mercenary {
+		return mg.getMercenaryPawnMoves(pawn)
 	}
 
 	// Special handling for Coyote mode
@@ -141,8 +141,8 @@ func (mg *MoveGenerator) getPawnMoves(pawn *Piece) []Move {
 	return moves
 }
 
-// getRoyalPawnMoves - Pawns move like kings in Royal Pawns mode
-func (mg *MoveGenerator) getRoyalPawnMoves(pawn *Piece) []Move {
+// getMercenaryPawnMoves - Pawns move like kings in Mercenary mode
+func (mg *MoveGenerator) getMercenaryPawnMoves(pawn *Piece) []Move {
 	moves := []Move{}
 	
 	// King-like moves (one square in any direction)
@@ -160,7 +160,7 @@ func (mg *MoveGenerator) getRoyalPawnMoves(pawn *Piece) []Move {
 
 		targetPiece := mg.board.GetPieceAt(newPos)
 		if targetPiece == nil {
-			// Empty square - can move (no promotion in Royal Pawns)
+			// Empty square - can move (no promotion in Mercenary)
 			moves = append(moves, *NewMove(pawn.Position, newPos, pawn))
 		} else if targetPiece.Color != pawn.Color {
 			// Enemy piece - can capture (but not king unless Heir mode)
@@ -411,14 +411,14 @@ func (mg *MoveGenerator) getKingMoves(king *Piece) []Move {
 		}
 	}
 
-	// Castling (not in Teleport or Coyote mode)
-	if mg.board.Mode != Teleport && mg.board.Mode != Coyote && !king.HasMoved {
+	// Castling (not in SecretPassage or Coyote mode)
+	if mg.board.Mode != SecretPassage && mg.board.Mode != Coyote && !king.HasMoved {
 		moves = append(moves, mg.getCastlingMoves(king)...)
 	}
 
-	// Teleport moves (Teleport mode only)
-	if mg.board.Mode == Teleport {
-		moves = append(moves, mg.getTeleportMoves(king)...)
+	// Secret Passage moves (Secret Passage mode only)
+	if mg.board.Mode == SecretPassage {
+		moves = append(moves, mg.getSecretPassageMoves(king)...)
 	}
 
 	return moves
@@ -514,8 +514,8 @@ func (mg *MoveGenerator) getCastlingMoves(king *Piece) []Move {
 	return moves
 }
 
-// getTeleportMoves generates king-rook teleport moves for Teleport mode
-func (mg *MoveGenerator) getTeleportMoves(king *Piece) []Move {
+// getSecretPassageMoves generates king-rook secret passage moves for Secret Passage mode
+func (mg *MoveGenerator) getSecretPassageMoves(king *Piece) []Move {
 	moves := []Move{}
 	
 	// Find all rooks of the same color aligned horizontally or vertically
@@ -533,7 +533,7 @@ func (mg *MoveGenerator) getTeleportMoves(king *Piece) []Move {
 			if aligned {
 				// Can swap positions (king moves to rook's square)
 				move := NewMove(king.Position, piece.Position, king)
-				move.IsTeleport = true
+				move.IsSecretPassage = true
 				moves = append(moves, *move)
 			}
 		}
@@ -1428,7 +1428,7 @@ func (mg *MoveGenerator) canAttackSquareOnBoard(board *Board, piece *Piece, targ
 		
 	case Pawn:
 		// In Royal Pawns mode, pawns attack like kings (all 8 directions)
-		if board.Mode == RoyalPawns {
+		if board.Mode == Mercenary {
 			rowDiff := abs(piece.Position.Row - target.Row)
 			colDiff := abs(piece.Position.Col - target.Col)
 			return rowDiff <= 1 && colDiff <= 1 && (rowDiff > 0 || colDiff > 0)

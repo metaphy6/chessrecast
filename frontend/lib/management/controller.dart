@@ -211,13 +211,13 @@ class Controller extends GetxController {
     }
 
     // If another piece of the same color is clicked, select it
-    // EXCEPTION: In Teleport mode, if king/rook is selected and clicking the other, attempt move instead
+    // EXCEPTION: In Secret Passage mode, if king/rook is selected and clicking the other, attempt move instead
     // EXCEPTION: In Friendly Fire mode, if clicking a friendly piece, attempt capture instead
     final selectedPiece = board.getPieceAt(_selectedPosition.value!);
 
-    // Teleport: king→rook or rook→king
-    final isTeleportMove =
-        board.gameType == ModesEnum.teleport &&
+    // Secret Passage: king↔rook or rook↔king
+    final isSecretPassageMove =
+        board.gameType == ModesEnum.secretPassage &&
         selectedPiece != null &&
         piece != null &&
         piece.color == currentPlayer &&
@@ -235,7 +235,7 @@ class Controller extends GetxController {
 
     if (piece != null &&
         piece.color == currentPlayer &&
-        !isTeleportMove &&
+        !isSecretPassageMove &&
         !isFriendlyFireCapture) {
       _selectPiece(position);
       return;
@@ -347,9 +347,9 @@ class Controller extends GetxController {
       final capturedPiece = board.getPieceAt(to);
 
       // Check if this is a pawn promotion move
-      // Note: Royal Pawns mode has NO promotion
+      // Note: Mercenary mode has NO promotion
       if (piece.type == PieceType.pawn &&
-          board.gameType != ModesEnum.royalPawns) {
+          board.gameType == ModesEnum.mercenary) {
         final lastRank = piece.color == PieceColor.white ? 7 : 0;
         if (to.row == lastRank) {
           _showPromotionDialog(from, to, piece, capturedPiece);
@@ -405,33 +405,33 @@ class Controller extends GetxController {
         }
       }
 
-      // Check if this should be a teleport move (king moving to friendly rook in Teleport mode)
-      if (board.gameType == ModesEnum.teleport &&
+      // Check if this should be a secret passage move (king moving to friendly rook in Secret Passage mode)
+      if (board.gameType == ModesEnum.secretPassage &&
           piece.type == PieceType.king &&
           capturedPiece != null &&
           capturedPiece.type == PieceType.rook &&
           capturedPiece.color == piece.color) {
-        // Create a teleport move without capturedPiece (the rook is not captured, it swaps)
+        // Create a secret passage move without capturedPiece (the rook is not captured, it swaps)
         finalMove = ChessMove.simple(
           from: from,
           to: to,
           piece: piece,
-          capturedPiece: null, // Don't set capturedPiece for teleport
+          capturedPiece: null, // Don't set capturedPiece for secret passage
         );
       }
 
-      // Check if this should be a teleport move (rook moving to friendly king in Teleport mode)
-      if (board.gameType == ModesEnum.teleport &&
+      // Check if this should be a secret passage move (rook moving to friendly king in Secret Passage mode)
+      if (board.gameType == ModesEnum.secretPassage &&
           piece.type == PieceType.rook &&
           capturedPiece != null &&
           capturedPiece.type == PieceType.king &&
           capturedPiece.color == piece.color) {
-        // Create a teleport move without capturedPiece (the king is not captured, it swaps)
+        // Create a secret passage move without capturedPiece (the king is not captured, it swaps)
         finalMove = ChessMove.simple(
           from: from,
           to: to,
           piece: piece,
-          capturedPiece: null, // Don't set capturedPiece for teleport
+          capturedPiece: null, // Don't set capturedPiece for secret passage
         );
       }
 
@@ -537,9 +537,9 @@ class Controller extends GetxController {
     // Get piece icons based on color and type
     final pieceIcon = _getPieceIcon(move.piece);
 
-    // Special formatting for Teleport mode swaps
-    if (gameType == ModesEnum.teleport) {
-      // Check if this is a teleport swap (king moving to rook or rook moving to king)
+    // Special formatting for Secret Passage mode swaps
+    if (gameType == ModesEnum.secretPassage) {
+      // Check if this is a secret passage swap (king moving to rook or rook moving to king)
       final targetPiece = board.getPieceAt(move.to);
       if (targetPiece != null && targetPiece.color == move.piece.color) {
         if ((move.piece.type == PieceType.king &&
@@ -549,7 +549,7 @@ class Controller extends GetxController {
           // Format: ♔ e1 ⇄ ♖ h1 (piece icon + position for both)
           final movingIcon = _getPieceIcon(move.piece);
           final targetIcon = _getPieceIcon(targetPiece);
-          return '$movingIcon ${move.from.algebraic} ⇄ $targetIcon ${move.to.algebraic} TELEPORT';
+          return '$movingIcon ${move.from.algebraic} ⇄ $targetIcon ${move.to.algebraic} SECRET PASSAGE';
         }
       }
     }
@@ -1029,16 +1029,16 @@ class Controller extends GetxController {
     return false;
   }
 
-  /// Checks if a position is a teleport swap target (not a capture)
-  /// Used to avoid showing red highlight for friendly king/rook in Teleport mode
+  /// Checks if a position is a secret passage swap target (not a capture)
+  /// Used to avoid showing red highlight for friendly king/rook in Secret Passage mode
   bool isTeleportSwapTarget(Position position, ChessPiece targetPiece) {
-    if (board.gameType != ModesEnum.teleport) return false;
+    if (board.gameType != ModesEnum.secretPassage) return false;
     if (_selectedPosition.value == null) return false;
 
     final selectedPiece = board.getPieceAt(_selectedPosition.value!);
     if (selectedPiece == null) return false;
 
-    // Check if this is a king→rook or rook→king teleport
+    // Check if this is a king↔rook or rook↔king secret passage
     final isKingToRook =
         selectedPiece.type == PieceType.king &&
         targetPiece.type == PieceType.rook &&

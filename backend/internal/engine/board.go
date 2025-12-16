@@ -331,8 +331,8 @@ func (b *Board) MakeMove(move Move) error {
 		b.executeCastling(move)
 	} else if move.IsEnPassant {
 		b.executeEnPassant(move)
-	} else if move.IsTeleport {
-		b.executeTeleport(move)
+	} else if move.IsSecretPassage {
+		b.executeSecretPassage(move)
 	}
 
 	// Move piece to destination (unless revengeful knight destroyed it)
@@ -362,7 +362,7 @@ func (b *Board) MakeMove(move Move) error {
 	b.EnPassantSquare = nil
 	if piece != nil && piece.Type == Pawn {
 		// In Royal Pawns mode, pawns move like kings and don't reset the counter
-		if b.Mode != RoyalPawns {
+		if b.Mode != Mercenary {
 			b.FiftyMoveRule = 0
 		} else {
 			b.FiftyMoveRule++ // Treat pawn moves like regular piece moves in Royal Pawns
@@ -449,8 +449,8 @@ func (b *Board) executeEnPassant(move Move) {
 	b.removePiece(capturedPawnPos)
 }
 
-// executeTeleport handles king-rook teleportation in Teleport mode
-func (b *Board) executeTeleport(move Move) {
+// executeSecretPassage handles king-rook teleportation in Secret Passage mode
+func (b *Board) executeSecretPassage(move Move) {
 	// Swap king and rook positions
 	rook := b.GetPieceAt(move.To)
 	if rook != nil {

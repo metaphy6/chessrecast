@@ -126,7 +126,7 @@ extension MoveValidation on ChessBoard {
     }
 
     // Handle teleport in validation - swap king and rook positions
-    if (gameType == ModesEnum.teleport) {
+    if (gameType == ModesEnum.secretPassage) {
       // King-initiated teleport
       if (move.piece.type == PieceType.king) {
         // Check if there's a friendly rook at the destination

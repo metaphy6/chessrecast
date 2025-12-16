@@ -872,9 +872,9 @@ func (sess *Session) isDrawByInsufficientMaterial() bool {
 	whitePieces := sess.Board.GetPiecesOfColor(engine.White)
 	blackPieces := sess.Board.GetPiecesOfColor(engine.Black)
 
-	// Royal Pawns mode: special insufficient material rules (check first)
-	if sess.Board.Mode == engine.RoyalPawns {
-		return sess.isDrawByInsufficientMaterialRoyalPawns(whitePieces, blackPieces)
+	// Mercenary mode: special insufficient material rules (check first)
+	if sess.Board.Mode == engine.Mercenary {
+		return sess.isDrawByInsufficientMaterialMercenary(whitePieces, blackPieces)
 	}
 
 	// Apply classic chess insufficient material rules (applies to all other modes)
@@ -997,7 +997,7 @@ func (sess *Session) isDrawByInsufficientMaterialSnare(whitePieces, blackPieces 
 
 // isSpecialEndgameRequiringFasterMate checks if current position requires mate within 50 total moves
 // Snare: K+N+N vs K (knights must mate within 50 half-moves = 25 white + 25 black)
-// Royal Pawns: K+pieces vs K (must mate within 50 half-moves = 25 white + 25 black)
+// Mercenary: K+pieces vs K (must mate within 50 half-moves = 25 white + 25 black)
 func (sess *Session) isSpecialEndgameRequiringFasterMate() bool {
 	whitePieces := sess.Board.GetPiecesOfColor(engine.White)
 	blackPieces := sess.Board.GetPiecesOfColor(engine.Black)
@@ -1032,8 +1032,8 @@ func (sess *Session) isSpecialEndgameRequiringFasterMate() bool {
 		}
 	}
 
-	// Royal Pawns mode: K+pieces vs K or K vs K+pieces
-	if sess.Board.Mode == engine.RoyalPawns {
+	// Mercenary mode: K+pieces vs K or K vs K+pieces
+	if sess.Board.Mode == engine.Mercenary {
 		// Check if one side has only king
 		whiteOnlyKing := len(whitePieces) == 1
 		blackOnlyKing := len(blackPieces) == 1
@@ -1046,9 +1046,9 @@ func (sess *Session) isSpecialEndgameRequiringFasterMate() bool {
 	return false
 }
 
-// isDrawByInsufficientMaterialRoyalPawns checks Royal Pawns mode insufficient material rules
+// isDrawByInsufficientMaterialMercenary checks Mercenary mode insufficient material rules
 // Pawns can't promote but move like kings, so they can assist in checkmates
-func (sess *Session) isDrawByInsufficientMaterialRoyalPawns(whitePieces, blackPieces []*engine.Piece) bool {
+func (sess *Session) isDrawByInsufficientMaterialMercenary(whitePieces, blackPieces []*engine.Piece) bool {
 	whitePawns := 0
 	blackPawns := 0
 
@@ -1081,8 +1081,8 @@ func (sess *Session) isDrawByInsufficientMaterialRoyalPawns(whitePieces, blackPi
 		return false
 	}
 
-	// No pawns left - check Royal Pawns specific insufficient material
-	// K+N vs K+N is insufficient in Royal Pawns (can't checkmate without pawns to promote)
+	// No pawns left - check Mercenary specific insufficient material
+	// K+N vs K+N is insufficient in Mercenary (can't checkmate without pawns to promote)
 	if totalPieces == 4 {
 		whiteKnights := 0
 		blackKnights := 0

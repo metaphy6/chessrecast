@@ -5,13 +5,13 @@ type GameMode int
 
 const (
 	Classic GameMode = iota
-	RoyalPawns
+	Mercenary
 	Coyote
 	Heir
 	Truce
 	Snare
 	Diamonds
-	Teleport
+	SecretPassage
 	FriendlyFire
 	KingsBattle
 	SaveTheQueen
@@ -21,13 +21,13 @@ const (
 func (gm GameMode) String() string {
 	names := []string{
 		"classic",
-		"royal_pawns",
+		"mercenary",
 		"coyote",
 		"heir",
 		"truce",
 		"snare",
 		"diamonds",
-		"teleport",
+		"secret_passage",
 		"friendly_fire",
 		"kings_battle",
 		"save_the_queen",
@@ -43,13 +43,13 @@ func (gm GameMode) String() string {
 func ParseGameMode(s string) GameMode {
 	modes := map[string]GameMode{
 		"classic":         Classic,
-		"royal_pawns":     RoyalPawns,
-		"coyote":           Coyote,
+		"mercenary":       Mercenary,
+		"coyote":          Coyote,
 		"heir":            Heir,
 		"truce":           Truce,
 		"snare":           Snare,
 		"diamonds":        Diamonds,
-		"teleport":        Teleport,
+		"secret_passage":  SecretPassage,
 		"friendly_fire":   FriendlyFire,
 		"kings_battle":    KingsBattle,
 		"save_the_queen":  SaveTheQueen,
@@ -71,7 +71,7 @@ type Move struct {
 	IsPromotion    bool
 	IsCastling     bool
 	IsEnPassant    bool
-	IsTeleport     bool      // For Teleport mode
+	IsSecretPassage bool      // For Secret Passage mode
 	MoveNumber     int       // Track move sequence
 }
 
@@ -95,7 +95,7 @@ func (m *Move) Clone() *Move {
 		IsPromotion:    m.IsPromotion,
 		IsCastling:     m.IsCastling,
 		IsEnPassant:    m.IsEnPassant,
-		IsTeleport:     m.IsTeleport,
+		IsSecretPassage:     m.IsSecretPassage,
 		MoveNumber:     m.MoveNumber,
 	}
 }
