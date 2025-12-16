@@ -3,6 +3,7 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"log"
 )
 
 // Board represents the chess board with all pieces and game state
@@ -28,12 +29,13 @@ type Board struct {
 	BlackCanCastleQueenside bool
 
 	// Mode-specific state
-	TruceActive         bool              // For Truce mode
-	PieceMoveCounter    map[Position]int  // For Truce mode
-	KingsKillUnlock     bool              // For Kings' Battle mode
-	EscapedQueens       map[Color]bool    // For Save the Queen mode
-	QueenCaptureCounter map[string]int    // For Save the Queen mode - tracks repeated queen captures
-	PromotedKings       map[Color]int     // For Succession mode
+	TruceActive              bool              // For Truce mode
+	PieceMoveCounter         map[Position]int  // For Truce mode
+	OpponentStuckInTruce     bool              // For Truce mode - opponent has no valid moves
+	KingsKillUnlock          bool              // For Kings' Battle mode
+	EscapedQueens            map[Color]bool    // For Save the Queen mode
+	QueenCaptureCounter      map[string]int    // For Save the Queen mode - tracks repeated queen captures
+	PromotedKings            map[Color]int     // For Succession mode
 }
 
 // NewBoard creates a standard starting position
@@ -383,6 +385,18 @@ func (b *Board) MakeMove(move Move) error {
 		b.updateCastlingRights(piece, move)
 	}
 
+	// TRUCE MODE: Update piece move counter and check if truce breaks
+	if b.Mode == Truce && b.TruceActive && piece != nil {
+		// Increment move count for this piece
+		b.PieceMoveCounter[move.From]++
+		
+		// Check if truce should break (one player has moved all their pieces)
+		if b.checkTruceBreak(piece.Color) {
+			b.TruceActive = false
+			log.Printf("⚔️ TRUCE BROKEN by %s! All pieces have moved at least once. Combat is now allowed!", piece.Color)
+		}
+	}
+
 	// Add to history
 	move.MoveNumber = b.MoveCount
 	b.History.Add(move)
@@ -499,6 +513,7 @@ func (b *Board) Clone() *Board {
 		BlackCanCastleKingside:  b.BlackCanCastleKingside,
 		BlackCanCastleQueenside: b.BlackCanCastleQueenside,
 		TruceActive:             b.TruceActive,
+		OpponentStuckInTruce:    b.OpponentStuckInTruce,
 		KingsKillUnlock:         b.KingsKillUnlock,
 		PieceMoveCounter:        make(map[Position]int),
 		EscapedQueens:           make(map[Color]bool),
@@ -585,6 +600,11 @@ func (b *Board) ToFEN() string {
 
 // IsKingInCheck checks if the king of the given color is in check
 func (b *Board) IsKingInCheck(color Color) bool {
+	// TRUCE MODE: During truce, kings cannot be in check (they move freely)
+	if b.Mode == Truce && b.TruceActive {
+		return false
+	}
+	
 	mg := NewMoveGenerator(b)
 	return mg.isKingInCheck(b, color)
 }
@@ -734,7 +754,109 @@ func (b *Board) GetPiecesOfColor(color Color) []*Piece {
 	return pieces
 }
 
-// Helper function
+// checkTruceBreak checks if the truce should break for the given color
+// Truce breaks when one player has moved ALL their pieces at least once
+func (b *Board) checkTruceBreak(color Color) bool {
+	// Count how many unique piece starting positions have moved
+	movedPositions := make(map[Position]bool)
+	
+	for _, move := range b.History.Moves {
+		if move.Piece.Color == color {
+			movedPositions[move.From] = true
+		}
+	}
+	
+	// Count total pieces currently on board for this color
+	currentPieces := b.GetPiecesOfColor(color)
+	totalPieces := len(currentPieces)
+	
+	// Check if ALL current pieces have moved at least once
+	// A piece "has moved" if its current position appeared as a 'from' in history
+	// OR if it moved TO its current position (for tracking after captures/promotions)
+	piecesMovedCount := 0
+	for _, piece := range currentPieces {
+		hasMoved := false
+		
+		// Check if this piece's current position was a 'from' in history
+		if movedPositions[piece.Position] {
+			hasMoved = true
+		} else {
+			// Check if this piece moved TO its current position
+			for _, move := range b.History.Moves {
+				if move.Piece.Color == color && move.To == piece.Position {
+					hasMoved = true
+					break
+				}
+			}
+		}
+		
+		if hasMoved {
+			piecesMovedCount++
+		}
+	}
+	
+	// Truce breaks when all pieces have moved
+	return piecesMovedCount >= totalPieces && totalPieces > 0
+}
+
+// GetUnmovedPieces returns all pieces that haven't moved yet for a color
+func (b *Board) GetUnmovedPieces(color Color) []*Piece {
+	unmovedPieces := []*Piece{}
+	movedPositions := make(map[Position]bool)
+	
+	// Track all positions that have moved
+	for _, move := range b.History.Moves {
+		if move.Piece.Color == color {
+			movedPositions[move.From] = true
+		}
+	}
+	
+	// Find pieces that haven't moved
+	for row := 0; row < 8; row++ {
+		for col := 0; col < 8; col++ {
+			piece := b.squares[row][col]
+			if piece != nil && piece.Color == color {
+				// Check if this piece has moved
+				if !movedPositions[piece.Position] {
+					// Also check if it moved TO this position
+					hasMoved := false
+					for _, move := range b.History.Moves {
+						if move.Piece.Color == color && move.To == piece.Position {
+							hasMoved = true
+							break
+						}
+					}
+					if !hasMoved {
+						unmovedPieces = append(unmovedPieces, piece)
+					}
+				}
+			}
+		}
+	}
+	
+	return unmovedPieces
+}
+
+// HasMovableUnmovedPieces checks if a player has any unmoved pieces that can move
+func (b *Board) HasMovableUnmovedPieces(color Color) bool {
+	unmovedPieces := b.GetUnmovedPieces(color)
+	if len(unmovedPieces) == 0 {
+		return false // No unmoved pieces left
+	}
+	
+	// Check if any unmoved piece has valid moves
+	mg := NewMoveGenerator(b)
+	for _, piece := range unmovedPieces {
+		moves := mg.GetValidMoves(piece.Position)
+		if len(moves) > 0 {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// Helper function for absolute value
 func abs(x int) int {
 	if x < 0 {
 		return -x

@@ -110,6 +110,32 @@ func (m *Move) ToAlgebraic() string {
 	return notation
 }
 
+// FormatMove returns a formatted string for logging (e.g., "White ♙ e2 → e4")
+func (m *Move) FormatMove() string {
+	colorName := "White"
+	if m.Piece.Color == Black {
+		colorName = "Black"
+	}
+	
+	result := colorName + " " + m.Piece.Unicode() + " " + m.From.ToAlgebraic() + " → " + m.To.ToAlgebraic()
+	
+	if m.CapturedPiece != nil {
+		result += " (captured " + m.CapturedPiece.Unicode() + ")"
+	}
+	if m.IsEnPassant {
+		result += " (en passant)"
+	}
+	if m.IsCastling {
+		result += " (castling)"
+	}
+	if m.IsPromotion {
+		promotedPiece := &Piece{Type: m.Promotion, Color: m.Piece.Color}
+		result += " (promoted to " + promotedPiece.Unicode() + ")"
+	}
+	
+	return result
+}
+
 // GameState represents the current state of a chess game
 type GameState int
 
