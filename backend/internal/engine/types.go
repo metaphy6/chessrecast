@@ -134,3 +134,27 @@ func (p *Piece) Clone() *Piece {
 func (p *Piece) String() string {
 	return p.Color.String() + " " + p.Type.String()
 }
+
+// Unicode returns the Unicode chess symbol for this piece
+func (p *Piece) Unicode() string {
+	white := map[PieceType]string{
+		King:   "♔",
+		Queen:  "♕",
+		Rook:   "♖",
+		Bishop: "♗",
+		Knight: "♘",
+		Pawn:   "♙",
+	}
+	black := map[PieceType]string{
+		King:   "♚",
+		Queen:  "♛",
+		Rook:   "♜",
+		Bishop: "♝",
+		Knight: "♞",
+		Pawn:   "♟",
+	}
+	if p.Color == White {
+		return white[p.Type]
+	}
+	return black[p.Type]
+}

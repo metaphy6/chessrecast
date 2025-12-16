@@ -42,6 +42,12 @@ func (mg *MoveGenerator) GetValidMoves(pos Position) []Move {
 	// Apply game mode specific rules
 	moves = mg.applyGameModeRules(moves, piece)
 
+	// TRUCE MODE: During truce, there is NO check concept - kings move freely
+	// Skip all check-related filtering when truce is active
+	if mg.board.Mode == Truce && mg.board.TruceActive {
+		return moves
+	}
+
 	// Filter moves that would leave king in check (unless game mode allows it)
 	if !mg.allowsSelfCheck() {
 		moves = mg.filterCheckMoves(moves)
@@ -654,15 +660,16 @@ func (mg *MoveGenerator) applyKingsBattleRules(moves []Move, piece *Piece) []Mov
 // applyTruceRules enforces truce period rules
 func (mg *MoveGenerator) applyTruceRules(moves []Move, piece *Piece) []Move {
 	if !mg.board.TruceActive {
-		return moves // Truce broken, normal rules
+		// Truce broken - normal chess rules apply
+		return moves
 	}
 
-	// Check if piece has moved 3 times
+	// During truce: Check if piece has moved 3 times
 	if mg.board.PieceMoveCounter[piece.Position] >= 3 {
 		return []Move{} // Can't move anymore during truce
 	}
 
-	// Filter out captures during truce
+	// During truce: Filter out captures (captures allowed only when truce breaks)
 	nonCaptureMoves := []Move{}
 	for _, move := range moves {
 		if move.CapturedPiece == nil {
@@ -1504,3 +1511,4 @@ func (mg *MoveGenerator) allowsSelfCheck() bool {
 	// Snare mode uses normal chess rules for check - king cannot move into attacked squares
 	return false
 }
+

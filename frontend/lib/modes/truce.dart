@@ -6,12 +6,13 @@ import 'game_mode.dart';
 ///
 /// Rules:
 /// - Players cannot capture opponent pieces until truce is broken
-/// - Truce breaks when one player has moved all their pieces at least once
+/// - Truce breaks when one player has exhausted all unmoved pieces (all moved or blocked)
 /// - During truce, no piece can be moved more than 3 times
 /// - NO check or checkmate during truce - kings move freely
-/// - Once truce is broken, normal chess rules apply including check and checkmate
+/// - Once truce is broken, normal chess rules apply including check/checkmate/captures
 class Truce extends GameMode {
   const Truce();
+
   @override
   List<ChessMove> filterMoves(
     List<ChessMove> moves,
@@ -49,41 +50,41 @@ class Truce extends GameMode {
     // Check if this move breaks the truce
     final wasTruceActive = !_isTruceBroken(board);
 
-    // Count how many unique pieces of this color will have moved AFTER this move
-    final movedPieces = _getMovedPieces(board, move.piece.color);
-    movedPieces.add(move.from); // Add the current piece that's about to move
+    // Check if truce should end after this move
+    // Truce ends when player has exhausted all unmoved pieces
+    if (wasTruceActive) {
+      // Count pieces that have moved after this move
+      final movedPieces = _getMovedPieces(board, move.piece.color);
+      movedPieces.add(move.from);
 
-    // Important: Count total pieces BEFORE the move is made (board is pre-move state)
-    final totalPieces = board.getPiecesOfColor(move.piece.color).length;
+      final totalPieces = board.getPiecesOfColor(move.piece.color).length;
+      final isTruceNowBroken =
+          movedPieces.length >= totalPieces && totalPieces > 0;
 
-    // Truce breaks when a player has moved ALL their pieces at least once
-    final isTruceNowBroken =
-        movedPieces.length >= totalPieces && totalPieces > 0;
-
-    if (wasTruceActive && isTruceNowBroken) {
-      // Truce is now broken
-      logTruceBroken(move.piece.color == PieceColor.white ? 'white' : 'black');
+      if (isTruceNowBroken) {
+        logTruceBroken(
+          move.piece.color == PieceColor.white ? 'white' : 'black',
+        );
+      }
     }
 
-    return null; // No special board changes needed
+    return null;
   }
 
   /// Check if truce is broken for the board
   bool _isTruceBroken(ChessBoard board) {
-    // Check if either player has moved all their pieces
-    // Note: We need to check if all CURRENT pieces on the board have moved at least once
+    // Check if either player has exhausted all unmoved pieces
     for (final color in [PieceColor.white, PieceColor.black]) {
       final movedPieces = _getMovedPieces(board, color);
       final currentPieces = board.getPiecesOfColor(color);
 
-      // Count how many CURRENT pieces have moved at least once
+      // Count how many current pieces have moved
       int currentPiecesThatHaveMoved = 0;
       for (final piece in currentPieces) {
-        // Check if this piece position appeared as a "from" in move history
         if (movedPieces.contains(piece.position)) {
           currentPiecesThatHaveMoved++;
         } else {
-          // Check if this piece moved FROM another position TO current position
+          // Check if piece moved TO this position
           bool hasMoved = false;
           for (final move in board.moveHistory) {
             if (move.piece.color == color && move.to == piece.position) {
@@ -112,11 +113,9 @@ class Truce extends GameMode {
   }
 
   /// TRUCE MODE: King cannot be in check during truce
-  /// Returns false during truce, normal check logic after truce breaks
   bool isKingInCheckTruce(PieceColor kingColor, ChessBoard board) {
-    // During truce, kings cannot be in check (they move freely)
     if (isTruceActive(board)) {
-      return false;
+      return false; // No check during truce
     }
 
     // After truce breaks, use normal check logic
@@ -128,27 +127,22 @@ class Truce extends GameMode {
   /// Get how many times a specific piece has moved
   int _getPieceMoveCount(ChessBoard board, ChessPiece piece) {
     int count = 0;
-
     for (final move in board.moveHistory) {
-      // Check if this move was made by the same piece (same color and starting position)
       if (move.piece.color == piece.color && move.from == piece.position) {
         count++;
       }
     }
-
     return count;
   }
 
-  /// Get set of unique piece starting positions that have moved for a color
+  /// Get set of unique piece starting positions that have moved
   Set<Position> _getMovedPieces(ChessBoard board, PieceColor color) {
     final movedPositions = <Position>{};
-
     for (final move in board.moveHistory) {
       if (move.piece.color == color) {
         movedPositions.add(move.from);
       }
     }
-
     return movedPositions;
   }
 

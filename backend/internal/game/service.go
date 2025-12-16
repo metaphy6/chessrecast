@@ -437,6 +437,9 @@ func (sess *Session) processMove(req MoveRequest) MoveResponse {
 		}
 	}
 
+	// Log the move
+	log.Printf("📝 %s", req.Move.FormatMove())
+
 	// Log Kings' Battle First Blood event (only once when it happens)
 	if sess.Board.Mode == engine.KingsBattle && !wasUnlocked && sess.Board.KingsKillUnlock {
 		log.Printf("⚔️ FIRST BLOOD! %s King captured a Pawn - all pieces unlocked, bonus move granted", req.Move.Piece.Color)
@@ -651,6 +654,14 @@ func (sess *Session) updateGameState() {
 		}
 		if hasValidMoves {
 			break
+		}
+	}
+
+	// Truce mode: Check if truce should end
+	if sess.Board.Mode == engine.Truce && sess.Board.TruceActive {
+		if !sess.Board.HasMovableUnmovedPieces(sess.Board.CurrentTurn) {
+			log.Printf("🔓 TRUCE ENDING: %s has exhausted all unmoved pieces", sess.Board.CurrentTurn)
+			sess.Board.TruceActive = false
 		}
 	}
 
@@ -1302,9 +1313,7 @@ func (s *Service) PlayBotVsBot(sessionID string, moveDelay int) error {
 			break
 		}
 
-		logf("✅ Bot chose move: %s%s -> %s%s", 
-			string('a'+move.From.Col), string('1'+move.From.Row),
-			string('a'+move.To.Col), string('1'+move.To.Row))
+		logf("✅ %s", move.FormatMove())
 
 		// Execute move directly on the board (we already hold the lock)
 		if err := session.Board.MakeMove(*move); err != nil {
@@ -1478,3 +1487,4 @@ func (s *Service) GetGameStatus(sessionID string) (map[string]interface{}, error
 		"move_delay": session.MoveDelay,
 	}, nil
 }
+
