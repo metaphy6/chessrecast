@@ -16,7 +16,6 @@ class Heir extends GameMode {
   )
   const Heir();
 
-  @override
   List<ChessMove>? getKingMoves(ChessPiece king, ChessBoard board) {
     // In Heir mode, kings follow classic chess rules with each other:
     // - Kings can NEVER capture each other
