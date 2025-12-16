@@ -81,7 +81,7 @@ Chess Recast is a novel chess game featuring 14 unique game modes, each introduc
 
 ---
 
-## Royal Pawns Mode
+## Mercenary Mode
 **Description:** Pawns move and capture like Kings.
 **Key Rules:**
 - Pawns can move one square in ANY direction (8 directions like a King)
@@ -158,16 +158,16 @@ Chess Recast is a novel chess game featuring 14 unique game modes, each introduc
 
 ---
 
-## Teleport Mode
+## Secret Passage Mode
 **Description:** Kings and rooks can swap positions when aligned.
 **Rules:**
 - Kings can teleport with friendly rooks on the same rank or file
-- Teleport swaps positions instantly
+- Secret passage swaps positions instantly
 - Safe corridor requirements:
   1. King must NOT be under attack
   2. Rook must NOT be under attack
   3. No pieces between king and rook
-  4. No opponent piece attacking ANY square on teleport line
+  4. No opponent piece attacking ANY square on the passage line
 - No castling allowed
 - All other pieces move normally
 
@@ -194,19 +194,19 @@ Chess Recast is a novel chess game featuring 14 unique game modes, each introduc
 | Heir | King as regular piece | High | Capture king + pawns |
 | Kings' Battle | Two-phase movement | Medium | Checkmate (after unlock) |
 | Coyote | Rook race | Medium | Rook to back rank |
-| Royal Pawns | King-like pawns | Low | Checkmate |
+| Mercenary | King-like pawns | Low | Checkmate |
 | Succession | Two queens, pawn race | High | First king promotion |
 | Save the Queen | Prisoner queen escape | High | Queen escape + capture |
 | Snare | Knight entangle zones | Very High | Checkmate (knights alive) |
-| Teleport | King-rook swap | Medium | Checkmate |
+| Secret Passage | King-rook swap | Medium | Checkmate |
 | Truce | Delayed combat | Medium | Checkmate (after truce break) |
 
 ---
 
 ## Key Innovation Patterns
 
-1. **Movement Restrictions:** Diamonds, Royal Pawns
+1. **Movement Restrictions:** Diamonds, Mercenary
 2. **Piece State Management:** Heir, Save the Queen
-3. **Asymmetric Objectives:** Coyote, Succession, Teleport
+3. **Asymmetric Objectives:** Coyote, Succession, Secret Passage
 4. **Dynamic Board Rules:** Kings' Battle, Truce, Snare
 5. **Capture Modifications:** Diamonds, Friendly Fire, Snare

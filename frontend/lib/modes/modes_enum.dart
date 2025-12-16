@@ -1,7 +1,7 @@
 enum ModesEnum {
   classic('Classic Chess', 'Traditional chess with standard rules'),
-  royalPawns(
-    'Royal Pawns',
+  mercenary(
+    'Mercenary',
     'Pawns move and capture like kings (one square in any direction). Pawns cannot promote. No two-square initial move. No en passant.',
   ),
   coyote(
@@ -24,8 +24,8 @@ enum ModesEnum {
     'Diamonds',
     'Bishop-focused variant: Bishops move diagonally but capture in a diamond pattern (8 squares around them). Pawns can only promote to Bishops.',
   ),
-  teleport(
-    'Teleport',
+  secretPassage(
+    'Secret Passage',
     'King and rook can swap positions when aligned horizontally or vertically. Castling is not allowed.',
   ),
   friendlyFire(

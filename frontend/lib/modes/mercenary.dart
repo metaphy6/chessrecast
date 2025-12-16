@@ -2,7 +2,7 @@ import '../board/utils/exporter.dart';
 import 'game_mode.dart';
 import 'modes_enum.dart';
 
-/// ROYAL PAWNS MODE: Pawns move and capture like Kings
+/// MERCENARY MODE: Pawns move and capture like Kings
 ///
 /// Rules:
 /// - Pawns can move one square in ANY direction (like a King)
@@ -16,11 +16,11 @@ import 'modes_enum.dart';
 /// - Standard 100 half-move rule (50 full moves)
 /// - Insufficient material: K vs K, K+P vs K+P, or K+N vs K+N (no pawns)
 /// - With pawns on board, checkmate is possible (pawns assist like kings)
-class RoyalPawns extends GameMode {
+class Mercenary extends GameMode {
   @Deprecated(
-    'Use the `modes.royalPawns` alias from modes_cache.dart instead of direct instantiation',
+    'Use the `modes.mercenary` alias from modes_cache.dart instead of direct instantiation',
   )
-  const RoyalPawns();
+  const Mercenary();
   @override
   List<ChessMove>? getPawnMoves(ChessPiece pawn, ChessBoard board) {
     final moves = <ChessMove>[];
@@ -44,7 +44,7 @@ class RoyalPawns extends GameMode {
       final targetPiece = board.getPieceAt(newPos);
 
       if (targetPiece == null) {
-        // Empty square - can move (no promotion in Royal Pawns mode)
+        // Empty square - can move (no promotion in Mercenary mode)
         moves.add(
           ChessMove.simple(from: pawn.position, to: newPos, piece: pawn),
         );
@@ -56,7 +56,7 @@ class RoyalPawns extends GameMode {
           continue; // Skip this move
         }
 
-        // No promotion in Royal Pawns mode, even when capturing on last rank
+        // No promotion in Mercenary mode, even when capturing on last rank
         moves.add(
           ChessMove.simple(
             from: pawn.position,
@@ -68,9 +68,9 @@ class RoyalPawns extends GameMode {
       }
     }
 
-    // Note: No two-square initial move in Royal Pawns mode
+    // Note: No two-square initial move in Mercenary mode
     // Pawns move like kings (one square at a time in any direction)
-    // Note: No en passant in Royal Pawns mode since pawns can capture in all directions
+    // Note: No en passant in Mercenary mode since pawns can capture in all directions
 
     return moves;
   }

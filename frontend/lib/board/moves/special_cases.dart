@@ -51,9 +51,9 @@ extension SpecialCases on ChessBoard {
         }
       }
 
-      // Special handling for Royal Pawns mode - pawns attack like kings
-      if (gameType == ModesEnum.royalPawns && piece.type == PieceType.pawn) {
-        return _canPawnAttackLikeKingInRoyalPawnsMode(piece.position, position);
+      // Special handling for Mercenary mode - pawns attack like kings
+      if (gameType == ModesEnum.mercenary && piece.type == PieceType.pawn) {
+        return _canPawnAttackLikeKingInMercenaryMode(piece.position, position);
       }
 
       // Special handling for Diamonds mode bishops
@@ -84,8 +84,8 @@ extension SpecialCases on ChessBoard {
     return false;
   }
 
-  /// Checks if a pawn can attack a position in Royal Pawns mode (like a king)
-  bool _canPawnAttackLikeKingInRoyalPawnsMode(
+  /// Checks if a pawn can attack a position in Mercenary mode (like a king)
+  bool _canPawnAttackLikeKingInMercenaryMode(
     Position pawnPos,
     Position targetPos,
   ) {

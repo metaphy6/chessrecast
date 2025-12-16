@@ -17,9 +17,9 @@ class Orchestrator {
 
     final validMoves = board.getValidMovesFor(move.from);
 
-    // For teleport mode, we need special comparison because the controller
+    // For secret passage mode, we need special comparison because the controller
     // sets capturedPiece to the rook/king, but the generated move has capturedPiece: null
-    if (board.gameType == ModesEnum.teleport &&
+    if (board.gameType == ModesEnum.secretPassage &&
         (move.piece.type == PieceType.king ||
             move.piece.type == PieceType.rook)) {
       final isValid = validMoves.any(
@@ -59,11 +59,14 @@ class Orchestrator {
       }
     }
 
-    // Check for Teleport mode special move (king-rook swap)
-    if (board.gameType == ModesEnum.teleport) {
-      final teleportBoard = modes.teleport.handleSpecialMove(board, move);
-      if (teleportBoard != null) {
-        return updateGameStatus(teleportBoard);
+    // Check for Secret Passage mode special move (king-rook swap)
+    if (board.gameType == ModesEnum.secretPassage) {
+      final secretPassageBoard = modes.secretPassage.handleSpecialMove(
+        board,
+        move,
+      );
+      if (secretPassageBoard != null) {
+        return updateGameStatus(secretPassageBoard);
       }
     }
 
@@ -448,12 +451,12 @@ class Orchestrator {
     final whitePieces = board.getPiecesOfColor(PieceColor.white);
     final blackPieces = board.getPiecesOfColor(PieceColor.black);
 
-    // Royal Pawns mode: special insufficient material rules (check first)
-    if (board.gameType == ModesEnum.royalPawns) {
-      if (_isDrawByInsufficientMaterialRoyalPawns(whitePieces, blackPieces)) {
+    // Mercenary mode: special insufficient material rules (check first)
+    if (board.gameType == ModesEnum.mercenary) {
+      if (_isDrawByInsufficientMaterialMercenary(whitePieces, blackPieces)) {
         return true;
       }
-      return false; // Don't apply classic rules for Royal Pawns
+      return false; // Don't apply classic rules for Mercenary
     }
 
     // Apply classic chess insufficient material rules for other modes
@@ -579,9 +582,9 @@ class Orchestrator {
     return false;
   }
 
-  /// Royal Pawns mode insufficient material rules
+  /// Mercenary mode insufficient material rules
   /// Pawns can't promote but move like kings, so they can assist in checkmates
-  bool _isDrawByInsufficientMaterialRoyalPawns(
+  bool _isDrawByInsufficientMaterialMercenary(
     List<ChessPiece> whitePieces,
     List<ChessPiece> blackPieces,
   ) {
@@ -609,8 +612,8 @@ class Orchestrator {
       return false;
     }
 
-    // No pawns left - check Royal Pawns specific insufficient material
-    // K+N vs K+N is insufficient in Royal Pawns (can't checkmate without pawns to promote)
+    // No pawns left - check Mercenary specific insufficient material
+    // K+N vs K+N is insufficient in Mercenary (can't checkmate without pawns to promote)
     if (totalPieces == 4) {
       final whiteKnights = whitePieces
           .where((p) => p.type == PieceType.knight)
@@ -636,7 +639,7 @@ class Orchestrator {
 
   /// Checks if current position is a special endgame requiring mate within 50 total moves
   /// Snare: K+N+N vs K (knights must mate within 50 half-moves = 25 white + 25 black)
-  /// Royal Pawns: K+pieces vs K (must mate within 50 half-moves = 25 white + 25 black)
+  /// Mercenary: K+pieces vs K (must mate within 50 half-moves = 25 white + 25 black)
   bool _isSpecialEndgameRequiringFasterMate(ChessBoard board) {
     final whitePieces = board.getPiecesOfColor(PieceColor.white);
     final blackPieces = board.getPiecesOfColor(PieceColor.black);
@@ -671,8 +674,8 @@ class Orchestrator {
       }
     }
 
-    // Royal Pawns mode: K+pieces vs K or K vs K+pieces
-    if (board.gameType == ModesEnum.royalPawns) {
+    // Mercenary mode: K+pieces vs K or K vs K+pieces
+    if (board.gameType == ModesEnum.mercenary) {
       // Check if one side has only king
       final whiteOnlyKing = whitePieces.length == 1;
       final blackOnlyKing = blackPieces.length == 1;
@@ -686,7 +689,7 @@ class Orchestrator {
   }
 
   /// Checks for draw by fifty-move rule
-  /// Special endgames (Snare K+N+N vs K, Royal Pawns K+pieces vs K): 50 half-moves total (25+25)
+  /// Special endgames (Snare K+N+N vs K, Mercenary K+pieces vs K): 50 half-moves total (25+25)
   /// Normal games: 50 full moves (100 half-moves) without capture or pawn move
   bool _isDrawByFiftyMoveRule(ChessBoard board) {
     final fiftyMoveLimit = _isSpecialEndgameRequiringFasterMate(board)

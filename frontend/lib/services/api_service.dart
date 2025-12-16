@@ -55,7 +55,7 @@ class ApiService {
   }
 
   /// Create a new game
-  /// [mode] - Game mode (e.g., 'classic', 'royal_pawns')
+  /// [mode] - Game mode (e.g., 'classic', 'mercenary')
   /// [botDifficulty] - AI difficulty level (1-10), null for PvP
   /// [opponentId] - Opponent player ID for PvP, null for bot game
   /// Returns game data including game_id and player_id

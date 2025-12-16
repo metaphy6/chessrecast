@@ -74,10 +74,10 @@ void logSuccessionNoPawns(String winner) {
   );
 }
 
-/// Teleport Mode: King-Rook swap
-void logTeleportSwap(String playerColor, String fromPos, String toPos) {
+/// Secret Passage Mode: King-Rook swap
+void logSecretPassageSwap(String playerColor, String fromPos, String toPos) {
   debugPrint(
-    '🌀 TELEPORT - Swap: $playerColor King and Rook teleported! From $fromPos to $toPos',
+    '🌀 SECRET PASSAGE - Swap: $playerColor King and Rook teleported! From $fromPos to $toPos',
   );
 }
 
@@ -151,10 +151,10 @@ void logFriendlyFireCapture(String playerColor, String position) {
   );
 }
 
-/// Royal Pawns Mode: Pawn reaches back rank
-void logRoyalPawnsPromotion(String playerColor, String position) {
+/// Mercenary Mode: Pawn reaches back rank
+void logMercenaryPromotion(String playerColor, String position) {
   debugPrint(
-    '👸 ROYAL PAWNS - Promotion: $playerColor pawn reached promotion rank at $position!',
+    '🐧 MERCENARY - Promotion: $playerColor pawn reached promotion rank at $position!',
   );
 }
 

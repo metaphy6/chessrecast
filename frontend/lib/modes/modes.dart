@@ -12,10 +12,10 @@ export 'heir.dart';
 export 'kings_battle.dart';
 // modes_enum exported above
 export 'coyote.dart';
-export 'royal_pawns.dart';
+export 'mercenary.dart';
 export 'save_the_queen.dart';
 export 'succession.dart';
 export 'snare.dart';
-export 'teleport.dart';
+export 'secret_passage.dart';
 export 'truce.dart';
 export 'modes_cache.dart';

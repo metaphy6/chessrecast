@@ -118,8 +118,8 @@ extension MoveGeneration on ChessBoard {
         return modes.truce.filterMoves(potentialMoves, piece, this);
       case ModesEnum.diamonds:
         return modes.diamonds.filterMoves(potentialMoves, piece, this);
-      case ModesEnum.teleport:
-        return modes.teleport.filterMoves(potentialMoves, piece, this);
+      case ModesEnum.secretPassage:
+        return modes.secretPassage.filterMoves(potentialMoves, piece, this);
       case ModesEnum.friendlyFire:
         return modes.friendlyFire.filterMoves(potentialMoves, piece, this);
       case ModesEnum.kingsBattle:
@@ -158,8 +158,8 @@ extension MoveGeneration on ChessBoard {
       if (customMoves != null) return customMoves;
     }
 
-    if (gameType == ModesEnum.royalPawns) {
-      final customMoves = modes.royalPawns.getPawnMoves(pawn, this);
+    if (gameType == ModesEnum.mercenary) {
+      final customMoves = modes.mercenary.getPawnMoves(pawn, this);
       if (customMoves != null) return customMoves;
     }
 
@@ -266,9 +266,9 @@ extension MoveGeneration on ChessBoard {
     PieceColor color, {
     Position? promotionPosition,
   }) {
-    // Check for Royal Pawns mode - NO promotion
-    if (gameType == ModesEnum.royalPawns) {
-      return []; // No promotion in Royal Pawns mode
+    // Check for Mercenary mode - NO promotion
+    if (gameType == ModesEnum.mercenary) {
+      return []; // No promotion in Mercenary mode
     }
 
     // Check for Diamonds mode - only bishops allowed
@@ -379,8 +379,8 @@ extension MoveGeneration on ChessBoard {
     ];
     final moves = generateStepMoves(king, directions);
 
-    // Add castling moves if conditions are met (not in Teleport or Coyote mode)
-    if (gameType != ModesEnum.teleport && gameType != ModesEnum.coyote) {
+    // Add castling moves if conditions are met (not in SecretPassage or Coyote mode)
+    if (gameType != ModesEnum.secretPassage && gameType != ModesEnum.coyote) {
       if (king.color == PieceColor.white) {
         // White kingside castling (O-O)
         if (whiteCanCastleKingside && canCastleKingside(king.color)) {

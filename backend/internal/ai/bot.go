@@ -500,7 +500,7 @@ func (b *Bot) getModeSpecificScore(board *engine.Board) float64 {
 	score := 0.0
 
 	switch board.Mode {
-	case engine.RoyalPawns:
+	case engine.Mercenary:
 		// In Royal Pawns, pawns move like kings - prioritize pawn advancement and aggression
 		for row := 0; row < 8; row++ {
 			for col := 0; col < 8; col++ {
@@ -610,7 +610,7 @@ func (b *Bot) getModeSpecificScore(board *engine.Board) float64 {
 			}
 		}
 
-	case engine.Teleport:
+	case engine.SecretPassage:
 		// Value king-rook alignment for teleportation opportunities
 		var kingPos engine.Position
 		kingFound := false
@@ -629,13 +629,13 @@ func (b *Bot) getModeSpecificScore(board *engine.Board) float64 {
 		}
 
 		if kingFound {
-			// Bonus for rooks aligned with king (enables teleport)
+			// Bonus for rooks aligned with king (enables secret passage)
 			for row := 0; row < 8; row++ {
 				for col := 0; col < 8; col++ {
 					piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
 					if piece != nil && piece.Type == engine.Rook && piece.Color == b.Color {
 						if row == kingPos.Row || col == kingPos.Col {
-							score += 80.0 // Aligned for potential teleport
+							score += 80.0 // Aligned for potential secret passage
 						}
 					}
 				}
@@ -960,7 +960,7 @@ func (b *Bot) canPieceAttack(board *engine.Board, piece *engine.Piece, target en
 	switch piece.Type {
 	case engine.Pawn:
 		// In Royal Pawns mode, pawns attack like kings (all 8 directions)
-		if board.Mode == engine.RoyalPawns {
+		if board.Mode == engine.Mercenary {
 			if abs(dr) <= 1 && abs(dc) <= 1 && (dr != 0 || dc != 0) {
 				return true
 			}

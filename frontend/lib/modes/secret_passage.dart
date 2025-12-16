@@ -2,7 +2,7 @@ import '../board/utils/exporter.dart';
 import '../debug.dart';
 import 'game_mode.dart';
 
-/// TELEPORT MODE: Kings and rooks can swap positions when aligned
+/// SECRET PASSAGE MODE: Kings and rooks can swap positions when aligned
 ///
 /// Rules:
 /// - Kings can teleport with friendly rooks on the same rank or file
@@ -14,11 +14,11 @@ import 'game_mode.dart';
 ///   4. No opponent piece attacking ANY square on the teleport line
 /// - No castling is allowed in this mode
 /// - All other pieces move normally
-class Teleport extends GameMode {
+class SecretPassage extends GameMode {
   @Deprecated(
-    'Use the `modes.teleport` alias from modes_cache.dart instead of direct instantiation',
+    'Use the `modes.secretPassage` alias from modes_cache.dart instead of direct instantiation',
   )
-  const Teleport();
+  const SecretPassage();
 
   /// Gets all rooks of the specified color
   List<ChessPiece> getRooks(PieceColor color, ChessBoard board) {
@@ -202,7 +202,7 @@ class Teleport extends GameMode {
             '${String.fromCharCode(97 + move.from.col)}${8 - move.from.row}';
         final toPos =
             '${String.fromCharCode(97 + move.to.col)}${8 - move.to.row}';
-        logTeleportSwap(playerColor, fromPos, toPos);
+        logSecretPassageSwap(playerColor, fromPos, toPos);
 
         return newBoard;
       }
