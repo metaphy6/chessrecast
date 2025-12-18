@@ -30,10 +30,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.8
   
   # State management
   get: 4.7.2
@@ -47,6 +43,9 @@ dependencies:
   
   # Chess UI
   chess_vectors_flutter: ^1.0.12
+  
+  # AI/ML
+  tflite_flutter: ^0.11.0
 
 dev_dependencies:
   flutter_test:
@@ -84,6 +83,8 @@ flutter:
     - assets/images/boards/orange_board.png
     - assets/images/boards/2.0x/orange_board.png
     - assets/images/boards/3.0x/orange_board.png
+    # AI Models (commented until model is trained)
+    # - assets/models/mercenary_1800.tflite
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

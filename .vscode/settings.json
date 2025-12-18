@@ -3,8 +3,7 @@
         "en"
     ],
     "spellright.documentTypes": [
-        "latex",
-        "plaintext"
+        "latex"
     ],
     "files.watcherExclude": {
         "**/node_modules": true,

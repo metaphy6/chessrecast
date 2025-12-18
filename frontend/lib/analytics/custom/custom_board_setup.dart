@@ -726,6 +726,7 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
   final ApiService _apiService = ApiService();
   bool _isStartingOnline = false;
   bool _isStartingVsBot = false;
+  bool _isStartingAI = false;
 
   @override
   Widget build(BuildContext context) {
@@ -900,6 +901,62 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange.shade700,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // AI vs Human button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isStartingAI ? null : () => _startVsAI(context),
+              icon: _isStartingAI
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.psychology, size: 18),
+              label: Text(
+                _isStartingAI
+                    ? 'Starting...'
+                    : '🧠 Play vs AI (Neural Network)',
+                style: const TextStyle(fontSize: 14),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple.shade700,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // AI vs AI button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isStartingAI ? null : () => _startAIvsAI(context),
+              icon: _isStartingAI
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.auto_awesome, size: 18),
+              label: Text(
+                _isStartingAI ? 'Starting...' : '🤖 AI vs AI',
+                style: const TextStyle(fontSize: 14),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple.shade700,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
@@ -1127,6 +1184,130 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
         setState(() {
           _isStartingOnline = false;
         });
+      }
+    }
+  }
+
+  /// Start Human vs AI from custom board
+  void _startVsAI(BuildContext context) async {
+    // Validate board
+    final (isValid, errorMessage) = widget.controller.validateBoard();
+    if (!isValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage ?? 'Invalid board configuration'),
+          backgroundColor: Colors.red.shade600,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isStartingAI = true;
+    });
+
+    try {
+      // Show color selection dialog
+      final humanColor = await showDialog<String>(
+        context: context,
+        builder: (context) => _ColorSelectionDialog(),
+      );
+
+      if (humanColor == null) {
+        setState(() {
+          _isStartingAI = false;
+        });
+        return;
+      }
+
+      // Navigate to AI setup with FEN
+      final board = ChessBoard(
+        pieces: widget.controller.customPieces,
+        currentPlayer: widget.controller.currentTurnColor,
+        gameType: widget.controller.selectedGameType,
+      );
+      final fen = board.toFEN();
+
+      Get.toNamed(
+        '/ai-setup',
+        arguments: {
+          'gameType': widget.controller.selectedGameType,
+          'fen': fen,
+          'humanColor': humanColor,
+          'mode': 'humanVsAI',
+        },
+      );
+
+      setState(() {
+        _isStartingAI = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isStartingAI = false;
+      });
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error starting AI game: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Start AI vs AI from custom board
+  void _startAIvsAI(BuildContext context) {
+    // Validate board
+    final (isValid, errorMessage) = widget.controller.validateBoard();
+    if (!isValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage ?? 'Invalid board configuration'),
+          backgroundColor: Colors.red.shade600,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isStartingAI = true;
+    });
+
+    try {
+      // Navigate to AI setup with FEN
+      final board = ChessBoard(
+        pieces: widget.controller.customPieces,
+        currentPlayer: widget.controller.currentTurnColor,
+        gameType: widget.controller.selectedGameType,
+      );
+      final fen = board.toFEN();
+
+      Get.toNamed(
+        '/ai-setup',
+        arguments: {
+          'gameType': widget.controller.selectedGameType,
+          'fen': fen,
+          'mode': 'aiVsAI',
+        },
+      );
+
+      setState(() {
+        _isStartingAI = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isStartingAI = false;
+      });
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error starting AI game: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }

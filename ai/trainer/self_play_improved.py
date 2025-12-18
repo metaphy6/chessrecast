@@ -51,23 +51,26 @@ class ImprovedSelfPlay:
     5. BATCHED INFERENCE: Evaluate multiple positions at once on GPU
     """
     
-    def __init__(self, model, device='cuda', num_simulations=50, batch_size=64):
+    def __init__(self, model, device='cuda', num_simulations=50, batch_size=64, game_class=None):
         """
         Args:
             model: ChessNetPOC neural network
             device: 'cuda' or 'cpu'
             num_simulations: MCTS simulations per move (50 = fast, 200 = strong)
             batch_size: Number of positions to evaluate at once on GPU
+            game_class: Custom game rules class (defaults to ChessGamePOC)
         """
         self.model = model.to(device)
         self.model.eval()
         self.device = device
         self.num_simulations = num_simulations
         self.batch_size = batch_size
+        self.game_class = game_class if game_class else ChessGamePOC
         self._pending_states = []  # Buffer for batch inference
         self._pending_results = []
     
-    def play_game(self, temperature_schedule: str = 'decay', verbose: bool = False) -> List[Dict]:
+    def play_game(self, temperature_schedule: str = 'decay', verbose: bool = False, 
+                  log_moves: bool = False, save_pgn: str = None, ws_server=None) -> List[Dict]:
         """
         Play one self-play game with policy-guided MCTS.
         
@@ -77,16 +80,25 @@ class ImprovedSelfPlay:
                 - 'constant': Fixed at 1.0 (more random)
                 - 'low': Fixed at 0.1 (more deterministic)
             verbose: If True, print progress during game
+            log_moves: If True, log detailed move information
+            save_pgn: If provided, save game to this PGN file path
+            ws_server: WebSocket server for live streaming (optional)
         
         Returns:
             List of training examples with proper policy targets
         """
-        game = ChessGamePOC()
+        game = self.game_class()  # Use custom game class (e.g., MercenaryGameRules)
         game_history = []
         move_count = 0
+        move_log = []  # Detailed move information for debugging
         
         if verbose:
             print(f"      Starting game (MCTS: {self.num_simulations} sims/move)...", end='', flush=True)
+        
+        if log_moves:
+            print(f"\n{'='*60}")
+            print(f"🎮 DETAILED GAME LOG (MCTS: {self.num_simulations} sims)")
+            print(f"{'='*60}")
         
         while not game.is_game_over():
             # Get current state
@@ -106,6 +118,29 @@ class ImprovedSelfPlay:
             # Sample move based on improved probabilities
             chosen_move_idx = np.random.choice(len(legal_moves), p=move_probs)
             chosen_move = legal_moves[chosen_move_idx]
+            
+            # Broadcast move via WebSocket if server available
+            if ws_server:
+                turn = 'white' if move_count % 2 == 0 else 'black'
+                top_3_indices = np.argsort(move_probs)[-3:][::-1]
+                top_moves = [
+                    {'move': legal_moves[i].uci(), 'probability': float(move_probs[i])}
+                    for i in top_3_indices
+                ]
+                
+                # Get value estimate for current position
+                with torch.no_grad():
+                    _, value = self.model(state_tensor)
+                    position_value = value.item()
+                
+                ws_server.send_move(
+                    move_num=move_count + 1,
+                    move_uci=chosen_move.uci(),
+                    turn=turn,
+                    fen=game.board.fen() if hasattr(game, 'board') else '',
+                    value=position_value,
+                    top_moves=top_moves
+                )
             
             # Store training example
             game_history.append({
