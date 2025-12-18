@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  mercenary-trainer:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.trainer
+    container_name: chessrecast-mercenary-trainer
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8765:8765"  # WebSocket port for live training viewer
+    volumes:
+      - ../trainer:/workspace
+      - trainer-checkpoints:/workspace/checkpoints
+      - trainer-models:/workspace/models
+    working_dir: /workspace
+    command: python train_mercenary_1800.py
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    shm_size: '8gb'  # Increased shared memory for large batches
+
+volumes:
+  trainer-checkpoints:
+  trainer-models:

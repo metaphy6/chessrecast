@@ -929,6 +929,19 @@ class Controller extends GetxController {
     updateAllSquaresAndHistory(this);
   }
 
+  /// Resets the board to initial state (for live training viewer)
+  void resetBoard() {
+    _board.value = ChessBoard.initial(gameType: gameType);
+    _deselectPiece();
+    updateAllSquaresAndHistory(this);
+  }
+
+  /// Applies a move directly to the board without validation (for live training playback)
+  void applyMoveDirectly(ChessMove move) {
+    _board.value = _board.value.makeMove(move);
+    updateAllSquaresAndHistory(this);
+  }
+
   /// Undoes the last move
   void undoLastMove() {
     if (!canUndo) {

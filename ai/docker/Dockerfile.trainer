@@ -6,7 +6,8 @@ RUN pip install --no-cache-dir \
     numpy==1.24.3 \
     chess==1.10.0 \
     tensorflow==2.15.0 \
-    tqdm==4.66.1
+    tqdm==4.66.1 \
+    websockets==12.0
 
 # Set working directory
 WORKDIR /workspace
