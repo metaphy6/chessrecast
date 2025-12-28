@@ -105,27 +105,39 @@ class _CustomBoardScaffold extends StatelessWidget {
     return Scaffold(
       appBar: _buildAppBar(context),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Game Mode & Turn Selector
-            _CustomControlPanel(controller: controller),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Calculate optimal board size - take most of the available height
+            final availableHeight = constraints.maxHeight;
+            final availableWidth = constraints.maxWidth;
+            // Board should be at most 70% of height, but also fit width
+            final maxBoardSize = (availableHeight * 0.60).clamp(200.0, availableWidth - 32);
+            
+            return SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Game Mode & Turn Selector - compact
+                  _CustomControlPanel(controller: controller),
 
-            // Chess Board
-            Expanded(
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: 1.0,
-                  child: _CustomBoard(controller: controller),
-                ),
+                  // Chess Board - larger and prominent
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: SizedBox(
+                      width: maxBoardSize,
+                      height: maxBoardSize,
+                      child: _CustomBoard(controller: controller),
+                    ),
+                  ),
+
+                  // Piece Selector - compact
+                  _CustomPieceSelector(controller: controller),
+
+                  // Action Buttons - compact
+                  _CustomActionButtons(controller: controller),
+                ],
               ),
-            ),
-
-            // Piece Selector
-            _CustomPieceSelector(controller: controller),
-
-            // Action Buttons
-            _CustomActionButtons(controller: controller),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -290,27 +302,30 @@ class _CustomControlPanel extends StatelessWidget {
       id: 'control_panel',
       tag: 'custom_board',
       builder: (_) => Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         color: Colors.grey.shade200,
         child: Row(
           children: [
             Expanded(
               child: InputDecorator(
                 decoration: const InputDecoration(
-                  labelText: 'Game Mode',
+                  labelText: 'Mode',
                   border: OutlineInputBorder(),
                   filled: true,
                   fillColor: Colors.white,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  isDense: true,
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<ModesEnum>(
                     value: controller.selectedGameType,
                     isExpanded: true,
+                    isDense: true,
+                    style: const TextStyle(fontSize: 13, color: Colors.black87),
                     items: ModesEnum.values.map((type) {
                       return DropdownMenuItem(
                         value: type,
-                        child: Text(type.displayName),
+                        child: Text(type.displayName, overflow: TextOverflow.ellipsis),
                       );
                     }).toList(),
                     onChanged: (value) {
@@ -322,20 +337,24 @@ class _CustomControlPanel extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 100,
               child: InputDecorator(
                 decoration: const InputDecoration(
                   labelText: 'Turn',
                   border: OutlineInputBorder(),
                   filled: true,
                   fillColor: Colors.white,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  isDense: true,
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<PieceColor>(
                     value: controller.currentTurnColor,
                     isExpanded: true,
+                    isDense: true,
+                    style: const TextStyle(fontSize: 13, color: Colors.black87),
                     items: const [
                       DropdownMenuItem(
                         value: PieceColor.white,
@@ -513,23 +532,26 @@ class _CustomPieceSelector extends StatelessWidget {
         final isHighlighted = candidateData.isNotEmpty;
 
         return Container(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
           color: isHighlighted ? Colors.red.shade100 : Colors.grey.shade100,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
                   const Text(
-                    'Select Piece to Place:',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    'Piece:',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                   ),
+                  const SizedBox(width: 8),
+                  // PERFORMANCE: Controls only rebuild when needed
+                  Expanded(child: _PieceSelectorControls(controller: controller)),
                   if (isHighlighted) ...[
-                    const SizedBox(width: 8),
                     const Icon(
                       Icons.delete_outline,
                       color: Colors.red,
-                      size: 20,
+                      size: 16,
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -537,16 +559,13 @@ class _CustomPieceSelector extends StatelessWidget {
                       style: TextStyle(
                         color: Colors.red.shade700,
                         fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                        fontSize: 10,
                       ),
                     ),
                   ],
                 ],
               ),
-              const SizedBox(height: 8),
-              // PERFORMANCE: Controls only rebuild when needed
-              _PieceSelectorControls(controller: controller),
-              const SizedBox(height: 12),
+              const SizedBox(height: 4),
               // PERFORMANCE: Piece list only rebuilds when color changes
               _PieceList(controller: controller),
             ],
@@ -659,7 +678,7 @@ class _PieceButton extends StatelessWidget {
         final isSelected = controller.selectedPieceType == type;
 
         return Padding(
-          padding: const EdgeInsets.only(right: 10),
+          padding: const EdgeInsets.only(right: 8),
           child: Draggable<_DragData>(
             data: _DragData(
               pieceType: type,
@@ -690,13 +709,13 @@ class _PieceButton extends StatelessWidget {
       onTap: () => controller.setSelectedPieceType(type),
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        width: 52,
-        height: 52,
+        width: 54,
+        height: 54,
         decoration: BoxDecoration(
           color: isSelected ? Colors.purple.shade100 : Colors.grey.shade200,
           border: Border.all(
             color: isSelected ? Colors.purple.shade700 : Colors.grey.shade400,
-            width: isSelected ? 3 : 2,
+            width: isSelected ? 2.5 : 1.5,
           ),
           borderRadius: BorderRadius.circular(8),
         ),
@@ -705,7 +724,7 @@ class _PieceButton extends StatelessWidget {
             type: type,
             color: color,
             position: Position(0, 0),
-          ).toWidget(size: 38),
+          ).toWidget(size: 42),
         ),
       ),
     );
@@ -731,15 +750,16 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Compact Difficulty Sliders Section
           GetBuilder<CustomBoardController>(
             id: 'bot_difficulty',
             tag: 'custom_board',
             builder: (_) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 4),
               child: Row(
                 children: [
                   // White difficulty - compact
@@ -749,19 +769,19 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
                         Text(
                           '⚪${widget.controller.whiteDifficulty}',
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         Expanded(
                           child: SliderTheme(
                             data: SliderTheme.of(context).copyWith(
-                              trackHeight: 3,
+                              trackHeight: 2,
                               thumbShape: const RoundSliderThumbShape(
-                                enabledThumbRadius: 6,
+                                enabledThumbRadius: 5,
                               ),
                               overlayShape: const RoundSliderOverlayShape(
-                                overlayRadius: 12,
+                                overlayRadius: 10,
                               ),
                             ),
                             child: Slider(
@@ -786,19 +806,19 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
                         Text(
                           '⚫${widget.controller.blackDifficulty}',
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         Expanded(
                           child: SliderTheme(
                             data: SliderTheme.of(context).copyWith(
-                              trackHeight: 3,
+                              trackHeight: 2,
                               thumbShape: const RoundSliderThumbShape(
-                                enabledThumbRadius: 6,
+                                enabledThumbRadius: 5,
                               ),
                               overlayShape: const RoundSliderOverlayShape(
-                                overlayRadius: 12,
+                                overlayRadius: 10,
                               ),
                             ),
                             child: Slider(
@@ -819,148 +839,149 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
               ),
             ),
           ),
+          // Action buttons row: Reset, Clear, Start dropdown
           Row(
             children: [
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: widget.controller.loadStandardStartPosition,
-                  icon: const Icon(Icons.restore),
-                  label: const Text('Reset'),
+                child: SizedBox(
+                  height: 40,
+                  child: OutlinedButton.icon(
+                    onPressed: widget.controller.loadStandardStartPosition,
+                    icon: const Icon(Icons.restore, size: 18),
+                    label: const Text('Reset', style: TextStyle(fontSize: 13)),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: widget.controller.clearBoard,
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Clear'),
+                child: SizedBox(
+                  height: 40,
+                  child: OutlinedButton.icon(
+                    onPressed: widget.controller.clearBoard,
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Clear', style: TextStyle(fontSize: 13)),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () => _startGame(context, widget.controller),
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('Start'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
+                flex: 2,
+                child: SizedBox(
+                  height: 40,
+                  child: PopupMenuButton<String>(
+                    enabled: !_isStartingVsBot && !_isStartingOnline && !_isStartingAI,
+                    onSelected: (value) async {
+                      switch (value) {
+                        case 'local':
+                          _startGame(context, widget.controller);
+                          break;
+                        case 'bot':
+                          await _startVsBot(context);
+                          break;
+                        case 'online':
+                          await _startOnlineBotVsBot(context);
+                          break;
+                        case 'ai':
+                          _startVsAI(context);
+                          break;
+                        case 'ai_vs_ai':
+                          _startAIvsAI(context);
+                          break;
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'local',
+                        child: Row(
+                          children: [
+                            Icon(Icons.play_arrow, size: 18),
+                            SizedBox(width: 8),
+                            Text('Start Local Game'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'bot',
+                        child: Row(
+                          children: [
+                            Icon(Icons.smart_toy, size: 18),
+                            SizedBox(width: 8),
+                            Text('Play vs Bot'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'online',
+                        child: Row(
+                          children: [
+                            Icon(Icons.cloud_upload, size: 18),
+                            SizedBox(width: 8),
+                            Text('Online Bot vs Bot'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'ai',
+                        child: Row(
+                          children: [
+                            Icon(Icons.psychology, size: 18),
+                            SizedBox(width: 8),
+                            Text('Play vs AI'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'ai_vs_ai',
+                        child: Row(
+                          children: [
+                            Icon(Icons.auto_awesome, size: 18),
+                            SizedBox(width: 8),
+                            Text('AI vs AI'),
+                          ],
+                        ),
+                      ),
+                    ],
+                    child: Container(
+                      height: 40,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (_isStartingVsBot || _isStartingOnline || _isStartingAI)
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          else
+                            const Icon(Icons.play_arrow, size: 18, color: Colors.white),
+                          const SizedBox(width: 6),
+                          Text(
+                            (_isStartingVsBot || _isStartingOnline || _isStartingAI)
+                                ? 'Starting...'
+                                : 'Start',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.arrow_drop_down, size: 20, color: Colors.white),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          // Play vs Bot button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isStartingVsBot ? null : () => _startVsBot(context),
-              icon: _isStartingVsBot
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.smart_toy, size: 18),
-              label: Text(
-                _isStartingVsBot ? 'Starting...' : '🤖 Play vs Bot',
-                style: const TextStyle(fontSize: 14),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade700,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Online Bot vs Bot button (made smaller)
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isStartingOnline
-                  ? null
-                  : () => _startOnlineBotVsBot(context),
-              icon: _isStartingOnline
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.cloud_upload, size: 18),
-              label: Text(
-                _isStartingOnline ? 'Starting...' : '🌐 Online Bot vs Bot',
-                style: const TextStyle(fontSize: 14),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange.shade700,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // AI vs Human button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isStartingAI ? null : () => _startVsAI(context),
-              icon: _isStartingAI
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.psychology, size: 18),
-              label: Text(
-                _isStartingAI
-                    ? 'Starting...'
-                    : '🧠 Play vs AI (Neural Network)',
-                style: const TextStyle(fontSize: 14),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple.shade700,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // AI vs AI button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isStartingAI ? null : () => _startAIvsAI(context),
-              icon: _isStartingAI
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.auto_awesome, size: 18),
-              label: Text(
-                _isStartingAI ? 'Starting...' : '🤖 AI vs AI',
-                style: const TextStyle(fontSize: 14),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple.shade700,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
           ),
         ],
       ),
