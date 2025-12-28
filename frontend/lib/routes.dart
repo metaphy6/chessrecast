@@ -25,8 +25,16 @@ class AppRoutes {
   static const String liveTrainingViewer = '/live-training-viewer';
 
   static List<GetPage> routes = [
-    GetPage(name: home, page: () => const GameModeSelectionPage(), binding: AppBindings()),
-    GetPage(name: playOptions, page: () => const PlayOptionsPage(), binding: AppBindings()),
+    GetPage(
+      name: home,
+      page: () => const GameModeSelectionPage(),
+      binding: AppBindings(),
+    ),
+    GetPage(
+      name: playOptions,
+      page: () => const PlayOptionsPage(),
+      binding: AppBindings(),
+    ),
     GetPage(
       name: chess,
       page: () => const ChessGamePage(),

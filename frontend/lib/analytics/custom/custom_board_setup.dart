@@ -111,8 +111,11 @@ class _CustomBoardScaffold extends StatelessWidget {
             final availableHeight = constraints.maxHeight;
             final availableWidth = constraints.maxWidth;
             // Board should be at most 70% of height, but also fit width
-            final maxBoardSize = (availableHeight * 0.60).clamp(200.0, availableWidth - 32);
-            
+            final maxBoardSize = (availableHeight * 0.60).clamp(
+              200.0,
+              availableWidth - 32,
+            );
+
             return SingleChildScrollView(
               child: Column(
                 children: [
@@ -121,7 +124,10 @@ class _CustomBoardScaffold extends StatelessWidget {
 
                   // Chess Board - larger and prominent
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     child: SizedBox(
                       width: maxBoardSize,
                       height: maxBoardSize,
@@ -313,7 +319,10 @@ class _CustomControlPanel extends StatelessWidget {
                   border: OutlineInputBorder(),
                   filled: true,
                   fillColor: Colors.white,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   isDense: true,
                 ),
                 child: DropdownButtonHideUnderline(
@@ -325,7 +334,10 @@ class _CustomControlPanel extends StatelessWidget {
                     items: ModesEnum.values.map((type) {
                       return DropdownMenuItem(
                         value: type,
-                        child: Text(type.displayName, overflow: TextOverflow.ellipsis),
+                        child: Text(
+                          type.displayName,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       );
                     }).toList(),
                     onChanged: (value) {
@@ -346,7 +358,10 @@ class _CustomControlPanel extends StatelessWidget {
                   border: OutlineInputBorder(),
                   filled: true,
                   fillColor: Colors.white,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   isDense: true,
                 ),
                 child: DropdownButtonHideUnderline(
@@ -546,7 +561,9 @@ class _CustomPieceSelector extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   // PERFORMANCE: Controls only rebuild when needed
-                  Expanded(child: _PieceSelectorControls(controller: controller)),
+                  Expanded(
+                    child: _PieceSelectorControls(controller: controller),
+                  ),
                   if (isHighlighted) ...[
                     const Icon(
                       Icons.delete_outline,
@@ -869,7 +886,10 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
                 child: SizedBox(
                   height: 40,
                   child: PopupMenuButton<String>(
-                    enabled: !_isStartingVsBot && !_isStartingOnline && !_isStartingAI,
+                    enabled:
+                        !_isStartingVsBot &&
+                        !_isStartingOnline &&
+                        !_isStartingAI,
                     onSelected: (value) async {
                       switch (value) {
                         case 'local':
@@ -951,7 +971,9 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          if (_isStartingVsBot || _isStartingOnline || _isStartingAI)
+                          if (_isStartingVsBot ||
+                              _isStartingOnline ||
+                              _isStartingAI)
                             const SizedBox(
                               width: 16,
                               height: 16,
@@ -961,10 +983,16 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
                               ),
                             )
                           else
-                            const Icon(Icons.play_arrow, size: 18, color: Colors.white),
+                            const Icon(
+                              Icons.play_arrow,
+                              size: 18,
+                              color: Colors.white,
+                            ),
                           const SizedBox(width: 6),
                           Text(
-                            (_isStartingVsBot || _isStartingOnline || _isStartingAI)
+                            (_isStartingVsBot ||
+                                    _isStartingOnline ||
+                                    _isStartingAI)
                                 ? 'Starting...'
                                 : 'Start',
                             style: const TextStyle(
@@ -974,7 +1002,11 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          const Icon(Icons.arrow_drop_down, size: 20, color: Colors.white),
+                          const Icon(
+                            Icons.arrow_drop_down,
+                            size: 20,
+                            color: Colors.white,
+                          ),
                         ],
                       ),
                     ),
