@@ -18,6 +18,7 @@ import numpy as np
 import sys
 import time
 import chess
+import random
 from pathlib import Path
 from tqdm import tqdm
 import json
@@ -161,80 +162,134 @@ def _save_game_from_history(recorder, game_history, iteration, game_num):
     return filepath
 
 
-def train_mercenary_1800():
-    """Train Mercenary AI to 1800 ELO"""
+def train_mercenary_1800(test_mode=False, move_delay=0.3):
+    """Train Mercenary AI to 1800 ELO
+    
+    Args:
+        test_mode: If True, play random games without training (for testing rules)
+        move_delay: Delay in seconds between moves (1-10, default 0.3)
+    """
     
     print("=" * 80)
-    print("ChessRecast AI - MERCENARY MODE - TARGET 1800 ELO")
+    if test_mode:
+        print("ChessRecast AI - MERCENARY MODE - TEST/DEMO")
+    else:
+        print("ChessRecast AI - MERCENARY MODE - TARGET 1800 ELO")
     print("=" * 80)
     
-    if not torch.cuda.is_available():
-        print("\n❌ GPU required for this training!")
-        sys.exit(1)
+    # Auto-detect GPU/CPU
+    if torch.cuda.is_available():
+        DEVICE = 'cuda'
+        print(f"\n🚀 GPU: {torch.cuda.get_device_name(0)}")
+        props = torch.cuda.get_device_properties(0)
+        total_vram = props.total_memory / 1e9
+        print(f"   Total VRAM: {total_vram:.1f} GB")
+    else:
+        DEVICE = 'cpu'
+        print("\n⚠️  GPU not available, falling back to CPU")
+        print("   Training will be slower but functional")
+        if not test_mode:
+            print("   TIP: Use test_mode=True for faster CPU testing")
     
-    DEVICE = 'cuda'
+    # Configuration based on mode and device
+    if test_mode:
+        # Test mode: Simple random games for rule testing
+        NUM_ITERATIONS = 999999  # Infinite
+        GAMES_PER_ITERATION = 1
+        MCTS_SIMULATIONS = 0  # Random moves
+        EPOCHS_PER_ITERATION = 0
+        BATCH_SIZE = 1
+        LEARNING_RATE = 0.0005
+        NUM_WORKERS = 0
+        print(f"\n🎮 TEST MODE Configuration:")
+        print(f"   Playing random games for rule testing")
+        print(f"   Move delay: {move_delay}s")
+    elif DEVICE == 'cpu':
+        # CPU mode: Reduced settings
+        NUM_ITERATIONS = 50
+        GAMES_PER_ITERATION = 10
+        MCTS_SIMULATIONS = 20  # Reduced for CPU
+        EPOCHS_PER_ITERATION = 5
+        BATCH_SIZE = 32
+        LEARNING_RATE = 0.001
+        NUM_WORKERS = 0
+        print(f"\n⚡ CPU Training Configuration:")
+        print(f"   Iterations: {NUM_ITERATIONS} (reduced for CPU)")
+        print(f"   MCTS simulations: {MCTS_SIMULATIONS} (lighter)")
+    else:
+        # AGGRESSIVE 1800 ELO Configuration (GPU)
+        NUM_ITERATIONS = 200  # More iterations for stronger play
+        GAMES_PER_ITERATION = 50  # More diverse training data
+        MCTS_SIMULATIONS = 150  # Stronger lookahead (100-200 for 1800)
+        EPOCHS_PER_ITERATION = 15  # Deep learning on each batch
+        BATCH_SIZE = 512  # Max GPU utilization
+        LEARNING_RATE = 0.0005  # Lower LR for stability at higher ELO
+        NUM_WORKERS = 2
     
-    # GPU info
-    print(f"\n🚀 GPU: {torch.cuda.get_device_name(0)}")
-    props = torch.cuda.get_device_properties(0)
-    total_vram = props.total_memory / 1e9
-    print(f"   Total VRAM: {total_vram:.1f} GB")
+    if not test_mode:
+        print(f"\n⚡ 1800 ELO Training Configuration:")
+        print(f"   Iterations: {NUM_ITERATIONS} (extended for strength)")
+        print(f"   Games/iteration: {GAMES_PER_ITERATION}")
+        print(f"   MCTS simulations: {MCTS_SIMULATIONS} (strong lookahead)")
+        print(f"   Epochs/iteration: {EPOCHS_PER_ITERATION}")
+        print(f"   Batch size: {BATCH_SIZE}")
+        print(f"   Learning rate: {LEARNING_RATE}")
+        print(f"   Total games: {NUM_ITERATIONS * GAMES_PER_ITERATION:,}")
+        if DEVICE == 'cuda':
+            print(f"   Expected time: 6-10 hours (RTX 4080)")
+        else:
+            print(f"   Expected time: Much longer on CPU")
+        print(f"   Target: 1800 ELO")
     
-    # AGGRESSIVE 1800 ELO Configuration
-    NUM_ITERATIONS = 200  # More iterations for stronger play
-    GAMES_PER_ITERATION = 50  # More diverse training data
-    MCTS_SIMULATIONS = 150  # Stronger lookahead (100-200 for 1800)
-    EPOCHS_PER_ITERATION = 15  # Deep learning on each batch
-    BATCH_SIZE = 512  # Max GPU utilization
-    LEARNING_RATE = 0.0005  # Lower LR for stability at higher ELO
-    NUM_WORKERS = 2
+    # Enable GPU optimizations if available
+    if DEVICE == 'cuda':
+        print("\n🔥 GPU Optimizations...")
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+        torch.set_float32_matmul_precision('high')
+        print("   ✓ cuDNN benchmark")
+        print("   ✓ TensorFloat-32")
+        print("   ✓ High precision matmul")
     
-    print(f"\n⚡ 1800 ELO Training Configuration:")
-    print(f"   Iterations: {NUM_ITERATIONS} (extended for strength)")
-    print(f"   Games/iteration: {GAMES_PER_ITERATION}")
-    print(f"   MCTS simulations: {MCTS_SIMULATIONS} (strong lookahead)")
-    print(f"   Epochs/iteration: {EPOCHS_PER_ITERATION}")
-    print(f"   Batch size: {BATCH_SIZE}")
-    print(f"   Learning rate: {LEARNING_RATE}")
-    print(f"   Total games: {NUM_ITERATIONS * GAMES_PER_ITERATION:,}")
-    print(f"   Expected time: 6-10 hours (RTX 4080)")
-    print(f"   Target: 1800 ELO")
+    # Neural Network (skip in test mode)
+    if not test_mode:
+        if DEVICE == 'cuda':
+            # Larger network for 1800 ELO
+            print("\n🧠 Neural Network (Large - 1800 ELO)...")
+            model = ChessNetPOC(num_channels=128, num_res_blocks=10).to(DEVICE)
+            print(f"   Channels: 128 (vs 64 for beginner)")
+            print(f"   Residual blocks: 10 (vs 2 for beginner)")
+        else:
+            # Smaller network for CPU
+            print("\n🧠 Neural Network (Small - CPU optimized)...")
+            model = ChessNetPOC(num_channels=64, num_res_blocks=4).to(DEVICE)
+            print(f"   Channels: 64")
+            print(f"   Residual blocks: 4")
+        print(f"   Parameters: {count_parameters(model):,}")
+        print("   ✓ Network initialized")
+    else:
+        model = None
+        print("\n🎮 Test mode: No neural network (random moves)")
     
-    # Enable ALL GPU optimizations
-    print("\n🔥 GPU Optimizations...")
-    torch.backends.cudnn.benchmark = True
-    torch.backends.cuda.matmul.allow_tf32 = True
-    torch.backends.cudnn.allow_tf32 = True
-    torch.set_float32_matmul_precision('high')
-    print("   ✓ cuDNN benchmark")
-    print("   ✓ TensorFloat-32")
-    print("   ✓ High precision matmul")
-    
-    # Larger network for 1800 ELO
-    print("\n🧠 Neural Network (Large - 1800 ELO)...")
-    model = ChessNetPOC(num_channels=128, num_res_blocks=10).to(DEVICE)
-    print(f"   Channels: 128 (vs 64 for beginner)")
-    print(f"   Residual blocks: 10 (vs 2 for beginner)")
-    print(f"   Parameters: {count_parameters(model):,}")
-    print("   ✓ Large network for strong play")
-    
-    # Optimizer with weight decay
-    optimizer = optim.AdamW(
-        model.parameters(),
-        lr=LEARNING_RATE,
-        weight_decay=1e-4,
-        betas=(0.9, 0.999)
-    )
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(
-        optimizer,
-        T_max=NUM_ITERATIONS,
-        eta_min=1e-5
-    )
-    
-    scaler = torch.cuda.amp.GradScaler()
-    policy_loss_fn = nn.CrossEntropyLoss()
-    value_loss_fn = nn.MSELoss()
-    print("   ✓ AdamW + Cosine LR schedule + Mixed Precision")
+    # Optimizer with weight decay (skip in test mode)
+    if not test_mode:
+        optimizer = optim.AdamW(
+            model.parameters(),
+            lr=LEARNING_RATE,
+            weight_decay=1e-4,
+            betas=(0.9, 0.999)
+        )
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            T_max=NUM_ITERATIONS,
+            eta_min=1e-5
+        )
+        
+        scaler = torch.cuda.amp.GradScaler() if DEVICE == 'cuda' else None
+        policy_loss_fn = nn.CrossEntropyLoss()
+        value_loss_fn = nn.MSELoss()
+        print("   ✓ AdamW + Cosine LR schedule + Mixed Precision")
     
     checkpoint_dir = Path('/workspace/checkpoints/mercenary_1800')
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
@@ -247,6 +302,121 @@ def train_mercenary_1800():
     # Start WebSocket server for live game streaming
     ws_server = get_websocket_server()
     print("   ✓ WebSocket server started (ws://0.0.0.0:8765)")
+    
+    # TEST MODE: Play random games without training
+    if test_mode:
+        print("\n" + "=" * 80)
+        print("🎮 TEST MODE: Playing random Mercenary games")
+        print("=" * 80)
+        print(f"   Move delay: {move_delay}s")
+        print(f"   Press Ctrl+C to stop")
+        print("")
+        
+        import random
+        game_num = 0
+        
+        try:
+            while True:
+                game_num += 1
+                game = MercenaryBoard()
+                move_count = 0
+                
+                # Clear any previous validation errors
+                ws_server.clear_validation_error()
+                
+                # Broadcast game start
+                ws_server.start_game(1, game_num, mode='mercenary')
+                print(f"\n🎮 Game {game_num} started")
+                print(f"   FEN: {game.board.fen()}")
+                
+                game_stopped_due_to_error = False
+                
+                while not game.is_game_over() and move_count < 200:
+                    # Check for validation errors from Flutter client
+                    if ws_server.has_validation_error():
+                        error = ws_server.last_validation_error
+                        print(f"\n🛑 STOPPING GAME - Validation error from Flutter!")
+                        print(f"   Move #{error.get('move_number')}: {error.get('move_uci')}")
+                        print(f"   Error: {error.get('error_message')}")
+                        game_stopped_due_to_error = True
+                        break
+                    
+                    legal_moves = game.get_legal_moves()
+                    
+                    if not legal_moves:
+                        break
+                    
+                    # Random move selection
+                    move = random.choice(legal_moves)
+                    
+                    # Determine if pawn move
+                    piece = game.board.piece_at(move.from_square)
+                    is_pawn = piece and piece.piece_type == 1
+                    
+                    # Get the color making the move BEFORE making it
+                    turn_color = 'white' if game.board.turn else 'black'
+                    
+                    # Try to make the move
+                    move_success = game.make_move(move)
+                    
+                    if not move_success:
+                        print(f"\n🚨 ERROR: Move {move.uci()} was in legal_moves but make_move rejected it!")
+                        print(f"   This indicates a bug in move generation.")
+                        print(f"   FEN: {game.board.fen()}")
+                        game_stopped_due_to_error = True
+                        break
+                    
+                    move_count += 1
+                    
+                    # CRITICAL: Verify both kings are still on the board
+                    white_king = game.board.king(True)  # chess.WHITE = True
+                    black_king = game.board.king(False)  # chess.BLACK = False
+                    
+                    if white_king is None:
+                        print(f"\n🚨 CRITICAL ERROR: White king captured/missing after move {move.uci()}!")
+                        print(f"   FEN: {game.board.fen()}")
+                        game_stopped_due_to_error = True
+                        break
+                    
+                    if black_king is None:
+                        print(f"\n🚨 CRITICAL ERROR: Black king captured/missing after move {move.uci()}!")
+                        print(f"   FEN: {game.board.fen()}")
+                        game_stopped_due_to_error = True
+                        break
+                    
+                    # Broadcast move
+                    ws_server.send_move(
+                        move_num=move_count,
+                        move_uci=move.uci(),
+                        turn=turn_color,
+                        fen=game.board.fen(),
+                        value=0.0,
+                        top_moves=[{'move': move.uci(), 'probability': 1.0}]
+                    )
+                    
+                    if move_count % 10 == 0:
+                        print(f"   Move {move_count}: {move.uci()}")
+                    
+                    # Apply move delay
+                    time.sleep(move_delay)
+                
+                # Game ended
+                if game_stopped_due_to_error:
+                    result = 'ERROR'
+                    ws_server.end_game(result)
+                    print(f"   Game {game_num} STOPPED due to validation error ({move_count} moves)")
+                    # Wait longer before next game to allow investigation
+                    time.sleep(10)
+                else:
+                    result = game.get_result()
+                    ws_server.end_game(result)
+                    print(f"   Game {game_num} ended: {result} ({move_count} moves)")
+                    time.sleep(3)
+                
+        except KeyboardInterrupt:
+            print("\n\n🛑 Stopping test mode...")
+            gpu_monitor.stop()
+            return
     
     # Training metrics
     training_start = time.time()
@@ -469,4 +639,16 @@ def train_mercenary_1800():
 
 
 if __name__ == "__main__":
-    train_mercenary_1800()
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Train or test Mercenary AI')
+    parser.add_argument('--test', action='store_true', help='Test mode: play random games without training')
+    parser.add_argument('--delay', type=float, default=0.3, help='Move delay in seconds (0.1-10, default 0.3)')
+    
+    args = parser.parse_args()
+    
+    # Validate delay
+    move_delay = max(0.1, min(10.0, args.delay))
+    
+    train_mercenary_1800(test_mode=args.test, move_delay=move_delay)
+

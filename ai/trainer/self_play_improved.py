@@ -218,9 +218,8 @@ class ImprovedSelfPlay:
                 )
                 best_move = chess.Move.from_uci(best_move_uci)
                 
-                # Simulate move
-                game_copy = ChessGamePOC()
-                game_copy.board = game.board.copy()
+                # Simulate move using the correct game class
+                game_copy = game.copy()
                 game_copy.make_move(best_move)
                 
                 if game_copy.is_game_over():

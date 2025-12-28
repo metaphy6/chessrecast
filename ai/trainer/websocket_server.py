@@ -21,6 +21,18 @@ class TrainingWebSocketServer:
         self.loop = None
         self.server = None
         self.running = False
+        # Validation error tracking
+        self.validation_error_occurred = False
+        self.last_validation_error: Dict[str, Any] = {}
+    
+    def has_validation_error(self) -> bool:
+        """Check if a validation error was reported by a client"""
+        return self.validation_error_occurred
+    
+    def clear_validation_error(self):
+        """Clear the validation error flag (e.g., when starting a new game)"""
+        self.validation_error_occurred = False
+        self.last_validation_error = {}
         
     async def register(self, websocket):
         """Register new client connection"""
@@ -60,12 +72,45 @@ class TrainingWebSocketServer:
                                 'type': 'game_state',
                                 'data': self.current_game
                             }))
+                    elif data.get('type') == 'validation_error':
+                        # Client reported an invalid move
+                        self._handle_validation_error(data.get('data', {}))
                 except Exception as e:
                     print(f"Error handling client message: {e}")
         except websockets.exceptions.ConnectionClosed:
             pass
         finally:
             await self.unregister(websocket)
+    
+    def _handle_validation_error(self, error_data: Dict[str, Any]):
+        """Handle validation error from Flutter client"""
+        move_num = error_data.get('move_number', '?')
+        move_uci = error_data.get('move_uci', '?')
+        error_msg = error_data.get('error_message', 'Unknown error')
+        expected_fen = error_data.get('expected_fen', '')
+        received_fen = error_data.get('received_fen', '')
+        
+        print(f"\n{'='*60}")
+        print(f"🚨 VALIDATION ERROR FROM FLUTTER CLIENT")
+        print(f"{'='*60}")
+        print(f"   Move #{move_num}: {move_uci}")
+        print(f"   Error: {error_msg}")
+        print(f"   Expected FEN: {expected_fen}")
+        print(f"   Received FEN: {received_fen}")
+        print(f"{'='*60}\n")
+        
+        # Log to file
+        try:
+            with open('/workspace/validation_errors.log', 'a') as f:
+                f.write(f"{datetime.now().isoformat()} | Move #{move_num} {move_uci} | {error_msg}\n")
+                f.write(f"  Expected: {expected_fen}\n")
+                f.write(f"  Received: {received_fen}\n\n")
+        except Exception as e:
+            print(f"⚠️ Failed to log validation error: {e}")
+        
+        # Signal to stop the game
+        self.validation_error_occurred = True
+        self.last_validation_error = error_data
     
     async def broadcast(self, message: Dict[str, Any]):
         """Broadcast message to all connected clients"""

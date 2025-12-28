@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../board/utils/exporter.dart';
+import '../modes/mercenary.dart';
+import '../modes/modes_enum.dart';
 import 'piece_renderer.dart';
 
 class LiveTrainingViewer extends StatefulWidget {
@@ -27,8 +29,13 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
   List<GameMove> moves = [];
   String? gameResult;
 
-  // Board state
+  // Board state (tracked independently from FEN for validation)
   ChessBoard displayBoard = ChessBoard.initial();
+  ChessBoard validationBoard = ChessBoard.initial(); // For move validation
+
+  // Error tracking
+  List<MoveValidationError> validationErrors = [];
+  bool validationEnabled = true;
 
   // Connection settings
   final TextEditingController _hostController = TextEditingController(
@@ -177,14 +184,23 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
     );
     if (!mounted) return;
 
+    final mode = data['mode'];
+    final gameType = mode == 'mercenary'
+        ? ModesEnum.mercenary
+        : ModesEnum.classic;
+
     setState(() {
       currentIteration = data['iteration'];
       currentGameNumber = data['game_number'];
       totalGamesPerIteration = data['total_games'];
-      currentMode = data['mode'];
+      currentMode = mode;
       moves = [];
       gameResult = null;
-      displayBoard = ChessBoard.initial();
+      displayBoard = ChessBoard.initial(gameType: gameType);
+      validationBoard = ChessBoard.initial(
+        gameType: gameType,
+      ); // Reset with correct mode
+      validationErrors = []; // Clear errors for new game
     });
   }
 
@@ -194,9 +210,97 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
     try {
       final move = GameMove.fromJson(data);
 
-      // Apply move to board
-      if (move.move.isNotEmpty && move.move.length >= 4) {
-        _applyMoveToBoard(move.move);
+      print('📥 Received move #${move.number}: ${move.move}');
+      print(
+        '   Current mode: $currentMode, Validation enabled: $validationEnabled',
+      );
+
+      // Validate move if enabled and we have a mode
+      if (validationEnabled && currentMode == 'mercenary') {
+        print('🔍 Validating move #${move.number}: ${move.move}');
+        print('   Current validation board FEN: ${validationBoard.toFEN()}');
+        final validationResult = _validateMercenaryMove(move);
+        if (!validationResult.isValid) {
+          // Log validation error
+          final error = MoveValidationError(
+            moveNumber: move.number,
+            moveUci: move.move,
+            expectedFen: validationBoard.toFEN(),
+            receivedFen: move.fen ?? '',
+            errorMessage: validationResult.errorMessage,
+            timestamp: DateTime.now(),
+          );
+          validationErrors.add(error);
+          print('❌ VALIDATION ERROR: ${validationResult.errorMessage}');
+          print('   Move: ${move.move} (#${move.number})');
+          print('   Expected FEN: ${validationBoard.toFEN()}');
+          print('   Received FEN: ${move.fen}');
+
+          // Send error signal to server
+          _sendValidationError(error);
+
+          // IMPORTANT: Still update validation board from FEN to stay in sync
+          // Otherwise validation board gets stuck and all future moves will fail
+          if (move.fen != null && move.fen!.isNotEmpty) {
+            try {
+              validationBoard = ChessBoard.fromFEN(
+                move.fen!,
+                gameType: ModesEnum.mercenary,
+              );
+              print(
+                '   ⚠️ Updated validation board from FEN to continue validation',
+              );
+            } catch (e) {
+              print('   ⚠️ Failed to update validation board from FEN: $e');
+            }
+          }
+        } else {
+          print('✅ Move #${move.number} validated successfully');
+          // Move was valid - update validation board from server's FEN (authoritative)
+          if (move.fen != null && move.fen!.isNotEmpty) {
+            try {
+              final oldFen = validationBoard.toFEN();
+              validationBoard = ChessBoard.fromFEN(
+                move.fen!,
+                gameType: ModesEnum.mercenary,
+              );
+              final newFen = validationBoard.toFEN();
+              print('   Updated validation board from FEN');
+              print('   Old: $oldFen');
+              print('   New: $newFen');
+            } catch (e, stack) {
+              print('   ⚠️ Failed to update validation board from FEN: $e');
+              print('   Stack: $stack');
+              // Fallback: Apply move manually
+              _applyMoveToValidationBoard(move.move);
+            }
+          } else {
+            print('   ⚠️ No FEN in move data, applying manually');
+            // No FEN available - apply move manually
+            _applyMoveToValidationBoard(move.move);
+          }
+        }
+      }
+
+      // Use FEN directly if available (more reliable for custom game modes like Mercenary)
+      if (move.fen != null && move.fen!.isNotEmpty) {
+        try {
+          final gameType = currentMode == 'mercenary'
+              ? ModesEnum.mercenary
+              : ModesEnum.classic;
+          displayBoard = ChessBoard.fromFEN(move.fen!, gameType: gameType);
+        } catch (e) {
+          print('⚠️ Error parsing FEN, falling back to move: $e');
+          // Fallback to applying move
+          if (move.move.isNotEmpty && move.move.length >= 4) {
+            _applyMoveToBoard(move.move);
+          }
+        }
+      } else {
+        // Fallback: Apply move to board
+        if (move.move.isNotEmpty && move.move.length >= 4) {
+          _applyMoveToBoard(move.move);
+        }
       }
 
       setState(() {
@@ -218,6 +322,125 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
     }
   }
 
+  /// Validate a Mercenary mode move
+  MoveValidationResult _validateMercenaryMove(GameMove move) {
+    if (move.move.isEmpty || move.move.length < 4) {
+      return MoveValidationResult(
+        isValid: false,
+        errorMessage: 'Invalid move format: ${move.move}',
+      );
+    }
+
+    try {
+      final from = Position.fromAlgebraic(move.move.substring(0, 2));
+      final to = Position.fromAlgebraic(move.move.substring(2, 4));
+      final piece = validationBoard.getPieceAt(from);
+
+      if (piece == null) {
+        return MoveValidationResult(
+          isValid: false,
+          errorMessage: 'No piece at ${move.move.substring(0, 2)} to move',
+        );
+      }
+
+      // Check if it's the correct turn
+      final isWhiteTurn = validationBoard.currentPlayer == PieceColor.white;
+      if ((piece.color == PieceColor.white) != isWhiteTurn) {
+        return MoveValidationResult(
+          isValid: false,
+          errorMessage:
+              'Wrong color moving: ${piece.color} on ${isWhiteTurn ? "white" : "black"}\'s turn',
+        );
+      }
+
+      // Get legal moves for this piece
+      List<ChessMove> legalMoves;
+      if (piece.type == PieceType.pawn) {
+        // Use Mercenary pawn rules
+        // ignore: deprecated_member_use
+        const mercenary = Mercenary();
+        legalMoves = mercenary.getPawnMoves(piece, validationBoard) ?? [];
+      } else {
+        // Standard piece moves (with check validation)
+        legalMoves = validationBoard.getValidMovesFor(from);
+      }
+
+      // Check if the move is in legal moves
+      final isLegal = legalMoves.any((m) => m.from == from && m.to == to);
+
+      if (!isLegal) {
+        // Check if king is currently in check
+        final kingInCheck = validationBoard.isKingInCheck(piece.color);
+
+        // Try to understand why the move is illegal
+        if (kingInCheck) {
+          return MoveValidationResult(
+            isValid: false,
+            errorMessage:
+                'Move ${move.move} - king is in check and this move doesn\'t resolve it',
+          );
+        }
+
+        // Check if it would leave king in check
+        final wouldBeCheck = _wouldLeaveKingInCheck(piece, from, to);
+        if (wouldBeCheck) {
+          return MoveValidationResult(
+            isValid: false,
+            errorMessage: 'Move ${move.move} would leave king in check',
+          );
+        }
+
+        return MoveValidationResult(
+          isValid: false,
+          errorMessage:
+              'Illegal move ${move.move} for ${piece.type.name} at ${from.algebraic}',
+        );
+      }
+
+      return MoveValidationResult(isValid: true);
+    } catch (e) {
+      return MoveValidationResult(
+        isValid: false,
+        errorMessage: 'Validation error: $e',
+      );
+    }
+  }
+
+  /// Check if a move would leave the king in check
+  bool _wouldLeaveKingInCheck(ChessPiece piece, Position from, Position to) {
+    try {
+      final chessMove = ChessMove.simple(from: from, to: to, piece: piece);
+      final newBoard = validationBoard.makeMove(chessMove);
+      return newBoard.isKingInCheck(piece.color);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Send validation error to server
+  void _sendValidationError(MoveValidationError error) {
+    if (_channel != null && isConnected) {
+      try {
+        _channel!.sink.add(
+          jsonEncode({
+            'type': 'validation_error',
+            'data': {
+              'move_number': error.moveNumber,
+              'move_uci': error.moveUci,
+              'expected_fen': error.expectedFen,
+              'received_fen': error.receivedFen,
+              'error_message': error.errorMessage,
+              'timestamp': error.timestamp.toIso8601String(),
+            },
+          }),
+        );
+        print('📤 Sent validation error to server');
+      } catch (e) {
+        print('⚠️ Failed to send validation error: $e');
+      }
+    }
+  }
+
   void _handleGameEnd(Map<String, dynamic> data) {
     print('🏁 Game End: ${data['result']}');
     if (!mounted) return;
@@ -233,18 +456,41 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
     );
     if (!mounted) return;
 
-    // Reset board first
-    displayBoard = ChessBoard.initial();
+    final mode = data['mode'];
+    final gameType = mode == 'mercenary'
+        ? ModesEnum.mercenary
+        : ModesEnum.classic;
 
     // Parse moves
     final parsedMoves =
         (data['moves'] as List?)?.map((m) => GameMove.fromJson(m)).toList() ??
         [];
 
-    // Replay all moves
-    for (var move in parsedMoves) {
-      if (move.move.isNotEmpty && move.move.length >= 4) {
-        _applyMoveToBoard(move.move);
+    // Use the FEN from the last move if available (most reliable for Mercenary mode)
+    if (parsedMoves.isNotEmpty && parsedMoves.last.fen != null) {
+      try {
+        displayBoard = ChessBoard.fromFEN(
+          parsedMoves.last.fen!,
+          gameType: gameType,
+        );
+        print('✅ Loaded board from FEN');
+      } catch (e) {
+        print('⚠️ Error loading FEN, replaying moves: $e');
+        // Fallback: Reset and replay all moves
+        displayBoard = ChessBoard.initial(gameType: gameType);
+        for (var move in parsedMoves) {
+          if (move.move.isNotEmpty && move.move.length >= 4) {
+            _applyMoveToBoard(move.move);
+          }
+        }
+      }
+    } else {
+      // No FEN available - reset and replay all moves
+      displayBoard = ChessBoard.initial(gameType: gameType);
+      for (var move in parsedMoves) {
+        if (move.move.isNotEmpty && move.move.length >= 4) {
+          _applyMoveToBoard(move.move);
+        }
       }
     }
 
@@ -252,7 +498,7 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
       currentIteration = data['iteration'];
       currentGameNumber = data['game_number'];
       totalGamesPerIteration = data['total_games'];
-      currentMode = data['mode'];
+      currentMode = mode;
       gameResult = data['result'];
       moves = parsedMoves;
     });
@@ -294,6 +540,54 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
       }
     } catch (e) {
       print('⚠️ Error applying move $uciMove: $e');
+    }
+  }
+
+  void _applyMoveToValidationBoard(String uciMove) {
+    try {
+      final from = Position.fromAlgebraic(uciMove.substring(0, 2));
+      final to = Position.fromAlgebraic(uciMove.substring(2, 4));
+
+      final piece = validationBoard.getPieceAt(from);
+      if (piece == null) {
+        print(
+          '⚠️ Warning: No piece at ${uciMove.substring(0, 2)} when applying move to validation board',
+        );
+        print('   Validation board FEN: ${validationBoard.toFEN()}');
+        print('   Move: $uciMove');
+        return;
+      }
+
+      // Get the target piece for capture
+      final targetPiece = validationBoard.getPieceAt(to);
+
+      ChessMove chessMove;
+
+      // Handle promotion
+      if (uciMove.length == 5) {
+        chessMove = ChessMove.promotion(
+          from: from,
+          to: to,
+          piece: piece,
+          promotionPiece: uciMove[4].toUpperCase(),
+          capturedPiece: targetPiece,
+        );
+      } else {
+        chessMove = ChessMove(
+          from: from,
+          to: to,
+          piece: piece,
+          capturedPiece: targetPiece,
+        );
+      }
+
+      validationBoard = validationBoard.makeMove(chessMove);
+      print(
+        '✅ Applied move $uciMove to validation board, new FEN: ${validationBoard.toFEN()}',
+      );
+    } catch (e, stackTrace) {
+      print('⚠️ Error applying move to validation board $uciMove: $e');
+      print('Stack trace: $stackTrace');
     }
   }
 
@@ -779,6 +1073,7 @@ class GameMove {
   final String move;
   final String turn;
   final double value;
+  final String? fen; // FEN after this move was made
   final List<Map<String, dynamic>> topMoves;
 
   GameMove({
@@ -786,6 +1081,7 @@ class GameMove {
     required this.move,
     required this.turn,
     required this.value,
+    this.fen,
     required this.topMoves,
   });
 
@@ -805,6 +1101,7 @@ class GameMove {
         move: json['move'] ?? json['move_uci'] ?? '',
         turn: json['turn'] ?? 'white',
         value: (json['value'] ?? json['position_value'] ?? 0.0).toDouble(),
+        fen: json['fen'] as String?,
         topMoves: topMoves,
       );
     } catch (e) {
@@ -814,8 +1111,39 @@ class GameMove {
         move: '',
         turn: 'white',
         value: 0.0,
+        fen: null,
         topMoves: [],
       );
     }
   }
+}
+
+/// Result of move validation
+class MoveValidationResult {
+  final bool isValid;
+  final String errorMessage;
+
+  MoveValidationResult({required this.isValid, this.errorMessage = ''});
+}
+
+/// Validation error for logging
+class MoveValidationError {
+  final int moveNumber;
+  final String moveUci;
+  final String expectedFen;
+  final String receivedFen;
+  final String errorMessage;
+  final DateTime timestamp;
+
+  MoveValidationError({
+    required this.moveNumber,
+    required this.moveUci,
+    required this.expectedFen,
+    required this.receivedFen,
+    required this.errorMessage,
+    required this.timestamp,
+  });
+
+  @override
+  String toString() => 'Move #$moveNumber ($moveUci): $errorMessage';
 }

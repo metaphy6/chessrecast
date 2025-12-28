@@ -14,7 +14,7 @@ import 'modes_enum.dart';
 ///
 /// Draw Conditions:
 /// - Standard 100 half-move rule (50 full moves)
-/// - Insufficient material: K vs K, K+P vs K+P, or K+N vs K+N (no pawns)
+/// - Insufficient material: K vs K, or K+N vs K+N (no pawns)
 /// - With pawns on board, checkmate is possible (pawns assist like kings)
 class Mercenary extends GameMode {
   @Deprecated(

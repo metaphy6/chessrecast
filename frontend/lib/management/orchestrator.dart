@@ -602,11 +602,6 @@ class Orchestrator {
       return true;
     }
 
-    // K+P vs K+P where each has exactly one pawn - draw
-    if (totalPieces == 4 && whitePawns == 1 && blackPawns == 1) {
-      return true;
-    }
-
     // If there are pawns, they can assist in checkmate (don't draw yet)
     if (whitePawns > 0 || blackPawns > 0) {
       return false;
