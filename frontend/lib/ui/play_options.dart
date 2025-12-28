@@ -27,18 +27,17 @@ class PlayOptionsPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Game mode info card
-              Obx(() => _GameModeInfoCard(
-                    gameType: controller.selectedGameType.value,
-                  )),
+              Obx(
+                () => _GameModeInfoCard(
+                  gameType: controller.selectedGameType.value,
+                ),
+              ),
               const SizedBox(height: 32),
 
               // Section title
               const Text(
                 'How would you like to play?',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
@@ -266,10 +265,7 @@ class _GameModeInfoCard extends StatelessWidget {
           ],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: color.withValues(alpha: 0.3),
-          width: 1.5,
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
       ),
       child: Row(
         children: [
@@ -279,11 +275,7 @@ class _GameModeInfoCard extends StatelessWidget {
               color: color.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              _getModeIcon(gameType),
-              size: 40,
-              color: color,
-            ),
+            child: Icon(_getModeIcon(gameType), size: 40, color: color),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -354,11 +346,7 @@ class _PlayOptionCard extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.2),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
-                    icon,
-                    size: 28,
-                    color: Colors.white,
-                  ),
+                  child: Icon(icon, size: 28, color: Colors.white),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -406,10 +394,7 @@ class _PlayOptionCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.grey.shade300,
-              width: 1,
-            ),
+            border: Border.all(color: Colors.grey.shade300, width: 1),
           ),
           child: Row(
             children: [
@@ -419,11 +404,7 @@ class _PlayOptionCard extends StatelessWidget {
                   color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  icon,
-                  size: 24,
-                  color: color,
-                ),
+                child: Icon(icon, size: 24, color: color),
               ),
               const SizedBox(width: 16),
               Expanded(

@@ -11,10 +11,7 @@ class GameModeSelectionPage extends StatelessWidget {
     final controller = Get.find<OptionsController>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Chess Recast'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Chess Recast'), centerTitle: true),
       body: SafeArea(
         child: Column(
           children: [
@@ -31,19 +28,13 @@ class GameModeSelectionPage extends StatelessWidget {
                   const SizedBox(height: 16),
                   const Text(
                     'Choose Your Game Mode',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Select a mode to explore unique chess variants',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -203,11 +194,7 @@ class _GameModeCard extends StatelessWidget {
                       color: modeColor.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      modeIcon,
-                      size: 32,
-                      color: modeColor,
-                    ),
+                    child: Icon(modeIcon, size: 32, color: modeColor),
                   ),
                   const SizedBox(height: 12),
                   Text(
