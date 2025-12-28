@@ -36,7 +36,7 @@ Chess Recast is a novel chess game featuring 14 unique game modes, each introduc
 
 ---
 
-## Heir Mode ⚠️ (BUGGY - NEEDS FIX)
+## Heir Mode
 **Description:** Pawns can promote to King; captured kings can be replaced.
 **Key Rules:**
 - Pawns can promote to King in addition to Q/R/B/N
