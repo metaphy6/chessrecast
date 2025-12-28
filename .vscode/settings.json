@@ -14,5 +14,11 @@
         "**/.gradle/**": true,
         "**/ios/**": true,
         "**/android/build/**": true
-    }
+    },
+    "dart.flutterSdkPath": "/home/serhatakbak/code/lib/flutter",
+    "dart.env": {
+        "ANDROID_SDK_ROOT": "/home/serhatakbak/Android/Sdk",
+        "ANDROID_HOME": "/home/serhatakbak/Android/Sdk"
+    },
+    "emulator.emulatorPath": "/home/serhatakbak/Android/Sdk/emulator"
 }

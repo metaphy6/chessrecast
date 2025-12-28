@@ -7,7 +7,7 @@ import '../board/utils/exporter.dart';
 /// Training Game Viewer - Watch AI training games in real-time
 /// Shows move-by-move playback of saved training games
 class TrainingViewerScreen extends StatefulWidget {
-  const TrainingViewerScreen({Key? key}) : super(key: key);
+  const TrainingViewerScreen({super.key});
 
   @override
   State<TrainingViewerScreen> createState() => _TrainingViewerScreenState();
