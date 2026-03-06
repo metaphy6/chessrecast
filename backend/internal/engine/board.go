@@ -320,19 +320,15 @@ func (b *Board) MakeMove(move Move) error {
 		
 		b.FiftyMoveRule = 0
 		
-		// SNARE MODE: Revengeful knight - if capturing the last knight, both pieces are destroyed
-		if b.Mode == Snare && move.CapturedPiece.Type == Knight {
-			capturedColor := move.CapturedPiece.Color
-			remainingKnights := b.CountKnights(capturedColor)
-			
-			// If this was the last knight, the attacker is also destroyed (revengeful)
-			if remainingKnights == 0 {
-				// Don't place the attacking piece on the destination
-				// Both pieces are removed (captured knight already removed above)
-				piece = nil // Prevent piece from being placed
-				revengefulKnight = true
-			}
-		}
+		// DISABLED MODE: Snare - Revengeful knight
+		// if b.Mode == Snare && move.CapturedPiece.Type == Knight {
+		// 	capturedColor := move.CapturedPiece.Color
+		// 	remainingKnights := b.CountKnights(capturedColor)
+		// 	if remainingKnights == 0 {
+		// 		piece = nil
+		// 		revengefulKnight = true
+		// 	}
+		// }
 	}
 
 	// Handle special moves
@@ -340,9 +336,11 @@ func (b *Board) MakeMove(move Move) error {
 		b.executeCastling(move)
 	} else if move.IsEnPassant {
 		b.executeEnPassant(move)
-	} else if move.IsSecretPassage {
-		b.executeSecretPassage(move)
 	}
+	// DISABLED MODE: Secret Passage
+	// } else if move.IsSecretPassage {
+	// 	b.executeSecretPassage(move)
+	// }
 
 	// Move piece to destination (unless revengeful knight destroyed it)
 	if piece != nil {

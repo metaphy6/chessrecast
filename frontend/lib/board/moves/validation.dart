@@ -6,7 +6,7 @@ import 'move.dart';
 import '../board.dart';
 import 'special_cases.dart';
 import 'helpers.dart';
-import '../../modes/modes_enum.dart';
+// import '../../modes/modes_enum.dart'; // DISABLED MODE: Was only used for SecretPassage
 
 /// Extension for move validation operations
 extension MoveValidation on ChessBoard {
@@ -125,52 +125,43 @@ extension MoveValidation on ChessBoard {
       performCastlingRookMove(newPieces, move.from, move.to);
     }
 
-    // Handle teleport in validation - swap king and rook positions
-    if (gameType == ModesEnum.secretPassage) {
-      // King-initiated teleport
-      if (move.piece.type == PieceType.king) {
-        // Check if there's a friendly rook at the destination
-        ChessPiece? rookAtDest;
-        for (final p in pieces) {
-          if (p.type == PieceType.rook &&
-              p.color == move.piece.color &&
-              p.position == move.to) {
-            rookAtDest = p;
-            break;
-          }
-        }
-
-        if (rookAtDest != null) {
-          // This is a teleport - remove the rook from destination and add it at king's old position
-          newPieces.removeWhere(
-            (p) => p.position == move.to && p.type == PieceType.rook,
-          );
-          newPieces.add(rookAtDest.movedTo(move.from));
-        }
-      }
-
-      // Rook-initiated teleport
-      if (move.piece.type == PieceType.rook) {
-        // Check if there's a friendly king at the destination
-        ChessPiece? kingAtDest;
-        for (final p in pieces) {
-          if (p.type == PieceType.king &&
-              p.color == move.piece.color &&
-              p.position == move.to) {
-            kingAtDest = p;
-            break;
-          }
-        }
-
-        if (kingAtDest != null) {
-          // This is a teleport - remove the king from destination and add it at rook's old position
-          newPieces.removeWhere(
-            (p) => p.position == move.to && p.type == PieceType.king,
-          );
-          newPieces.add(kingAtDest.movedTo(move.from));
-        }
-      }
-    }
+    // DISABLED MODE: Secret Passage teleport handling
+    // if (gameType == ModesEnum.secretPassage) {
+    //   if (move.piece.type == PieceType.king) {
+    //     ChessPiece? rookAtDest;
+    //     for (final p in pieces) {
+    //       if (p.type == PieceType.rook &&
+    //           p.color == move.piece.color &&
+    //           p.position == move.to) {
+    //         rookAtDest = p;
+    //         break;
+    //       }
+    //     }
+    //     if (rookAtDest != null) {
+    //       newPieces.removeWhere(
+    //         (p) => p.position == move.to && p.type == PieceType.rook,
+    //       );
+    //       newPieces.add(rookAtDest.movedTo(move.from));
+    //     }
+    //   }
+    //   if (move.piece.type == PieceType.rook) {
+    //     ChessPiece? kingAtDest;
+    //     for (final p in pieces) {
+    //       if (p.type == PieceType.king &&
+    //           p.color == move.piece.color &&
+    //           p.position == move.to) {
+    //         kingAtDest = p;
+    //         break;
+    //       }
+    //     }
+    //     if (kingAtDest != null) {
+    //       newPieces.removeWhere(
+    //         (p) => p.position == move.to && p.type == PieceType.king,
+    //       );
+    //       newPieces.add(kingAtDest.movedTo(move.from));
+    //     }
+    //   }
+    // }
 
     // KINGS' BATTLE FIX: Don't add the test move to history yet when validating
     // This prevents First Blood from being detected during validation checks

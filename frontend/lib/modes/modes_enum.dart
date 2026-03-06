@@ -4,10 +4,10 @@ enum ModesEnum {
     'Mercenary',
     'Pawns move and capture like kings (one square in any direction). Pawns cannot promote. No two-square initial move. No en passant.',
   ),
-  coyote(
-    'Coyote',
-    'Race your rook to the opponent\'s back rank! Rooks can only capture rooks. Capturing both rooks or reaching the back rank wins instantly.',
-  ),
+  // coyote(
+  //   'Coyote',
+  //   'Race your rook to the opponent\'s back rank! Rooks can only capture rooks. Capturing both rooks or reaching the back rank wins instantly.',
+  // ),
   heir(
     'Heir',
     'Kings can be captured when mated. Pawns can promote to King once. Game ends when second King is mated, King is mated with no pawns left, or all pawns are captured.',
@@ -16,18 +16,18 @@ enum ModesEnum {
     'Truce',
     'Players cannot attack until one player moves all pieces. No piece can move more than 3 times during truce. No check or checkmate during truce. Once broken, normal chess rules apply.',
   ),
-  snare(
-    'Snare',
-    'Knight-focused variant: Two knights create "entangle zone" that trap pieces. King moves freely without being checked as long as at least one knight is in game but it can be captured and the game ends; it becomes classic king where there\'re no knight left in its color. King can be checkmated if opponent catches it in an entangle zone. Last knight becomes revengeful. No promotions if all knights in a color are lost. Focuses on draw oriented game plays',
-  ),
-  diamonds(
-    'Diamonds',
-    'Bishop-focused variant: Bishops move diagonally but capture in a diamond pattern (8 squares around them). Pawns can only promote to Bishops.',
-  ),
-  secretPassage(
-    'Secret Passage',
-    'King and rook can swap positions when aligned horizontally or vertically. Castling is not allowed.',
-  ),
+  // snare(
+  //   'Snare',
+  //   'Knight-focused variant: Two knights create "entangle zone" that trap pieces. King moves freely without being checked as long as at least one knight is in game but it can be captured and the game ends; it becomes classic king where there\'re no knight left in its color. King can be checkmated if opponent catches it in an entangle zone. Last knight becomes revengeful. No promotions if all knights in a color are lost. Focuses on draw oriented game plays',
+  // ),
+  // diamonds( // DISABLED MODE
+  //   'Diamonds',
+  //   'Bishop-focused variant: Bishops move diagonally but capture in a diamond pattern (8 squares around them). Pawns can only promote to Bishops.',
+  // ),
+  // secretPassage(
+  //   'Secret Passage',
+  //   'King and rook can swap positions when aligned horizontally or vertically. Castling is not allowed.',
+  // ),
   friendlyFire(
     'Friendly Fire',
     'Players can capture their own pieces (except the king and unmoved pieces). You cannot put yourself in check or checkmate.',

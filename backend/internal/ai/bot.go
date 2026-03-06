@@ -531,116 +531,17 @@ func (b *Bot) getModeSpecificScore(board *engine.Board) float64 {
 			}
 		}
 
-	case engine.Coyote:
-		// Goal: Get rook to opponent's back rank - this is the PRIMARY objective
-		// ALSO: Defend your rook and attack opponent's rook
-		targetRow := 7
-		if b.Color == engine.Black {
-			targetRow = 0
-		}
-		
-		var myRookPos engine.Position
-		var oppRookPos engine.Position
-		myRookFound := false
-		oppRookFound := false
-		
-		// Find both rooks and score rook advancement
-		for col := 0; col < 8; col++ {
-			for row := 0; row < 8; row++ {
-				piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
-				if piece != nil && piece.Type == engine.Rook {
-					if piece.Color == b.Color {
-						myRookPos = engine.Position{Row: row, Col: col}
-						myRookFound = true
-						// Huge bonus based on how close rook is to target row
-						if b.Color == engine.White {
-							score += float64(row) * 60.0 // Higher is better for white
-						} else {
-							score += float64(7-row) * 60.0 // Lower is better for black
-						}
-						// MASSIVE bonus if on target row (winning condition!)
-						if row == targetRow {
-							score += 1000.0
-						}
-					} else {
-						oppRookPos = engine.Position{Row: row, Col: col}
-						oppRookFound = true
-					}
-				}
-			}
-		}
-		
-		// Evaluate rook safety and opponent threats
-		if myRookFound && oppRookFound {
-			// Penalty if opponent's rook is attacking our rook (unless defended)
-			if isRookAttackingPosition(board, oppRookPos, myRookPos) {
-				// Check if our rook is defended
-				if isPositionDefended(board, myRookPos, b.Color) {
-					score += 50.0 // Our rook is defended, rook trade likely favorable
-				} else {
-					score -= 300.0 // Our rook is under attack and undefended - critical!
-				}
-			}
-			
-			// Bonus if we can attack opponent's rook
-			if isRookAttackingPosition(board, myRookPos, oppRookPos) {
-				score += 150.0 // We're threatening opponent's rook
-			}
-			
-			// Bonus for having multiple pieces that can defend our rook
-			defendingPieces := countDefendingPieces(board, myRookPos, b.Color)
-			score += float64(defendingPieces) * 20.0
-		}
+	// DISABLED MODE: Coyote
+	// case engine.Coyote:
+	// 	... (rook advancement evaluation commented out)
 
-	case engine.Diamonds:
-		// Bishops are crucial in Diamonds mode - prioritize bishop activity and capturing
-		for row := 0; row < 8; row++ {
-			for col := 0; col < 8; col++ {
-				piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
-				if piece != nil && piece.Type == engine.Bishop && piece.Color == b.Color {
-					// Strong bonus for central bishops (more diagonal lines)
-					if row >= 2 && row <= 5 && col >= 2 && col <= 5 {
-						score += 100.0
-					}
-					// Bonus for active (moved) bishops
-					if piece.HasMoved {
-						score += 50.0
-					}
-				}
-			}
-		}
+	// DISABLED MODE: Diamonds
+	// case engine.Diamonds:
+	// 	... (bishop activity evaluation commented out)
 
-	case engine.SecretPassage:
-		// Value king-rook alignment for teleportation opportunities
-		var kingPos engine.Position
-		kingFound := false
-		for row := 0; row < 8; row++ {
-			for col := 0; col < 8; col++ {
-				piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
-				if piece != nil && piece.Type == engine.King && piece.Color == b.Color {
-					kingPos = engine.Position{Row: row, Col: col}
-					kingFound = true
-					break
-				}
-			}
-			if kingFound {
-				break
-			}
-		}
-
-		if kingFound {
-			// Bonus for rooks aligned with king (enables secret passage)
-			for row := 0; row < 8; row++ {
-				for col := 0; col < 8; col++ {
-					piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
-					if piece != nil && piece.Type == engine.Rook && piece.Color == b.Color {
-						if row == kingPos.Row || col == kingPos.Col {
-							score += 80.0 // Aligned for potential secret passage
-						}
-					}
-				}
-			}
-		}
+	// DISABLED MODE: SecretPassage
+	// case engine.SecretPassage:
+	// 	... (king-rook alignment evaluation commented out)
 
 	case engine.KingsBattle:
 		// Prioritize king attacking pawns to unlock other pieces

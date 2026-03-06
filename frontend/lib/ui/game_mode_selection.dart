@@ -88,18 +88,18 @@ class _GameModeCard extends StatelessWidget {
         return Icons.castle;
       case ModesEnum.mercenary:
         return Icons.shield;
-      case ModesEnum.coyote:
-        return Icons.speed;
+      // case ModesEnum.coyote: // DISABLED MODE
+      //   return Icons.speed;
       case ModesEnum.heir:
         return Icons.auto_awesome;
       case ModesEnum.truce:
         return Icons.handshake;
-      case ModesEnum.snare:
-        return Icons.gps_fixed;
-      case ModesEnum.diamonds:
-        return Icons.diamond;
-      case ModesEnum.secretPassage:
-        return Icons.swap_horiz;
+      // case ModesEnum.snare: // DISABLED MODE
+      //   return Icons.gps_fixed;
+      // case ModesEnum.diamonds: // DISABLED MODE
+      //   return Icons.diamond;
+      // case ModesEnum.secretPassage: // DISABLED MODE
+      //   return Icons.swap_horiz;
       case ModesEnum.friendlyFire:
         return Icons.local_fire_department;
       case ModesEnum.kingsBattle:
@@ -117,18 +117,18 @@ class _GameModeCard extends StatelessWidget {
         return Colors.brown;
       case ModesEnum.mercenary:
         return Colors.indigo;
-      case ModesEnum.coyote:
-        return Colors.orange;
+      // case ModesEnum.coyote: // DISABLED MODE
+      //   return Colors.orange;
       case ModesEnum.heir:
         return Colors.purple;
       case ModesEnum.truce:
         return Colors.teal;
-      case ModesEnum.snare:
-        return Colors.red;
-      case ModesEnum.diamonds:
-        return Colors.blue;
-      case ModesEnum.secretPassage:
-        return Colors.green;
+      // case ModesEnum.snare: // DISABLED MODE
+      //   return Colors.red;
+      // case ModesEnum.diamonds: // DISABLED MODE
+      //   return Colors.blue;
+      // case ModesEnum.secretPassage: // DISABLED MODE
+      //   return Colors.green;
       case ModesEnum.friendlyFire:
         return Colors.deepOrange;
       case ModesEnum.kingsBattle:

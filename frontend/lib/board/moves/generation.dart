@@ -39,17 +39,15 @@ extension MoveGeneration on ChessBoard {
       if (move.capturedPiece != null &&
           move.capturedPiece!.type == PieceType.king &&
           gameType != ModesEnum.heir) {
-        // In Snare mode, allow king capture only if the king is actually under attack
-        if (gameType == ModesEnum.snare) {
-          final opponentColor = move.capturedPiece!.color;
-          // Check if opponent's king is actually capturable (under attack)
-          if (!modes.snare.isKingCapturable(opponentColor, this)) {
-            continue; // Skip this move
-          }
-          // King is capturable - allow the move
-          safeMoves.add(move);
-          continue;
-        }
+        // DISABLED MODE: Snare king capture logic
+        // if (gameType == ModesEnum.snare) {
+        //   final opponentColor = move.capturedPiece!.color;
+        //   if (!modes.snare.isKingCapturable(opponentColor, this)) {
+        //     continue;
+        //   }
+        //   safeMoves.add(move);
+        //   continue;
+        // }
 
         continue; // Skip this move
       }
@@ -112,22 +110,22 @@ extension MoveGeneration on ChessBoard {
     ChessPiece piece,
   ) {
     switch (gameType) {
-      case ModesEnum.snare:
-        return modes.snare.filterMoves(potentialMoves, piece, this);
+      // case ModesEnum.snare: // DISABLED MODE
+      //   return modes.snare.filterMoves(potentialMoves, piece, this);
       case ModesEnum.truce:
         return modes.truce.filterMoves(potentialMoves, piece, this);
-      case ModesEnum.diamonds:
-        return modes.diamonds.filterMoves(potentialMoves, piece, this);
-      case ModesEnum.secretPassage:
-        return modes.secretPassage.filterMoves(potentialMoves, piece, this);
+      // case ModesEnum.diamonds: // DISABLED MODE
+      //   return modes.diamonds.filterMoves(potentialMoves, piece, this);
+      // case ModesEnum.secretPassage: // DISABLED MODE
+      //   return modes.secretPassage.filterMoves(potentialMoves, piece, this);
       case ModesEnum.friendlyFire:
         return modes.friendlyFire.filterMoves(potentialMoves, piece, this);
       case ModesEnum.kingsBattle:
         return modes.kingsBattle.filterMoves(potentialMoves, piece, this);
       case ModesEnum.saveTheQueen:
         return modes.saveTheQueen.filterMoves(potentialMoves, piece, this);
-      case ModesEnum.coyote:
-        return modes.coyote.filterMoves(potentialMoves, piece, this);
+      // case ModesEnum.coyote: // DISABLED MODE
+      //   return modes.coyote.filterMoves(potentialMoves, piece, this);
       default:
         return potentialMoves;
     }
@@ -152,11 +150,11 @@ extension MoveGeneration on ChessBoard {
   }
 
   List<ChessMove> _getPawnMoves(ChessPiece pawn) {
-    // Check if the game mode has custom pawn moves
-    if (gameType == ModesEnum.coyote) {
-      final customMoves = modes.coyote.getPawnMoves(pawn, this);
-      if (customMoves != null) return customMoves;
-    }
+    // DISABLED MODE: Coyote
+    // if (gameType == ModesEnum.coyote) {
+    //   final customMoves = modes.coyote.getPawnMoves(pawn, this);
+    //   if (customMoves != null) return customMoves;
+    // }
 
     if (gameType == ModesEnum.mercenary) {
       final customMoves = modes.mercenary.getPawnMoves(pawn, this);
@@ -271,20 +269,20 @@ extension MoveGeneration on ChessBoard {
       return []; // No promotion in Mercenary mode
     }
 
-    // Check for Diamonds mode - only bishops allowed
-    if (gameType == ModesEnum.diamonds) {
-      return ['B']; // Only bishop promotion in Diamonds mode
-    }
+    // DISABLED MODE: Diamonds - only bishops allowed
+    // if (gameType == ModesEnum.diamonds) {
+    //   return ['B']; // Only bishop promotion in Diamonds mode
+    // }
 
     // Check for Save the Queen mode - no queen promotion allowed
     if (gameType == ModesEnum.saveTheQueen) {
       return ['R', 'B', 'N']; // Rook, Bishop, Knight only
     }
 
-    // Check for Coyote mode - no rook promotion allowed
-    if (gameType == ModesEnum.coyote) {
-      return ['Q', 'B', 'N']; // Queen, Bishop, Knight only
-    }
+    // DISABLED MODE: Coyote - no rook promotion
+    // if (gameType == ModesEnum.coyote) {
+    //   return ['Q', 'B', 'N'];
+    // }
 
     // Check for Heir mode - can promote to King (with restrictions)
     if (gameType == ModesEnum.heir) {
@@ -312,18 +310,18 @@ extension MoveGeneration on ChessBoard {
       }
     }
 
-    // Check for Snare mode - knight-based promotion restrictions
-    if (gameType == ModesEnum.snare) {
-      final snareMode = modes.snare;
-      final options = snareMode.getPromotionPieces(
-        color,
-        this,
-        promotionPosition: promotionPosition,
-      );
-      if (options != null) {
-        return options;
-      }
-    }
+    // DISABLED MODE: Snare - knight-based promotion restrictions
+    // if (gameType == ModesEnum.snare) {
+    //   final snareMode = modes.snare;
+    //   final options = snareMode.getPromotionPieces(
+    //     color,
+    //     this,
+    //     promotionPosition: promotionPosition,
+    //   );
+    //   if (options != null) {
+    //     return options;
+    //   }
+    // }
 
     return ['Q', 'R', 'B', 'N']; // Standard promotion pieces
   }
@@ -379,8 +377,10 @@ extension MoveGeneration on ChessBoard {
     ];
     final moves = generateStepMoves(king, directions);
 
-    // Add castling moves if conditions are met (not in SecretPassage or Coyote mode)
-    if (gameType != ModesEnum.secretPassage && gameType != ModesEnum.coyote) {
+    // Add castling moves if conditions are met
+    // DISABLED MODES: SecretPassage and Coyote disable castling
+    // if (gameType != ModesEnum.secretPassage && gameType != ModesEnum.coyote) {
+    if (true) {
       if (king.color == PieceColor.white) {
         // White kingside castling (O-O)
         if (whiteCanCastleKingside && canCastleKingside(king.color)) {
