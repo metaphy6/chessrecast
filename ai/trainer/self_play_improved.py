@@ -366,8 +366,8 @@ class GameModeRewards:
             return GameModeRewards._other_side_rewards(game_history)
         elif mode == 'kings_battle':
             return GameModeRewards._kings_battle_rewards(game_history)
-        elif mode == 'diamonds':
-            return GameModeRewards._diamonds_rewards(game_history)
+        # elif mode == 'diamonds':  # DISABLED MODE
+        #     return GameModeRewards._diamonds_rewards(game_history)
         else:
             return game_history  # No modification for classic mode
     

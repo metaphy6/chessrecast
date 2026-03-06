@@ -17,29 +17,27 @@ class Orchestrator {
 
     final validMoves = board.getValidMovesFor(move.from);
 
-    // For secret passage mode, we need special comparison because the controller
-    // sets capturedPiece to the rook/king, but the generated move has capturedPiece: null
-    if (board.gameType == ModesEnum.secretPassage &&
-        (move.piece.type == PieceType.king ||
-            move.piece.type == PieceType.rook)) {
-      final isValid = validMoves.any(
-        (validMove) =>
-            validMove.from == move.from &&
-            validMove.to == move.to &&
-            validMove.piece.type == move.piece.type,
-      );
-      return isValid;
-    }
+    // DISABLED MODE: Secret Passage
+    // if (board.gameType == ModesEnum.secretPassage &&
+    //     (move.piece.type == PieceType.king ||
+    //         move.piece.type == PieceType.rook)) {
+    //   final isValid = validMoves.any(
+    //     (validMove) =>
+    //         validMove.from == move.from &&
+    //         validMove.to == move.to &&
+    //         validMove.piece.type == move.piece.type,
+    //   );
+    //   return isValid;
+    // }
 
-    // For Diamonds mode, we need to check if the move exists by position
-    // because the bishop capture moves are specially generated
-    if (board.gameType == ModesEnum.diamonds &&
-        move.piece.type == PieceType.bishop) {
-      final isValid = validMoves.any(
-        (validMove) => validMove.from == move.from && validMove.to == move.to,
-      );
-      return isValid;
-    }
+    // DISABLED MODE: Diamonds move validation
+    // if (board.gameType == ModesEnum.diamonds &&
+    //     move.piece.type == PieceType.bishop) {
+    //   final isValid = validMoves.any(
+    //     (validMove) => validMove.from == move.from && validMove.to == move.to,
+    //   );
+    //   return isValid;
+    // }
 
     final isValid = validMoves.any((validMove) => validMove == move);
     return isValid;
@@ -59,16 +57,16 @@ class Orchestrator {
       }
     }
 
-    // Check for Secret Passage mode special move (king-rook swap)
-    if (board.gameType == ModesEnum.secretPassage) {
-      final secretPassageBoard = modes.secretPassage.handleSpecialMove(
-        board,
-        move,
-      );
-      if (secretPassageBoard != null) {
-        return updateGameStatus(secretPassageBoard);
-      }
-    }
+    // DISABLED MODE: Secret Passage
+    // if (board.gameType == ModesEnum.secretPassage) {
+    //   final secretPassageBoard = modes.secretPassage.handleSpecialMove(
+    //     board,
+    //     move,
+    //   );
+    //   if (secretPassageBoard != null) {
+    //     return updateGameStatus(secretPassageBoard);
+    //   }
+    // }
 
     // Check for Kings' Battle mode special moves (King's Kill or pawn promotion)
     if (board.gameType == ModesEnum.kingsBattle) {
@@ -97,21 +95,21 @@ class Orchestrator {
       }
     }
 
-    // Check for Coyote mode special moves (rook capture or back rank reached)
-    if (board.gameType == ModesEnum.coyote) {
-      final coyoteBoard = modes.coyote.handleSpecialMove(board, move);
-      if (coyoteBoard != null) {
-        return updateGameStatus(coyoteBoard);
-      }
-    }
+    // DISABLED MODE: Coyote
+    // if (board.gameType == ModesEnum.coyote) {
+    //   final coyoteBoard = modes.coyote.handleSpecialMove(board, move);
+    //   if (coyoteBoard != null) {
+    //     return updateGameStatus(coyoteBoard);
+    //   }
+    // }
 
-    // Check for Snare mode special moves (revengeful knight capture)
-    if (board.gameType == ModesEnum.snare) {
-      final snareBoard = modes.snare.handleSpecialMove(board, move);
-      if (snareBoard != null) {
-        return updateGameStatus(snareBoard);
-      }
-    }
+    // DISABLED MODE: Snare
+    // if (board.gameType == ModesEnum.snare) {
+    //   final snareBoard = modes.snare.handleSpecialMove(board, move);
+    //   if (snareBoard != null) {
+    //     return updateGameStatus(snareBoard);
+    //   }
+    // }
 
     // Check for Truce mode special move handling
     if (board.gameType == ModesEnum.truce) {
@@ -179,10 +177,10 @@ class Orchestrator {
       return _updateTruceGameStatus(board);
     }
 
-    // Special handling for Snare mode
-    if (board.gameType == ModesEnum.snare) {
-      return _updateSnareGameStatus(board);
-    }
+    // DISABLED MODE: Snare
+    // if (board.gameType == ModesEnum.snare) {
+    //   return _updateSnareGameStatus(board);
+    // }
 
     final currentPlayerInCheck = board.isKingInCheck(board.currentPlayer);
     final hasValidMoves = _hasValidMoves(board);
@@ -339,99 +337,8 @@ class Orchestrator {
 
   /// SNARE MODE: Updates game status with entangled King detection
   ChessBoard _updateSnareGameStatus(ChessBoard board) {
-    // If game is already over (checkmate/stalemate/draw from handleSpecialMove), don't overwrite
-    // BUT we DO need to re-evaluate if status is just "check" to determine checkmate
-    if (board.gameStatus == GameStatus.checkmate ||
-        board.gameStatus == GameStatus.stalemate ||
-        board.gameStatus == GameStatus.draw) {
-      return board;
-    }
-
-    // CRITICAL: Check if current player's king is entangled (instant checkmate)
-    // This handles both:
-    // 1. Custom board setups where king starts entangled
-    // 2. Kings that became entangled from knight moves (via handleSpecialMove)
-    if (modes.snare.isKingEntangled(board.currentPlayer, board)) {
-      // Log the entangle checkmate event
-      final trappedColor = board.currentPlayer == PieceColor.white
-          ? 'White'
-          : 'Black';
-      logSnareKingCaught(trappedColor);
-      return board.copyWith(gameStatus: GameStatus.checkmate);
-    }
-
-    // NOTE: Entanglement-based checkmate from knight moves is primarily handled in handleSpecialMove
-    // but we also check here to catch custom board initial states where king is already entangled
-
-    // SNARE MODE: Special rule - if ALL knights are lost (both players), it's stalemate
-    final whiteKnights = modes.snare.getKnights(PieceColor.white, board);
-    final blackKnights = modes.snare.getKnights(PieceColor.black, board);
-
-    if (whiteKnights.isEmpty && blackKnights.isEmpty) {
-      // All knights lost from both sides - game ends in stalemate
-      logSnareAllKnightsLost();
-      return board.copyWith(gameStatus: GameStatus.stalemate);
-    }
-
-    // SNARE MODE: Check if current player's king still has knights
-    final myKnights = modes.snare.getKnights(board.currentPlayer, board);
-
-    final hasValidMoves = _hasValidMoves(board);
-
-    GameStatus newStatus;
-
-    if (myKnights.isNotEmpty) {
-      // King has knights - cannot be checkmated, only captured
-      // King moves freely and game can only end by capture (not checkmate)
-      if (hasValidMoves) {
-        newStatus = GameStatus.ongoing;
-      } else {
-        // No valid moves but king has knights - stalemate
-        newStatus = GameStatus.stalemate;
-      }
-    } else {
-      // King has no knights - apply regular chess checkmate rules
-      final currentPlayerInCheck = modes.snare.isKingInCheckSnare(
-        board.currentPlayer,
-        board,
-      );
-
-      if (currentPlayerInCheck) {
-        if (hasValidMoves) {
-          logCheck(board.currentPlayer.name);
-          newStatus = GameStatus.check;
-        } else {
-          final winner = board.currentPlayer == PieceColor.white
-              ? 'black'
-              : 'white';
-          logCheckmate(winner);
-          newStatus = GameStatus.checkmate;
-        }
-      } else {
-        if (hasValidMoves) {
-          newStatus = GameStatus.ongoing;
-        } else {
-          logStalemate();
-          newStatus = GameStatus.stalemate;
-        }
-      }
-    }
-
-    // Check for draw conditions
-    if (_isDrawByInsufficientMaterial(board)) {
-      logDrawInsufficientMaterial();
-      newStatus = GameStatus.draw;
-    } else if (_isDrawByRepetition(board)) {
-      logDrawRepetition();
-      newStatus = GameStatus.draw;
-    } else if (_isDrawByFiftyMoveRule(board)) {
-      logDrawFiftyMoveRule(
-        isSpecialEndgame: _isSpecialEndgameRequiringFasterMate(board),
-      );
-      newStatus = GameStatus.draw;
-    }
-
-    return board.copyWith(gameStatus: newStatus);
+    // DISABLED MODE: Snare - entire method disabled
+    return board;
   }
 
   bool _hasValidMoves(ChessBoard board) {
@@ -464,12 +371,12 @@ class Orchestrator {
       return true;
     }
 
-    // Snare mode: special insufficient material rules
-    if (board.gameType == ModesEnum.snare) {
-      if (_isDrawByInsufficientMaterialSnare(whitePieces, blackPieces, board)) {
-        return true;
-      }
-    }
+    // DISABLED MODE: Snare special insufficient material rules
+    // if (board.gameType == ModesEnum.snare) {
+    //   if (_isDrawByInsufficientMaterialSnare(whitePieces, blackPieces, board)) {
+    //     return true;
+    //   }
+    // }
 
     return false;
   }
@@ -639,35 +546,25 @@ class Orchestrator {
     final whitePieces = board.getPiecesOfColor(PieceColor.white);
     final blackPieces = board.getPiecesOfColor(PieceColor.black);
 
-    // Snare mode: K+N+N vs K or K vs K+N+N
-    if (board.gameType == ModesEnum.snare) {
-      int whiteKnights = 0;
-      int blackKnights = 0;
-      int whiteNonKingPieces = 0;
-      int blackNonKingPieces = 0;
-
-      for (final p in whitePieces) {
-        if (p.type == PieceType.knight) {
-          whiteKnights++;
-        } else if (p.type != PieceType.king) {
-          whiteNonKingPieces++;
-        }
-      }
-
-      for (final p in blackPieces) {
-        if (p.type == PieceType.knight) {
-          blackKnights++;
-        } else if (p.type != PieceType.king) {
-          blackNonKingPieces++;
-        }
-      }
-
-      // K+N+N vs K: Must mate within 50 moves
-      if ((whiteKnights == 2 && blackNonKingPieces == 0 && blackKnights == 0) ||
-          (blackKnights == 2 && whiteNonKingPieces == 0 && whiteKnights == 0)) {
-        return true;
-      }
-    }
+    // DISABLED MODE: Snare K+N+N vs K special endgame
+    // if (board.gameType == ModesEnum.snare) {
+    //   int whiteKnights = 0;
+    //   int blackKnights = 0;
+    //   int whiteNonKingPieces = 0;
+    //   int blackNonKingPieces = 0;
+    //   for (final p in whitePieces) {
+    //     if (p.type == PieceType.knight) { whiteKnights++; }
+    //     else if (p.type != PieceType.king) { whiteNonKingPieces++; }
+    //   }
+    //   for (final p in blackPieces) {
+    //     if (p.type == PieceType.knight) { blackKnights++; }
+    //     else if (p.type != PieceType.king) { blackNonKingPieces++; }
+    //   }
+    //   if ((whiteKnights == 2 && blackNonKingPieces == 0 && blackKnights == 0) ||
+    //       (blackKnights == 2 && whiteNonKingPieces == 0 && whiteKnights == 0)) {
+    //     return true;
+    //   }
+    // }
 
     // Mercenary mode: K+pieces vs K or K vs K+pieces
     if (board.gameType == ModesEnum.mercenary) {

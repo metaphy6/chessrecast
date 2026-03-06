@@ -23,12 +23,13 @@ func (mg *MoveGenerator) GetValidMoves(pos Position) []Move {
 	case Pawn:
 		moves = mg.getPawnMoves(piece)
 	case Rook:
-		// Special handling for Coyote mode
-		if mg.board.Mode == Coyote {
-			moves = mg.getCoyoteRookMoves(piece)
-		} else {
-			moves = mg.getRookMoves(piece)
-		}
+		// DISABLED MODE: Coyote
+		// if mg.board.Mode == Coyote {
+		// 	moves = mg.getCoyoteRookMoves(piece)
+		// } else {
+		// 	moves = mg.getRookMoves(piece)
+		// }
+		moves = mg.getRookMoves(piece)
 	case Knight:
 		moves = mg.getKnightMoves(piece)
 	case Bishop:
@@ -51,11 +52,11 @@ func (mg *MoveGenerator) GetValidMoves(pos Position) []Move {
 	// Filter moves that would leave king in check (unless game mode allows it)
 	if !mg.allowsSelfCheck() {
 		moves = mg.filterCheckMoves(moves)
-	} else if mg.board.Mode == Snare && piece.Type == King {
-		// In Snare mode: king cannot move into squares under attack
-		// even though "check" doesn't exist in the traditional sense
-		moves = mg.filterKingMovesSelfCheck(moves, piece)
 	}
+	// DISABLED MODE: Snare
+	// } else if mg.board.Mode == Snare && piece.Type == King {
+	// 	moves = mg.filterKingMovesSelfCheck(moves, piece)
+	// }
 
 	return moves
 }
@@ -67,10 +68,10 @@ func (mg *MoveGenerator) getPawnMoves(pawn *Piece) []Move {
 		return mg.getMercenaryPawnMoves(pawn)
 	}
 
-	// Special handling for Coyote mode
-	if mg.board.Mode == Coyote {
-		return mg.getCoyotePawnMoves(pawn)
-	}
+	// DISABLED MODE: Coyote
+	// if mg.board.Mode == Coyote {
+	// 	return mg.getCoyotePawnMoves(pawn)
+	// }
 
 	moves := []Move{}
 	direction := 1
@@ -183,103 +184,18 @@ func (mg *MoveGenerator) getMercenaryPawnMoves(pawn *Piece) []Move {
 	return moves
 }
 
+// DISABLED MODE: Coyote
 // getCoyotePawnMoves - Special pawn rules for Coyote mode
 // Pawns move normally (forward only), but cannot promote to rooks
-func (mg *MoveGenerator) getCoyotePawnMoves(pawn *Piece) []Move {
-	moves := []Move{}
-	direction := 1
-	startRow := 1
-	promotionRow := 7
+// func (mg *MoveGenerator) getCoyotePawnMoves(pawn *Piece) []Move {
+// 	...commented out...
+// }
 
-	if pawn.Color == Black {
-		direction = -1
-		startRow = 6
-		promotionRow = 0
-	}
-
-	// Forward move
-	oneStep := pawn.Position.Offset(direction, 0)
-	if oneStep.IsValid() && mg.board.GetPieceAt(oneStep) == nil {
-		if oneStep.Row == promotionRow {
-			// Promotion - but NO ROOK allowed in Coyote mode
-			for _, promoPiece := range []PieceType{Queen, Bishop, Knight} {
-				move := NewMove(pawn.Position, oneStep, pawn)
-				move.IsPromotion = true
-				move.Promotion = promoPiece
-				moves = append(moves, *move)
-			}
-		} else {
-			moves = append(moves, *NewMove(pawn.Position, oneStep, pawn))
-
-			// Two-step move from starting position
-			if pawn.Position.Row == startRow {
-				twoStep := pawn.Position.Offset(direction*2, 0)
-				if twoStep.IsValid() && mg.board.GetPieceAt(twoStep) == nil {
-					moves = append(moves, *NewMove(pawn.Position, twoStep, pawn))
-				}
-			}
-		}
-	}
-
-	// Diagonal captures
-	for _, colOffset := range []int{-1, 1} {
-		capturePos := pawn.Position.Offset(direction, colOffset)
-		if !capturePos.IsValid() {
-			continue
-		}
-
-		targetPiece := mg.board.GetPieceAt(capturePos)
-		if targetPiece != nil && targetPiece.Color != pawn.Color {
-			if capturePos.Row == promotionRow {
-				// Capture with promotion - NO ROOK allowed
-				for _, promoPiece := range []PieceType{Queen, Bishop, Knight} {
-					move := NewMove(pawn.Position, capturePos, pawn)
-					move.CapturedPiece = targetPiece
-					move.IsPromotion = true
-					move.Promotion = promoPiece
-					moves = append(moves, *move)
-				}
-			} else {
-				move := NewMove(pawn.Position, capturePos, pawn)
-				move.CapturedPiece = targetPiece
-				moves = append(moves, *move)
-			}
-		}
-
-		// En passant
-		if mg.board.EnPassantSquare != nil && capturePos.Equals(*mg.board.EnPassantSquare) {
-			capturedPawn := mg.board.GetPieceAt(Position{Row: pawn.Position.Row, Col: capturePos.Col})
-			if capturedPawn != nil && capturedPawn.Type == Pawn {
-				move := NewMove(pawn.Position, capturePos, pawn)
-				move.IsEnPassant = true
-				move.CapturedPiece = capturedPawn
-				moves = append(moves, *move)
-			}
-		}
-	}
-
-	return moves
-}
-
+// DISABLED MODE: Coyote
 // getCoyoteRookMoves - Rooks can only capture opponent rooks in Coyote mode
-func (mg *MoveGenerator) getCoyoteRookMoves(rook *Piece) []Move {
-	allMoves := mg.getSlidingMoves(rook, [][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}})
-	
-	// Filter: rooks can only capture opponent rooks (not other pieces)
-	filteredMoves := []Move{}
-	for _, move := range allMoves {
-		if move.CapturedPiece == nil {
-			// Can move to empty squares
-			filteredMoves = append(filteredMoves, move)
-		} else if move.CapturedPiece.Type == Rook && move.CapturedPiece.Color != rook.Color {
-			// Can only capture opponent rooks (defensive: verify color even though getSlidingMoves ensures it)
-			filteredMoves = append(filteredMoves, move)
-		}
-		// Skip captures of non-rook pieces
-	}
-	
-	return filteredMoves
-}
+// func (mg *MoveGenerator) getCoyoteRookMoves(rook *Piece) []Move {
+// 	...commented out...
+// }
 
 // getRookMoves generates rook moves
 func (mg *MoveGenerator) getRookMoves(rook *Piece) []Move {
@@ -315,10 +231,10 @@ func (mg *MoveGenerator) getKnightMoves(knight *Piece) []Move {
 
 // getBishopMoves generates bishop moves
 func (mg *MoveGenerator) getBishopMoves(bishop *Piece) []Move {
-	// Special handling for Diamonds mode
-	if mg.board.Mode == Diamonds {
-		return mg.getDiamondBishopMoves(bishop)
-	}
+	// DISABLED MODE: Diamonds
+	// if mg.board.Mode == Diamonds {
+	// 	return mg.getDiamondBishopMoves(bishop)
+	// }
 	return mg.getSlidingMoves(bishop, [][2]int{{-1, -1}, {-1, 1}, {1, -1}, {1, 1}})
 }
 
@@ -417,15 +333,17 @@ func (mg *MoveGenerator) getKingMoves(king *Piece) []Move {
 		}
 	}
 
-	// Castling (not in SecretPassage or Coyote mode)
-	if mg.board.Mode != SecretPassage && mg.board.Mode != Coyote && !king.HasMoved {
+	// Castling
+	// DISABLED MODES: SecretPassage and Coyote used to disable castling
+	// if mg.board.Mode != SecretPassage && mg.board.Mode != Coyote && !king.HasMoved {
+	if !king.HasMoved {
 		moves = append(moves, mg.getCastlingMoves(king)...)
 	}
 
-	// Secret Passage moves (Secret Passage mode only)
-	if mg.board.Mode == SecretPassage {
-		moves = append(moves, mg.getSecretPassageMoves(king)...)
-	}
+	// DISABLED MODE: Secret Passage moves
+	// if mg.board.Mode == SecretPassage {
+	// 	moves = append(moves, mg.getSecretPassageMoves(king)...)
+	// }
 
 	return moves
 }
@@ -521,38 +439,32 @@ func (mg *MoveGenerator) getCastlingMoves(king *Piece) []Move {
 }
 
 // getSecretPassageMoves generates king-rook secret passage moves for Secret Passage mode
-func (mg *MoveGenerator) getSecretPassageMoves(king *Piece) []Move {
-	moves := []Move{}
-	
-	// Find all rooks of the same color aligned horizontally or vertically
-	for row := 0; row < 8; row++ {
-		for col := 0; col < 8; col++ {
-			piece := mg.board.GetPieceAt(Position{Row: row, Col: col})
-			if piece == nil || piece.Type != Rook || piece.Color != king.Color {
-				continue
-			}
-
-			// Check if aligned
-			aligned := (piece.Position.Row == king.Position.Row) ||
-				(piece.Position.Col == king.Position.Col)
-
-			if aligned {
-				// Can swap positions (king moves to rook's square)
-				move := NewMove(king.Position, piece.Position, king)
-				move.IsSecretPassage = true
-				moves = append(moves, *move)
-			}
-		}
-	}
-
-	return moves
-}
+// DISABLED MODE: Secret Passage
+// func (mg *MoveGenerator) getSecretPassageMoves(king *Piece) []Move {
+// 	moves := []Move{}
+// 	for row := 0; row < 8; row++ {
+// 		for col := 0; col < 8; col++ {
+// 			piece := mg.board.GetPieceAt(Position{Row: row, Col: col})
+// 			if piece == nil || piece.Type != Rook || piece.Color != king.Color {
+// 				continue
+// 			}
+// 			aligned := (piece.Position.Row == king.Position.Row) ||
+// 				(piece.Position.Col == king.Position.Col)
+// 			if aligned {
+// 				move := NewMove(king.Position, piece.Position, king)
+// 				move.IsSecretPassage = true
+// 				moves = append(moves, *move)
+// 			}
+// 		}
+// 	}
+// 	return moves
+// }
 
 // getPromotionPieces returns available promotion pieces for a color
 func (mg *MoveGenerator) getPromotionPieces(color Color) []PieceType {
 	switch mg.board.Mode {
-	case Diamonds:
-		return []PieceType{Bishop} // Only bishop promotion
+	// case Diamonds: // DISABLED MODE
+	// 	return []PieceType{Bishop} // Only bishop promotion
 	case Succession:
 		// Cannot promote to queen (each side has two queens already)
 		// Check if can promote to king
@@ -571,20 +483,20 @@ func (mg *MoveGenerator) getPromotionPieces(color Color) []PieceType {
 			return []PieceType{Queen, Rook, Bishop, Knight, King}
 		}
 		return []PieceType{Queen, Rook, Bishop, Knight}
-	case Snare:
-		// Snare mode knight-based promotion rules
-		knightCount := mg.board.CountKnights(color)
-		switch knightCount {
-	case 0:
-			// No knights = no promotion at all
-			return []PieceType{}
-		case 1:
-			// One knight = can only promote to knight (to get back to 2)
-			return []PieceType{Knight}
-		default:
-			// Two knights = Q, R, B only (no knight, max 2 knights per game)
-			return []PieceType{Queen, Rook, Bishop}
-		}
+	// case Snare: // DISABLED MODE
+	// 	// Snare mode knight-based promotion rules
+	// 	knightCount := mg.board.CountKnights(color)
+	// 	switch knightCount {
+	// case 0:
+	// 		// No knights = no promotion at all
+	// 		return []PieceType{}
+	// 	case 1:
+	// 		// One knight = can only promote to knight (to get back to 2)
+	// 		return []PieceType{Knight}
+	// 	default:
+	// 		// Two knights = Q, R, B only (no knight, max 2 knights per game)
+	// 		return []PieceType{Queen, Rook, Bishop}
+	// 	}
 	default:
 		return []PieceType{Queen, Rook, Bishop, Knight}
 	}
@@ -599,8 +511,8 @@ func (mg *MoveGenerator) applyGameModeRules(moves []Move, piece *Piece) []Move {
 		return mg.applyKingsBattleRules(moves, piece)
 	case Truce:
 		return mg.applyTruceRules(moves, piece)
-	case Snare:
-		return mg.applySnareRules(moves, piece)
+	// case Snare: // DISABLED MODE
+	// 	return mg.applySnareRules(moves, piece)
 	case SaveTheQueen:
 		return mg.applySaveTheQueenRules(moves, piece)
 	case Heir:
@@ -1407,18 +1319,14 @@ func (mg *MoveGenerator) canAttackSquareOnBoard(board *Board, piece *Piece, targ
 		}
 	}
 
-	// COYOTE MODE: Rooks can ONLY attack/capture opponent rooks, not the king or other pieces
-	// This means rooks should NEVER put the king in check in this mode
-	if board.Mode == Coyote && piece.Type == Rook {
-		// Check what piece is at the target position
-		targetPiece := board.GetPieceAt(target)
-		if targetPiece == nil {
-			// Can move to empty squares but not "attack" them for check purposes
-			return false
-		}
-		// Can only attack opponent rooks - not king, not other pieces
-		return targetPiece.Type == Rook && targetPiece.Color != piece.Color
-	}
+	// DISABLED MODE: Coyote rook attack restriction
+	// if board.Mode == Coyote && piece.Type == Rook {
+	// 	targetPiece := board.GetPieceAt(target)
+	// 	if targetPiece == nil {
+	// 		return false
+	// 	}
+	// 	return targetPiece.Type == Rook && targetPiece.Color != piece.Color
+	// }
 
 	// Simplified attack check without generating full moves
 	switch piece.Type {

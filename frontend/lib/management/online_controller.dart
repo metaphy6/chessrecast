@@ -466,20 +466,20 @@ class OnlineController extends Controller {
   String _formatMoveNotation(ChessMove move) {
     final pieceIcon = _getPieceIcon(move.piece);
 
-    // Special formatting for Secret Passage mode swaps
-    if (gameType == ModesEnum.secretPassage) {
-      final targetPiece = board.getPieceAt(move.to);
-      if (targetPiece != null && targetPiece.color == move.piece.color) {
-        if ((move.piece.type == PieceType.king &&
-                targetPiece.type == PieceType.rook) ||
-            (move.piece.type == PieceType.rook &&
-                targetPiece.type == PieceType.king)) {
-          final movingIcon = _getPieceIcon(move.piece);
-          final targetIcon = _getPieceIcon(targetPiece);
-          return '$movingIcon ${move.from.algebraic} ⇄ $targetIcon ${move.to.algebraic} SECRET PASSAGE';
-        }
-      }
-    }
+    // DISABLED MODE: Secret Passage notation
+    // if (gameType == ModesEnum.secretPassage) {
+    //   final targetPiece = board.getPieceAt(move.to);
+    //   if (targetPiece != null && targetPiece.color == move.piece.color) {
+    //     if ((move.piece.type == PieceType.king &&
+    //             targetPiece.type == PieceType.rook) ||
+    //         (move.piece.type == PieceType.rook &&
+    //             targetPiece.type == PieceType.king)) {
+    //       final movingIcon = _getPieceIcon(move.piece);
+    //       final targetIcon = _getPieceIcon(targetPiece);
+    //       return '$movingIcon ${move.from.algebraic} ⇄ $targetIcon ${move.to.algebraic} SECRET PASSAGE';
+    //     }
+    //   }
+    // }
 
     final capture = move.capturedPiece != null ? '×' : '→';
     final capturedInfo = move.capturedPiece != null

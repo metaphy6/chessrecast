@@ -27,16 +27,13 @@ extension SpecialCases on ChessBoard {
         }
       }
 
-      // COYOTE MODE: Rooks can ONLY capture opponent rooks, not the king
-      // Rooks should NEVER put the king in check in this mode
-      if (gameType == ModesEnum.coyote && piece.type == PieceType.rook) {
-        // Check if there's a piece at target position that is an opponent rook
-        final targetPiece = getPieceAt(position);
-        if (targetPiece == null) return false;
-        // Rook can only attack opponent rooks - not king, not other pieces
-        return targetPiece.type == PieceType.rook &&
-            targetPiece.color != piece.color;
-      }
+      // DISABLED MODE: Coyote - Rooks can only capture opponent rooks
+      // if (gameType == ModesEnum.coyote && piece.type == PieceType.rook) {
+      //   final targetPiece = getPieceAt(position);
+      //   if (targetPiece == null) return false;
+      //   return targetPiece.type == PieceType.rook &&
+      //       targetPiece.color != piece.color;
+      // }
 
       // In Save the Queen mode, prisoner queens cannot attack
       if (gameType == ModesEnum.saveTheQueen && piece.type == PieceType.queen) {
@@ -56,10 +53,10 @@ extension SpecialCases on ChessBoard {
         return _canPawnAttackLikeKingInMercenaryMode(piece.position, position);
       }
 
-      // Special handling for Diamonds mode bishops
-      if (gameType == ModesEnum.diamonds && piece.type == PieceType.bishop) {
-        return _canBishopAttackInDiamondsMode(piece.position, position);
-      }
+      // DISABLED MODE: Diamonds bishop attack
+      // if (gameType == ModesEnum.diamonds && piece.type == PieceType.bishop) {
+      //   return _canBishopAttackInDiamondsMode(piece.position, position);
+      // }
       return piece.canAttack(
         position,
         pieces,
