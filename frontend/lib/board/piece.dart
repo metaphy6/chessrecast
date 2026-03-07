@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
-import 'items/piece_color.dart';
-import 'items/piece_type.dart';
+import 'pieces/piece_color.dart';
+import 'pieces/piece_type.dart';
 import 'moves/position.dart';
 
 class ChessPiece extends Equatable {

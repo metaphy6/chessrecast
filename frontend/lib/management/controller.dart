@@ -2,8 +2,7 @@ import 'package:chessrecast/debug.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../board/utils/exporter.dart';
-import '../modes/modes_enum.dart';
-import '../analytics/bot/bot_manager.dart';
+import '../mods/mods_enum.dart';
 import '../analytics/game_analytics.dart';
 import '../ui/board_theme.dart';
 import '../constants.dart';
@@ -12,14 +11,13 @@ import 'utils.dart';
 
 class Controller extends GetxController {
   final Orchestrator _gameOrchestrator = Orchestrator();
-  final BotManager botManager = Get.find<BotManager>();
   GameAnalytics? _analytics;
 
   // BuildContext for showing snackbars without Overlay issues
   BuildContext? _buildContext;
 
   // Game type
-  late final ModesEnum gameType;
+  late final ModsEnum gameType;
   late final bool isDevBoard;
   ChessBoard? _initialDevBoard; // Store the initial custom board setup
   List<ChessPiece>? _devBoardOriginalPieces; // Store original pieces from args
@@ -62,7 +60,7 @@ class Controller extends GetxController {
 
     // Get game type from route arguments
     final args = Get.arguments as Map<String, dynamic>?;
-    gameType = args?['gameType'] ?? ModesEnum.classic;
+    gameType = args?['gameType'] ?? ModsEnum.classic;
     isDevBoard = args?['isDevBoard'] ?? false;
 
     // Store difficulty settings for back navigation (used by online spectator)
@@ -167,23 +165,17 @@ class Controller extends GetxController {
     _initializeAnalytics();
 
     _updateStatusMessage();
-
-    // Start bot move if it's bot's turn (use Future.microtask to ensure UI is ready)
-    Future.microtask(() => checkBotTurn());
   }
 
   /// Initialize game analytics
   void _initializeAnalytics() {
-    final whitePlayer = botManager.whiteBot?.name ?? 'Human';
-    final blackPlayer = botManager.blackBot?.name ?? 'Human';
-
     _analytics = GameAnalytics(
       gameId: 'game_${DateTime.now().millisecondsSinceEpoch}',
-      gameMode: gameType,
-      whitePlayer: whitePlayer,
-      blackPlayer: blackPlayer,
-      isWhiteBot: botManager.whiteBot != null,
-      isBlackBot: botManager.blackBot != null,
+      GameMod: gameType,
+      whitePlayer: 'Human',
+      blackPlayer: 'Human',
+      isWhiteBot: false,
+      isBlackBot: false,
     );
   }
 
@@ -211,12 +203,12 @@ class Controller extends GetxController {
     }
 
     // If another piece of the same color is clicked, select it
-    // EXCEPTION: In Friendly Fire mode, if clicking a friendly piece, attempt capture instead
+    // EXCEPTION: In Friendly Fire Mod, if clicking a friendly piece, attempt capture instead
     final selectedPiece = board.getPieceAt(_selectedPosition.value!);
 
-    // DISABLED MODE: Secret Passage king↔rook or rook↔king
+    // DISABLED MOD: Secret Passage king↔rook or rook↔king
     // final isSecretPassageMove =
-    //     board.gameType == ModesEnum.secretPassage &&
+    //     board.gameType == ModsEnum.secretPassage &&
     //     selectedPiece != null &&
     //     piece != null &&
     //     piece.color == currentPlayer &&
@@ -226,7 +218,7 @@ class Controller extends GetxController {
     //             piece.type == PieceType.king));
 
     final isFriendlyFireCapture =
-        board.gameType == ModesEnum.friendlyFire &&
+        board.gameType == ModsEnum.friendlyFire &&
         selectedPiece != null &&
         piece != null &&
         piece.color == currentPlayer &&
@@ -234,7 +226,7 @@ class Controller extends GetxController {
 
     if (piece != null &&
         piece.color == currentPlayer &&
-        // !isSecretPassageMove && // DISABLED MODE
+        // !isSecretPassageMove && // DISABLED MOD
         !isFriendlyFireCapture) {
       _selectPiece(position);
       return;
@@ -269,8 +261,8 @@ class Controller extends GetxController {
 
     if (previousSelection != null) {
       squaresToUpdate.add(squareIdFromPosition(previousSelection));
-      // DISABLED MODE: Diamonds diamond zone update
-      // if (board.gameType == ModesEnum.diamonds) {
+      // DISABLED MOD: Diamonds diamond zone update
+      // if (board.gameType == ModsEnum.diamonds) {
       //   final prevPiece = board.getPieceAt(previousSelection);
       //   if (prevPiece?.type == PieceType.bishop) {
       //     for (final pos in _getDiamondCapturePositions(previousSelection)) {
@@ -282,8 +274,8 @@ class Controller extends GetxController {
 
     squaresToUpdate.add(squareIdFromPosition(position));
 
-    // DISABLED MODE: Diamonds diamond zone update
-    // if (board.gameType == ModesEnum.diamonds) {
+    // DISABLED MOD: Diamonds diamond zone update
+    // if (board.gameType == ModsEnum.diamonds) {
     //   final currentPiece = board.getPieceAt(position);
     //   if (currentPiece?.type == PieceType.bishop) {
     //     for (final pos in _getDiamondCapturePositions(position)) {
@@ -316,8 +308,8 @@ class Controller extends GetxController {
 
     if (previousSelection != null) {
       squaresToUpdate.add(squareIdFromPosition(previousSelection));
-      // DISABLED MODE: Diamonds diamond zone update
-      // if (board.gameType == ModesEnum.diamonds) {
+      // DISABLED MOD: Diamonds diamond zone update
+      // if (board.gameType == ModsEnum.diamonds) {
       //   final prevPiece = board.getPieceAt(previousSelection);
       //   if (prevPiece?.type == PieceType.bishop) {
       //     for (final pos in _getDiamondCapturePositions(previousSelection)) {
@@ -346,9 +338,9 @@ class Controller extends GetxController {
       final capturedPiece = board.getPieceAt(to);
 
       // Check if this is a pawn promotion move
-      // Note: Mercenary mode has NO promotion
+      // Note: Mercenary Mod has NO promotion
       if (piece.type == PieceType.pawn &&
-          board.gameType == ModesEnum.mercenary) {
+          board.gameType == ModsEnum.mercenary) {
         final lastRank = piece.color == PieceColor.white ? 7 : 0;
         if (to.row == lastRank) {
           _showPromotionDialog(from, to, piece, capturedPiece);
@@ -404,8 +396,8 @@ class Controller extends GetxController {
         }
       }
 
-      // DISABLED MODE: Secret Passage king→rook swap
-      // if (board.gameType == ModesEnum.secretPassage &&
+      // DISABLED MOD: Secret Passage king→rook swap
+      // if (board.gameType == ModsEnum.secretPassage &&
       //     piece.type == PieceType.king &&
       //     capturedPiece != null &&
       //     capturedPiece.type == PieceType.rook &&
@@ -418,8 +410,8 @@ class Controller extends GetxController {
       //   );
       // }
 
-      // DISABLED MODE: Secret Passage rook→king swap
-      // if (board.gameType == ModesEnum.secretPassage &&
+      // DISABLED MOD: Secret Passage rook→king swap
+      // if (board.gameType == ModsEnum.secretPassage &&
       //     piece.type == PieceType.rook &&
       //     capturedPiece != null &&
       //     capturedPiece.type == PieceType.king &&
@@ -455,7 +447,7 @@ class Controller extends GetxController {
     ChessPiece piece,
     ChessPiece? capturedPiece,
   ) {
-    // Get available promotion pieces based on game mode
+    // Get available promotion pieces based on Game Mod
     final availablePieces = _getAvailablePromotionPieces(piece.color, to);
 
     // Handle case where no promotion pieces are available (King would be in check)
@@ -490,7 +482,7 @@ class Controller extends GetxController {
     );
   }
 
-  /// Gets available promotion pieces based on game mode and player state
+  /// Gets available promotion pieces based on Game Mod and player state
   List<String> _getAvailablePromotionPieces(
     PieceColor color,
     Position promotionPosition,
@@ -534,8 +526,8 @@ class Controller extends GetxController {
     // Get piece icons based on color and type
     final pieceIcon = _getPieceIcon(move.piece);
 
-    // DISABLED MODE: Special formatting for Secret Passage mode swaps
-    // if (gameType == ModesEnum.secretPassage) {
+    // DISABLED MOD: Special formatting for Secret Passage Mod swaps
+    // if (gameType == ModsEnum.secretPassage) {
     //   final targetPiece = board.getPieceAt(move.to);
     //   if (targetPiece != null && targetPiece.color == move.piece.color) {
     //     if ((move.piece.type == PieceType.king &&
@@ -619,8 +611,8 @@ class Controller extends GetxController {
         squareIdFromPosition(move.to),
       ];
 
-      // DISABLED MODE: Diamonds diamond zone updates after move
-      // if (board.gameType == ModesEnum.diamonds) {
+      // DISABLED MOD: Diamonds diamond zone updates after move
+      // if (board.gameType == ModsEnum.diamonds) {
       //   if (move.piece.type == PieceType.bishop) {
       //     for (final pos in _getDiamondCapturePositions(move.from)) {
       //       squaresToUpdate.add(squareIdFromPosition(pos));
@@ -665,7 +657,7 @@ class Controller extends GetxController {
         squaresToUpdate.add(squareIdFromPosition(move.capturedPiece!.position));
 
         // SAVE THE QUEEN: If captured piece is a queen, also update prison square
-        if (gameType == ModesEnum.saveTheQueen &&
+        if (gameType == ModsEnum.saveTheQueen &&
             move.capturedPiece!.type == PieceType.queen) {
           // Queen might return to prison - update prison squares
           final whitePrison = Position(7, 3); // d8
@@ -682,51 +674,10 @@ class Controller extends GetxController {
       // Check if game is over and end analytics
       if (isGameOver) {
         _endGameAnalytics();
-      } else {
-        // Trigger bot move if it's bot's turn
-        Future.microtask(() => checkBotTurn());
       }
     } catch (e) {
       _showMessage('Invalid move: ${e.toString()}');
       rethrow;
-    }
-  }
-
-  /// Check if it's a bot's turn and make the move
-  Future<void> checkBotTurn() async {
-    // Don't proceed if game is over or auto-play is paused
-    if (isGameOver) return;
-    if (botManager.isPaused.value) return;
-
-    // Check if current player is a bot
-    if (!botManager.isBotTurn(currentPlayer)) return;
-
-    final bot = botManager.getBotForPlayer(currentPlayer);
-    if (bot == null) return;
-
-    // Small delay to see moves on screen
-    await Future.delayed(Duration(milliseconds: 200));
-
-    // If auto-play is enabled, add delay
-    if (botManager.isAutoPlaying.value) {
-      await Future.delayed(Duration(milliseconds: botManager.moveDelay.value));
-
-      // Check again if paused after delay
-      if (botManager.isPaused.value) return;
-    }
-
-    // Get valid moves for all pieces of current player via orchestrator
-    final allMoves = _gameOrchestrator.getAllValidMoves(board);
-
-    if (allMoves.isEmpty) {
-      return;
-    }
-
-    // Let the bot select a move
-    final selectedMove = await bot.selectMove(board, allMoves);
-
-    if (selectedMove != null && !isGameOver) {
-      makeMove(selectedMove);
     }
   }
 
@@ -1035,10 +986,10 @@ class Controller extends GetxController {
   }
 
   /// Checks if a position is a secret passage swap target (not a capture)
-  /// Used to avoid showing red highlight for friendly king/rook in Secret Passage mode
+  /// Used to avoid showing red highlight for friendly king/rook in Secret Passage Mod
   bool isTeleportSwapTarget(Position position, ChessPiece targetPiece) {
-    // DISABLED MODE: Secret Passage
-    // if (board.gameType != ModesEnum.secretPassage) return false;
+    // DISABLED MOD: Secret Passage
+    // if (board.gameType != ModsEnum.secretPassage) return false;
     // if (_selectedPosition.value == null) return false;
     // final selectedPiece = board.getPieceAt(_selectedPosition.value!);
     // if (selectedPiece == null) return false;
@@ -1066,29 +1017,29 @@ class Controller extends GetxController {
     return [];
   }
 
-  /// SNARE MODE: Checks if a position is in an entangle zone
+  /// Snare Mod: Checks if a position is in an entangle zone
   bool isPositionInEntangleZone(Position position) {
-    // DISABLED MODE: Snare
-    // if (board.gameType == ModesEnum.snare) {
+    // DISABLED MOD: Snare
+    // if (board.gameType == ModsEnum.snare) {
     //   return false;
     // }
     return false;
   }
 
-  /// SNARE MODE: Checks if a piece at this position is entangled
+  /// Snare Mod: Checks if a piece at this position is entangled
   bool isPieceEntangled(Position position) {
-    // DISABLED MODE: Snare
-    // if (board.gameType == ModesEnum.snare) {
+    // DISABLED MOD: Snare
+    // if (board.gameType == ModsEnum.snare) {
     //   return false;
     // }
     return false;
   }
 
-  /// DIAMONDS MODE: Checks if a position is in the selected bishop's diamond influence zone
+  /// Diamonds Mod: Checks if a position is in the selected bishop's diamond influence zone
   bool isPositionInDiamondZone(Position position) {
-    // DISABLED MODE: Diamonds
+    // DISABLED MOD: Diamonds
     return false;
-    // if (board.gameType != ModesEnum.diamonds) {
+    // if (board.gameType != ModsEnum.diamonds) {
     //   return false;
     // }
     // if (selectedPosition == null) {

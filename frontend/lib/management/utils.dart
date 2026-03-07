@@ -1,6 +1,6 @@
 import 'package:get/get.dart';
 import '../board/utils/exporter.dart';
-import '../modes/modes_enum.dart';
+import '../mods/mods_enum.dart';
 
 /// Clean helper utilities for board UI updates and conversions used by controllers
 List<String> getAllSquareIds() {
@@ -57,8 +57,8 @@ void updateSquareIds(GetxController controller, List<String> ids) {
 /// Update the previously-selected and newly-selected mode ids in Options UI
 void updateModeSelection(
   GetxController controller,
-  ModesEnum previous,
-  ModesEnum current,
+  ModsEnum previous,
+  ModsEnum current,
 ) {
   controller.update(['mode_${previous.name}', 'mode_${current.name}']);
 }

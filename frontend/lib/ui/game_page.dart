@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../analytics/bot/bot_manager.dart';
 import '../management/controller.dart';
 import '../management/online_controller.dart';
 import '../ui/board_theme.dart';
@@ -116,75 +115,6 @@ class ChessGamePage extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          // Bot Controls (only show if bot game)
-          GetBuilder<BotManager>(
-            id: 'botControls',
-            builder: (botManager) {
-              if (!botManager.isBotGame.value) return const SizedBox.shrink();
-
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Pause/Resume button
-                  if (botManager.isAutoPlaying.value)
-                    IconButton(
-                      icon: Icon(
-                        botManager.isPaused.value
-                            ? Icons.play_arrow
-                            : Icons.pause,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      onPressed: () {
-                        if (botManager.isPaused.value) {
-                          botManager.resumeAutoPlay();
-                        } else {
-                          botManager.pauseAutoPlay();
-                        }
-                      },
-                      tooltip: botManager.isPaused.value ? 'Resume' : 'Pause',
-                      padding: const EdgeInsets.all(8),
-                      constraints: const BoxConstraints(),
-                    ),
-                  // Speed control
-                  PopupMenuButton<int>(
-                    icon: const Icon(
-                      Icons.speed,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    tooltip: 'Bot Speed',
-                    padding: const EdgeInsets.all(8),
-                    onSelected: (speed) {
-                      botManager.moveDelay.value = speed;
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 100,
-                        child: Text('Very Fast (0.1s)'),
-                      ),
-                      const PopupMenuItem(
-                        value: 500,
-                        child: Text('Fast (0.5s)'),
-                      ),
-                      const PopupMenuItem(
-                        value: 1000,
-                        child: Text('Normal (1s)'),
-                      ),
-                      const PopupMenuItem(
-                        value: 2000,
-                        child: Text('Slow (2s)'),
-                      ),
-                      const PopupMenuItem(
-                        value: 3000,
-                        child: Text('Very Slow (3s)'),
-                      ),
-                    ],
-                  ),
-                ],
-              );
-            },
           ),
           // Online Spectator Controls (pause/resume for bot vs bot)
           if (isOnline && controller is OnlineController)

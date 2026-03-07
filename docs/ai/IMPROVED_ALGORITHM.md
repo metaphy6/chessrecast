@@ -115,14 +115,14 @@ loss = policy_loss + value_loss
 
 ## Implementation Files
 
-### `self_play_improved.py` (330 lines)
+### `selfplay.py` (330 lines)
 **New components:**
 - `MCTSNode`: Lightweight tree node with UCB scoring
 - `ImprovedSelfPlay`: Policy-guided self-play engine
 - `_mcts_search()`: Run simulations, return improved move probs
 - `_get_move_priors()`: Extract policy logits for legal moves
 - `_moves_to_policy_target()`: Convert to 4096-dim training target
-- `GameModeRewards`: Custom reward shaping for ChessRecast modes
+- `GameModRewards`: Custom reward shaping for ChessRecast modes
 
 **Key methods:**
 ```python
@@ -204,10 +204,10 @@ GAMES_PER_ITERATION = 60
 
 ---
 
-## ChessRecast Game Mode Support
+## ChessRecast Game Mod Support
 
 ### Mode-Specific Rewards
-The `GameModeRewards` class can add bonuses for mode-specific objectives:
+The `GameModRewards` class can add bonuses for mode-specific objectives:
 
 **Other Side Mode:**
 ```python
@@ -231,7 +231,7 @@ if bishop_controls_key_squares:
 ```
 
 ### Integration with Custom Rules
-To fully support custom modes, you'll need to extend `game_rules.py`:
+To fully support custom modes, you'll need to extend `rules.py`:
 
 ```python
 class ChessGamePOC:
@@ -245,7 +245,7 @@ class ChessGamePOC:
         # etc.
 ```
 
-**Status**: Placeholder implementation ready, needs game mode tracking.
+**Status**: Placeholder implementation ready, needs Game Mod tracking.
 
 ---
 
@@ -271,11 +271,11 @@ class ChessGamePOC:
 
 ## Next Steps After Training
 
-### 1. Verification (5 min)
+### 1. Export for Flutter
 ```bash
-python trainer/analyze_training.py
+python trainer/tools/export.py
 ```
-Expected: 70%+ win rate vs old POC, fewer draws
+Exports the trained model to TFLite format for Flutter integration.
 
 ### 2. Strength Testing (Optional)
 Play against known benchmarks:
@@ -376,7 +376,7 @@ Reduces memory by 50%, increases speed by 30%.
 ### Future Enhancements
 1. **Advanced MCTS**: Virtual loss, Dirichlet noise for exploration
 2. **Deeper networks**: 4-8 ResNet blocks for stronger play
-3. **Mode-specific training**: Separate models per game mode
+3. **Mode-specific training**: Separate models per game mod
 4. **Hybrid approach**: Combine with Stockfish for classic mode
 5. **Online learning**: Continue training with human games
 

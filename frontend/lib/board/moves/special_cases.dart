@@ -1,6 +1,6 @@
-import '../items/piece_color.dart';
-import '../items/piece_type.dart';
-import '../../modes/modes_enum.dart';
+import '../pieces/piece_color.dart';
+import '../pieces/piece_type.dart';
+import '../../mods/mods_enum.dart';
 import 'position.dart';
 import '../board.dart';
 
@@ -9,9 +9,9 @@ extension SpecialCases on ChessBoard {
   bool isPositionUnderAttack(Position position, PieceColor attackingColor) {
     final attackingPieces = getPiecesOfColor(attackingColor);
     return attackingPieces.any((piece) {
-      // HEIR MODE: Kings ALWAYS control adjacent squares vs opponent king
+      // Heir Mod: Kings ALWAYS control adjacent squares vs opponent king
       // This ensures kings can never be adjacent regardless of check rule state
-      if (gameType == ModesEnum.heir && piece.type == PieceType.king) {
+      if (gameType == ModsEnum.heir && piece.type == PieceType.king) {
         final targetPiece = getPieceAt(position);
         // If checking for king adjacency, always apply king control
         if (targetPiece != null && targetPiece.type == PieceType.king) {
@@ -21,22 +21,22 @@ extension SpecialCases on ChessBoard {
 
       // KINGS' BATTLE PHASE 1: Only pawns and kings can attack/control squares before First Blood
       // Kings and pawns follow classic chess rules between themselves
-      if (gameType == ModesEnum.kingsBattle && !_hasKingsKillHappened()) {
+      if (gameType == ModsEnum.kingsBattle && !_hasKingsKillHappened()) {
         if (piece.type != PieceType.pawn && piece.type != PieceType.king) {
           return false; // Other pieces have no effect before First Blood
         }
       }
 
-      // DISABLED MODE: Coyote - Rooks can only capture opponent rooks
-      // if (gameType == ModesEnum.coyote && piece.type == PieceType.rook) {
+      // DISABLED MOD: Coyote - Rooks can only capture opponent rooks
+      // if (gameType == ModsEnum.coyote && piece.type == PieceType.rook) {
       //   final targetPiece = getPieceAt(position);
       //   if (targetPiece == null) return false;
       //   return targetPiece.type == PieceType.rook &&
       //       targetPiece.color != piece.color;
       // }
 
-      // In Save the Queen mode, prisoner queens cannot attack
-      if (gameType == ModesEnum.saveTheQueen && piece.type == PieceType.queen) {
+      // In Save the Queen Mod, prisoner queens cannot attack
+      if (gameType == ModsEnum.saveTheQueen && piece.type == PieceType.queen) {
         // Check if queen is in opponent's half (still a prisoner)
         final isInOwnHalf = piece.color == PieceColor.white
             ? piece.position.row <=
@@ -48,13 +48,13 @@ extension SpecialCases on ChessBoard {
         }
       }
 
-      // Special handling for Mercenary mode - pawns attack like kings
-      if (gameType == ModesEnum.mercenary && piece.type == PieceType.pawn) {
+      // Special handling for Mercenary Mod - pawns attack like kings
+      if (gameType == ModsEnum.mercenary && piece.type == PieceType.pawn) {
         return _canPawnAttackLikeKingInMercenaryMode(piece.position, position);
       }
 
-      // DISABLED MODE: Diamonds bishop attack
-      // if (gameType == ModesEnum.diamonds && piece.type == PieceType.bishop) {
+      // DISABLED MOD: Diamonds bishop attack
+      // if (gameType == ModsEnum.diamonds && piece.type == PieceType.bishop) {
       //   return _canBishopAttackInDiamondsMode(piece.position, position);
       // }
       return piece.canAttack(
@@ -81,7 +81,7 @@ extension SpecialCases on ChessBoard {
     return false;
   }
 
-  /// Checks if a pawn can attack a position in Mercenary mode (like a king)
+  /// Checks if a pawn can attack a position in Mercenary Mod (like a king)
   bool _canPawnAttackLikeKingInMercenaryMode(
     Position pawnPos,
     Position targetPos,
@@ -92,7 +92,7 @@ extension SpecialCases on ChessBoard {
     return dx <= 1 && dy <= 1 && (dx != 0 || dy != 0);
   }
 
-  /// Checks if a bishop can attack a position in Diamonds mode (diamond pattern)
+  /// Checks if a bishop can attack a position in Diamonds Mod (diamond pattern)
   bool _canBishopAttackInDiamondsMode(Position bishopPos, Position targetPos) {
     // Diamond pattern: 4 diagonal adjacent + 4 orthogonal 2-away
     final offsets = [

@@ -1133,7 +1133,7 @@ Create design document: `SDATA_SPECIFICATION.md` with:
 **Validation:**
 ```dart
 // Test sdata generation
-final model = await trainModel(ModesEnum.classic, generations: 5);
+final model = await trainModel(ModsEnum.classic, generations: 5);
 final trainingGames = getTrainingGames(); // 10,000 games
 
 final sdata = await SdataGenerator.generate(
@@ -1295,7 +1295,7 @@ Create design document: `NFT_SPECIFICATION.md` with:
 final game = await playGame(white: alice, black: bob);
 final nft = await NFTMinter.mint(game, ownerKey: alicePrivateKey);
 
-expect(nft.metadata.mode, ModesEnum.classic.name);
+expect(nft.metadata.mode, ModsEnum.classic.name);
 expect(nft.metadata.result, game.result);
 expect(nft.ownerPubkey, alicePublicKey);
 

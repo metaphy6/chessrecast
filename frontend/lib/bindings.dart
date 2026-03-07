@@ -1,15 +1,11 @@
 import 'package:get/get.dart';
 import 'management/options.dart';
-import 'analytics/bot/bot_manager.dart';
 import 'analytics/ai/ai_manager.dart';
 import 'services/ai_service.dart';
 
 class AppBindings extends Bindings {
   @override
   void dependencies() async {
-    // Register the BotManager (permanent - survives between games)
-    Get.put(BotManager(), permanent: true);
-
     // Register the OptionsController
     Get.put(OptionsController(), permanent: true);
 

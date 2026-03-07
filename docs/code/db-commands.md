@@ -1,6 +1,6 @@
-# Bot Game Logs Database - Complete Guide
+# Game Logs Database - Complete Guide
 
-This guide shows how to access and view the bot game logs database that stores all game records and moves.
+This guide shows how to access and view the game logs database that stores all game records and moves from the Go backend.
 
 ## Quick Access
 

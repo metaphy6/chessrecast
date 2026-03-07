@@ -376,7 +376,7 @@ func (b *Bot) evaluateBoard(board *engine.Board) float64 {
 		}
 	}
 
-	// Add bonuses for game mode specific objectives
+	// Add bonuses for Game Mod specific objectives
 	score += b.getModeSpecificScore(board)
 
 	return score
@@ -494,7 +494,7 @@ func (b *Bot) getPositionalValue(piece *engine.Piece, pos engine.Position) float
 	return value
 }
 
-// getModeSpecificScore adds scoring for game mode objectives
+// getModeSpecificScore adds scoring for Game Mod objectives
 // These bonuses are significant (comparable to piece values) to ensure the bot prioritizes mode objectives
 func (b *Bot) getModeSpecificScore(board *engine.Board) float64 {
 	score := 0.0
@@ -531,15 +531,15 @@ func (b *Bot) getModeSpecificScore(board *engine.Board) float64 {
 			}
 		}
 
-	// DISABLED MODE: Coyote
+	// DISABLED MOD: Coyote
 	// case engine.Coyote:
 	// 	... (rook advancement evaluation commented out)
 
-	// DISABLED MODE: Diamonds
+	// DISABLED MOD: Diamonds
 	// case engine.Diamonds:
 	// 	... (bishop activity evaluation commented out)
 
-	// DISABLED MODE: SecretPassage
+	// DISABLED MOD: SecretPassage
 	// case engine.SecretPassage:
 	// 	... (king-rook alignment evaluation commented out)
 
@@ -633,7 +633,7 @@ func (b *Bot) getModeSpecificScore(board *engine.Board) float64 {
 		}
 
 	case engine.Heir:
-		// Heir Mode Strategy:
+		// Heir mod Strategy:
 		// 1. Protect your king (it can be captured!)
 		// 2. If king is captured, prioritize pawn promotion to get a new king
 		// 3. Try to capture opponent's king

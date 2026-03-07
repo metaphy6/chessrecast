@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../modes/modes_enum.dart';
+import '../mods/mods_enum.dart';
 import '../management/options.dart';
 import '../constants.dart';
 
@@ -26,9 +26,9 @@ class PlayOptionsPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Game mode info card
+              // Game Mod info card
               Obx(
-                () => _GameModeInfoCard(
+                () => _GameModInfoCard(
                   gameType: controller.selectedGameType.value,
                 ),
               ),
@@ -62,20 +62,6 @@ class PlayOptionsPage extends StatelessWidget {
                 onTap: () {
                   Get.toNamed(
                     '/ai-setup',
-                    arguments: {'gameType': controller.selectedGameType.value},
-                  );
-                },
-              ),
-              const SizedBox(height: 12),
-
-              _PlayOptionCard(
-                title: 'Bot vs Bot',
-                subtitle: 'Watch two bots battle it out',
-                icon: Icons.smart_toy,
-                color: Colors.indigo.shade600,
-                onTap: () {
-                  Get.toNamed(
-                    '/bot-setup',
                     arguments: {'gameType': controller.selectedGameType.value},
                   );
                 },
@@ -186,65 +172,65 @@ class PlayOptionsPage extends StatelessWidget {
   }
 }
 
-class _GameModeInfoCard extends StatelessWidget {
-  final ModesEnum gameType;
+class _GameModInfoCard extends StatelessWidget {
+  final ModsEnum gameType;
 
-  const _GameModeInfoCard({required this.gameType});
+  const _GameModInfoCard({required this.gameType});
 
-  IconData _getModeIcon(ModesEnum mode) {
+  IconData _getModeIcon(ModsEnum mode) {
     switch (mode) {
-      case ModesEnum.classic:
+      case ModsEnum.classic:
         return Icons.castle;
-      case ModesEnum.mercenary:
+      case ModsEnum.mercenary:
         return Icons.shield;
-      // case ModesEnum.coyote: // DISABLED MODE
+      // case ModsEnum.coyote: // DISABLED MOD
       //   return Icons.speed;
-      case ModesEnum.heir:
+      case ModsEnum.heir:
         return Icons.auto_awesome;
-      case ModesEnum.truce:
+      case ModsEnum.truce:
         return Icons.handshake;
-      // case ModesEnum.snare: // DISABLED MODE
+      // case ModsEnum.snare: // DISABLED MOD
       //   return Icons.gps_fixed;
-      // case ModesEnum.diamonds: // DISABLED MODE
+      // case ModsEnum.diamonds: // DISABLED MOD
       //   return Icons.diamond;
-      // case ModesEnum.secretPassage: // DISABLED MODE
+      // case ModsEnum.secretPassage: // DISABLED MOD
       //   return Icons.swap_horiz;
-      case ModesEnum.friendlyFire:
+      case ModsEnum.friendlyFire:
         return Icons.local_fire_department;
-      case ModesEnum.kingsBattle:
+      case ModsEnum.kingsBattle:
         return Icons.sports_mma;
-      case ModesEnum.saveTheQueen:
+      case ModsEnum.saveTheQueen:
         return Icons.favorite;
-      case ModesEnum.succession:
+      case ModsEnum.succession:
         return Icons.escalator_warning;
     }
   }
 
-  Color _getModeColor(ModesEnum mode) {
+  Color _getModeColor(ModsEnum mode) {
     switch (mode) {
-      case ModesEnum.classic:
+      case ModsEnum.classic:
         return Colors.brown;
-      case ModesEnum.mercenary:
+      case ModsEnum.mercenary:
         return Colors.indigo;
-      // case ModesEnum.coyote: // DISABLED MODE
+      // case ModsEnum.coyote: // DISABLED MOD
       //   return Colors.orange;
-      case ModesEnum.heir:
+      case ModsEnum.heir:
         return Colors.purple;
-      case ModesEnum.truce:
+      case ModsEnum.truce:
         return Colors.teal;
-      // case ModesEnum.snare: // DISABLED MODE
+      // case ModsEnum.snare: // DISABLED MOD
       //   return Colors.red;
-      // case ModesEnum.diamonds: // DISABLED MODE
+      // case ModsEnum.diamonds: // DISABLED MOD
       //   return Colors.blue;
-      // case ModesEnum.secretPassage: // DISABLED MODE
+      // case ModsEnum.secretPassage: // DISABLED MOD
       //   return Colors.green;
-      case ModesEnum.friendlyFire:
+      case ModsEnum.friendlyFire:
         return Colors.deepOrange;
-      case ModesEnum.kingsBattle:
+      case ModsEnum.kingsBattle:
         return Colors.amber;
-      case ModesEnum.saveTheQueen:
+      case ModsEnum.saveTheQueen:
         return Colors.pink;
-      case ModesEnum.succession:
+      case ModsEnum.succession:
         return Colors.cyan;
     }
   }

@@ -12,7 +12,7 @@ type Board struct {
 	squares [8][8]*Piece
 
 	// Game configuration
-	Mode        GameMode
+	Mode        GameMod
 	CurrentTurn Color
 
 	// State tracking
@@ -29,17 +29,17 @@ type Board struct {
 	BlackCanCastleQueenside bool
 
 	// Mode-specific state
-	TruceActive              bool              // For Truce mode
-	PieceMoveCounter         map[Position]int  // For Truce mode
-	OpponentStuckInTruce     bool              // For Truce mode - opponent has no valid moves
+	TruceActive              bool              // For Truce mod
+	PieceMoveCounter         map[Position]int  // For Truce mod
+	OpponentStuckInTruce     bool              // For Truce mod - opponent has no valid moves
 	KingsKillUnlock          bool              // For Kings' Battle mode
-	EscapedQueens            map[Color]bool    // For Save the Queen mode
-	QueenCaptureCounter      map[string]int    // For Save the Queen mode - tracks repeated queen captures
-	PromotedKings            map[Color]int     // For Succession mode
+	EscapedQueens            map[Color]bool    // For Save the Queen mod
+	QueenCaptureCounter      map[string]int    // For Save the Queen mod - tracks repeated queen captures
+	PromotedKings            map[Color]int     // For Succession mod
 }
 
 // NewBoard creates a standard starting position
-func NewBoard(mode GameMode) *Board {
+func NewBoard(mode GameMod) *Board {
 	b := &Board{
 		Mode:                    mode,
 		CurrentTurn:             White,
@@ -64,7 +64,7 @@ func NewBoard(mode GameMode) *Board {
 }
 
 // NewBoardFromFEN creates a board from FEN notation
-func NewBoardFromFEN(fen string, mode GameMode) (*Board, error) {
+func NewBoardFromFEN(fen string, mode GameMod) (*Board, error) {
 	// TODO: Implement full FEN parsing
 	b := NewBoard(mode)
 	// Parse FEN string and setup board
@@ -79,7 +79,7 @@ type CustomPiece struct {
 }
 
 // NewBoardWithPieces creates a board with custom piece positions
-func NewBoardWithPieces(mode GameMode, pieces []CustomPiece, currentTurn Color) (*Board, error) {
+func NewBoardWithPieces(mode GameMod, pieces []CustomPiece, currentTurn Color) (*Board, error) {
 	b := &Board{
 		Mode:                    mode,
 		CurrentTurn:             currentTurn,
@@ -277,7 +277,7 @@ func (b *Board) MakeMove(move Move) error {
 	
 	// Handle capture
 	if move.CapturedPiece != nil {
-		// SAVE THE QUEEN MODE: If capturing a prisoner queen, return it to prison instead of removing
+		// Save the Queen mod: If capturing a prisoner queen, return it to prison instead of removing
 		if b.Mode == SaveTheQueen && move.CapturedPiece.Type == Queen {
 			capturedQueenInOwnHalf := (move.CapturedPiece.Color == White && move.To.Row <= 3) ||
 				(move.CapturedPiece.Color == Black && move.To.Row >= 4)
@@ -320,7 +320,7 @@ func (b *Board) MakeMove(move Move) error {
 		
 		b.FiftyMoveRule = 0
 		
-		// DISABLED MODE: Snare - Revengeful knight
+		// DISABLED MOD: Snare - Revengeful knight
 		// if b.Mode == Snare && move.CapturedPiece.Type == Knight {
 		// 	capturedColor := move.CapturedPiece.Color
 		// 	remainingKnights := b.CountKnights(capturedColor)
@@ -337,7 +337,7 @@ func (b *Board) MakeMove(move Move) error {
 	} else if move.IsEnPassant {
 		b.executeEnPassant(move)
 	}
-	// DISABLED MODE: Secret Passage
+	// DISABLED MOD: Secret Passage
 	// } else if move.IsSecretPassage {
 	// 	b.executeSecretPassage(move)
 	// }
@@ -351,13 +351,13 @@ func (b *Board) MakeMove(move Move) error {
 		// Handle pawn promotion
 		if move.IsPromotion {
 			piece.Type = move.Promotion
-			// Track king promotions for Heir and Succession modes
+			// Track king promotions for Heir and Succession mods
 			if move.Promotion == King {
 				b.PromotedKings[piece.Color]++
 			}
 		}
 
-		// Save the Queen mode: Check if queen has escaped to own half
+		// Save the Queen mod: Check if queen has escaped to own half
 		if b.Mode == SaveTheQueen && piece.Type == Queen {
 			inOwnHalf := (piece.Color == White && piece.Position.Row <= 3) ||
 				(piece.Color == Black && piece.Position.Row >= 4)
@@ -390,7 +390,7 @@ func (b *Board) MakeMove(move Move) error {
 		b.updateCastlingRights(piece, move)
 	}
 
-	// TRUCE MODE: Update piece move counter and check if truce breaks
+	// Truce mod: Update piece move counter and check if truce breaks
 	if b.Mode == Truce && b.TruceActive && piece != nil {
 		// Increment move count for this piece
 		b.PieceMoveCounter[move.From]++
@@ -468,7 +468,7 @@ func (b *Board) executeEnPassant(move Move) {
 	b.removePiece(capturedPawnPos)
 }
 
-// executeSecretPassage handles king-rook teleportation in Secret Passage mode
+// executeSecretPassage handles king-rook teleportation in Secret Passage mod
 func (b *Board) executeSecretPassage(move Move) {
 	// Swap king and rook positions
 	rook := b.GetPieceAt(move.To)
@@ -605,7 +605,7 @@ func (b *Board) ToFEN() string {
 
 // IsKingInCheck checks if the king of the given color is in check
 func (b *Board) IsKingInCheck(color Color) bool {
-	// TRUCE MODE: During truce, kings cannot be in check (they move freely)
+	// Truce mod: During truce, kings cannot be in check (they move freely)
 	if b.Mode == Truce && b.TruceActive {
 		return false
 	}

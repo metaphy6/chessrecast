@@ -14,10 +14,10 @@ func logf(format string, args ...interface{}) {
     fmt.Printf("[%s] %s\n", timestamp, msg)
 }
 
-// parseGameMode converts string to GameMode
-func parseGameMode(mode string) engine.GameMode {
-    // Use the engine's ParseGameMode function which has all modes
-    return engine.ParseGameMode(mode)
+// parseGameMod converts string to GameMod
+func parseGameMod(mode string) engine.GameMod {
+    // Use the engine's ParseGameMod function which has all mods
+    return engine.ParseGameMod(mode)
 }
 
 // parsePosition converts algebraic notation to Position

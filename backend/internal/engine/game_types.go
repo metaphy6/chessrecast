@@ -1,24 +1,24 @@
 package engine
 
-// GameMode represents different chess variants
-type GameMode int
+// GameMod represents different chess variants
+type GameMod int
 
 const (
-	Classic GameMode = iota
+	Classic GameMod = iota
 	Mercenary
-	Coyote         // DISABLED MODE - kept for iota ordering
+	Coyote         // DISABLED MOD - kept for iota ordering
 	Heir
 	Truce
-	Snare          // DISABLED MODE - kept for iota ordering
-	Diamonds       // DISABLED MODE - kept for iota ordering
-	SecretPassage  // DISABLED MODE - kept for iota ordering
+	Snare          // DISABLED MOD - kept for iota ordering
+	Diamonds       // DISABLED MOD - kept for iota ordering
+	SecretPassage  // DISABLED MOD - kept for iota ordering
 	FriendlyFire
 	KingsBattle
 	SaveTheQueen
 	Succession
 )
 
-func (gm GameMode) String() string {
+func (gm GameMod) String() string {
 	names := []string{
 		"classic",
 		"mercenary",
@@ -39,17 +39,17 @@ func (gm GameMode) String() string {
 	return "unknown"
 }
 
-// ParseGameMode converts string to GameMode
-func ParseGameMode(s string) GameMode {
-	modes := map[string]GameMode{
+// ParseGameMod converts string to GameMod
+func ParseGameMod(s string) GameMod {
+	modes := map[string]GameMod{
 		"classic":         Classic,
 		"mercenary":       Mercenary,
-		// "coyote":          Coyote,          // DISABLED MODE
+		// "coyote":          Coyote,          // DISABLED MOD
 		"heir":            Heir,
 		"truce":           Truce,
-		// "snare":           Snare,           // DISABLED MODE
-		// "diamonds":        Diamonds,        // DISABLED MODE
-		// "secret_passage":  SecretPassage,   // DISABLED MODE
+		// "snare":           Snare,           // DISABLED MOD
+		// "diamonds":        Diamonds,        // DISABLED MOD
+		// "secret_passage":  SecretPassage,   // DISABLED MOD
 		"friendly_fire":   FriendlyFire,
 		"kings_battle":    KingsBattle,
 		"save_the_queen":  SaveTheQueen,
@@ -71,7 +71,7 @@ type Move struct {
 	IsPromotion    bool
 	IsCastling     bool
 	IsEnPassant    bool
-	// IsSecretPassage bool      // DISABLED MODE: Secret Passage
+	// IsSecretPassage bool      // DISABLED MOD: Secret Passage
 	MoveNumber     int       // Track move sequence
 }
 
@@ -95,7 +95,7 @@ func (m *Move) Clone() *Move {
 		IsPromotion:    m.IsPromotion,
 		IsCastling:     m.IsCastling,
 		IsEnPassant:    m.IsEnPassant,
-		// IsSecretPassage:     m.IsSecretPassage,  // DISABLED MODE
+		// IsSecretPassage:     m.IsSecretPassage,  // DISABLED MOD
 		MoveNumber:     m.MoveNumber,
 	}
 }

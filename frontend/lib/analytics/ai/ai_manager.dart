@@ -1,11 +1,10 @@
 import 'package:get/get.dart';
-import '../../board/items/piece_color.dart';
-import '../../modes/modes_enum.dart';
+import '../../board/pieces/piece_color.dart';
+import '../../mods/mods_enum.dart';
 import 'ai_player.dart';
 import '../../services/ai_service.dart';
 
 /// Manages AI players and AI games (AI vs AI, Human vs AI)
-/// Distinct from BotManager which handles rule-based bots
 class AIManager extends GetxController {
   AIPlayer? _whiteAI;
   AIPlayer? _blackAI;
@@ -50,7 +49,7 @@ class AIManager extends GetxController {
   Future<void> setupAIVsAI({
     required AIPlayerType whiteType,
     required AIPlayerType blackType,
-    required ModesEnum gameMode,
+    required ModsEnum GameMod,
   }) async {
     await _ensureInitialized();
 
@@ -73,7 +72,7 @@ class AIManager extends GetxController {
   Future<void> setupHumanVsAI({
     required PieceColor humanColor,
     required AIPlayerType aiType,
-    required ModesEnum gameMode,
+    required ModsEnum GameMod,
   }) async {
     await _ensureInitialized();
 

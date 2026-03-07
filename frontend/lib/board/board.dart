@@ -1,11 +1,11 @@
 import 'package:equatable/equatable.dart';
-import 'items/piece_color.dart';
-import 'items/piece_type.dart';
+import 'pieces/piece_color.dart';
+import 'pieces/piece_type.dart';
 import 'game_status.dart';
 import 'moves/position.dart';
 import 'piece.dart';
 import 'moves/move.dart';
-import '../modes/modes.dart';
+import '../mods/mods.dart';
 import '../debug.dart';
 
 /// Core ChessBoard class with state and basic operations
@@ -21,13 +21,13 @@ class ChessBoard extends Equatable {
   final int halfMoveClock; // For 50-move rule
   final int fullMoveNumber;
   final List<ChessMove> moveHistory;
-  final ModesEnum gameType;
+  final ModsEnum gameType;
   final bool whiteHasPromotedKing;
   final bool blackHasPromotedKing;
   final List<String> positionHistory; // For threefold repetition
-  final Map<PieceColor, bool> escapedQueens; // For Save the Queen mode
+  final Map<PieceColor, bool> escapedQueens; // For Save the Queen Mod
   final Map<String, int>
-  queenCaptureCounter; // For Save the Queen mode - repeated captures
+  queenCaptureCounter; // For Save the Queen Mod - repeated captures
 
   const ChessBoard({
     required this.pieces,
@@ -41,7 +41,7 @@ class ChessBoard extends Equatable {
     this.halfMoveClock = 0,
     this.fullMoveNumber = 1,
     this.moveHistory = const [],
-    this.gameType = ModesEnum.classic,
+    this.gameType = ModsEnum.classic,
     this.whiteHasPromotedKing = false,
     this.blackHasPromotedKing = false,
     this.positionHistory = const [],
@@ -50,13 +50,13 @@ class ChessBoard extends Equatable {
   });
 
   /// Creates the initial chess board setup
-  factory ChessBoard.initial({ModesEnum gameType = ModesEnum.classic}) {
-    // Special handling for Save the Queen mode
-    if (gameType == ModesEnum.saveTheQueen) {
+  factory ChessBoard.initial({ModsEnum gameType = ModsEnum.classic}) {
+    // Special handling for Save the Queen Mod
+    if (gameType == ModsEnum.saveTheQueen) {
       return SaveTheQueen.getInitialBoard();
     }
-    // Special handling for Succession mode - uses custom initial setup
-    if (gameType == ModesEnum.succession) {
+    // Special handling for Succession Mod - uses custom initial setup
+    if (gameType == ModsEnum.succession) {
       return Succession.getInitialBoard();
     }
 
@@ -93,8 +93,8 @@ class ChessBoard extends Equatable {
     ];
 
     for (int col = 0; col < 8; col++) {
-      // For Save the Queen mode, swap queen positions
-      if (gameType == ModesEnum.saveTheQueen &&
+      // For Save the Queen Mod, swap queen positions
+      if (gameType == ModsEnum.saveTheQueen &&
           pieceOrder[col] == PieceType.queen) {
         // White queen goes to d8 (black's side)
         pieces.add(
@@ -113,7 +113,7 @@ class ChessBoard extends Equatable {
           ),
         );
       } else {
-        // Normal positioning for other pieces and other game modes
+        // Normal positioning for other pieces and other game mods
         pieces.add(
           ChessPiece(
             type: pieceOrder[col],
@@ -134,10 +134,10 @@ class ChessBoard extends Equatable {
     final board = ChessBoard(
       pieces: pieces,
       gameType: gameType,
-      escapedQueens: gameType == ModesEnum.saveTheQueen
+      escapedQueens: gameType == ModsEnum.saveTheQueen
           ? {PieceColor.white: false, PieceColor.black: false}
           : const {},
-      queenCaptureCounter: gameType == ModesEnum.saveTheQueen ? {} : const {},
+      queenCaptureCounter: gameType == ModsEnum.saveTheQueen ? {} : const {},
     );
     // Add initial position to history for threefold repetition tracking
     return board.copyWith(positionHistory: [board.getPositionKey()]);
@@ -147,7 +147,7 @@ class ChessBoard extends Equatable {
   /// FEN format: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
   factory ChessBoard.fromFEN(
     String fen, {
-    ModesEnum gameType = ModesEnum.classic,
+    ModsEnum gameType = ModsEnum.classic,
   }) {
     final parts = fen.split(' ');
     if (parts.isEmpty) {
@@ -348,12 +348,12 @@ class ChessBoard extends Equatable {
   }
 
   /// Checks if the 50-move rule applies (draw available)
-  /// Save the Queen mode: 50 half-moves (25 white + 25 black)
-  /// Succession mode: 50 half-moves (25 white + 25 black)
+  /// Save the Queen Mod: 50 half-moves (25 white + 25 black)
+  /// Succession Mod: 50 half-moves (25 white + 25 black)
   /// Normal games: 100 half-moves (50 full moves)
   bool canClaimFiftyMoveRule() {
-    if (gameType == ModesEnum.saveTheQueen ||
-        gameType == ModesEnum.succession) {
+    if (gameType == ModsEnum.saveTheQueen ||
+        gameType == ModsEnum.succession) {
       return halfMoveClock >= 50; // 50 half-moves total (25 white + 25 black)
     }
     return halfMoveClock >= 100; // 100 half-moves = 50 full moves
@@ -389,7 +389,7 @@ class ChessBoard extends Equatable {
     }
 
     // Save the Queen: Check for repeated queen capture (6 times)
-    if (gameType == ModesEnum.saveTheQueen) {
+    if (gameType == ModsEnum.saveTheQueen) {
       for (final count in queenCaptureCounter.values) {
         if (count >= 6) {
           return true;
@@ -413,7 +413,7 @@ class ChessBoard extends Equatable {
     int? halfMoveClock,
     int? fullMoveNumber,
     List<ChessMove>? moveHistory,
-    ModesEnum? gameType,
+    ModsEnum? gameType,
     bool? whiteHasPromotedKing,
     bool? blackHasPromotedKing,
     List<String>? positionHistory,

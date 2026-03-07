@@ -1,6 +1,6 @@
 import '../../board/board.dart';
 import '../../board/moves/move.dart';
-import '../../board/items/piece_color.dart';
+import '../../board/pieces/piece_color.dart';
 import '../../services/ai_service.dart';
 
 /// AI Player that uses neural network for move selection
@@ -41,10 +41,10 @@ class AIPlayer {
 
 /// AI Player Types
 enum AIPlayerType {
-  mercenary1800('Mercenary AI', 1800, 'Trained on Mercenary mode, 1800 ELO')
+  mercenary1800('Mercenary AI', 1800, 'Trained on Mercenary Mod, 1800 ELO')
   // Future: Add more specialized AIs
   // classic2000('Classic AI', 2000, 'Trained on Classic chess, 2000 ELO'),
-  // truce1500('Truce AI', 1500, 'Specialized for Truce mode, 1500 ELO'),
+  // truce1500('Truce AI', 1500, 'Specialized for Truce Mod, 1500 ELO'),
   ;
 
   final String displayName;

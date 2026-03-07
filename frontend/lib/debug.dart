@@ -23,149 +23,149 @@ void logError(dynamic message, [Object? error, StackTrace? stackTrace]) {
   if (stackTrace != null) debugPrint('Stack trace: $stackTrace');
 }
 
-// ===== GAME MODE SPECIFIC LOGGING =====
+// ===== GAME MOD SPECIFIC LOGGING =====
 
-/// Coyote Mode: Rook reached opponent's back rank
+/// Coyote Mod: Rook reached opponent's back rank
 void logCoyoteBackRank(String playerColor) {
   debugPrint(
     '🏆 COYOTE - Back Rank: $playerColor rook reached opponent\'s back rank! VICTORY!',
   );
 }
 
-/// Coyote Mode: Both rooks were captured
+/// Coyote Mod: Both rooks were captured
 void logCoyoteRookCapture(String capturedBy, String position) {
   debugPrint(
     '⚔️ COYOTE - Both Rooks Captured: Final rook captured by $capturedBy at $position! VICTORY!',
   );
 }
 
-/// Save the Queen Mode: Queen escaped
+/// Save the Queen Mod: Queen escaped
 void logSaveTheQueenEscape(String playerColor) {
   debugPrint(
     '👑 SAVE THE QUEEN - Escape: $playerColor queen escaped the board! VICTORY!',
   );
 }
 
-/// Save the Queen Mode: Queen captured/returned to prison
+/// Save the Queen Mod: Queen captured/returned to prison
 void logSaveTheQueenCapture(String capturedBy) {
   debugPrint(
     '🔒 SAVE THE QUEEN - Capture: Queen captured by $capturedBy, returned to prison!',
   );
 }
 
-/// Succession Mode: Promoted to King
+/// Succession Mod: Promoted to King
 void logSuccessionPromotion(String playerColor, String position) {
   debugPrint(
     '👑 SUCCESSION - Promotion: $playerColor pawn promoted to King at $position - Victory!',
   );
 }
 
-/// Succession Mode: Queen captured
+/// Succession Mod: Queen captured
 void logSuccessionQueenCapture(String winner, String loser, String position) {
   debugPrint(
     '♕ SUCCESSION - Queen Capture: $winner captured $loser\'s queen at $position - Victory!',
   );
 }
 
-/// Succession Mode: Opponent lost all pawns
+/// Succession Mod: Opponent lost all pawns
 void logSuccessionNoPawns(String winner) {
   debugPrint(
     '🏆 SUCCESSION - No Pawns: $winner wins - opponent has no pawns left!',
   );
 }
 
-/// Secret Passage Mode: King-Rook swap
+/// Secret Passage Mod: King-Rook swap
 void logSecretPassageSwap(String playerColor, String fromPos, String toPos) {
   debugPrint(
     '🌀 SECRET PASSAGE - Swap: $playerColor King and Rook teleported! From $fromPos to $toPos',
   );
 }
 
-/// King's Battle Mode: King unlocks by capturing pawn
+/// King's Battle Mod: King unlocks by capturing pawn
 void logKingsBattleUnlock(String playerColor, String position) {
   debugPrint(
     '⚔️ FIRST BLOOD! $playerColor King captured pawn at $position - all pieces unlocked, bonus move granted',
   );
 }
 
-/// King's Battle Mode: King kill
+/// King's Battle Mod: King kill
 void logKingsBattleKingKill(String winner, String position) {
   debugPrint(
     '⚡ KING\'S BATTLE - King Kill: $winner King killed opponent\'s King at $position! VICTORY!',
   );
 }
 
-/// Diamonds Mode: Bishop capture in diamond pattern
+/// Diamonds Mod: Bishop capture in diamond pattern
 void logDiamondsBishopCapture(String playerColor, String position) {
   debugPrint(
     '💎 DIAMONDS - Capture: $playerColor Bishop captured in diamond pattern at $position!',
   );
 }
 
-/// Snare Mode: Knight creates/updates entangle zone
+/// Snare Mod: Knight creates/updates entangle zone
 void logSnareEntangle(String playerColor, String position) {
   debugPrint(
     '🕸️ SNARE - Entangle: $playerColor Knight created entangle zone at $position!',
   );
 }
 
-/// Snare Mode: King caught in entangle zone
+/// Snare Mod: King caught in entangle zone
 void logSnareKingCaught(String playerColor) {
   debugPrint(
     '🪤 SNARE - Trapped: $playerColor King caught in entangle zone! CHECKMATE!',
   );
 }
 
-/// Snare Mode: Revengeful knight capture (last knight destroyed with attacker)
+/// Snare Mod: Revengeful knight capture (last knight destroyed with attacker)
 void logSnareRevengefulKnight(String attackerColor, String position) {
   debugPrint(
     '💥 SNARE - Revengeful Knight: $attackerColor captured the last knight at $position! Both pieces destroyed!',
   );
 }
 
-/// Snare Mode: All knights lost - game ends in stalemate
+/// Snare Mod: All knights lost - game ends in stalemate
 void logSnareAllKnightsLost() {
   debugPrint(
     '🏳️ SNARE - Stalemate: All knights have been lost! Game ends in stalemate!',
   );
 }
 
-/// Heir Mode: King promoted from pawn
+/// Heir Mod: King promoted from pawn
 void logHeirKingPromotion(String playerColor, String position) {
   debugPrint(
     '👑 HEIR - King Promotion: $playerColor pawn promoted to King at $position!',
   );
 }
 
-/// Heir Mode: King captured (but game continues if pawns available)
+/// Heir Mod: King captured (but game continues if pawns available)
 void logHeirKingCapture(String capturedBy, String position) {
   debugPrint(
     '💀 HEIR - King Capture: King captured by $capturedBy at $position!',
   );
 }
 
-/// Friendly Fire Mode: Self-capture (intentional move)
+/// Friendly Fire Mod: Self-capture (intentional move)
 void logFriendlyFireCapture(String playerColor, String position) {
   debugPrint(
     '🔥 FRIENDLY FIRE - Capture: $playerColor captured own piece at $position (intentional)!',
   );
 }
 
-/// Mercenary Mode: Pawn reaches back rank
+/// Mercenary Mod: Pawn reaches back rank
 void logMercenaryPromotion(String playerColor, String position) {
   debugPrint(
     '🐧 MERCENARY - Promotion: $playerColor pawn reached promotion rank at $position!',
   );
 }
 
-/// Truce Mode: Truce activated
+/// Truce Mod: Truce activated
 void logTruceActivated(String playerColor) {
   debugPrint(
     '🕊️ TRUCE - Active: $playerColor called a truce! Rules are suspended until next move!',
   );
 }
 
-/// Truce Mode: Truce broken
+/// Truce Mod: Truce broken
 void logTruceBroken(String playerColor) {
   debugPrint(
     '⚔️ TRUCE - Broken: $playerColor broke the truce! Normal rules resume!',

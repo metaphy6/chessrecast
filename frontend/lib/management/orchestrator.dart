@@ -1,24 +1,24 @@
 import 'package:chessrecast/debug.dart';
 import '../board/utils/exporter.dart';
-import '../modes/modes.dart';
+import '../mods/mods.dart';
 
 /// Cached mode instances to avoid repeated instantiation
-// Use centralized modes cache (ModesCache) to avoid repeated instantiation
+// Use centralized mods cache (ModsCache) to avoid repeated instantiation
 
 class Orchestrator {
   /// Validates if a move is legal in the current board state
   bool isValidMove(ChessBoard board, ChessMove move) {
-    // Truce mode: Check if move violates truce rules
-    if (board.gameType == ModesEnum.truce) {
-      if (!modes.truce.validateTruceMove(board, move)) {
+    // Truce Mod: Check if move violates truce rules
+    if (board.gameType == ModsEnum.truce) {
+      if (!mods.truce.validateTruceMove(board, move)) {
         return false;
       }
     }
 
     final validMoves = board.getValidMovesFor(move.from);
 
-    // DISABLED MODE: Secret Passage
-    // if (board.gameType == ModesEnum.secretPassage &&
+    // DISABLED MOD: Secret Passage
+    // if (board.gameType == ModsEnum.secretPassage &&
     //     (move.piece.type == PieceType.king ||
     //         move.piece.type == PieceType.rook)) {
     //   final isValid = validMoves.any(
@@ -30,8 +30,8 @@ class Orchestrator {
     //   return isValid;
     // }
 
-    // DISABLED MODE: Diamonds move validation
-    // if (board.gameType == ModesEnum.diamonds &&
+    // DISABLED MOD: Diamonds move validation
+    // if (board.gameType == ModsEnum.diamonds &&
     //     move.piece.type == PieceType.bishop) {
     //   final isValid = validMoves.any(
     //     (validMove) => validMove.from == move.from && validMove.to == move.to,
@@ -49,17 +49,17 @@ class Orchestrator {
       throw ArgumentError('Invalid move: $move');
     }
 
-    // Check for Heir mode special moves (king capture detection)
-    if (board.gameType == ModesEnum.heir) {
-      final heirBoard = modes.heir.handleSpecialMove(board, move);
+    // Check for Heir Mod special moves (king capture detection)
+    if (board.gameType == ModsEnum.heir) {
+      final heirBoard = mods.heir.handleSpecialMove(board, move);
       if (heirBoard != null) {
         return updateGameStatus(heirBoard);
       }
     }
 
-    // DISABLED MODE: Secret Passage
-    // if (board.gameType == ModesEnum.secretPassage) {
-    //   final secretPassageBoard = modes.secretPassage.handleSpecialMove(
+    // DISABLED MOD: Secret Passage
+    // if (board.gameType == ModsEnum.secretPassage) {
+    //   final secretPassageBoard = mods.secretPassage.handleSpecialMove(
     //     board,
     //     move,
     //   );
@@ -69,16 +69,16 @@ class Orchestrator {
     // }
 
     // Check for Kings' Battle mode special moves (King's Kill or pawn promotion)
-    if (board.gameType == ModesEnum.kingsBattle) {
-      final kingsBattleBoard = modes.kingsBattle.handleSpecialMove(board, move);
+    if (board.gameType == ModsEnum.kingsBattle) {
+      final kingsBattleBoard = mods.kingsBattle.handleSpecialMove(board, move);
       if (kingsBattleBoard != null) {
         return updateGameStatus(kingsBattleBoard);
       }
     }
 
-    // Check for Save the Queen mode special moves (queen capture or return to prison)
-    if (board.gameType == ModesEnum.saveTheQueen) {
-      final saveTheQueenBoard = modes.saveTheQueen.handleSpecialMove(
+    // Check for Save the Queen Mod special moves (queen capture or return to prison)
+    if (board.gameType == ModsEnum.saveTheQueen) {
+      final saveTheQueenBoard = mods.saveTheQueen.handleSpecialMove(
         board,
         move,
       );
@@ -87,33 +87,33 @@ class Orchestrator {
       }
     }
 
-    // Check for Succession mode special moves (queen capture or King promotion)
-    if (board.gameType == ModesEnum.succession) {
-      final successionBoard = modes.succession.handleSpecialMove(board, move);
+    // Check for Succession Mod special moves (queen capture or King promotion)
+    if (board.gameType == ModsEnum.succession) {
+      final successionBoard = mods.succession.handleSpecialMove(board, move);
       if (successionBoard != null) {
         return updateGameStatus(successionBoard);
       }
     }
 
-    // DISABLED MODE: Coyote
-    // if (board.gameType == ModesEnum.coyote) {
-    //   final coyoteBoard = modes.coyote.handleSpecialMove(board, move);
+    // DISABLED MOD: Coyote
+    // if (board.gameType == ModsEnum.coyote) {
+    //   final coyoteBoard = mods.coyote.handleSpecialMove(board, move);
     //   if (coyoteBoard != null) {
     //     return updateGameStatus(coyoteBoard);
     //   }
     // }
 
-    // DISABLED MODE: Snare
-    // if (board.gameType == ModesEnum.snare) {
-    //   final snareBoard = modes.snare.handleSpecialMove(board, move);
+    // DISABLED MOD: Snare
+    // if (board.gameType == ModsEnum.snare) {
+    //   final snareBoard = mods.snare.handleSpecialMove(board, move);
     //   if (snareBoard != null) {
     //     return updateGameStatus(snareBoard);
     //   }
     // }
 
-    // Check for Truce mode special move handling
-    if (board.gameType == ModesEnum.truce) {
-      final truceBoard = modes.truce.handleSpecialMove(board, move);
+    // Check for Truce Mod special move handling
+    if (board.gameType == ModsEnum.truce) {
+      final truceBoard = mods.truce.handleSpecialMove(board, move);
       if (truceBoard != null) {
         return updateGameStatus(truceBoard);
       }
@@ -127,12 +127,12 @@ class Orchestrator {
 
   /// Updates the game status based on the current board state
   ChessBoard updateGameStatus(ChessBoard board) {
-    // CRITICAL: Check if any king is missing (should never happen in most modes)
+    // CRITICAL: Check if any king is missing (should never happen in most mods)
     // Exceptions:
-    // - Heir mode: allows king captures, player can promote pawn to get new king
-    // - Succession mode: starts with no kings, must promote to get one
-    if (board.gameType != ModesEnum.heir &&
-        board.gameType != ModesEnum.succession) {
+    // - Heir Mod: allows king captures, player can promote pawn to get new king
+    // - Succession Mod: starts with no kings, must promote to get one
+    if (board.gameType != ModsEnum.heir &&
+        board.gameType != ModsEnum.succession) {
       final whiteKing = board.getKing(PieceColor.white);
       final blackKing = board.getKing(PieceColor.black);
 
@@ -167,18 +167,18 @@ class Orchestrator {
       return board;
     }
 
-    // Special handling for Heir mode
-    if (board.gameType == ModesEnum.heir) {
+    // Special handling for Heir Mod
+    if (board.gameType == ModsEnum.heir) {
       return _updateHeirGameStatus(board);
     }
 
-    // Special handling for Truce mode
-    if (board.gameType == ModesEnum.truce) {
+    // Special handling for Truce Mod
+    if (board.gameType == ModsEnum.truce) {
       return _updateTruceGameStatus(board);
     }
 
-    // DISABLED MODE: Snare
-    // if (board.gameType == ModesEnum.snare) {
+    // DISABLED MOD: Snare
+    // if (board.gameType == ModsEnum.snare) {
     //   return _updateSnareGameStatus(board);
     // }
 
@@ -224,14 +224,14 @@ class Orchestrator {
     return board.copyWith(gameStatus: newStatus);
   }
 
-  /// Updates game status specifically for Heir mode
-  /// In Heir mode, the king is a regular piece and does NOT trigger "check" status
+  /// Updates game status specifically for Heir Mod
+  /// In Heir Mod, the king is a regular piece and does NOT trigger "check" status
   ChessBoard _updateHeirGameStatus(ChessBoard board) {
     final hasValidMoves = _hasValidMoves(board);
 
     GameStatus newStatus;
 
-    // Check for immediate game end conditions in Heir mode
+    // Check for immediate game end conditions in Heir Mod
     // If a player has no king AND no pawns, they lose immediately
     for (final color in [PieceColor.white, PieceColor.black]) {
       final kings = board.pieces
@@ -249,7 +249,7 @@ class Orchestrator {
       }
     }
 
-    // In Heir mode, king is NOT special - no check status
+    // In Heir Mod, king is NOT special - no check status
     // Only check for stalemate/ongoing based on valid moves
     if (!hasValidMoves) {
       newStatus = GameStatus.stalemate;
@@ -275,7 +275,7 @@ class Orchestrator {
   }
 
   ChessBoard _updateTruceGameStatus(ChessBoard board) {
-    final isTruceActive = modes.truce.isTruceActive(board);
+    final isTruceActive = mods.truce.isTruceActive(board);
 
     final hasValidMoves = _hasValidMoves(board);
 
@@ -292,7 +292,7 @@ class Orchestrator {
       }
     } else {
       // After truce breaks: Apply regular chess rules
-      final currentPlayerInCheck = modes.truce.isKingInCheckTruce(
+      final currentPlayerInCheck = mods.truce.isKingInCheckTruce(
         board.currentPlayer,
         board,
       );
@@ -335,9 +335,9 @@ class Orchestrator {
     return board.copyWith(gameStatus: newStatus);
   }
 
-  /// SNARE MODE: Updates game status with entangled King detection
+  /// Snare Mod: Updates game status with entangled King detection
   ChessBoard _updateSnareGameStatus(ChessBoard board) {
-    // DISABLED MODE: Snare - entire method disabled
+    // DISABLED MOD: Snare - entire method disabled
     return board;
   }
 
@@ -358,21 +358,21 @@ class Orchestrator {
     final whitePieces = board.getPiecesOfColor(PieceColor.white);
     final blackPieces = board.getPiecesOfColor(PieceColor.black);
 
-    // Mercenary mode: special insufficient material rules (check first)
-    if (board.gameType == ModesEnum.mercenary) {
+    // Mercenary Mod: special insufficient material rules (check first)
+    if (board.gameType == ModsEnum.mercenary) {
       if (_isDrawByInsufficientMaterialMercenary(whitePieces, blackPieces)) {
         return true;
       }
       return false; // Don't apply classic rules for Mercenary
     }
 
-    // Apply classic chess insufficient material rules for other modes
+    // Apply classic chess insufficient material rules for other mods
     if (_isDrawByInsufficientMaterialClassic(whitePieces, blackPieces)) {
       return true;
     }
 
-    // DISABLED MODE: Snare special insufficient material rules
-    // if (board.gameType == ModesEnum.snare) {
+    // DISABLED MOD: Snare special insufficient material rules
+    // if (board.gameType == ModsEnum.snare) {
     //   if (_isDrawByInsufficientMaterialSnare(whitePieces, blackPieces, board)) {
     //     return true;
     //   }
@@ -436,8 +436,8 @@ class Orchestrator {
     return false;
   }
 
-  /// Snare mode insufficient material rules
-  /// In Snare mode, knights are critical for creating entangle zones
+  /// Snare Mod insufficient material rules
+  /// In Snare Mod, knights are critical for creating entangle zones
   /// Knights can defend each other and trap kings in entangle zones
   bool _isDrawByInsufficientMaterialSnare(
     List<ChessPiece> whitePieces,
@@ -484,12 +484,12 @@ class Orchestrator {
 
     // K+N vs K+N: NOT insufficient - knights can create entangle zones
     // K+N+N vs K: NOT insufficient - handled by 50-move rule
-    // (Two knights CAN checkmate a lone king in Snare mode via entangle zones)
+    // (Two knights CAN checkmate a lone king in Snare Mod via entangle zones)
 
     return false;
   }
 
-  /// Mercenary mode insufficient material rules
+  /// Mercenary Mod insufficient material rules
   /// Pawns can't promote but move like kings, so they can assist in checkmates
   bool _isDrawByInsufficientMaterialMercenary(
     List<ChessPiece> whitePieces,
@@ -546,8 +546,8 @@ class Orchestrator {
     final whitePieces = board.getPiecesOfColor(PieceColor.white);
     final blackPieces = board.getPiecesOfColor(PieceColor.black);
 
-    // DISABLED MODE: Snare K+N+N vs K special endgame
-    // if (board.gameType == ModesEnum.snare) {
+    // DISABLED MOD: Snare K+N+N vs K special endgame
+    // if (board.gameType == ModsEnum.snare) {
     //   int whiteKnights = 0;
     //   int blackKnights = 0;
     //   int whiteNonKingPieces = 0;
@@ -566,8 +566,8 @@ class Orchestrator {
     //   }
     // }
 
-    // Mercenary mode: K+pieces vs K or K vs K+pieces
-    if (board.gameType == ModesEnum.mercenary) {
+    // Mercenary Mod: K+pieces vs K or K vs K+pieces
+    if (board.gameType == ModsEnum.mercenary) {
       // Check if one side has only king
       final whiteOnlyKing = whitePieces.length == 1;
       final blackOnlyKing = blackPieces.length == 1;

@@ -2,8 +2,8 @@ import 'position.dart';
 import 'move.dart';
 import '../piece.dart';
 import '../board.dart';
-import '../items/piece_type.dart';
-import '../items/piece_color.dart';
+import '../pieces/piece_type.dart';
+import '../pieces/piece_color.dart';
 
 /// Helper utilities for move generation and execution to reduce duplication
 extension MoveHelpers on ChessBoard {

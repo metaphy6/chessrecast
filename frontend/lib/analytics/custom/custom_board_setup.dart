@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../board/utils/exporter.dart';
-import '../../modes/modes_enum.dart';
+import '../../mods/mods_enum.dart';
 import '../../ui/piece_renderer.dart';
 import '../../ui/board_theme.dart';
 import '../../services/api_service.dart';
@@ -22,7 +22,7 @@ class _DragData {
   });
 }
 
-/// Development board setup page - allows custom piece placement and game mode testing
+/// Development board setup page - allows custom piece placement and Game Mod testing
 /// OPTIMIZED: Uses GetX controller with ID-based updates for 60 FPS performance
 class CustomBoardSetupPage extends StatelessWidget {
   const CustomBoardSetupPage({super.key});
@@ -31,7 +31,7 @@ class CustomBoardSetupPage extends StatelessWidget {
   Widget build(BuildContext context) {
     // Get the game type from route arguments BEFORE controller lookup
     final args = Get.arguments as Map<String, dynamic>?;
-    final gameType = args?['gameType'] ?? ModesEnum.classic;
+    final gameType = args?['gameType'] ?? ModsEnum.classic;
 
     // Check for FEN string (preferred - simple string serialization)
     final fen = args?['fen'] as String?;
@@ -119,7 +119,7 @@ class _CustomBoardScaffold extends StatelessWidget {
             return SingleChildScrollView(
               child: Column(
                 children: [
-                  // Game Mode & Turn Selector - compact
+                  // Game Mod & Turn Selector - compact
                   _CustomControlPanel(controller: controller),
 
                   // Chess Board - larger and prominent
@@ -265,7 +265,7 @@ class _CustomBoardScaffold extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('1. Select game mode and starting turn'),
+              Text('1. Select Game Mod and starting turn'),
               SizedBox(height: 8),
               Text('2. Choose piece color from bottom'),
               SizedBox(height: 8),
@@ -326,12 +326,12 @@ class _CustomControlPanel extends StatelessWidget {
                   isDense: true,
                 ),
                 child: DropdownButtonHideUnderline(
-                  child: DropdownButton<ModesEnum>(
+                  child: DropdownButton<ModsEnum>(
                     value: controller.selectedGameType,
                     isExpanded: true,
                     isDense: true,
                     style: const TextStyle(fontSize: 13, color: Colors.black87),
-                    items: ModesEnum.values.map((type) {
+                    items: ModsEnum.values.map((type) {
                       return DropdownMenuItem(
                         value: type,
                         child: Text(

@@ -4,10 +4,10 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import '../board/board.dart';
 import '../board/moves/move.dart';
 import '../board/moves/generation.dart';
-import '../board/items/piece_color.dart';
+import '../board/pieces/piece_color.dart';
 
 /// AI Player using TensorFlow Lite model for inference
-/// Supports custom game modes including Mercenary
+/// Supports custom game mods including Mercenary
 class AIService {
   static AIService? _instance;
   Interpreter? _interpreter;
@@ -47,9 +47,7 @@ class AIService {
     } catch (e) {
       print('⚠️ AI model not available: $e');
       print('   To use AI features, train the model first:');
-      print(
-        '   cd ai && docker compose -f docker/docker-compose.mercenary.yml up',
-      );
+      print('   cd ai && docker compose -f docker-compose.mercenary.yml up');
       // Don't rethrow - allow app to start without AI
       _isInitialized = false;
     }
