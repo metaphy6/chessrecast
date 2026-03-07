@@ -43,8 +43,8 @@ func handleBotVsBot(c *gin.Context) {
         return
     }
 
-    // Parse game mode
-    gameMode := parseGameMode(req.Mode)
+    // Parse game mod
+    GameMod := parseGameMod(req.Mode)
 
     // Create white bot player
     whiteBot := ai.NewBot(req.WhiteDifficulty, engine.White)
@@ -65,7 +65,7 @@ func handleBotVsBot(c *gin.Context) {
     }
 
     // Create game session
-    session, err := gameService.CreateGame(gameMode, whitePlayer, blackPlayer)
+    session, err := gameService.CreateGame(GameMod, whitePlayer, blackPlayer)
     if err != nil {
         c.JSON(500, gin.H{"error": "Failed to create game: " + err.Error()})
         return
@@ -112,7 +112,7 @@ func handleCustomBoardHumanVsBot(c *gin.Context) {
         return
     }
 
-    gameMode := parseGameMode(req.Mode)
+    GameMod := parseGameMod(req.Mode)
     currentPlayer := engine.White
     if req.CurrentPlayer == "black" {
         currentPlayer = engine.Black
@@ -151,7 +151,7 @@ func handleCustomBoardHumanVsBot(c *gin.Context) {
 
     // Create game session
     session, err := gameService.CreateGameWithCustomBoard(
-        gameMode,
+        GameMod,
         req.Pieces,
         currentPlayer,
         whitePlayer,
@@ -170,9 +170,9 @@ func handleCustomBoardHumanVsBot(c *gin.Context) {
     } else {
         blackDiff = req.BotDifficulty
     }
-    storage.InitGameRecord(session.ID, gameMode.String(), whiteDiff, blackDiff)
+    storage.InitGameRecord(session.ID, GameMod.String(), whiteDiff, blackDiff)
 
-    logf("✅ Custom board game created: %s (mode: %s, human: %s, bot: %s)", session.ID, gameMode.String(), humanColor, botColor)
+    logf("✅ Custom board game created: %s (mode: %s, human: %s, bot: %s)", session.ID, GameMod.String(), humanColor, botColor)
 
     c.JSON(201, gin.H{
         "game_id":   session.ID,
@@ -188,8 +188,8 @@ func handleCustomBoardBotVsBot(c *gin.Context) {
         return
     }
 
-    // Parse game mode
-    gameMode := parseGameMode(req.Mode)
+    // Parse game mod
+    GameMod := parseGameMod(req.Mode)
 
     // Parse current player
     currentTurn := engine.White
@@ -216,16 +216,16 @@ func handleCustomBoardBotVsBot(c *gin.Context) {
     }
 
     // Create game session with custom board
-    session, err := gameService.CreateGameWithCustomBoard(gameMode, req.Pieces, currentTurn, whitePlayer, blackPlayer)
+    session, err := gameService.CreateGameWithCustomBoard(GameMod, req.Pieces, currentTurn, whitePlayer, blackPlayer)
     if err != nil {
         c.JSON(500, gin.H{"error": "Failed to create game: " + err.Error()})
         return
     }
 
     // Create initial game record in database
-    storage.InitGameRecord(session.ID, gameMode.String(), req.WhiteDifficulty, req.BlackDifficulty)
+    storage.InitGameRecord(session.ID, GameMod.String(), req.WhiteDifficulty, req.BlackDifficulty)
 
-    logf("🎲 Custom board Bot vs Bot game created: %s (mode: %s)", session.ID, gameMode)
+    logf("🎲 Custom board Bot vs Bot game created: %s (mode: %s)", session.ID, GameMod)
 
     // If auto-play, start the bot vs bot game loop
     if req.AutoPlay {
@@ -235,7 +235,7 @@ func handleCustomBoardBotVsBot(c *gin.Context) {
     c.JSON(201, gin.H{
         "game_id":        session.ID,
         "message":        "Custom Board Bot vs Bot game created",
-        "mode":           gameMode.String(),
+        "mode":           GameMod.String(),
         "current_player": req.CurrentPlayer,
         "pieces_count":   len(req.Pieces),
         "white":          gin.H{"difficulty": req.WhiteDifficulty},
@@ -258,7 +258,7 @@ func handleCreateGame(c *gin.Context) {
         return
     }
 
-    gameMode := parseGameMode(req.Mode)
+    GameMod := parseGameMod(req.Mode)
 
     // Create human player (white)
     humanPlayer := &game.Player{
@@ -285,7 +285,7 @@ func handleCreateGame(c *gin.Context) {
         }
     }
 
-    session, err := gameService.CreateGame(gameMode, humanPlayer, opponent)
+    session, err := gameService.CreateGame(GameMod, humanPlayer, opponent)
     if err != nil {
         c.JSON(500, gin.H{"error": "Failed to create game"})
         return
@@ -297,9 +297,9 @@ func handleCreateGame(c *gin.Context) {
     if opponent.Type == game.AI && opponent.Bot != nil {
         blackDiff = opponent.Bot.Difficulty
     }
-    storage.InitGameRecord(session.ID, gameMode.String(), whiteDiff, blackDiff)
+    storage.InitGameRecord(session.ID, GameMod.String(), whiteDiff, blackDiff)
 
-    logf("✅ Game created: %s (mode: %s, white: human, black: %s)", session.ID, gameMode.String(), opponent.Type)
+    logf("✅ Game created: %s (mode: %s, white: human, black: %s)", session.ID, GameMod.String(), opponent.Type)
 
     c.JSON(201, gin.H{
         "game_id":   session.ID,

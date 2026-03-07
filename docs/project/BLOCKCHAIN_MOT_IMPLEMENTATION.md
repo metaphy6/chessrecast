@@ -336,7 +336,7 @@ class SdataGenerator {
     required Uint8List modelWeights,
     required List<GameReplay> trainingGames,
     required String ownerPrivateKey,
-    required ModesEnum mode,
+    required ModsEnum mode,
   }) async {
     // Step 1: Hash model weights
     final modelHash = QuantumSafeKeys.hash(modelWeights);

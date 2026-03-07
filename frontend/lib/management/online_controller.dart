@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../board/utils/exporter.dart';
 import '../debug.dart';
-import '../modes/modes_enum.dart';
+import '../mods/mods_enum.dart';
 import '../services/api_service.dart';
 import '../services/game_websocket.dart';
 import 'controller.dart';
@@ -119,13 +119,13 @@ class OnlineController extends Controller {
   Future<void> _createNewGame(Map<String, dynamic>? args) async {
     _connectionStatus.value = 'Creating game...';
 
-    final gameMode = args?['gameType'] is ModesEnum
-        ? (args!['gameType'] as ModesEnum).toSnakeCase()
+    final GameMod = args?['gameType'] is ModsEnum
+        ? (args!['gameType'] as ModsEnum).toSnakeCase()
         : args?['gameType']?.toString().split('.').last ?? 'classic';
     final botDifficulty = args?['botDifficulty'] as int?;
 
     final gameData = await _apiService.createGame(
-      mode: gameMode,
+      mode: GameMod,
       botDifficulty: botDifficulty,
     );
 
@@ -409,12 +409,12 @@ class OnlineController extends Controller {
   }
 
   /// Challenge a bot
-  Future<void> challengeBot(int difficulty, String gameMode) async {
+  Future<void> challengeBot(int difficulty, String GameMod) async {
     try {
       _connectionStatus.value = 'Creating bot game...';
 
       final gameId = await _apiService.challengeBot(
-        mode: gameMode,
+        mode: GameMod,
         difficulty: difficulty,
       );
       _gameId.value = gameId;
@@ -466,8 +466,8 @@ class OnlineController extends Controller {
   String _formatMoveNotation(ChessMove move) {
     final pieceIcon = _getPieceIcon(move.piece);
 
-    // DISABLED MODE: Secret Passage notation
-    // if (gameType == ModesEnum.secretPassage) {
+    // DISABLED MOD: Secret Passage notation
+    // if (gameType == ModsEnum.secretPassage) {
     //   final targetPiece = board.getPieceAt(move.to);
     //   if (targetPiece != null && targetPiece.color == move.piece.color) {
     //     if ((move.piece.type == PieceType.king &&

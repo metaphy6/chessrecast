@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../modes/modes_enum.dart';
+import '../mods/mods_enum.dart';
 import 'shared.dart';
 import '../services/api_service.dart';
 
@@ -16,7 +16,7 @@ class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
 
   int _whiteDifficulty = 5;
   int _blackDifficulty = 5;
-  ModesEnum _selectedMode = ModesEnum.classic;
+  ModsEnum _selectedMode = ModsEnum.classic;
   bool _autoPlay = true;
   int _moveDelaySeconds = 3; // seconds (1-10)
 
@@ -29,12 +29,12 @@ class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
   @override
   void initState() {
     super.initState();
-    // Check if game mode was passed from home screen
+    // Check if Game Mod was passed from home screen
     final arguments = Get.arguments;
     if (arguments != null && arguments is Map) {
       if (arguments.containsKey('gameType')) {
         final gameType = arguments['gameType'];
-        if (gameType is ModesEnum) {
+        if (gameType is ModsEnum) {
           _selectedMode = gameType;
         }
       }
@@ -90,7 +90,7 @@ class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
 
                 const SizedBox(height: 24),
 
-                // Game Mode Section
+                // Game Mod Section
                 Card(
                   color: Colors.white.withAlpha((0.9 * 255).round()),
                   elevation: 8,
@@ -111,7 +111,7 @@ class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
                             ),
                             const SizedBox(width: 12),
                             Text(
-                              'Game Mode',
+                              'Game Mod',
                               style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
@@ -121,7 +121,7 @@ class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        DropdownButtonFormField<ModesEnum>(
+                        DropdownButtonFormField<ModsEnum>(
                           initialValue: _selectedMode,
                           decoration: InputDecoration(
                             filled: true,
@@ -135,7 +135,7 @@ class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
                               vertical: 16,
                             ),
                           ),
-                          items: ModesEnum.values.map((mode) {
+                          items: ModsEnum.values.map((mode) {
                             return DropdownMenuItem(
                               value: mode,
                               child: Text(

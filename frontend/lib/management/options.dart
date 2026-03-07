@@ -1,12 +1,11 @@
 import 'package:get/get.dart';
-import '../modes/modes_enum.dart';
-import '../analytics/bot/bot_manager.dart';
+import '../mods/mods_enum.dart';
 import 'utils.dart';
 
 class OptionsController extends GetxController {
-  final Rx<ModesEnum> selectedGameType = ModesEnum.classic.obs;
+  final Rx<ModsEnum> selectedGameType = ModsEnum.classic.obs;
 
-  void selectGameType(ModesEnum gameType) {
+  void selectGameType(ModsEnum gameType) {
     final previous = selectedGameType.value;
     selectedGameType.value = gameType;
     // Only notify the previously-selected and newly-selected cards to avoid rebuilding all cards
@@ -14,8 +13,6 @@ class OptionsController extends GetxController {
   }
 
   void startGame() {
-    // Clear any bot configuration from previous games
-    Get.find<BotManager>().clear();
     Get.toNamed('/chess', arguments: {'gameType': selectedGameType.value});
   }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../../board/utils/exporter.dart';
-import '../../modes/modes_enum.dart';
+import '../../mods/mods_enum.dart';
 import '../../ui/board_theme.dart';
 import '../../management/utils.dart';
 
@@ -12,9 +12,9 @@ class CustomBoardController extends GetxController {
   bool get isInitialized => _isInitialized;
 
   // Game configuration - initialized with defaults
-  ModesEnum _selectedGameType = ModesEnum.classic;
-  ModesEnum get selectedGameType => _selectedGameType;
-  set selectedGameTypeInternal(ModesEnum value) => _selectedGameType = value;
+  ModsEnum _selectedGameType = ModsEnum.classic;
+  ModsEnum get selectedGameType => _selectedGameType;
+  set selectedGameTypeInternal(ModsEnum value) => _selectedGameType = value;
 
   PieceColor _currentTurnColor = PieceColor.white;
   PieceColor get currentTurnColor => _currentTurnColor;
@@ -60,7 +60,7 @@ class CustomBoardController extends GetxController {
   }
 
   void initialize({
-    required ModesEnum gameType,
+    required ModsEnum gameType,
     List<ChessPiece>? pieces,
     PieceColor? currentPlayer,
   }) {
@@ -91,7 +91,7 @@ class CustomBoardController extends GetxController {
   /// Force initialize with new state - used when explicitly importing a position
   /// This will override any existing state and update all UI elements
   void forceInitialize({
-    required ModesEnum gameType,
+    required ModsEnum gameType,
     required List<ChessPiece> pieces,
     PieceColor? currentPlayer,
     int? whiteDifficulty,
@@ -112,7 +112,7 @@ class CustomBoardController extends GetxController {
     update([
       ...getAllSquareIds(),
       'bot_difficulty',
-      'game_mode',
+      'game_mod',
       'turn_selector',
     ]);
   }
@@ -120,7 +120,7 @@ class CustomBoardController extends GetxController {
   /// Force initialize from FEN notation - most reliable way to transfer positions
   /// FEN is a simple string, so no serialization issues
   void forceInitializeFromFEN({
-    required ModesEnum gameType,
+    required ModsEnum gameType,
     required String fen,
     int? whiteDifficulty,
     int? blackDifficulty,
@@ -151,7 +151,7 @@ class CustomBoardController extends GetxController {
       update([
         ...getAllSquareIds(),
         'bot_difficulty',
-        'game_mode',
+        'game_mod',
         'turn_selector',
       ]);
     } catch (e) {
@@ -269,7 +269,7 @@ class CustomBoardController extends GetxController {
     update(['piece_color']);
   }
 
-  void setGameType(ModesEnum type) {
+  void setGameType(ModsEnum type) {
     _selectedGameType = type;
     // Update control panel
     update(['control_panel']);
@@ -297,18 +297,18 @@ class CustomBoardController extends GetxController {
       (p) => p.type == PieceType.king && p.color == PieceColor.black,
     );
 
-    // Heir mode: kings can be missing (they can be captured and promoted back)
-    // Succession mode: starts with no kings (must promote to get one)
-    if (_selectedGameType == ModesEnum.heir ||
-        _selectedGameType == ModesEnum.succession) {
-      // In these modes, at least one piece must exist
+    // Heir Mod: kings can be missing (they can be captured and promoted back)
+    // Succession Mod: starts with no kings (must promote to get one)
+    if (_selectedGameType == ModsEnum.heir ||
+        _selectedGameType == ModsEnum.succession) {
+      // In these mods, at least one piece must exist
       if (_customPieces.isEmpty) {
         return (false, 'Board must have at least one piece');
       }
       return (true, null);
     }
 
-    // All other modes require both kings
+    // All other mods require both kings
     if (!whiteKing || !blackKing) {
       return (false, 'Both white and black kings must be present');
     }

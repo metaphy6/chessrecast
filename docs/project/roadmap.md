@@ -225,7 +225,7 @@ For your chess variants app, this is **ambitious but achievable**. The key succe
 
 1. **Start traditional** - prove the game is fun first
 2. **Add hosting gradually** - don't try to solve everything at once  
-3. **Make coins valuable** - exclusive game modes, cosmetics, tournaments
+3. **Make coins valuable** - exclusive game mods, cosmetics, tournaments
 4. **Community building** - hosts need to feel valued
 5. **Transparency** - show users how their hosting helps
 

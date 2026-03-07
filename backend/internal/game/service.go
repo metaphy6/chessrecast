@@ -102,7 +102,7 @@ func NewService() *Service {
 }
 
 // CreateGame creates a new game session
-func (s *Service) CreateGame(mode engine.GameMode, whitePlayer, blackPlayer *Player) (*Session, error) {
+func (s *Service) CreateGame(mode engine.GameMod, whitePlayer, blackPlayer *Player) (*Session, error) {
 	sessionID := uuid.New().String()
 	board := engine.NewBoard(mode)
 
@@ -144,7 +144,7 @@ func (s *Service) CreateGame(mode engine.GameMode, whitePlayer, blackPlayer *Pla
 }
 
 // CreateGameWithCustomBoard creates a game with a custom piece layout
-func (s *Service) CreateGameWithCustomBoard(mode engine.GameMode, pieces []engine.CustomPiece, currentTurn engine.Color, whitePlayer, blackPlayer *Player) (*Session, error) {
+func (s *Service) CreateGameWithCustomBoard(mode engine.GameMod, pieces []engine.CustomPiece, currentTurn engine.Color, whitePlayer, blackPlayer *Player) (*Session, error) {
 	sessionID := uuid.New().String()
 	
 	board, err := engine.NewBoardWithPieces(mode, pieces, currentTurn)
@@ -418,7 +418,7 @@ func (sess *Session) processMove(req MoveRequest) MoveResponse {
 	// Execute move
 	// Check if this is a revengeful knight scenario BEFORE making the move
 	isRevengefulKnight := false
-	// DISABLED MODE: Snare revengeful knight
+	// DISABLED MOD: Snare revengeful knight
 	// if sess.Board.Mode == engine.Snare && req.Move.CapturedPiece != nil && 
 	// 	req.Move.CapturedPiece.Type == engine.Knight {
 	// 	capturedColor := req.Move.CapturedPiece.Color
@@ -511,12 +511,12 @@ func (sess *Session) triggerAIMove() {
 
 // updateGameState checks for checkmate, stalemate, draw conditions, etc.
 func (sess *Session) updateGameState() {
-	// Check for game mode specific win conditions FIRST
-	if sess.checkGameModeVictory() {
+	// Check for Game Mod specific win conditions FIRST
+	if sess.checkGameModVictory() {
 		return
 	}
 
-	// DISABLED MODE: Snare all-knights-lost stalemate
+	// DISABLED MOD: Snare all-knights-lost stalemate
 	// if sess.Board.Mode == engine.Snare {
 	// 	whiteKnights := sess.Board.CountKnights(engine.White)
 	// 	blackKnights := sess.Board.CountKnights(engine.Black)
@@ -531,7 +531,7 @@ func (sess *Session) updateGameState() {
 	// 	}
 	// }
 
-	// DISABLED MODE: Snare king-entangled checkmate
+	// DISABLED MOD: Snare king-entangled checkmate
 	// if sess.Board.Mode == engine.Snare {
 	// 	if sess.Board.IsKingEntangled(sess.Board.CurrentTurn) {
 	// 		log.Printf("🪤 SNARE - Trapped: %s King caught in entangle zone! CHECKMATE!", sess.Board.CurrentTurn)
@@ -545,7 +545,7 @@ func (sess *Session) updateGameState() {
 	// 	}
 	// }
 
-	// Heir mode: Check if a player has no king AND no pawns - they lose immediately
+	// Heir mod: Check if a player has no king AND no pawns - they lose immediately
 	if sess.Board.Mode == engine.Heir {
 		for _, color := range []engine.Color{engine.White, engine.Black} {
 			hasKing := sess.Board.HasKing(color)
@@ -574,8 +574,8 @@ func (sess *Session) updateGameState() {
 	}
 
 	// Check for fifty-move rule draw
-	// Save the Queen mode: 50 total half-moves (25 white + 25 black)
-	// Succession mode: 50 total half-moves (25 white + 25 black)
+	// Save the Queen mod: 50 total half-moves (25 white + 25 black)
+	// Succession mod: 50 total half-moves (25 white + 25 black)
 	// Special endgames (Snare K+N+N vs K, Royal Pawns K+pieces vs K): 50 total moves (half-moves)
 	// Normal games: 50 full moves = 100 half-moves
 	fiftyMoveLimit := 100
@@ -657,7 +657,7 @@ func (sess *Session) updateGameState() {
 		}
 	}
 
-	// Truce mode: Check if truce should end
+	// Truce mod: Check if truce should end
 	if sess.Board.Mode == engine.Truce && sess.Board.TruceActive {
 		if !sess.Board.HasMovableUnmovedPieces(sess.Board.CurrentTurn) {
 			log.Printf("🔓 TRUCE ENDING: %s has exhausted all unmoved pieces", sess.Board.CurrentTurn)
@@ -667,9 +667,9 @@ func (sess *Session) updateGameState() {
 
 	if !hasValidMoves {
 		// No legal moves - check if it's checkmate or stalemate
-		// In Heir mode, king doesn't trigger "check", so no valid moves = stalemate
+		// In Heir mod, king doesn't trigger "check", so no valid moves = stalemate
 		if sess.Board.Mode == engine.Heir {
-			// In Heir mode, no valid moves is always stalemate (king is a regular piece)
+			// In Heir mod, no valid moves is always stalemate (king is a regular piece)
 			sess.State = engine.Stalemate
 			sess.Result = &engine.GameResult{
 				State:  engine.Stalemate,
@@ -699,28 +699,28 @@ func (sess *Session) updateGameState() {
 	}
 }
 
-// checkGameModeVictory checks for game mode specific win conditions
+// checkGameModVictory checks for Game Mod specific win conditions
 // Returns true if a victory condition was met
-func (sess *Session) checkGameModeVictory() bool {
+func (sess *Session) checkGameModVictory() bool {
 	lastMove := sess.Board.History.Last()
 	if lastMove == nil {
 		return false
 	}
 
 	switch sess.Board.Mode {
-	// case engine.Coyote: // DISABLED MODE
+	// case engine.Coyote: // DISABLED MOD
 	// 	return sess.checkCoyoteVictory(lastMove)
 	case engine.SaveTheQueen:
 		return sess.checkSaveTheQueenVictory(lastMove)
 	case engine.Succession:
 		return sess.checkSuccessionVictory(lastMove)
-	// Add other game modes here as needed
+	// Add other game mods here as needed
 	default:
 		return false
 	}
 }
 
-// checkCoyoteVictory checks Coyote mode win conditions:
+// checkCoyoteVictory checks Coyote mod win conditions:
 // 1. Rook reaches opponent's back rank
 // 2. Capture TWO of opponent's rooks (not just one)
 func (sess *Session) checkCoyoteVictory(lastMove *engine.Move) bool {
@@ -774,7 +774,7 @@ func (sess *Session) checkCoyoteVictory(lastMove *engine.Move) bool {
 	return false
 }
 
-// checkSaveTheQueenVictory checks Save the Queen mode win conditions:
+// checkSaveTheQueenVictory checks Save the Queen mod win conditions:
 // 1. Queen reaches opponent's initial prison square (d1 for black, d8 for white)
 // 2. An escaped queen is captured
 func (sess *Session) checkSaveTheQueenVictory(lastMove *engine.Move) bool {
@@ -841,7 +841,7 @@ func (sess *Session) checkSaveTheQueenVictory(lastMove *engine.Move) bool {
 	return false
 }
 
-// checkSuccessionVictory checks Succession mode win conditions:
+// checkSuccessionVictory checks Succession mod win conditions:
 // 1. Any queen is captured - instant loss for the player who lost the queen
 // 2. Player loses all pawns - instant loss (can't promote to King)
 func (sess *Session) checkSuccessionVictory(lastMove *engine.Move) bool {
@@ -883,17 +883,17 @@ func (sess *Session) isDrawByInsufficientMaterial() bool {
 	whitePieces := sess.Board.GetPiecesOfColor(engine.White)
 	blackPieces := sess.Board.GetPiecesOfColor(engine.Black)
 
-	// Mercenary mode: special insufficient material rules (check first)
+	// Mercenary mod: special insufficient material rules (check first)
 	if sess.Board.Mode == engine.Mercenary {
 		return sess.isDrawByInsufficientMaterialMercenary(whitePieces, blackPieces)
 	}
 
-	// Apply classic chess insufficient material rules (applies to all other modes)
+	// Apply classic chess insufficient material rules (applies to all other mods)
 	if sess.isDrawByInsufficientMaterialClassic(whitePieces, blackPieces) {
 		return true
 	}
 
-	// DISABLED MODE: Snare insufficient material
+	// DISABLED MOD: Snare insufficient material
 	// if sess.Board.Mode == engine.Snare {
 	// 	if sess.isDrawByInsufficientMaterialSnare(whitePieces, blackPieces) {
 	// 		return true
@@ -958,7 +958,7 @@ func (sess *Session) isDrawByInsufficientMaterialClassic(whitePieces, blackPiece
 	return false
 }
 
-// isDrawByInsufficientMaterialSnare checks Snare mode insufficient material rules
+// isDrawByInsufficientMaterialSnare checks Snare mod insufficient material rules
 func (sess *Session) isDrawByInsufficientMaterialSnare(whitePieces, blackPieces []*engine.Piece) bool {
 	// First apply classic chess insufficient material rules
 	if sess.isDrawByInsufficientMaterialClassic(whitePieces, blackPieces) {
@@ -1001,7 +1001,7 @@ func (sess *Session) isDrawByInsufficientMaterialSnare(whitePieces, blackPieces 
 
 	// K+N vs K+N: NOT insufficient - knights can create entangle zones
 	// K+N+N vs K: NOT insufficient - handled by 50-move rule
-	// (Two knights CAN checkmate a lone king in Snare mode via entangle zones)
+	// (Two knights CAN checkmate a lone king in Snare mod via entangle zones)
 
 	return false
 }
@@ -1013,12 +1013,12 @@ func (sess *Session) isSpecialEndgameRequiringFasterMate() bool {
 	whitePieces := sess.Board.GetPiecesOfColor(engine.White)
 	blackPieces := sess.Board.GetPiecesOfColor(engine.Black)
 
-	// DISABLED MODE: Snare K+N+N vs K special endgame
+	// DISABLED MOD: Snare K+N+N vs K special endgame
 	// if sess.Board.Mode == engine.Snare {
 	// 	...
 	// }
 
-	// Mercenary mode: K+pieces vs K or K vs K+pieces
+	// Mercenary mod: K+pieces vs K or K vs K+pieces
 	if sess.Board.Mode == engine.Mercenary {
 		// Check if one side has only king
 		whiteOnlyKing := len(whitePieces) == 1
@@ -1032,7 +1032,7 @@ func (sess *Session) isSpecialEndgameRequiringFasterMate() bool {
 	return false
 }
 
-// isDrawByInsufficientMaterialMercenary checks Mercenary mode insufficient material rules
+// isDrawByInsufficientMaterialMercenary checks Mercenary mod insufficient material rules
 // Pawns can't promote but move like kings, so they can assist in checkmates
 func (sess *Session) isDrawByInsufficientMaterialMercenary(whitePieces, blackPieces []*engine.Piece) bool {
 	whitePawns := 0
@@ -1171,7 +1171,7 @@ func (s *Service) PlayBotVsBot(sessionID string, moveDelay int) error {
 	session.mu.Unlock()
 
 	logf("✅ PlayBotVsBot: Validation passed, starting game loop")
-	logf("🎮 Game Mode: %s", session.Board.Mode.String())
+	logf("🎮 game mod: %s", session.Board.Mode.String())
 	logf("🤖 White Bot: Difficulty %d", session.WhitePlayer.Bot.Difficulty)
 	logf("🤖 Black Bot: Difficulty %d", session.BlackPlayer.Bot.Difficulty)
 

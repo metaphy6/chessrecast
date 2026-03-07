@@ -1,0 +1,45 @@
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  🛡️  Save The Queen Mode — AI Training                       ║
+# ║  Queen must be protected at all costs                        ║
+# ╚══════════════════════════════════════════════════════════════╝
+services:
+  save-the-queen-trainer:
+    build:
+      context: ../../..
+      dockerfile: docker/Dockerfile
+      args:
+        TRAIN_SCRIPT: mods/train_save_the_queen.py
+    container_name: chessrecast-save-the-queen-trainer
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+      - TEST_MODE=${TEST_MODE:-false}
+      - MOVE_DELAY=${MOVE_DELAY:-0.3}
+    ports:
+      - "8770:8765"
+    volumes:
+      - ../../../trainer:/workspace
+      - save-the-queen-checkpoints:/workspace/checkpoints
+      - save-the-queen-models:/workspace/models
+      - save-the-queen-data:/workspace/data
+    working_dir: /workspace
+    command: >
+      sh -c "if [ \"$${TEST_MODE}\" = 'true' ]; then
+        python mods/train_save_the_queen.py --test --delay $${MOVE_DELAY};
+      else
+        python mods/train_save_the_queen.py --delay $${MOVE_DELAY};
+      fi"
+    shm_size: '8gb'
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  save-the-queen-checkpoints:
+  save-the-queen-models:
+  save-the-queen-data:

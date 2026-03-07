@@ -1,12 +1,12 @@
 import '../board/game_status.dart';
-import '../board/items/piece_color.dart';
-import '../modes/modes_enum.dart';
+import '../board/pieces/piece_color.dart';
+import '../mods/mods_enum.dart';
 
 /// Tracks game statistics and analytics
 class GameAnalytics {
   // Game identification
   final String gameId;
-  final ModesEnum gameMode;
+  final ModsEnum GameMod;
   final DateTime startTime;
   DateTime? endTime;
 
@@ -37,7 +37,7 @@ class GameAnalytics {
 
   GameAnalytics({
     required this.gameId,
-    required this.gameMode,
+    required this.GameMod,
     required this.whitePlayer,
     required this.blackPlayer,
     this.isWhiteBot = false,
@@ -100,7 +100,7 @@ class GameAnalytics {
 
     return {
       'gameId': gameId,
-      'mode': gameMode.displayName,
+      'mode': GameMod.displayName,
       'whitePlayer': whitePlayer,
       'blackPlayer': blackPlayer,
       'isWhiteBot': isWhiteBot,

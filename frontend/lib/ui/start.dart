@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../modes/modes_enum.dart';
+import '../mods/mods_enum.dart';
 import '../management/options.dart';
 import '../constants.dart';
 
@@ -23,7 +23,7 @@ class StartPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Choose Your Game Mode',
+                'Choose Your Game Mod',
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
@@ -31,13 +31,13 @@ class StartPage extends StatelessWidget {
               // PERFORMANCE: ListView without GetBuilder - individual cards rebuild themselves
               Expanded(
                 child: ListView.builder(
-                  itemCount: ModesEnum.values.length,
+                  itemCount: ModsEnum.values.length,
                   // PERFORMANCE: Cache extent to reduce rebuilds
                   cacheExtent: 500,
                   // PERFORMANCE: Keep repaint boundaries enabled for items
                   addRepaintBoundaries: true,
                   itemBuilder: (context, index) {
-                    final gameType = ModesEnum.values[index];
+                    final gameType = ModsEnum.values[index];
 
                     // PERFORMANCE: Each card manages its own rebuild via GetBuilder
                     return RepaintBoundary(
@@ -87,26 +87,6 @@ class StartPage extends StatelessWidget {
                   ),
                   backgroundColor: Colors.purple.shade600,
                   foregroundColor: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Bot vs Bot Button
-              OutlinedButton.icon(
-                onPressed: () {
-                  Get.toNamed(
-                    '/bot-setup',
-                    arguments: {'gameType': controller.selectedGameType.value},
-                  );
-                },
-                icon: const Icon(Icons.smart_toy),
-                label: const Text('🤖 Bot vs Bot'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  side: BorderSide(color: Colors.blue.shade600, width: 2),
-                  foregroundColor: Colors.blue.shade600,
                 ),
               ),
               const SizedBox(height: 12),
@@ -213,7 +193,7 @@ class StartPage extends StatelessWidget {
 
 /// PERFORMANCE: Optimized mode card that only rebuilds itself when selection changes
 class _ModeCard extends StatelessWidget {
-  final ModesEnum gameType;
+  final ModsEnum gameType;
   final OptionsController controller;
 
   const _ModeCard({

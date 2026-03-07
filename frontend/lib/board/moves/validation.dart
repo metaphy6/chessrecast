@@ -1,12 +1,12 @@
-import '../items/piece_color.dart';
-import '../items/piece_type.dart';
+import '../pieces/piece_color.dart';
+import '../pieces/piece_type.dart';
 import 'position.dart';
 import '../piece.dart';
 import 'move.dart';
 import '../board.dart';
 import 'special_cases.dart';
 import 'helpers.dart';
-// import '../../modes/modes_enum.dart'; // DISABLED MODE: Was only used for SecretPassage
+// import '../../mods/mods_enum.dart'; // DISABLED MOD: Was only used for SecretPassage
 
 /// Extension for move validation operations
 extension MoveValidation on ChessBoard {
@@ -125,8 +125,8 @@ extension MoveValidation on ChessBoard {
       performCastlingRookMove(newPieces, move.from, move.to);
     }
 
-    // DISABLED MODE: Secret Passage teleport handling
-    // if (gameType == ModesEnum.secretPassage) {
+    // DISABLED MOD: Secret Passage teleport handling
+    // if (gameType == ModsEnum.secretPassage) {
     //   if (move.piece.type == PieceType.king) {
     //     ChessPiece? rookAtDest;
     //     for (final p in pieces) {

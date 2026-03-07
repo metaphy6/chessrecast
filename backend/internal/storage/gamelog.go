@@ -24,7 +24,7 @@ func logf(format string, args ...interface{}) {
 type GameRecord struct {
 	ID              int64     `json:"id"`
 	GameID          string    `json:"game_id"`
-	GameMode        string    `json:"game_mode"`
+	GameMod         string    `json:"game_mode"`
 	WhiteMoves      string    `json:"white_moves"` // e.g., "e2e4 g1f3 f1b5 O-O ..."
 	BlackMoves      string    `json:"black_moves"` // e.g., "e7e5 b8c6 a7a6 g8f6 ..."
 	Winner          string    `json:"winner"`      // "white", "black", "draw"
@@ -47,7 +47,7 @@ type GameLogger struct {
 // GameBuilder accumulates moves during a game
 type GameBuilder struct {
 	GameID          string
-	Mode            engine.GameMode
+	Mode            engine.GameMod
 	WhiteMoves      []string
 	BlackMoves      []string
 	WhiteDifficulty int
@@ -127,7 +127,7 @@ func GetDatabasePool() *pgxpool.Pool {
 
 // InitGameRecord creates an initial game record to satisfy foreign key constraints
 // This allows moves to be streamed immediately even before the game ends
-func InitGameRecord(gameID, gameMode string, whiteDiff, blackDiff int) {
+func InitGameRecord(gameID, GameMod string, whiteDiff, blackDiff int) {
 	if logger == nil {
 		return
 	}
@@ -141,11 +141,11 @@ func InitGameRecord(gameID, gameMode string, whiteDiff, blackDiff int) {
 		ON CONFLICT (game_id) DO NOTHING
 	`
 
-	_, err := logger.pool.Exec(ctx, query, gameID, gameMode, whiteDiff, blackDiff)
+	_, err := logger.pool.Exec(ctx, query, gameID, GameMod, whiteDiff, blackDiff)
 	if err != nil {
 		log.Printf("❌ Failed to initialize game record %s: %v", gameID[:8], err)
 	} else {
-		log.Printf("📊 Initialized game record: %s (%s)", gameID[:8], gameMode)
+		log.Printf("📊 Initialized game record: %s (%s)", gameID[:8], GameMod)
 	}
 }
 
@@ -233,7 +233,7 @@ func (gl *GameLogger) insertRecord(record GameRecord) {
 			win_reason = EXCLUDED.win_reason,
 			total_moves = EXCLUDED.total_moves
 	`,
-		record.GameID, record.GameMode, record.WhiteMoves, record.BlackMoves,
+		record.GameID, record.GameMod, record.WhiteMoves, record.BlackMoves,
 		record.Winner, record.WinReason, record.TotalMoves,
 		record.WhiteDifficulty, record.BlackDifficulty, record.PlayedAt,
 	)
@@ -241,12 +241,12 @@ func (gl *GameLogger) insertRecord(record GameRecord) {
 		logf("❌ Failed to insert game record: %v", err)
 	} else {
 		logf("📝 Game record saved: %s (%s) - %d moves, winner: %s",
-			record.GameID[:8], record.GameMode, record.TotalMoves, record.Winner)
+			record.GameID[:8], record.GameMod, record.TotalMoves, record.Winner)
 	}
 }
 
 // StartGame initializes a new game builder for tracking moves AND creates initial DB record
-func StartGame(gameID string, mode engine.GameMode, whiteDiff, blackDiff int) {
+func StartGame(gameID string, mode engine.GameMod, whiteDiff, blackDiff int) {
 	buildersMu.Lock()
 	gameBuilders[gameID] = &GameBuilder{
 		GameID:          gameID,
@@ -323,7 +323,7 @@ func EndGame(gameID string, winner string, winReason string) {
 
 	record := GameRecord{
 		GameID:          gameID,
-		GameMode:        builder.Mode.String(),
+		GameMod:        builder.Mode.String(),
 		WhiteMoves:      strings.Join(builder.WhiteMoves, " "),
 		BlackMoves:      strings.Join(builder.BlackMoves, " "),
 		Winner:          winner,
@@ -440,7 +440,7 @@ func GetGameRecords(ctx context.Context, mode string, limit int) ([]GameRecord, 
 	for rows.Next() {
 		var r GameRecord
 		err := rows.Scan(
-			&r.ID, &r.GameID, &r.GameMode, &r.WhiteMoves, &r.BlackMoves,
+			&r.ID, &r.GameID, &r.GameMod, &r.WhiteMoves, &r.BlackMoves,
 			&r.Winner, &r.WinReason, &r.TotalMoves,
 			&r.WhiteDifficulty, &r.BlackDifficulty, &r.PlayedAt,
 		)
@@ -466,7 +466,7 @@ func GetGameRecord(ctx context.Context, gameID string) (*GameRecord, error) {
 			white_difficulty, black_difficulty, played_at
 		FROM game_records WHERE game_id = $1
 	`, gameID).Scan(
-		&r.ID, &r.GameID, &r.GameMode, &r.WhiteMoves, &r.BlackMoves,
+		&r.ID, &r.GameID, &r.GameMod, &r.WhiteMoves, &r.BlackMoves,
 		&r.Winner, &r.WinReason, &r.TotalMoves,
 		&r.WhiteDifficulty, &r.BlackDifficulty, &r.PlayedAt,
 	)

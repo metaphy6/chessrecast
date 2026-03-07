@@ -1,0 +1,45 @@
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  👑 Heir Mode — AI Training                                  ║
+# ║  Promoted pieces inherit capturing piece's abilities         ║
+# ╚══════════════════════════════════════════════════════════════╝
+services:
+  heir-trainer:
+    build:
+      context: ../../..
+      dockerfile: docker/Dockerfile
+      args:
+        TRAIN_SCRIPT: mods/train_heir.py
+    container_name: chessrecast-heir-trainer
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+      - TEST_MODE=${TEST_MODE:-false}
+      - MOVE_DELAY=${MOVE_DELAY:-0.3}
+    ports:
+      - "8766:8765"    # WebSocket (offset to avoid port clash)
+    volumes:
+      - ../../../trainer:/workspace
+      - heir-checkpoints:/workspace/checkpoints
+      - heir-models:/workspace/models
+      - heir-data:/workspace/data
+    working_dir: /workspace
+    command: >
+      sh -c "if [ \"$${TEST_MODE}\" = 'true' ]; then
+        python mods/train_heir.py --test --delay $${MOVE_DELAY};
+      else
+        python mods/train_heir.py --delay $${MOVE_DELAY};
+      fi"
+    shm_size: '8gb'
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  heir-checkpoints:
+  heir-models:
+  heir-data:

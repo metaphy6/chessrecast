@@ -1,0 +1,45 @@
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  ⚔️  Mercenary Mode — AI Training                            ║
+# ║  Pawns change color when captured                            ║
+# ╚══════════════════════════════════════════════════════════════╝
+services:
+  mercenary-trainer:
+    build:
+      context: ../../..
+      dockerfile: docker/Dockerfile
+      args:
+        TRAIN_SCRIPT: mods/train_mercenary.py
+    container_name: chessrecast-mercenary-trainer
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+      - TEST_MODE=${TEST_MODE:-false}
+      - MOVE_DELAY=${MOVE_DELAY:-0.3}
+    ports:
+      - "8765:8765"    # WebSocket → Flutter live training viewer
+    volumes:
+      - ../../../trainer:/workspace
+      - mercenary-checkpoints:/workspace/checkpoints
+      - mercenary-models:/workspace/models
+      - mercenary-data:/workspace/data
+    working_dir: /workspace
+    command: >
+      sh -c "if [ \"$${TEST_MODE}\" = 'true' ]; then
+        python mods/train_mercenary.py --test --delay $${MOVE_DELAY};
+      else
+        python mods/train_mercenary.py --delay $${MOVE_DELAY};
+      fi"
+    shm_size: '8gb'
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  mercenary-checkpoints:
+  mercenary-models:
+  mercenary-data:

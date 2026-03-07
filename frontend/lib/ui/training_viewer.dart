@@ -1,4 +1,4 @@
-import 'package:chessrecast/modes/modes_enum.dart';
+import 'package:chessrecast/mods/mods_enum.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -84,7 +84,7 @@ class _TrainingViewerScreenState extends State<TrainingViewerScreen> {
     if (selectedGame == null) return;
 
     // Reset board to starting position
-    displayBoard = ChessBoard.initial(gameType: ModesEnum.mercenary);
+    displayBoard = ChessBoard.initial(gameType: ModsEnum.mercenary);
 
     // Play moves up to current index
     for (

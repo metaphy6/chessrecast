@@ -1,7 +1,7 @@
-import '../items/piece_type.dart';
-import '../items/piece_color.dart';
+import '../pieces/piece_type.dart';
+import '../pieces/piece_color.dart';
 import '../game_status.dart';
-import '../../modes/modes_enum.dart';
+import '../../mods/mods_enum.dart';
 import '../piece.dart';
 import 'move.dart';
 import '../board.dart';
@@ -84,11 +84,11 @@ extension MoveExecution on ChessBoard {
     final newBlackCanCastleKingside = castling['blackCanCastleKingside']!;
     final newBlackCanCastleQueenside = castling['blackCanCastleQueenside']!;
 
-    // Track king promotions for Heir mode
+    // Track king promotions for Heir Mod
     bool newWhiteHasPromotedKing = whiteHasPromotedKing;
     bool newBlackHasPromotedKing = blackHasPromotedKing;
 
-    if (gameType == ModesEnum.heir &&
+    if (gameType == ModsEnum.heir &&
         move.isPromotion &&
         move.promotionPiece == 'K') {
       if (move.piece.color == PieceColor.white) {
@@ -98,9 +98,9 @@ extension MoveExecution on ChessBoard {
       }
     }
 
-    // Track queen escapes for Save the Queen mode
+    // Track queen escapes for Save the Queen Mod
     Map<PieceColor, bool> newEscapedQueens = Map.from(escapedQueens);
-    if (gameType == ModesEnum.saveTheQueen &&
+    if (gameType == ModsEnum.saveTheQueen &&
         move.piece.type == PieceType.queen) {
       // Check if queen is currently in its own half
       // White's own half: rows 0-3 (rows 4-7 are black's)
@@ -114,11 +114,11 @@ extension MoveExecution on ChessBoard {
 
     // Update halfMoveClock for 50-move rule
     // Reset to 0 on pawn move or capture, otherwise increment
-    // Exception: In Mercenary mode, pawn moves don't reset the counter
+    // Exception: In Mercenary Mod, pawn moves don't reset the counter
     final isPawnMove = move.piece.type == PieceType.pawn;
     final shouldResetClock =
         move.capturedPiece != null ||
-        (isPawnMove && gameType != ModesEnum.mercenary);
+        (isPawnMove && gameType != ModsEnum.mercenary);
     final newHalfMoveClock = shouldResetClock ? 0 : halfMoveClock + 1;
 
     // Update fullMoveNumber (increments after black's move)

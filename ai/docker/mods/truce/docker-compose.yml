@@ -1,0 +1,45 @@
+# ╔══════════════════════════════════════════════════════════════╗
+# ║  🤝 Truce Mode — AI Training                                 ║
+# ║  Players can agree to temporary truces                       ║
+# ╚══════════════════════════════════════════════════════════════╝
+services:
+  truce-trainer:
+    build:
+      context: ../../..
+      dockerfile: docker/Dockerfile
+      args:
+        TRAIN_SCRIPT: mods/train_truce.py
+    container_name: chessrecast-truce-trainer
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
+      - PYTHONUNBUFFERED=1
+      - TEST_MODE=${TEST_MODE:-false}
+      - MOVE_DELAY=${MOVE_DELAY:-0.3}
+    ports:
+      - "8767:8765"
+    volumes:
+      - ../../../trainer:/workspace
+      - truce-checkpoints:/workspace/checkpoints
+      - truce-models:/workspace/models
+      - truce-data:/workspace/data
+    working_dir: /workspace
+    command: >
+      sh -c "if [ \"$${TEST_MODE}\" = 'true' ]; then
+        python mods/train_truce.py --test --delay $${MOVE_DELAY};
+      else
+        python mods/train_truce.py --delay $${MOVE_DELAY};
+      fi"
+    shm_size: '8gb'
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  truce-checkpoints:
+  truce-models:
+  truce-data:

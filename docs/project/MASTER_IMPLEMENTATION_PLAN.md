@@ -15,7 +15,7 @@ This is the **master index** for ChessRecast's complete implementation. It coord
 ## 🎯 Project Vision
 
 **ChessRecast** is building a revolutionary AI-powered chess platform with:
-- **14 Custom Chess Variants** with unique rules and mechanics
+- **12 Custom Chess Variants** (8 active, 4 in development) with unique rules and mechanics
 - **Self-Learning AI Agents** trained via reinforcement learning
 - **Distributed P2P Training** across user devices
 - **Quantum-Resistant Blockchain** (MOT) for validation and rewards
@@ -26,23 +26,33 @@ This is the **master index** for ChessRecast's complete implementation. It coord
 
 ## 📚 Documentation Structure
 
-### Core Strategic Roadmaps
+### Core Documentation
 
-| Document | Purpose | Timeline | Status |
-|----------|---------|----------|--------|
-| **[AI_IMPLEMENTATION_ROADMAP_V2.md](./AI_IMPLEMENTATION_ROADMAP_V2.md)** | Complete AI system implementation | 18 weeks | Ready to implement |
-| **[BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md](./BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md)** | MOT blockchain system | 8 weeks | Ready to implement |
-| **[MASTER_IMPLEMENTATION_PLAN.md](./MASTER_IMPLEMENTATION_PLAN.md)** | This document - project coordination | N/A | Navigation guide |
+| Document | Purpose | Location |
+|----------|---------|----------|
+| **[README.md](../../README.md)** | Project overview & quick start | Root |
+| **[MASTER_IMPLEMENTATION_PLAN.md](./MASTER_IMPLEMENTATION_PLAN.md)** | This document - project coordination | docs/project/ |
+| **[GAME_MODS_DOCUMENTATION.md](./GAME_MODS_DOCUMENTATION.md)** | Full rules for all 12 game mods | docs/project/ |
+| **[BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md](./BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md)** | MOT blockchain system | docs/project/ |
 
-### Legacy Documentation (Reference Only)
+### AI Documentation
 
-| Document | Purpose | Note |
-|----------|---------|------|
-| `AI_DEVELOPMENT_ROADMAP.md` | Original AI roadmap | ⚠️ Superseded by V2, contains code examples |
-| `AI_TECHNICAL_IMPLEMENTATION_GUIDE.md` | Original technical guide | ⚠️ Superseded by V2, contains code examples |
-| `BLOCKCHAIN_MOT_IMPLEMENTATION.md` | Original blockchain spec | ⚠️ Superseded by V2, contains code examples |
+| Document | Purpose | Location |
+|----------|---------|----------|
+| **[README.md](../ai/README.md)** | AI training overview & file structure | docs/ai/ |
+| **[QUICKSTART.md](../ai/QUICKSTART.md)** | Quick start for Mercenary training | docs/ai/ |
+| **[README_MERCENARY.md](../ai/README_MERCENARY.md)** | Mercenary mode training details | docs/ai/ |
+| **[IMPROVED_ALGORITHM.md](../ai/IMPROVED_ALGORITHM.md)** | Policy-guided MCTS algorithm design | docs/ai/ |
+| **[ALGORITHM_FLOW_COMPARISON.md](../ai/ALGORITHM_FLOW_COMPARISON.md)** | Old vs improved algorithm | docs/ai/ |
 
-**Note for AI Assistants**: Use **V2 roadmaps** for implementation. Legacy documents are kept for reference (contain detailed code examples if needed).
+### Code References
+
+| Document | Purpose | Location |
+|----------|---------|----------|
+| **[docker-commands.md](../code/docker-commands.md)** | Docker volume & cleanup | docs/code/ |
+| **[db-commands.md](../code/db-commands.md)** | Database access & queries | docs/code/ |
+
+**Note for AI Assistants**: The AI training system is actively maintained in `ai/trainer/`. Refer to `docs/ai/` for up-to-date training documentation.
 
 ---
 
@@ -53,16 +63,16 @@ This is the **master index** for ChessRecast's complete implementation. It coord
 │                    PHASE 1: AI FOUNDATION                        │
 │                         Weeks 1-8                                │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │ Goal: Train 14 baseline AI models (900-1200 Elo)          │ │
+│  │ Goal: Train 8 baseline AI models (900-1200 Elo)           │ │
 │  │                                                             │ │
 │  │ Week 1:  Project setup & infrastructure                    │ │
 │  │ Week 2:  Neural network architecture                       │ │
 │  │ Week 3:  Self-play engine (MCTS)                          │ │
 │  │ Week 4:  Training loop & validation                       │ │
 │  │ Week 5:  Train Classic mode (first model)                 │ │
-│  │ Weeks 6-8: Train remaining 13 modes                       │ │
+│  │ Weeks 6-8: Train remaining 7 active modes                 │ │
 │  │                                                             │ │
-│  │ Deliverable: 14 trained PyTorch models                    │ │
+│  │ Deliverable: 8 trained PyTorch models                     │ │
 │  └────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 
@@ -72,7 +82,7 @@ This is the **master index** for ChessRecast's complete implementation. It coord
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │ Goal: Deploy AI to Flutter, enable offline play           │ │
 │  │                                                             │ │
-│  │ Week 9:  Convert PyTorch → TFLite (14 models)             │ │
+│  │ Week 9:  Convert PyTorch → TFLite (8 models)              │ │
 │  │ Week 10: Flutter TFLite service + MCTS                    │ │
 │  │ Week 11: UI integration & game controller                 │ │
 │  │ Week 12: Testing, polish, optimization                    │ │
@@ -483,7 +493,7 @@ grep -r "Block" frontend/lib/services/blockchain/
 - Model architecture changes
 - Training approach changes
 - Hardware constraints change
-- New game modes added
+- New game mods added
 
 **Update BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md when**:
 - Cryptography algorithm changes

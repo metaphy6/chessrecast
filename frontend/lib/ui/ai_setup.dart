@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../analytics/ai/ai_manager.dart';
 import '../analytics/ai/ai_player.dart';
-import '../board/items/piece_color.dart';
-import '../modes/modes_enum.dart';
+import '../board/pieces/piece_color.dart';
+import '../mods/mods_enum.dart';
 import '../routes.dart';
 
 /// AI Setup Screen - Configure AI vs AI or Human vs AI games
@@ -14,7 +14,7 @@ class AISetupScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final args = Get.arguments as Map<String, dynamic>?;
-    final initialMode = args?['gameType'] ?? ModesEnum.mercenary;
+    final initialMode = args?['gameType'] ?? ModsEnum.mercenary;
     final customFEN = args?['customFEN'] as String?;
 
     final controller = Get.put(
@@ -69,8 +69,8 @@ class AISetupScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Game Mode Selection
-            _GameModeSelector(controller: controller),
+            // Game Mod Selection
+            _GameModSelector(controller: controller),
             const SizedBox(height: 16),
 
             // Custom Board Info (if applicable)
@@ -150,7 +150,7 @@ class AISetupScreen extends StatelessWidget {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    '• Neural network trained on Mercenary mode\n'
+                    '• Neural network trained on Mercenary Mod\n'
                     '• Strength: ~1800 ELO (intermediate player)\n'
                     '• Uses deep learning for move selection\n'
                     '• Different from rule-based bots',
@@ -171,7 +171,7 @@ class _AISetupController extends GetxController {
   PlayerType whitePlayer = PlayerType.ai;
   PlayerType blackPlayer = PlayerType.human;
   AIPlayerType aiType = AIPlayerType.mercenary1800;
-  ModesEnum selectedMode;
+  ModsEnum selectedMode;
   int moveDelay = 1500;
   bool autoPlay = true;
   String? customFEN;
@@ -193,9 +193,9 @@ class _AISetupController extends GetxController {
     update(['black_player', 'game_type']);
   }
 
-  void setGameMode(ModesEnum mode) {
+  void setGameMod(ModsEnum mode) {
     selectedMode = mode;
-    update(['game_mode']);
+    update(['game_mod']);
   }
 
   void setAutoPlay(bool value) {
@@ -254,7 +254,7 @@ class _AISetupController extends GetxController {
       await aiManager.setupAIVsAI(
         whiteType: aiType,
         blackType: aiType,
-        gameMode: selectedMode,
+        GameMod: selectedMode,
       );
 
       if (autoPlay) {
@@ -268,7 +268,7 @@ class _AISetupController extends GetxController {
       await aiManager.setupHumanVsAI(
         humanColor: humanColor,
         aiType: aiType,
-        gameMode: selectedMode,
+        GameMod: selectedMode,
       );
     }
 
@@ -450,16 +450,16 @@ class _PlayerSelector extends StatelessWidget {
   }
 }
 
-/// Game Mode Selector (reused from bot_setup)
-class _GameModeSelector extends StatelessWidget {
+/// Game Mod Selector
+class _GameModSelector extends StatelessWidget {
   final _AISetupController controller;
 
-  const _GameModeSelector({required this.controller});
+  const _GameModSelector({required this.controller});
 
   @override
   Widget build(BuildContext context) {
     return GetBuilder<_AISetupController>(
-      id: 'game_mode',
+      id: 'game_mod',
       tag: 'ai_setup',
       builder: (c) => Container(
         padding: const EdgeInsets.all(12),
@@ -471,14 +471,14 @@ class _GameModeSelector extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Game Mode',
+              'Game Mod',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            DropdownButton<ModesEnum>(
+            DropdownButton<ModsEnum>(
               value: c.selectedMode,
               isExpanded: true,
-              items: ModesEnum.values.map((mode) {
+              items: ModsEnum.values.map((mode) {
                 return DropdownMenuItem(
                   value: mode,
                   child: Text(mode.displayName),
@@ -486,7 +486,7 @@ class _GameModeSelector extends StatelessWidget {
               }).toList(),
               onChanged: (mode) {
                 if (mode != null) {
-                  c.setGameMode(mode);
+                  c.setGameMod(mode);
                 }
               },
             ),

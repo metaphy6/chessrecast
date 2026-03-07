@@ -1,8 +1,7 @@
 import 'package:get/get.dart';
 import 'ui/game_page.dart';
-import 'ui/game_mode_selection.dart';
+import 'ui/game_mod_selection.dart';
 import 'ui/play_options.dart';
-import 'ui/bot_setup.dart';
 import 'ui/bot_selection_page.dart';
 import 'ui/online_bot_vs_bot_page.dart';
 import 'ui/ai_setup.dart';
@@ -17,7 +16,6 @@ class AppRoutes {
   static const String home = '/';
   static const String playOptions = '/play-options';
   static const String customBoard = '/custom-board';
-  static const String botSetup = '/bot-setup';
   static const String botSelection = '/bot-selection';
   static const String onlineBotVsBot = '/online-bot-vs-bot';
   static const String aiSetup = '/ai-setup';
@@ -27,7 +25,7 @@ class AppRoutes {
   static List<GetPage> routes = [
     GetPage(
       name: home,
-      page: () => const GameModeSelectionPage(),
+      page: () => const GameModSelectionPage(),
       binding: AppBindings(),
     ),
     GetPage(
@@ -48,11 +46,6 @@ class AppRoutes {
     GetPage(
       name: customBoard,
       page: () => const CustomBoardSetupPage(),
-      binding: AppBindings(),
-    ),
-    GetPage(
-      name: botSetup,
-      page: () => const BotSetupScreen(),
       binding: AppBindings(),
     ),
     GetPage(

@@ -43,12 +43,12 @@ class ChessSquare extends StatelessWidget {
         final isValidMove = controller.isValidMoveTarget(position);
         final chessPiece = controller.getPieceAt(position);
 
-        // SNARE MODE: Check if this square is in an entangle zone
+        // Snare Mod: Check if this square is in an entangle zone
         final isEntangleZone = controller.isPositionInEntangleZone(position);
         final hasEntangledPiece =
             chessPiece != null && controller.isPieceEntangled(position);
 
-        // DIAMONDS MODE: Check if this square is in a bishop's diamond zone
+        // Diamonds Mod: Check if this square is in a bishop's diamond zone
         final isDiamondZone = controller.isPositionInDiamondZone(position);
 
         return GestureDetector(
@@ -91,7 +91,7 @@ class ChessSquare extends StatelessWidget {
                   if (isEntangleZone && chessPiece == null)
                     const _EntangleZoneIndicator(),
 
-                  // DIAMONDS MODE: Diamond zone indicator (under pieces)
+                  // Diamonds Mod: Diamond zone indicator (under pieces)
                   if (isDiamondZone && chessPiece == null)
                     const _DiamondZoneIndicator(),
 
@@ -147,12 +147,12 @@ class ChessSquare extends StatelessWidget {
       return _ColorOverlays.validMove;
     }
 
-    // SNARE MODE: Entangle zone gets a purple tint
+    // Snare Mod: Entangle zone gets a purple tint
     if (isEntangleZone) {
       return _ColorOverlays.entangleZone;
     }
 
-    // DIAMONDS MODE: Diamond zone gets a cyan/blue tint
+    // Diamonds Mod: Diamond zone gets a cyan/blue tint
     if (isDiamondZone) {
       return _ColorOverlays.diamondZone;
     }

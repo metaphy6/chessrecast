@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../board/utils/exporter.dart';
-import '../modes/mercenary.dart';
-import '../modes/modes_enum.dart';
+import '../mods/mercenary.dart';
+import '../mods/mods_enum.dart';
 import 'piece_renderer.dart';
 
 class LiveTrainingViewer extends StatefulWidget {
@@ -186,8 +186,8 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
 
     final mode = data['mode'];
     final gameType = mode == 'mercenary'
-        ? ModesEnum.mercenary
-        : ModesEnum.classic;
+        ? ModsEnum.mercenary
+        : ModsEnum.classic;
 
     setState(() {
       currentIteration = data['iteration'];
@@ -245,7 +245,7 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
             try {
               validationBoard = ChessBoard.fromFEN(
                 move.fen!,
-                gameType: ModesEnum.mercenary,
+                gameType: ModsEnum.mercenary,
               );
               print(
                 '   ⚠️ Updated validation board from FEN to continue validation',
@@ -262,7 +262,7 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
               final oldFen = validationBoard.toFEN();
               validationBoard = ChessBoard.fromFEN(
                 move.fen!,
-                gameType: ModesEnum.mercenary,
+                gameType: ModsEnum.mercenary,
               );
               final newFen = validationBoard.toFEN();
               print('   Updated validation board from FEN');
@@ -282,12 +282,12 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
         }
       }
 
-      // Use FEN directly if available (more reliable for custom game modes like Mercenary)
+      // Use FEN directly if available (more reliable for custom game mods like Mercenary)
       if (move.fen != null && move.fen!.isNotEmpty) {
         try {
           final gameType = currentMode == 'mercenary'
-              ? ModesEnum.mercenary
-              : ModesEnum.classic;
+              ? ModsEnum.mercenary
+              : ModsEnum.classic;
           displayBoard = ChessBoard.fromFEN(move.fen!, gameType: gameType);
         } catch (e) {
           print('⚠️ Error parsing FEN, falling back to move: $e');
@@ -322,7 +322,7 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
     }
   }
 
-  /// Validate a Mercenary mode move
+  /// Validate a Mercenary Mod move
   MoveValidationResult _validateMercenaryMove(GameMove move) {
     if (move.move.isEmpty || move.move.length < 4) {
       return MoveValidationResult(
@@ -458,38 +458,52 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
 
     final mode = data['mode'];
     final gameType = mode == 'mercenary'
-        ? ModesEnum.mercenary
-        : ModesEnum.classic;
+        ? ModsEnum.mercenary
+        : ModsEnum.classic;
 
     // Parse moves
     final parsedMoves =
         (data['moves'] as List?)?.map((m) => GameMove.fromJson(m)).toList() ??
         [];
 
-    // Use the FEN from the last move if available (most reliable for Mercenary mode)
+    // Use the FEN from the last move if available (most reliable for Mercenary Mod)
     if (parsedMoves.isNotEmpty && parsedMoves.last.fen != null) {
       try {
         displayBoard = ChessBoard.fromFEN(
           parsedMoves.last.fen!,
           gameType: gameType,
         );
-        print('✅ Loaded board from FEN');
+        // CRITICAL: Also sync validation board so mid-game connections validate correctly
+        validationBoard = ChessBoard.fromFEN(
+          parsedMoves.last.fen!,
+          gameType: gameType,
+        );
+        validationErrors = []; // Clear stale errors from previous game
+        print(
+          '✅ Loaded board + validation board from FEN: ${parsedMoves.last.fen}',
+        );
       } catch (e) {
         print('⚠️ Error loading FEN, replaying moves: $e');
-        // Fallback: Reset and replay all moves
+        // Fallback: Reset and replay all moves on BOTH boards
         displayBoard = ChessBoard.initial(gameType: gameType);
+        validationBoard = ChessBoard.initial(gameType: gameType);
+        validationErrors = [];
         for (var move in parsedMoves) {
           if (move.move.isNotEmpty && move.move.length >= 4) {
             _applyMoveToBoard(move.move);
+            _applyMoveToValidationBoard(move.move);
           }
         }
       }
     } else {
-      // No FEN available - reset and replay all moves
+      // No FEN available - reset and replay all moves on BOTH boards
       displayBoard = ChessBoard.initial(gameType: gameType);
+      validationBoard = ChessBoard.initial(gameType: gameType);
+      validationErrors = [];
       for (var move in parsedMoves) {
         if (move.move.isNotEmpty && move.move.length >= 4) {
           _applyMoveToBoard(move.move);
+          _applyMoveToValidationBoard(move.move);
         }
       }
     }

@@ -6,8 +6,8 @@ export '../piece.dart';
 export '../moves/move.dart';
 
 // Types and enums
-export '../items/piece_color.dart';
-export '../items/piece_type.dart';
+export '../pieces/piece_color.dart';
+export '../pieces/piece_type.dart';
 export '../game_status.dart';
 
 // Chess board and operations

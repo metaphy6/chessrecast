@@ -10,6 +10,58 @@
         "reveal": "always",
         "panel": "shared"
       }
+    },
+    {
+      "label": "Backend: Start Docker Compose",
+      "type": "shell",
+      "command": "docker-compose",
+      "args": ["-f", "${workspaceFolder}/backend/docker-compose.yml", "up", "-d"],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
+      "label": "Backend: Stop Docker Compose",
+      "type": "shell",
+      "command": "docker-compose",
+      "args": ["-f", "${workspaceFolder}/backend/docker-compose.yml", "down"],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      }
+    },
+    {
+      "label": "Backend: Restart Docker Compose",
+      "type": "shell",
+      "command": "docker-compose",
+      "args": ["-f", "${workspaceFolder}/backend/docker-compose.yml", "restart"],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      }
+    },
+    {
+      "label": "Backend: View Docker Logs",
+      "type": "shell",
+      "command": "docker-compose",
+      "args": ["-f", "${workspaceFolder}/backend/docker-compose.yml", "logs", "-f"],
+      "problemMatcher": [],
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": true
+      }
     }
   ]
 }
