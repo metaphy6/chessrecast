@@ -59,7 +59,7 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 - Pawns can promote to King in addition to Q/R/B/N
 - Each player can only promote to King once
 - King is a regular piece (can be captured by any piece if not defended)
-- If king is captured and player has pawns remaining, they lose immediately
+- If king is captured and player has no pawns remaining, they lose immediately
 - If all pawns AND king are lost, game is over (opponent wins)
 - Second king capture = immediate loss
 - King promotion cannot result in immediate check
