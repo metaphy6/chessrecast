@@ -29,10 +29,11 @@ class MCTSNode:
         self.game_state = game_state  # Set at root; lazy for children
         self.is_expanded = False
     
-    def ucb_score(self, parent_visits: int, c_puct: float = 2.5) -> float:
+    def ucb_score(self, parent_visits: int, c_puct: float = 1.5) -> float:
         """Upper Confidence Bound for Trees (UCT) score.
-        c_puct=2.5 encourages broader exploration, critical for Mercenary
-        mode where the branching factor is high.
+        c_puct=1.5 balances exploration/exploitation. Lower than AlphaZero's
+        2.5 because our strong heuristic priors already guide search well;
+        we need depth (exploitation) more than breadth (exploration).
         """
         if self.visit_count == 0:
             return float('inf')
@@ -198,16 +199,17 @@ class ImprovedSelfPlay:
         # learns that having more material is good even when games end in draws.
         # This is critical for Mercenary mode where checkmate is rare.
         #
-        # Raw balance uses /39 normalization — too gentle for learning.
-        # Amplify so a real advantage produces a strong gradient signal:
-        #   1 pawn up  → ~0.09    (noticeable)
-        #   1 piece up → ~0.27    (clear advantage)
-        #   1 rook up  → ~0.45    (strong)
-        #   1 queen up → ~0.81    (near-decisive)
+        # get_material_balance() returns (w-b)/39 in [-1,1].
+        # Multiply by 39 to recover raw difference, then tanh(x*0.3) to
+        # match the non-linear scale used in heuristic_eval().
         # Clipped at ±0.85 to keep draws below actual wins (±1.0).
+        #   1 pawn up  → tanh(0.3) = 0.29   (noticeable)
+        #   1 piece up → tanh(0.9) = 0.72   (strong)
+        #   1 rook up  → tanh(1.5) = 0.91 → clipped 0.85
         if final_value == 0.0 and hasattr(game, 'get_material_balance'):
-            material = game.get_material_balance()
-            final_value = float(np.clip(material * 3.5, -0.85, 0.85))
+            material = game.get_material_balance()  # in [-1, 1], /39 normalized
+            raw_diff = material * 39.0  # recover raw piece-value difference
+            final_value = float(np.clip(math.tanh(raw_diff * 0.3), -0.85, 0.85))
         
         # Assign values from perspective of each player
         for i, entry in enumerate(game_history):
@@ -553,15 +555,16 @@ class ImprovedSelfPlay:
         elif schedule == 'low':
             return 0.2
         elif schedule == 'decay':
-            # Moderate exploration for opening diversity
-            if move_count < 6:
-                return 0.8
-            # Fast decay — with the stronger heuristic, MCTS can
-            # actually tell good from bad, so let it exploit earlier.
-            elif move_count < 14:
-                return max(0.15, 0.8 - (move_count - 6) * 0.081)
+            # Light exploration for opening diversity only.
+            # With strong heuristic priors, MCTS can tell good from bad,
+            # so let it play its best move. Dirichlet noise at root still
+            # injects diversity into the training data.
+            #   temp 0.30 → visit_counts^3.3 → best move gets ~95%+
+            #   temp 0.05 → visit_counts^20  → effectively argmax
+            if move_count < 4:
+                return 0.3
             else:
-                return 0.15
+                return 0.05
         else:
             return 1.0
     
