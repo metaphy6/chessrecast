@@ -427,28 +427,26 @@ class MercenaryBoard:
         """Fast handcrafted evaluation for bootstrapping MCTS.
 
         Returns value in [-1, 1] from White's perspective.
-        Combines material balance, piece activity (central control),
-        and king safety (pawn shield). This gives MCTS a usable value
-        signal before the neural network has learned anything.
+        Components:
+          1. Material balance  (what pieces each side has)
+          2. Hanging pieces    (attacked by cheaper enemy — critical in
+             Mercenary where pawns threaten all 8 adjacent squares)
+          3. Central activity  (pieces near the center have more influence)
+          4. King safety       (pawn shield around king)
 
-        Called thousands of times per game (every MCTS leaf), so must
-        be fast — no legal-move generation.
+        Called at every MCTS leaf (~150 times per move). Uses a single
+        pass to collect piece info, then targeted adjacency checks for
+        threats.
         """
         PIECE_VAL = {
             chess.PAWN: 1.0, chess.KNIGHT: 3.0, chess.BISHOP: 3.0,
             chess.ROOK: 5.0, chess.QUEEN: 9.0,
         }
-        # Central squares get a bonus for piece activity
-        CENTER_BONUS = {}
-        for sq in chess.SQUARES:
-            r, f = chess.square_rank(sq), chess.square_file(sq)
-            # Manhattan distance from center (3.5, 3.5)
-            dist = abs(r - 3.5) + abs(f - 3.5)
-            CENTER_BONUS[sq] = max(0, (3.5 - dist) / 3.5)  # 0..1
 
         w_mat = 0.0; b_mat = 0.0
-        w_activity = 0.0; b_activity = 0.0
+        w_act = 0.0; b_act = 0.0
         w_king_sq = None; b_king_sq = None
+        pieces = []  # (square, piece_type, color, value, rank, file)
 
         for sq in chess.SQUARES:
             p = self.board.piece_at(sq)
@@ -461,48 +459,106 @@ class MercenaryBoard:
                     b_king_sq = sq
                 continue
             val = PIECE_VAL.get(p.piece_type, 0.0)
-            bonus = CENTER_BONUS[sq] * 0.15  # Up to +0.15 per piece
+            r = chess.square_rank(sq)
+            f = chess.square_file(sq)
+            pieces.append((sq, p.piece_type, p.color, val, r, f))
             if p.color == chess.WHITE:
                 w_mat += val
-                w_activity += bonus
             else:
                 b_mat += val
-                b_activity += bonus
+            # Central activity: Manhattan distance from center
+            dist = abs(r - 3.5) + abs(f - 3.5)
+            bonus = max(0.0, (3.5 - dist) / 3.5) * 0.12
+            if p.color == chess.WHITE:
+                w_act += bonus
+            else:
+                b_act += bonus
 
-        # Material component (dominant — captures must matter)
-        mat_score = (w_mat - b_mat) / 39.0  # [-1, 1]
+        # ── 1. Material balance ──
+        mat_score = (w_mat - b_mat) / 39.0
 
-        # Activity component (minor — encourages central play)
-        act_score = (w_activity - b_activity) / 2.5  # roughly [-1, 1]
-
-        # King safety: count friendly pawns adjacent to king
-        w_shield = 0.0; b_shield = 0.0
+        # ── 2. Hanging pieces ──
+        # Build lookup for fast neighbor checks
+        piece_at_sq = {}
+        for sq, ptype, color, val, r, f in pieces:
+            piece_at_sq[sq] = (ptype, color, val)
         if w_king_sq is not None:
-            for dr in [-1, 0, 1]:
-                for df in [-1, 0, 1]:
-                    if dr == 0 and df == 0:
-                        continue
-                    nr = chess.square_rank(w_king_sq) + dr
-                    nf = chess.square_file(w_king_sq) + df
-                    if 0 <= nr <= 7 and 0 <= nf <= 7:
-                        adj = self.board.piece_at(chess.square(nf, nr))
-                        if adj and adj.color == chess.WHITE and adj.piece_type == chess.PAWN:
-                            w_shield += 1.0
+            piece_at_sq[w_king_sq] = (chess.KING, chess.WHITE, 0.0)
         if b_king_sq is not None:
-            for dr in [-1, 0, 1]:
-                for df in [-1, 0, 1]:
+            piece_at_sq[b_king_sq] = (chess.KING, chess.BLACK, 0.0)
+
+        w_hanging = 0.0; b_hanging = 0.0
+        for sq, ptype, color, val, r, f in pieces:
+            if val <= 1.0:
+                continue  # Don't bother checking pawns for hanging
+            cheapest_attacker = 99.0
+            # Adjacent squares: enemy pawns (mercenary: 8-directional)
+            for dr in range(-1, 2):
+                for df in range(-1, 2):
                     if dr == 0 and df == 0:
                         continue
-                    nr = chess.square_rank(b_king_sq) + dr
-                    nf = chess.square_file(b_king_sq) + df
+                    nr, nf = r + dr, f + df
                     if 0 <= nr <= 7 and 0 <= nf <= 7:
-                        adj = self.board.piece_at(chess.square(nf, nr))
-                        if adj and adj.color == chess.BLACK and adj.piece_type == chess.PAWN:
-                            b_shield += 1.0
-        safety_score = (w_shield - b_shield) / 8.0  # [-1, 1]
+                        asq = chess.square(nf, nr)
+                        if asq in piece_at_sq:
+                            at, ac, av = piece_at_sq[asq]
+                            if ac != color and at == chess.PAWN:
+                                cheapest_attacker = min(cheapest_attacker, 1.0)
+            # Knight threats (L-shape)
+            for kdr, kdf in [(-2,-1),(-2,1),(-1,-2),(-1,2),
+                             (1,-2),(1,2),(2,-1),(2,1)]:
+                nr, nf = r + kdr, f + kdf
+                if 0 <= nr <= 7 and 0 <= nf <= 7:
+                    asq = chess.square(nf, nr)
+                    if asq in piece_at_sq:
+                        at, ac, av = piece_at_sq[asq]
+                        if ac != color and at == chess.KNIGHT:
+                            cheapest_attacker = min(cheapest_attacker, 3.0)
+            if cheapest_attacker < val:
+                # Piece attacked by something cheaper → material at risk
+                loss = val - cheapest_attacker
+                if color == chess.WHITE:
+                    w_hanging += loss
+                else:
+                    b_hanging += loss
 
-        # Weighted combination: material >> activity > safety
-        raw = 0.70 * mat_score + 0.20 * act_score + 0.10 * safety_score
+        # Positive = good for White (Black has more hanging)
+        threat_score = (b_hanging - w_hanging) / 16.0
+
+        # ── 3. Central activity ──
+        act_score = (w_act - b_act) / 2.0
+
+        # ── 4. King safety (pawn shield) ──
+        w_shield = 0.0; b_shield = 0.0
+        for ksq, kcolor in [(w_king_sq, chess.WHITE), (b_king_sq, chess.BLACK)]:
+            if ksq is None:
+                continue
+            kr, kf = chess.square_rank(ksq), chess.square_file(ksq)
+            count = 0.0
+            for dr in range(-1, 2):
+                for df in range(-1, 2):
+                    if dr == 0 and df == 0:
+                        continue
+                    nr, nf = kr + dr, kf + df
+                    if 0 <= nr <= 7 and 0 <= nf <= 7:
+                        asq = chess.square(nf, nr)
+                        if asq in piece_at_sq:
+                            at, ac, av = piece_at_sq[asq]
+                            if ac == kcolor and at == chess.PAWN:
+                                count += 1.0
+            if kcolor == chess.WHITE:
+                w_shield = count
+            else:
+                b_shield = count
+        safety_score = (w_shield - b_shield) / 8.0
+
+        # ── Weighted combination ──
+        # Threats weighted equally with material: a queen hanging to a
+        # pawn (loss=8) must score as badly as having already lost it.
+        raw = (0.40 * mat_score
+             + 0.40 * threat_score
+             + 0.12 * act_score
+             + 0.08 * safety_score)
         return max(-1.0, min(1.0, raw))
 
 

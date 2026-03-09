@@ -236,8 +236,10 @@ class ImprovedSelfPlay:
             Probability distribution over legal_moves
         """
         # Create and expand root node
+        # Limit to top 20 moves — focuses search on promising branches
+        # instead of spreading 150 sims across 35+ children.
         root = MCTSNode(prior=1.0, game_state=game)
-        self._expand_node(root, legal_moves, add_noise=True)
+        self._expand_node(root, legal_moves, add_noise=True, max_children=20)
         
         for _ in range(self.num_simulations):
             node = root
@@ -276,6 +278,16 @@ class ImprovedSelfPlay:
                 if child_moves:
                     priors = self._get_move_priors(
                         policy_logits[0], child_moves, node.game_state)
+                    # Prune to top 10 — forces deeper search instead of
+                    # wider. 150 sims / 10 children = ~15 visits each,
+                    # enabling depth 3-4 (vs depth 2 with 35 children).
+                    if len(child_moves) > 10:
+                        top_k = np.argsort(priors)[-10:]
+                        child_moves = [child_moves[i] for i in top_k]
+                        priors = [priors[i] for i in top_k]
+                        total_p = sum(priors)
+                        if total_p > 0:
+                            priors = [p / total_p for p in priors]
                     for move, prior in zip(child_moves, priors):
                         node.children[move.uci()] = MCTSNode(prior=prior)
                     node.is_expanded = True
@@ -286,9 +298,12 @@ class ImprovedSelfPlay:
                 sign = 1 if i % 2 == 0 else -1
                 path_node.update(sign * value)
         
-        # Convert root children visit counts to move probabilities
+        # Convert root children visit counts to move probabilities.
+        # Pruned moves (not in root.children) get 0 visits → 0 probability,
+        # which teaches the policy network those moves are bad.
         visit_counts = np.array([
-            root.children[m.uci()].visit_count for m in legal_moves])
+            root.children[m.uci()].visit_count if m.uci() in root.children else 0
+            for m in legal_moves])
         
         if temperature == 0:
             probs = np.zeros(len(legal_moves))
@@ -304,12 +319,16 @@ class ImprovedSelfPlay:
         return probs
     
     def _expand_node(self, node: 'MCTSNode', legal_moves: List[chess.Move],
-                     add_noise: bool = False):
+                     add_noise: bool = False, max_children: int = 0):
         """Expand a node: evaluate with network, create child stubs.
         
         Children are created without game_state — that's set lazily when
-        the child is first visited during SELECT. This avoids copying the
-        board for all ~30 legal moves when only a few will be explored.
+        the child is first visited during SELECT.
+        
+        max_children: if > 0, only keep the top N moves by prior.
+        This narrows the tree so simulations go deeper instead of wider.
+        With 150 sims and 10 children, each gets ~15 visits → depth 3-4.
+        With 150 sims and 35 children, each gets ~4 visits → depth 2.
         """
         state_tensor = self._board_to_tensor(node.game_state)
         with torch.no_grad():
@@ -323,7 +342,19 @@ class ImprovedSelfPlay:
             noise = np.random.dirichlet([0.3] * len(legal_moves))
             priors = [0.75 * p + 0.25 * n for p, n in zip(priors, noise)]
         
-        for move, prior in zip(legal_moves, priors):
+        # Prune to top K moves by prior
+        if max_children > 0 and len(legal_moves) > max_children:
+            top_indices = np.argsort(priors)[-max_children:]
+            moves_kept = [legal_moves[i] for i in top_indices]
+            priors_kept = [priors[i] for i in top_indices]
+            total = sum(priors_kept)
+            if total > 0:
+                priors_kept = [p / total for p in priors_kept]
+        else:
+            moves_kept = legal_moves
+            priors_kept = priors
+        
+        for move, prior in zip(moves_kept, priors_kept):
             node.children[move.uci()] = MCTSNode(prior=prior)
         node.is_expanded = True
     
@@ -387,31 +418,63 @@ class ImprovedSelfPlay:
                 # Check if the moved piece directly threatens the enemy king
                 # from its destination square. Fast per-piece-type geometry
                 # check — no board push/pop needed.
+                attacker = board.piece_at(move.from_square)
                 enemy_king_sq = board.king(not moving_color)
-                if enemy_king_sq is not None:
-                    attacker = board.piece_at(move.from_square)
-                    if attacker:
-                        gives_check = False
-                        to_r = chess.square_rank(move.to_square)
-                        to_f = chess.square_file(move.to_square)
-                        k_r = chess.square_rank(enemy_king_sq)
-                        k_f = chess.square_file(enemy_king_sq)
-                        dr = abs(to_r - k_r)
-                        df = abs(to_f - k_f)
-                        atype = attacker.piece_type
-                        if atype == chess.PAWN:
-                            # Mercenary pawn: king-like attack (adjacent)
-                            gives_check = dr <= 1 and df <= 1 and (dr > 0 or df > 0)
-                        elif atype == chess.KNIGHT:
-                            gives_check = (dr == 2 and df == 1) or (dr == 1 and df == 2)
-                        elif atype in (chess.BISHOP, chess.QUEEN) and dr == df and dr > 0:
-                            gives_check = True  # Diagonal alignment (approximate)
-                        elif atype in (chess.ROOK, chess.QUEEN) and (dr == 0 or df == 0) and (dr + df) > 0:
-                            gives_check = True  # Rank/file alignment (approximate)
-                        if gives_check:
-                            bonus += 0.12
+                if enemy_king_sq is not None and attacker:
+                    gives_check = False
+                    to_r = chess.square_rank(move.to_square)
+                    to_f = chess.square_file(move.to_square)
+                    k_r = chess.square_rank(enemy_king_sq)
+                    k_f = chess.square_file(enemy_king_sq)
+                    dr = abs(to_r - k_r)
+                    df = abs(to_f - k_f)
+                    atype = attacker.piece_type
+                    if atype == chess.PAWN:
+                        gives_check = dr <= 1 and df <= 1 and (dr > 0 or df > 0)
+                    elif atype == chess.KNIGHT:
+                        gives_check = (dr == 2 and df == 1) or (dr == 1 and df == 2)
+                    elif atype in (chess.BISHOP, chess.QUEEN) and dr == df and dr > 0:
+                        gives_check = True
+                    elif atype in (chess.ROOK, chess.QUEEN) and (dr == 0 or df == 0) and (dr + df) > 0:
+                        gives_check = True
+                    if gives_check:
+                        bonus += 0.12
 
-                priors[i] += bonus
+                # ── Blunder avoidance ──
+                # In Mercenary mode, pawns attack all 8 adjacent squares.
+                # Moving a knight/bishop/rook/queen next to an enemy pawn
+                # usually means losing it. Penalize the prior unless the
+                # capture compensates for the risk.
+                if attacker and attacker.piece_type not in (chess.PAWN, chess.KING):
+                    my_val = PIECE_VAL.get(attacker.piece_type, 0.0)
+                    cap_val = PIECE_VAL.get(victim.piece_type, 0.0) if victim else 0.0
+                    to_r = chess.square_rank(move.to_square)
+                    to_f = chess.square_file(move.to_square)
+                    dest_near_enemy_pawn = False
+                    for adr in range(-1, 2):
+                        if dest_near_enemy_pawn:
+                            break
+                        for adf in range(-1, 2):
+                            if adr == 0 and adf == 0:
+                                continue
+                            nr, nf = to_r + adr, to_f + adf
+                            if 0 <= nr <= 7 and 0 <= nf <= 7:
+                                adj = board.piece_at(chess.square(nf, nr))
+                                if (adj and adj.color != moving_color
+                                        and adj.piece_type == chess.PAWN):
+                                    dest_near_enemy_pawn = True
+                                    break
+                    if dest_near_enemy_pawn:
+                        # Net: gain capture, lose our piece to pawn
+                        net = cap_val - my_val
+                        if net < -1.0:
+                            # Clearly losing (queen walks near pawn)
+                            bonus -= 0.3
+                        elif net < 0:
+                            # Slightly losing (knight near pawn, captures pawn)
+                            bonus -= 0.1
+
+                priors[i] = max(0.001, priors[i] + bonus)
 
             total = sum(priors)
             if total > 0:
