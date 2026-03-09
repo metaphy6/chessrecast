@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter/foundation.dart';
 
@@ -25,9 +26,13 @@ class GameWebSocket {
   }
 
   WebSocketChannel? _channel;
+  StreamSubscription? _subscription;
   String? _currentGameId;
   String? _currentPlayerId;
-  int _retryAttempt = 0;
+  Timer? _reconnectTimer;
+  int _reconnectAttempt = 0;
+  static const int _maxReconnectAttempts = 10;
+  bool _userDisconnected = false;
 
   // Callbacks
   Function(Map<String, dynamic>)? onGameUpdate;
@@ -51,81 +56,120 @@ class GameWebSocket {
 
   /// Connect to a game's WebSocket with retry logic
   void connect(String gameId, String playerId) {
+    _userDisconnected = false;
     if (_channel != null) {
       disconnect();
     }
 
     _currentGameId = gameId;
     _currentPlayerId = playerId;
-    _retryAttempt = 0;
+    _reconnectAttempt = 0;
     _attemptConnection(gameId, playerId);
   }
 
-  /// Attempt WebSocket connection with fallback URLs
+  /// Attempt WebSocket connection with handshake await
   void _attemptConnection(String gameId, String playerId) {
     final urls = _getWebSocketUrls(gameId, playerId);
-
-    if (_retryAttempt >= urls.length) {
-      onError?.call('Failed to connect after ${urls.length} attempts');
+    if (urls.isEmpty) {
+      onError?.call('No WebSocket URLs available');
       return;
     }
 
-    final wsUrl = urls[_retryAttempt];
+    final wsUrl = urls[0]; // use primary URL (platform-dependent)
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
 
-      _channel!.stream.listen(
-        (message) {
-          try {
-            final data = json.decode(message);
-            onGameUpdate?.call(data);
-          } catch (e) {
-            onError?.call('Failed to parse message: $e');
-          }
-        },
-        onError: (error) {
-          // Try next URL if available
-          _retryAttempt++;
-          if (_retryAttempt <
-              _getWebSocketUrls(_currentGameId!, _currentPlayerId!).length) {
-            Future.delayed(const Duration(milliseconds: 500), () {
-              _attemptConnection(_currentGameId!, _currentPlayerId!);
-            });
-          } else {
-            onError?.call(error.toString());
-            _cleanup();
-          }
-        },
-        onDone: () {
-          onDisconnected?.call();
-          _cleanup();
-        },
-      );
+      _channel!.ready.then((_) {
+        _reconnectAttempt = 0;
 
-      onConnected?.call();
+        _subscription = _channel!.stream.listen(
+          (message) {
+            try {
+              final data = json.decode(message);
+              onGameUpdate?.call(data);
+            } catch (e) {
+              onError?.call('Failed to parse message: $e');
+            }
+          },
+          onError: (error) {
+            _handleConnectionLost(error.toString());
+          },
+          onDone: () {
+            _handleConnectionLost('Server closed connection');
+          },
+        );
+
+        onConnected?.call();
+      }).catchError((error) {
+        _handleConnectionLost('Handshake failed: $error');
+      });
     } catch (e) {
-      onError?.call('Connection failed: $e');
-      _cleanup();
+      _handleConnectionLost('Connection failed: $e');
     }
+  }
+
+  /// Handle unexpected connection loss — cleanup and schedule reconnect
+  void _handleConnectionLost(String reason) {
+    _subscription?.cancel();
+    _subscription = null;
+    try {
+      _channel?.sink.close();
+    } catch (_) {}
+    _channel = null;
+
+    onDisconnected?.call();
+
+    if (!_userDisconnected &&
+        _currentGameId != null &&
+        _currentPlayerId != null) {
+      _scheduleReconnect();
+    }
+  }
+
+  void _scheduleReconnect() {
+    if (_reconnectAttempt >= _maxReconnectAttempts) {
+      onError?.call(
+          'Failed to reconnect after $_maxReconnectAttempts attempts');
+      _cleanup();
+      return;
+    }
+
+    final delaySec = (_reconnectAttempt < 4)
+        ? 1 + _reconnectAttempt       // 1, 2, 3, 4
+        : (4 * (1 << (_reconnectAttempt - 4))).clamp(4, 30);
+    _reconnectAttempt++;
+
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(Duration(seconds: delaySec), () {
+      if (!_userDisconnected &&
+          _currentGameId != null &&
+          _currentPlayerId != null) {
+        _attemptConnection(_currentGameId!, _currentPlayerId!);
+      }
+    });
   }
 
   /// Disconnect from WebSocket
   void disconnect() {
-    if (_channel != null) {
+    _userDisconnected = true;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _subscription?.cancel();
+    _subscription = null;
+    try {
       _channel?.sink.close();
-      _cleanup();
-    }
+    } catch (_) {}
+    _cleanup();
   }
 
   /// Send a message through WebSocket
   void send(Map<String, dynamic> message) {
-    if (_channel != null) {
-      try {
-        _channel!.sink.add(json.encode(message));
-      } catch (e) {
-        onError?.call('Failed to send message: $e');
-      }
+    if (_channel == null) return;
+    try {
+      _channel!.sink.add(json.encode(message));
+    } catch (e) {
+      onError?.call('Failed to send message: $e');
     }
   }
 
@@ -138,8 +182,9 @@ class GameWebSocket {
   /// Cleanup internal state
   void _cleanup() {
     _channel = null;
+    _subscription = null;
     _currentGameId = null;
     _currentPlayerId = null;
-    _retryAttempt = 0;
+    _reconnectAttempt = 0;
   }
 }

@@ -20,6 +20,10 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
   final ScrollController _movesScrollController = ScrollController();
   bool isConnected = false;
   String connectionStatus = 'Disconnected';
+  Timer? _reconnectTimer;
+  int _reconnectAttempt = 0;
+  static const int _maxReconnectAttempt = 20;
+  bool _userDisconnected = false; // true when user pressed Disconnect
 
   // Current game state
   int? currentIteration;
@@ -47,8 +51,14 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
 
   @override
   void dispose() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _subscription?.cancel();
-    _channel?.sink.close();
+    _subscription = null;
+    try {
+      _channel?.sink.close();
+    } catch (_) {}
+    _channel = null;
     _hostController.dispose();
     _portController.dispose();
     _movesScrollController.dispose();
@@ -58,70 +68,128 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
   void _connect() {
     final host = _hostController.text;
     final port = _portController.text;
+    _userDisconnected = false;
 
+    // Clean up any previous connection
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _subscription?.cancel();
     _subscription = null;
     try {
       _channel?.sink.close();
-    } catch (e) {
-      print('Error closing previous channel: $e');
-    }
+    } catch (_) {}
     _channel = null;
 
-    setState(() {
-      connectionStatus = 'Connecting...';
-    });
+    if (mounted) {
+      setState(() {
+        connectionStatus = 'Connecting to $host:$port...';
+      });
+    }
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse('ws://$host:$port'));
 
-      _subscription = _channel!.stream.listen(
-        (message) {
-          if (mounted) {
-            _handleMessage(message);
-          }
-        },
-        onError: (error) {
-          print('❌ WebSocket error: $error');
-          if (mounted) {
-            setState(() {
-              connectionStatus = 'Error: $error';
-              isConnected = false;
-            });
-          }
-        },
-        onDone: () {
-          print('📡 WebSocket closed');
-          if (mounted) {
-            setState(() {
-              connectionStatus = 'Disconnected (server closed)';
-              isConnected = false;
-            });
-          }
-        },
-        cancelOnError: false,
-      );
+      // Wait for the WebSocket handshake to actually complete before
+      // declaring the connection open.  Without this, `isConnected` is
+      // set to true while the TCP/WS handshake is still in progress —
+      // causing writes to a half-open sink that freeze the UI.
+      _channel!.ready.then((_) {
+        if (!mounted) return;
+        _reconnectAttempt = 0;
 
-      setState(() {
-        connectionStatus = 'Connected to $host:$port';
-        isConnected = true;
+        _subscription = _channel!.stream.listen(
+          (message) {
+            if (mounted) {
+              _handleMessage(message);
+            }
+          },
+          onError: (error) {
+            print('❌ WebSocket error: $error');
+            _handleConnectionLost('Error: $error');
+          },
+          onDone: () {
+            print('📡 WebSocket closed');
+            _handleConnectionLost('Server closed connection');
+          },
+          cancelOnError: false,
+        );
+
+        if (mounted) {
+          setState(() {
+            connectionStatus = 'Connected to $host:$port';
+            isConnected = true;
+          });
+        }
+        print('✅ Connected to ws://$host:$port');
+      }).catchError((error) {
+        print('❌ WebSocket handshake failed: $error');
+        _handleConnectionLost('Handshake failed');
       });
-
-      print('✅ Connected to ws://$host:$port');
     } catch (e) {
       print('❌ Connection failed: $e');
+      _handleConnectionLost('Failed: $e');
+    }
+  }
+
+  /// Called when the connection drops unexpectedly (error, onDone, handshake
+  /// failure).  Cleans up stale references and schedules an automatic
+  /// reconnect with exponential backoff (1s → 2s → 4s … → 30s).
+  void _handleConnectionLost(String reason) {
+    _subscription?.cancel();
+    _subscription = null;
+    try {
+      _channel?.sink.close();
+    } catch (_) {}
+    _channel = null;
+
+    if (mounted) {
+      setState(() {
+        isConnected = false;
+        connectionStatus = reason;
+      });
+    }
+
+    // Auto-reconnect unless the user deliberately disconnected
+    if (!_userDisconnected && mounted) {
+      _scheduleReconnect();
+    }
+  }
+
+  void _scheduleReconnect() {
+    if (_reconnectAttempt >= _maxReconnectAttempt) {
       if (mounted) {
         setState(() {
-          connectionStatus = 'Failed: $e';
-          isConnected = false;
+          connectionStatus = 'Gave up reconnecting after $_maxReconnectAttempt attempts';
         });
       }
+      return;
     }
+
+    final delaySec = (_reconnectAttempt < 5)
+        ? 1 + _reconnectAttempt          // 1, 2, 3, 4, 5
+        : (5 * (1 << (_reconnectAttempt - 5))).clamp(5, 30); // 5, 10, 20, 30, 30…
+    _reconnectAttempt++;
+
+    if (mounted) {
+      setState(() {
+        connectionStatus = 'Reconnecting in ${delaySec}s (attempt $_reconnectAttempt)...';
+      });
+    }
+
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer(Duration(seconds: delaySec), () {
+      if (mounted && !_userDisconnected) {
+        _connect();
+      }
+    });
   }
 
   void _disconnect() {
     print('🔌 Disconnecting...');
+    _userDisconnected = true;
 
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _subscription?.cancel();
     _subscription = null;
 
@@ -419,25 +487,24 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
 
   /// Send validation error to server
   void _sendValidationError(MoveValidationError error) {
-    if (_channel != null && isConnected) {
-      try {
-        _channel!.sink.add(
-          jsonEncode({
-            'type': 'validation_error',
-            'data': {
-              'move_number': error.moveNumber,
-              'move_uci': error.moveUci,
-              'expected_fen': error.expectedFen,
-              'received_fen': error.receivedFen,
-              'error_message': error.errorMessage,
-              'timestamp': error.timestamp.toIso8601String(),
-            },
-          }),
-        );
-        print('📤 Sent validation error to server');
-      } catch (e) {
-        print('⚠️ Failed to send validation error: $e');
-      }
+    if (_channel == null || !isConnected) return;
+    try {
+      _channel!.sink.add(
+        jsonEncode({
+          'type': 'validation_error',
+          'data': {
+            'move_number': error.moveNumber,
+            'move_uci': error.moveUci,
+            'expected_fen': error.expectedFen,
+            'received_fen': error.receivedFen,
+            'error_message': error.errorMessage,
+            'timestamp': error.timestamp.toIso8601String(),
+          },
+        }),
+      );
+      print('📤 Sent validation error to server');
+    } catch (e) {
+      print('⚠️ Failed to send validation error: $e');
     }
   }
 
