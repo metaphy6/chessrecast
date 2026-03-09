@@ -122,7 +122,6 @@ loss = policy_loss + value_loss
 - `_mcts_search()`: Run simulations, return improved move probs
 - `_get_move_priors()`: Extract policy logits for legal moves
 - `_moves_to_policy_target()`: Convert to 4096-dim training target
-- `GameModRewards`: Custom reward shaping for ChessRecast modes
 
 **Key methods:**
 ```python
@@ -136,7 +135,7 @@ play_game(temperature_schedule='decay'):
     3. Return training examples with learned policies
 ```
 
-### `train_improved.py` (260 lines)
+### Training Script
 **Training improvements:**
 - Uses `ImprovedSelfPlay` instead of `SimpleSelfPlay`
 - Proper `CrossEntropyLoss` for policy (not ignored)
@@ -207,14 +206,7 @@ GAMES_PER_ITERATION = 60
 ## ChessRecast Game Mod Support
 
 ### Mod-Specific Rewards
-The `GameModRewards` class can add bonuses for mode-specific objectives:
-
-**Other Side Mod:**
-```python
-# Reward rook advancement toward opponent's back rank
-if rook_rank == 7:  # Close to goal
-    bonus = +0.2
-```
+Reward shaping for mode-specific objectives is handled inline in each mod's training script.
 
 **Kings' Battle Mod:**
 ```python
@@ -223,15 +215,8 @@ if king_captures_pawn:
     bonus = +0.3  # Unlocks all pieces
 ```
 
-**Diamonds Mod:**
-```python
-# Reward bishop positioning for diamond captures
-if bishop_controls_key_squares:
-    bonus = +0.1
-```
-
 ### Integration with Custom Rules
-To fully support custom modes, you'll need to extend `rules.py`:
+Each game mod implements its own rules via a `GameRules` subclass in its training script:
 
 ```python
 class ChessGamePOC:
@@ -273,7 +258,7 @@ class ChessGamePOC:
 
 ### 1. Export for Flutter
 ```bash
-python trainer/tools/export.py
+python utils/export.py
 ```
 Exports the trained model to TFLite format for Flutter integration.
 
@@ -308,17 +293,13 @@ Play against known benchmarks:
 
 ### Quick Start
 ```bash
-# Build Docker image
-cd ai/docker
-docker-compose -f docker-compose.poc.yml build
-
-# Run improved training (~30 min)
-docker-compose -f docker-compose.poc.yml run --rm trainer \
-    python trainer/train_improved.py
+# Run mercenary training (~6-10 hours on RTX 4080)
+cd ai/docker/mods/mercenary
+docker compose up --build
 
 # Analyze results
-docker-compose -f docker-compose.poc.yml run --rm trainer \
-    python trainer/analyze_training.py
+cd ai/trainer
+python analyze_training.py
 ```
 
 ### Expected Output

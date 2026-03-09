@@ -1,6 +1,6 @@
 # ♟️ ChessRecast
 
-> **AI-powered chess variants — 12 original game mods, self-learning neural networks, and a full-stack mobile platform.**
+> **AI-powered chess variants — 8 original game mods, self-learning neural networks, and a full-stack mobile platform.**
 
 ChessRecast reinvents chess with creative rule variants like Mercenary (king-like pawns), Heir (promotable kings), Truce (no-attack opening phase), and more. Each mode has its own dedicated AI trained via AlphaZero-style reinforcement learning, running on GPU-accelerated Docker containers with live streaming to a Flutter mobile app.
 
@@ -18,10 +18,6 @@ ChessRecast reinvents chess with creative rule variants like Mercenary (king-lik
 | **Kings' Battle** | ⚔️👑 | Two-phase: only pawns/kings until King's Kill | ✅ Active |
 | **Save the Queen** | 🛡️ | Queens start as prisoners on enemy side | ✅ Active |
 | **Succession** | 🏰 | Two queens, race to promote pawn to King | ✅ Active |
-| Coyote | 🐺 | Rook race to back rank | 🚧 Disabled |
-| Snare | 🪤 | Knight entangle zones | 🚧 Disabled |
-| Diamonds | 💎 | Bishop diamond-pattern captures | 🚧 Disabled |
-| Secret Passage | 🚪 | King↔Rook teleport swaps | 🚧 Disabled |
 
 > See [docs/project/GAME_MODS_DOCUMENTATION.md](docs/project/GAME_MODS_DOCUMENTATION.md) for full rules.
 
@@ -147,9 +143,9 @@ cd ai/docker/mods/classic       # ♟️ Classic
 ```powershell
 cd ai/trainer
 pip install -r requirements.txt
-python mods/train_mercenary.py           # Full training
-python mods/train_mercenary.py --test    # Test mode
-python mods/train_mercenary.py --test --delay 1.5  # Slow demo
+python mods/mercenary/mercenary.py           # Full training
+python mods/mercenary/mercenary.py --test    # Test mode
+python mods/mercenary/mercenary.py --test --delay 1.5  # Slow demo
 ```
 
 ---
@@ -210,16 +206,13 @@ ai/
 └── trainer/
     ├── network.py                  # Neural network (ResNet, CPU/GPU)
     ├── selfplay.py                 # MCTS self-play engine
-    ├── rules.py                    # Base chess game wrapper
     ├── requirements.txt
-    ├── mods/                       # game mod rules + training scripts
-    │   ├── base.py                 # GameMod base class
-    │   ├── mercenary.py            # Mercenary rules
-    │   └── train_mercenary.py      # Training entry point
-    └── tools/                      # Utilities
+    ├── mods/                       # Game mod training scripts
+    │   └── mercenary/
+    │       └── mercenary.py        # Mercenary rules + training entry point
+    └── utils/                      # Utilities
         ├── logger.py               # Pretty ANSI console output
         ├── server.py               # WebSocket live streaming
-        ├── recorder.py             # Game recording for viewer
         └── export.py               # TFLite export for Flutter
 ```
 
@@ -266,7 +259,6 @@ frontend/lib/
     ├── game_mod_selection.dart     # Mod picker
     ├── play_options.dart            # Play type selection
     ├── ai_setup.dart                # AI game configuration
-    ├── training_viewer.dart         # Saved training game viewer
     ├── live_training_viewer.dart    # Real-time training stream
     ├── bot_selection_page.dart      # Online bot setup (Go backend)
     └── online_bot_vs_bot_page.dart  # Online bot spectator
@@ -308,7 +300,7 @@ backend/
 | [docs/ai/README_MERCENARY.md](docs/ai/README_MERCENARY.md) | Mercenary mode training details |
 | [docs/ai/IMPROVED_ALGORITHM.md](docs/ai/IMPROVED_ALGORITHM.md) | Policy-guided MCTS algorithm design |
 | [docs/ai/ALGORITHM_FLOW_COMPARISON.md](docs/ai/ALGORITHM_FLOW_COMPARISON.md) | Old vs improved algorithm comparison |
-| [docs/project/GAME_MODS_DOCUMENTATION.md](docs/project/GAME_MODS_DOCUMENTATION.md) | Full rules for all 12 game mods |
+| [docs/project/GAME_MODS_DOCUMENTATION.md](docs/project/GAME_MODS_DOCUMENTATION.md) | Full rules for all 8 game mods |
 | [docs/project/MASTER_IMPLEMENTATION_PLAN.md](docs/project/MASTER_IMPLEMENTATION_PLAN.md) | Project roadmap & phases |
 | [docs/code/docker-commands.md](docs/code/docker-commands.md) | Docker volume & cleanup commands |
 | [docs/code/db-commands.md](docs/code/db-commands.md) | Database access & query reference |

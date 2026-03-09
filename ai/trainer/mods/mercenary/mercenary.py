@@ -37,8 +37,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from network import ChessNetPOC, count_parameters
 from selfplay import ImprovedSelfPlay
 from utils import (
-    GPUMonitor, ChessDataset, save_game_from_history,
-    GameRecorder, get_websocket_server, TrainingLogger
+    GPUMonitor, ChessDataset,
+    get_websocket_server, TrainingLogger
 )
 
 
@@ -619,8 +619,6 @@ def train_mercenary(test_mode=False, move_delay=0.3):
         wins_black = 0
         draws = 0
 
-        game_recorder = GameRecorder() if iteration <= 10 else None
-
         # Log moves for first game of first 5 iterations
         LOG_MOVES_ITERATIONS = 5
 
@@ -628,13 +626,9 @@ def train_mercenary(test_mode=False, move_delay=0.3):
             for game_num in range(GAMES_PER_ITERATION):
                 _game_start = time.time()
                 log_this_game = (iteration <= LOG_MOVES_ITERATIONS and game_num == 0)
-                should_record = game_recorder and game_num < 10
 
                 ws_server.clear_validation_error()
                 ws_server.start_game(iteration, game_num + 1, mode='mercenary')
-
-                if should_record:
-                    game_recorder.start_game(iteration, game_num + 1, mode='mercenary')
 
                 game_history = self_play.play_game(
                     temperature_schedule='decay',
@@ -663,21 +657,13 @@ def train_mercenary(test_mode=False, move_delay=0.3):
                     log.training_game_end(game_num + 1, GAMES_PER_ITERATION,
                                           result, len(game_history))
 
-                if should_record and game_history:
-                    save_game_from_history(
-                        game_recorder, game_history,
-                        iteration, game_num + 1,
-                        mode='mercenary'
-                    )
-
                 if (game_num + 1) % 10 == 0:
                     gpu_util = gpu_monitor.get_utilization()
                     log.games_progress(game_num + 1, GAMES_PER_ITERATION,
                                        len(all_data), wins_white, draws,
                                        wins_black, gpu_util)
 
-        recorded = 10 if game_recorder else 0
-        log.self_play_summary(len(all_data), wins_white, draws, wins_black, recorded)
+        log.self_play_summary(len(all_data), wins_white, draws, wins_black)
 
         # ── Training ──────────────────────────────────────────
         log.training_header(EPOCHS_PER_ITERATION, BATCH_SIZE)

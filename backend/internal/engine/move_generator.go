@@ -857,7 +857,7 @@ func (mg *MoveGenerator) canAttackSquareOnBoard(board *Board, piece *Piece, targ
 		return mg.canPieceReachOnBoard(board, piece, target)
 		
 	case Pawn:
-		// In Royal Pawns mode, pawns attack like kings (all 8 directions)
+		// In Mercenary mode, pawns attack like kings (all 8 directions)
 		if board.Mod == Mercenary {
 			rowDiff := abs(piece.Position.Row - target.Row)
 			colDiff := abs(piece.Position.Col - target.Col)

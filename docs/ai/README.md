@@ -10,8 +10,8 @@
 
 ### Start Mercenary Training
 ```bash
-cd ai/trainer
-python mods/train_mercenary.py
+cd ai/docker/mods/mercenary
+docker compose up --build
 ```
 
 **Configuration:**
@@ -26,7 +26,7 @@ Connect the Live Training Viewer to `ws://localhost:8765` to watch games in real
 ### Export to TFLite
 ```powershell
 cd ai/docker/mods/mercenary
-docker compose run --rm mercenary-trainer python tools/export.py
+docker compose run --rm mercenary-trainer python utils/export.py
 ```
 
 ## File Structure
@@ -63,17 +63,13 @@ ai/
 ├── trainer/
 │   ├── network.py                    # Neural network (CPU/GPU)
 │   ├── selfplay.py                   # Policy + MCTS engine
-│   ├── rules.py                      # Base chess game wrapper
 │   ├── requirements.txt              # Python dependencies (local dev)
 │   ├── mods/                         # Game Mod implementations + training scripts
-│   │   ├── base.py                   # GameMod base class
-│   │   ├── mercenary.py              # Mercenary mode rules
-│   │   ├── train_mercenary.py        # Mercenary training script ⭐
-│   │   └── README.md                 # How to add new modes
-│   └── tools/                        # Helper utilities
+│   │   └── mercenary/
+│   │       └── mercenary.py          # Mercenary rules + training entry point ⭐
+│   └── utils/                        # Helper utilities
 │       ├── logger.py                 # Pretty console output (emoji/ANSI)
 │       ├── server.py                 # WebSocket live streaming server
-│       ├── recorder.py               # Game recording for visualization
 │       └── export.py                 # TFLite export for Flutter
 └── (docs in docs/ai/)
     ├── QUICKSTART.md                  # Quick setup guide
@@ -109,8 +105,6 @@ ai/trainer/
 │   ├── best_model.pth           # Best performing model
 │   ├── checkpoint_*.pth         # Iteration checkpoints
 │   └── training_stats.json      # Training metrics
-├── data/training_games/
-│   └── game_*.json              # Recorded games
 └── models/
     └── mercenary.tflite         # Exported for Flutter
 ```

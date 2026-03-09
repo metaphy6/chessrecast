@@ -414,10 +414,8 @@ class ApiService {
 
     // Build list of URLs to try
     if (Platform.isAndroid) {
-      // For Android emulator, try multiple possibilities
+      // For Android emulator, try emulator host IP
       urls.add('http://10.0.2.2:8080/health');
-      // Try actual host IP as fallback (update if your IP changes)
-      urls.add('http://192.168.0.26:8080/health');
     } else {
       urls.add(baseUrl.replaceAll('/api/v1', '/health'));
     }
@@ -430,10 +428,6 @@ class ApiService {
             .timeout(const Duration(seconds: 5));
 
         if (response.statusCode == 200) {
-          // Update baseUrl if we found a working alternative
-          if (Platform.isAndroid && url.contains('192.168')) {
-            manualBaseUrl = 'http://192.168.0.26:8080/api/v1';
-          }
           return true;
         }
       } catch (e) {

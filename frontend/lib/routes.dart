@@ -5,7 +5,6 @@ import 'ui/play_options.dart';
 import 'ui/bot_selection_page.dart';
 import 'ui/online_bot_vs_bot_page.dart';
 import 'ui/ai_setup.dart';
-import 'ui/training_viewer.dart';
 import 'ui/live_training_viewer.dart';
 import 'analytics/custom/custom_board_setup.dart';
 import 'bindings.dart';
@@ -19,7 +18,6 @@ class AppRoutes {
   static const String botSelection = '/bot-selection';
   static const String onlineBotVsBot = '/online-bot-vs-bot';
   static const String aiSetup = '/ai-setup';
-  static const String trainingViewer = '/training-viewer';
   static const String liveTrainingViewer = '/live-training-viewer';
 
   static List<GetPage> routes = [
@@ -61,11 +59,6 @@ class AppRoutes {
     GetPage(
       name: aiSetup,
       page: () => const AISetupScreen(),
-      binding: AppBindings(),
-    ),
-    GetPage(
-      name: trainingViewer,
-      page: () => const TrainingViewerScreen(),
       binding: AppBindings(),
     ),
     GetPage(

@@ -90,23 +90,6 @@ class StartPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              // Training Viewer Button
-              OutlinedButton.icon(
-                onPressed: () {
-                  Get.toNamed('/training-viewer');
-                },
-                icon: const Icon(Icons.visibility),
-                label: const Text('👁️ Watch AI Training'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  side: BorderSide(color: Colors.orange.shade600, width: 2),
-                  foregroundColor: Colors.orange.shade600,
-                ),
-              ),
-              const SizedBox(height: 12),
               // Live Training Viewer Button
               OutlinedButton.icon(
                 onPressed: () {

@@ -17,13 +17,13 @@ Play random Mercenary games with adjustable speed:
 
 ```bash
 # Default: 0.3s delay
-python mods/train_mercenary.py --test
+python mods/mercenary/mercenary.py --test
 
 # 1 second per move (good for watching)
-python mods/train_mercenary.py --test --delay 1.0
+python mods/mercenary/mercenary.py --test --delay 1.0
 
 # 5 seconds per move (slow demo)
-python mods/train_mercenary.py --test --delay 5.0
+python mods/mercenary/mercenary.py --test --delay 5.0
 ```
 
 ### Training Mod
@@ -32,7 +32,7 @@ Full neural network training:
 
 ```bash
 # Auto-detects GPU/CPU
-python mods/train_mercenary.py
+python mods/mercenary/mercenary.py
 
 # GPU: ~6-10 hours for High ELO
 # CPU: Much longer but functional
@@ -100,17 +100,17 @@ MOVE_DELAY=2.0
 
 ```bash
 cd ai/docker/mods/mercenary
-docker compose run --rm mercenary-trainer python mods/train_mercenary.py
+docker compose run --rm mercenary-trainer python mods/mercenary/mercenary.py
 ```
 
 ### Direct Docker Run
 
 ```bash
 # Test Mod with 1s delay
-sudo docker run -p 8765:8765 -v $(pwd)/trainer:/workspace docker-mercenary-trainer:latest python mods/train_mercenary.py --test --delay 1.0
+sudo docker run -p 8765:8765 -v $(pwd)/trainer:/workspace docker-mercenary-trainer:latest python mods/mercenary/mercenary.py --test --delay 1.0
 
 # Training mode
-sudo docker run -p 8765:8765 -v $(pwd)/trainer:/workspace docker-mercenary-trainer:latest python mods/train_mercenary.py
+sudo docker run -p 8765:8765 -v $(pwd)/trainer:/workspace docker-mercenary-trainer:latest python mods/mercenary/mercenary.py
 ```
 
 ## Connect Flutter App

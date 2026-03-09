@@ -95,7 +95,7 @@ def export_mercenary_model():
     
     if not model_path.exists():
         print(f"\n❌ Model not found: {model_path}")
-        print("   Run mods/train_mercenary.py first!")
+        print("   Run training first (docker compose up)!")
         sys.exit(1)
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'

@@ -501,7 +501,7 @@ func (b *Bot) getModeSpecificScore(board *engine.Board) float64 {
 
 	switch board.Mod {
 	case engine.Mercenary:
-		// In Royal Pawns, pawns move like kings - prioritize pawn advancement and aggression
+		// In Mercenary, pawns move like kings - prioritize pawn advancement and aggression
 		for row := 0; row < 8; row++ {
 			for col := 0; col < 8; col++ {
 				piece := board.GetPieceAt(engine.Position{Row: row, Col: col})
@@ -848,7 +848,7 @@ func (b *Bot) canPieceAttack(board *engine.Board, piece *engine.Piece, target en
 	
 	switch piece.Type {
 	case engine.Pawn:
-		// In Royal Pawns mode, pawns attack like kings (all 8 directions)
+		// In Mercenary mode, pawns attack like kings (all 8 directions)
 		if board.Mod == engine.Mercenary {
 			if abs(dr) <= 1 && abs(dc) <= 1 && (dr != 0 || dc != 0) {
 				return true

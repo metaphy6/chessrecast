@@ -269,9 +269,6 @@ func (b *Board) MakeMove(move Move) error {
 		return errors.New("not your turn")
 	}
 
-	// Track revengeful knight for turn logic
-	revengefulKnight := false
-
 	// Execute the move
 	b.removePiece(move.From)
 	
@@ -328,7 +325,7 @@ func (b *Board) MakeMove(move Move) error {
 		b.executeEnPassant(move)
 	}
 
-	// Move piece to destination (unless revengeful knight destroyed it)
+	// Move piece to destination
 	if piece != nil {
 		piece.Position = move.To
 		piece.HasMoved = true
@@ -354,13 +351,13 @@ func (b *Board) MakeMove(move Move) error {
 	// Update state
 	b.EnPassantSquare = nil
 	if piece != nil && piece.Type == Pawn {
-		// In Royal Pawns mode, pawns move like kings and don't reset the counter
+		// In Mercenary mode, pawns move like kings and don't reset the counter
 		if b.Mod != Mercenary {
 			b.FiftyMoveRule = 0
 		} else {
-			b.FiftyMoveRule++ // Treat pawn moves like regular piece moves in Royal Pawns
+			b.FiftyMoveRule++ // Treat pawn moves like regular piece moves in Mercenary
 		}
-		// Check for en passant opportunity (not applicable in Royal Pawns mode)
+		// Check for en passant opportunity (not applicable in Mercenary mode)
 		if abs(move.From.Row-move.To.Row) == 2 {
 			b.EnPassantSquare = &Position{
 				Row: (move.From.Row + move.To.Row) / 2,
@@ -371,7 +368,7 @@ func (b *Board) MakeMove(move Move) error {
 		b.FiftyMoveRule++
 	}
 
-	// Update castling rights (only if piece still exists after revengeful knight)
+	// Update castling rights
 	if piece != nil {
 		b.updateCastlingRights(piece, move)
 	}
@@ -404,11 +401,8 @@ func (b *Board) MakeMove(move Move) error {
 		}
 	}
 
-	// Switch turn (unless revengeful knight destroyed the attacker or Kings' Kill bonus move)
-	if !revengefulKnight {
-		b.CurrentTurn = b.CurrentTurn.Opposite()
-	}
-	// If revengeful knight, turn stays with the attacker who lost their piece
+	// Switch turn (unless Kings' Kill bonus move)
+	b.CurrentTurn = b.CurrentTurn.Opposite()
 
 	// Add position to history AFTER switching turns so we capture the state with correct next player
 	b.PositionHistory = append(b.PositionHistory, b.GetPositionKey())
