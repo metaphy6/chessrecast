@@ -790,10 +790,12 @@ def train_mercenary(test_mode=False, move_delay=0.3):
         # ── Self-play ─────────────────────────────────────────
         log.self_play_header(GAMES_PER_ITERATION, MCTS_SIMULATIONS, temperature)
 
-        # Heuristic weight: start high (trust handcrafted eval when NN is
-        # random), decay linearly to near-zero as the network improves.
-        # Iteration 1 → 0.80,  50 → 0.60,  100 → 0.40,  200 → 0.0
-        heuristic_weight = max(0.0, 0.80 - 0.80 * ((iteration - 1) / max(1, NUM_ITERATIONS - 1)))
+        # Heuristic weight: start very high (trust handcrafted eval when NN
+        # is random), decay linearly to zero as the network improves.
+        # Iteration 1 → 0.95,  50 → 0.71,  100 → 0.48,  200 → 0.0
+        # At 0.95, only 5% of the value comes from the random NN,
+        # giving MCTS a clean signal for material-based decisions.
+        heuristic_weight = max(0.0, 0.95 - 0.95 * ((iteration - 1) / max(1, NUM_ITERATIONS - 1)))
 
         self_play = ImprovedSelfPlay(
             model, device=DEVICE, num_simulations=MCTS_SIMULATIONS,
