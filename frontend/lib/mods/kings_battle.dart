@@ -2,7 +2,7 @@ import '../board/utils/exporter.dart';
 import '../debug.dart';
 import 'game_mod.dart';
 
-/// Kings' Battle Mode: Two-phase game with restricted movement initially
+/// Kings' Battle Mod: Two-phase game with restricted movement initially
 ///
 /// PHASE 1 (Before King's Kill):
 /// - Only pawns and kings can move
@@ -139,7 +139,6 @@ class KingsBattle implements GameMod {
 
     return false; // Still in Phase 1
   }
-
 
   /// Marks that King's Kill happened and grants a bonus move
   /// This is done by NOT switching the current player

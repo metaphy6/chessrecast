@@ -3,9 +3,9 @@
 ## Overview
 Chess Recast is a novel chess game featuring 12 unique game mods, each introducing different piece movements, board rules, and victory conditions. 8 modes are currently active; 4 are disabled and in development.
 
-### Mode Status
+### Mod Status
 
-| Mode | Status | Emoji |
+| Mod | Status | Emoji |
 |------|--------|-------|
 | Classic | ✅ Active | ♟️ |
 | Mercenary | ✅ Active | ⚔️ |
@@ -22,7 +22,7 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 
 ---
 
-## Classic Mode
+## Classic Mod
 **Description:** Standard chess rules with no modifications.
 - All pieces move according to classical chess rules
 - Checkmate or stalemate ends the game
@@ -31,7 +31,7 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 
 ---
 
-## Diamonds Mode
+## Diamonds Mod
 **Description:** Bishops have split movement and capture patterns.
 **Key Rules:**
 - Bishops move diagonally any distance (normal movement)
@@ -42,7 +42,7 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 
 ---
 
-## Friendly Fire Mode
+## Friendly Fire Mod
 **Description:** Players can capture their own pieces (except kings).
 **Key Rules:**
 - Can capture your own pieces (strategic sacrifice)
@@ -53,7 +53,7 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 
 ---
 
-## Heir Mode
+## Heir Mod
 **Description:** Pawns can promote to King; captured kings can be replaced.
 **Key Rules:**
 - Pawns can promote to King in addition to Q/R/B/N
@@ -68,7 +68,7 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 
 ---
 
-## Kings' Battle Mode
+## Kings' Battle Mod
 **Description:** Two-phase game with restricted movement until "King's Kill" happens.
 **Phase 1 (Before King's Kill):**
 - Only pawns and kings can move
@@ -83,7 +83,7 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 
 ---
 
-## Coyote Mode
+## Coyote Mod
 **Description:** Race to get your rook to opponent's back rank.
 **Win Conditions:**
 - Your rook reaches opponent's back rank (rank 8 for white, rank 1 for black)
@@ -98,7 +98,7 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 
 ---
 
-## Mercenary Mode
+## Mercenary Mod
 **Description:** Pawns move and capture like Kings.
 **Key Rules:**
 - Pawns can move one square in ANY direction (8 directions like a King)
@@ -113,7 +113,7 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 
 ---
 
-## Succession Mode
+## Succession Mod
 **Description:** Race to promote a pawn to King; each side starts with two queens.
 **Setup:**
 - Each side has TWO queens (no king initially)
@@ -132,7 +132,7 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 
 ---
 
-## Save the Queen Mode
+## Save the Queen Mod
 **Description:** Queens are prisoners that must escape to their own half of the board.
 **Queen States:**
 
@@ -160,7 +160,7 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 
 ---
 
-## Snare Mode
+## Snare Mod
 **Description:** Knights create entangle zones that trap enemy pieces.
 **Key Rules:**
 - When two knights of same color defend each other (knight's move apart), they create an "entangle zone"
@@ -175,7 +175,7 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 
 ---
 
-## Secret Passage Mode
+## Secret Passage Mod
 **Description:** Kings and rooks can swap positions when aligned.
 **Rules:**
 - Kings can teleport with friendly rooks on the same rank or file
@@ -190,7 +190,7 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 
 ---
 
-## Truce Mode
+## Truce Mod
 **Description:** No captures allowed until all pieces have moved once.
 **Rules:**
 - Players cannot capture opponent pieces during truce
@@ -203,7 +203,7 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 
 ## Summary Table
 
-| Mode | Core Mechanic | Complexity | Win Condition | Status |
+| Mod | Core Mechanic | Complexity | Win Condition | Status |
 |------|---------------|-----------|--------------|--------|
 | Classic | None | Low | Checkmate | ✅ Active |
 | Mercenary | King-like pawns | Low | Checkmate | ✅ Active |

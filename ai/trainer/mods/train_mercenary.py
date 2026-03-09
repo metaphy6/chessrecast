@@ -1,5 +1,5 @@
 """
-Mercenary Mode AI Training
+Mercenary Mod AI Training
 Maximum GPU utilization with advanced training techniques.
 
 Training Strategy:
@@ -204,7 +204,7 @@ def train_mercenary(test_mode=False, move_delay=0.3):
         BATCH_SIZE = 1
         LEARNING_RATE = 0.0005
         NUM_WORKERS = 0
-        log.config({'Mode': 'Test / Demo', 'Move delay': f'{move_delay}s'}, label='Test Mode Configuration')
+        log.config({'Mod': 'Test / Demo', 'Move delay': f'{move_delay}s'}, label='Test Mod Configuration')
     elif DEVICE == 'cpu':
         # CPU mode: Reduced settings
         NUM_ITERATIONS = 50

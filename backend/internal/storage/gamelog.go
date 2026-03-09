@@ -47,7 +47,7 @@ type GameLogger struct {
 // GameBuilder accumulates moves during a game
 type GameBuilder struct {
 	GameID          string
-	Mode            engine.GameMod
+	Mod            engine.GameMod
 	WhiteMoves      []string
 	BlackMoves      []string
 	WhiteDifficulty int
@@ -250,7 +250,7 @@ func StartGame(gameID string, mode engine.GameMod, whiteDiff, blackDiff int) {
 	buildersMu.Lock()
 	gameBuilders[gameID] = &GameBuilder{
 		GameID:          gameID,
-		Mode:            mode,
+		Mod:            mode,
 		WhiteMoves:      []string{},
 		BlackMoves:      []string{},
 		WhiteDifficulty: whiteDiff,
@@ -323,7 +323,7 @@ func EndGame(gameID string, winner string, winReason string) {
 
 	record := GameRecord{
 		GameID:          gameID,
-		GameMod:        builder.Mode.String(),
+		GameMod:        builder.Mod.String(),
 		WhiteMoves:      strings.Join(builder.WhiteMoves, " "),
 		BlackMoves:      strings.Join(builder.BlackMoves, " "),
 		Winner:          winner,

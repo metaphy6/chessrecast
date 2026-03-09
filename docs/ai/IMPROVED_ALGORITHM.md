@@ -206,24 +206,24 @@ GAMES_PER_ITERATION = 60
 
 ## ChessRecast Game Mod Support
 
-### Mode-Specific Rewards
+### Mod-Specific Rewards
 The `GameModRewards` class can add bonuses for mode-specific objectives:
 
-**Other Side Mode:**
+**Other Side Mod:**
 ```python
 # Reward rook advancement toward opponent's back rank
 if rook_rank == 7:  # Close to goal
     bonus = +0.2
 ```
 
-**Kings' Battle Mode:**
+**Kings' Battle Mod:**
 ```python
 # Reward triggering "King's Kill"
 if king_captures_pawn:
     bonus = +0.3  # Unlocks all pieces
 ```
 
-**Diamonds Mode:**
+**Diamonds Mod:**
 ```python
 # Reward bishop positioning for diamond captures
 if bishop_controls_key_squares:
@@ -237,7 +237,7 @@ To fully support custom modes, you'll need to extend `rules.py`:
 class ChessGamePOC:
     def __init__(self, mode='classic'):
         self.mode = mode
-        # Mode-specific initialization
+        # Mod-specific initialization
     
     def get_mode_specific_reward(self):
         if self.mode == 'other_side':
@@ -369,14 +369,14 @@ Reduces memory by 50%, increases speed by 30%.
 
 ### Current Limitations
 1. **Move encoding**: Doesn't distinguish promotion piece types
-2. **Mode support**: Reward shaping not yet implemented
+2. **Mod support**: Reward shaping not yet implemented
 3. **Opening book**: No pre-programmed openings
 4. **Endgame**: No tablebase (may miss forced mates)
 
 ### Future Enhancements
 1. **Advanced MCTS**: Virtual loss, Dirichlet noise for exploration
 2. **Deeper networks**: 4-8 ResNet blocks for stronger play
-3. **Mode-specific training**: Separate models per game mod
+3. **Mod-specific training**: Separate models per game mod
 4. **Hybrid approach**: Combine with Stockfish for classic mode
 5. **Online learning**: Continue training with human games
 

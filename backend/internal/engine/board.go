@@ -12,7 +12,7 @@ type Board struct {
 	squares [8][8]*Piece
 
 	// Game configuration
-	Mode        GameMod
+	Mod        GameMod
 	CurrentTurn Color
 
 	// State tracking
@@ -28,7 +28,7 @@ type Board struct {
 	BlackCanCastleKingside  bool
 	BlackCanCastleQueenside bool
 
-	// Mode-specific state
+	// Mod-specific state
 	TruceActive              bool              // For Truce mod
 	PieceMoveCounter         map[Position]int  // For Truce mod
 	OpponentStuckInTruce     bool              // For Truce mod - opponent has no valid moves
@@ -41,7 +41,7 @@ type Board struct {
 // NewBoard creates a standard starting position
 func NewBoard(mode GameMod) *Board {
 	b := &Board{
-		Mode:                    mode,
+		Mod:                    mode,
 		CurrentTurn:             White,
 		WhiteCanCastleKingside:  true,
 		WhiteCanCastleQueenside: true,
@@ -81,7 +81,7 @@ type CustomPiece struct {
 // NewBoardWithPieces creates a board with custom piece positions
 func NewBoardWithPieces(mode GameMod, pieces []CustomPiece, currentTurn Color) (*Board, error) {
 	b := &Board{
-		Mode:                    mode,
+		Mod:                    mode,
 		CurrentTurn:             currentTurn,
 		WhiteCanCastleKingside:  false, // Custom boards disable castling by default
 		WhiteCanCastleQueenside: false,
@@ -181,8 +181,8 @@ func (b *Board) setupStandardPosition() {
 		b.setPiece(NewPiece(pieceType, Black, Position{Row: 7, Col: col}))
 	}
 
-	// Mode-specific setup
-	switch b.Mode {
+	// Mod-specific setup
+	switch b.Mod {
 	case SaveTheQueen:
 		b.setupSaveTheQueen()
 	case Succession:
@@ -278,7 +278,7 @@ func (b *Board) MakeMove(move Move) error {
 	// Handle capture
 	if move.CapturedPiece != nil {
 		// Save the Queen mod: If capturing a prisoner queen, return it to prison instead of removing
-		if b.Mode == SaveTheQueen && move.CapturedPiece.Type == Queen {
+		if b.Mod == SaveTheQueen && move.CapturedPiece.Type == Queen {
 			capturedQueenInOwnHalf := (move.CapturedPiece.Color == White && move.To.Row <= 3) ||
 				(move.CapturedPiece.Color == Black && move.To.Row >= 4)
 			
@@ -321,7 +321,7 @@ func (b *Board) MakeMove(move Move) error {
 		b.FiftyMoveRule = 0
 		
 		// DISABLED MOD: Snare - Revengeful knight
-		// if b.Mode == Snare && move.CapturedPiece.Type == Knight {
+		// if b.Mod == Snare && move.CapturedPiece.Type == Knight {
 		// 	capturedColor := move.CapturedPiece.Color
 		// 	remainingKnights := b.CountKnights(capturedColor)
 		// 	if remainingKnights == 0 {
@@ -358,7 +358,7 @@ func (b *Board) MakeMove(move Move) error {
 		}
 
 		// Save the Queen mod: Check if queen has escaped to own half
-		if b.Mode == SaveTheQueen && piece.Type == Queen {
+		if b.Mod == SaveTheQueen && piece.Type == Queen {
 			inOwnHalf := (piece.Color == White && piece.Position.Row <= 3) ||
 				(piece.Color == Black && piece.Position.Row >= 4)
 			b.EscapedQueens[piece.Color] = inOwnHalf
@@ -369,7 +369,7 @@ func (b *Board) MakeMove(move Move) error {
 	b.EnPassantSquare = nil
 	if piece != nil && piece.Type == Pawn {
 		// In Royal Pawns mode, pawns move like kings and don't reset the counter
-		if b.Mode != Mercenary {
+		if b.Mod != Mercenary {
 			b.FiftyMoveRule = 0
 		} else {
 			b.FiftyMoveRule++ // Treat pawn moves like regular piece moves in Royal Pawns
@@ -391,7 +391,7 @@ func (b *Board) MakeMove(move Move) error {
 	}
 
 	// Truce mod: Update piece move counter and check if truce breaks
-	if b.Mode == Truce && b.TruceActive && piece != nil {
+	if b.Mod == Truce && b.TruceActive && piece != nil {
 		// Increment move count for this piece
 		b.PieceMoveCounter[move.From]++
 		
@@ -408,7 +408,7 @@ func (b *Board) MakeMove(move Move) error {
 	b.MoveCount++
 
 	// Kings' Battle mode: Check for King's Kill (First Blood)
-	if b.Mode == KingsBattle && !b.KingsKillUnlock {
+	if b.Mod == KingsBattle && !b.KingsKillUnlock {
 		if piece != nil && piece.Type == King && move.CapturedPiece != nil && move.CapturedPiece.Type == Pawn {
 			// King captured a pawn - unlock all pieces and grant bonus move
 			b.KingsKillUnlock = true
@@ -509,7 +509,7 @@ func (b *Board) updateCastlingRights(piece *Piece, move Move) {
 // Clone creates a deep copy of the board
 func (b *Board) Clone() *Board {
 	clone := &Board{
-		Mode:                    b.Mode,
+		Mod:                    b.Mod,
 		CurrentTurn:             b.CurrentTurn,
 		MoveCount:               b.MoveCount,
 		FiftyMoveRule:           b.FiftyMoveRule,
@@ -606,7 +606,7 @@ func (b *Board) ToFEN() string {
 // IsKingInCheck checks if the king of the given color is in check
 func (b *Board) IsKingInCheck(color Color) bool {
 	// Truce mod: During truce, kings cannot be in check (they move freely)
-	if b.Mode == Truce && b.TruceActive {
+	if b.Mod == Truce && b.TruceActive {
 		return false
 	}
 	

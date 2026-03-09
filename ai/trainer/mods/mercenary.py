@@ -1,5 +1,5 @@
 """
-Mercenary Chess Mode Implementation
+Mercenary Chess Mod Implementation
 ====================================
 Pawns move and capture like Kings (1 square in any direction).
 No en passant, no two-square initial move, no pawn promotion.
