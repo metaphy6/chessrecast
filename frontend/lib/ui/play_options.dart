@@ -112,15 +112,6 @@ class PlayOptionsPage extends StatelessWidget {
               const SizedBox(height: 12),
 
               _PlayOptionCard(
-                title: 'Watch AI Training',
-                subtitle: 'View saved training games',
-                icon: Icons.school,
-                color: Colors.teal.shade600,
-                onTap: () => Get.toNamed('/training-viewer'),
-              ),
-              const SizedBox(height: 12),
-
-              _PlayOptionCard(
                 title: 'Watch Live Training',
                 subtitle: 'Real-time AI training stream',
                 icon: Icons.live_tv,

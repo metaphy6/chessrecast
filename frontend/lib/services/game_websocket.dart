@@ -40,11 +40,8 @@ class GameWebSocket {
     final urls = <String>[];
 
     if (Platform.isAndroid) {
-      // Try both emulator special IP and actual host IP
+      // Android emulator special IP
       urls.add('ws://10.0.2.2:8080/api/v1/ws/game/$gameId?player_id=$playerId');
-      urls.add(
-        'ws://192.168.0.26:8080/api/v1/ws/game/$gameId?player_id=$playerId',
-      );
     } else {
       urls.add('$wsBaseUrl/game/$gameId?player_id=$playerId');
     }

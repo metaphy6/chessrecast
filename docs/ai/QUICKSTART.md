@@ -15,32 +15,23 @@ python -c "import torch; print('CUDA:', torch.cuda.is_available()); print('GPU:'
 
 ## Start Training
 
-### Full Training Mod (6-10 hours on RTX 4080)
+### Full Training (6-10 hours on RTX 4080)
 ```bash
-cd ai/trainer
-python mods/train_mercenary.py
+cd ai/docker/mods/mercenary
+docker compose up --build
 ```
 
-### Test Mod (Watch AI Play - Configurable Delays)
+### Test Mode (Watch AI Play - Configurable Delays)
 
-**Recommended for watching (1.5s per move):**
+Configure speed in `ai/docker/mods/mercenary/.env` (`TEST_MODE=true`, `MOVE_DELAY=1.5`):
 ```bash
-python mods/train_mercenary.py --test --delay 1.5
-```
-
-**Slow demo (5s per move):**
-```bash
-python mods/train_mercenary.py --test --delay 5.0
-```
-
-**Fast test (0.3s per move):**
-```bash
-python mods/train_mercenary.py --test --delay 0.3
+cd ai/docker/mods/mercenary
+docker compose up --build
 ```
 
 ## Watch in Flutter App
 
-1. Start training in test mode: `python mods/train_mercenary.py --test --delay 1.5`
+1. Start training in test mode (Docker or local — see above)
 2. Open ChessRecast Flutter app
 3. Go to "Watch Live Training"
 4. Connect to `localhost:8765`
@@ -54,7 +45,7 @@ See the per-mode compose files in `ai/docker/mods/<mode>/`.
 
 ## Configuration
 
-Edit `mods/train_mercenary.py` to customize:
+Edit `ai/docker/mods/mercenary/.env` or `ai/trainer/mods/mercenary/mercenary.py` to customize:
 - `NUM_ITERATIONS`: Training iterations (default: 200)
 - `GAMES_PER_ITERATION`: Games per iteration (default: 50)
 - `MCTS_SIMULATIONS`: Simulations per move (default: 150)
@@ -63,7 +54,6 @@ Edit `mods/train_mercenary.py` to customize:
 ## Outputs
 
 - **Models**: `ai/trainer/checkpoints/mercenary/`
-- **Training Games**: `ai/trainer/data/training_games/`
 - **WebSocket**: `ws://localhost:8765`
 
 ## Docker Alternative
