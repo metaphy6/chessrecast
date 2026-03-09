@@ -429,15 +429,13 @@ class MercenaryBoard:
 
         Returns value in [-1, 1] from White's perspective.
         Components:
-          1. Material balance  (what pieces each side has)
-          2. Hanging pieces    (attacked by cheaper enemy — critical in
-             Mercenary where pawns threaten all 8 adjacent squares)
-          3. Central activity  (pieces near the center have more influence)
-          4. King safety       (pawn shield around king)
-
-        Called at every MCTS leaf (~150 times per move). Uses a single
-        pass to collect piece info, then targeted adjacency checks for
-        threats.
+          1. Material balance  (tanh-scaled for strong signal)
+          2. Hanging pieces    (attacked by cheaper enemy)
+          3. Piece mobility    (more legal moves = better position)
+          4. Central activity  (pieces near the center)
+          5. King safety       (pawn shield around king)
+          6. Repetition penalty (break move cycles)
+          7. Endgame king chase (drive losing king to corner)
         """
         PIECE_VAL = {
             chess.PAWN: 1.0, chess.KNIGHT: 3.0, chess.BISHOP: 3.0,
@@ -476,17 +474,9 @@ class MercenaryBoard:
                 b_act += bonus
 
         # ── 1. Material balance (non-linear) ──
-        # tanh amplifies material differences so MCTS can actually
-        # hear the signal above UCB exploration noise.
-        #   +1 pawn  → tanh(0.3)  = 0.29  (noticeable)
-        #   +1 piece → tanh(0.9)  = 0.72  (strong)
-        #   +1 rook  → tanh(1.5)  = 0.91  (dominant)
-        #   +1 queen → tanh(2.7)  = 0.99  (near-decisive)
-        # Old linear /39.0 gave +1 piece → 0.08 (invisible).
         mat_score = math.tanh((w_mat - b_mat) * 0.3)
 
         # ── 2. Hanging pieces ──
-        # Build lookup for fast neighbor checks
         piece_at_sq = {}
         for sq, ptype, color, val, r, f in pieces:
             piece_at_sq[sq] = (ptype, color, val)
@@ -498,9 +488,8 @@ class MercenaryBoard:
         w_hanging = 0.0; b_hanging = 0.0
         for sq, ptype, color, val, r, f in pieces:
             if val <= 1.0:
-                continue  # Don't bother checking pawns for hanging
+                continue
             cheapest_attacker = 99.0
-            # Adjacent squares: enemy pawns (mercenary: 8-directional)
             for dr in range(-1, 2):
                 for df in range(-1, 2):
                     if dr == 0 and df == 0:
@@ -512,7 +501,6 @@ class MercenaryBoard:
                             at, ac, av = piece_at_sq[asq]
                             if ac != color and at == chess.PAWN:
                                 cheapest_attacker = min(cheapest_attacker, 1.0)
-            # Knight threats (L-shape)
             for kdr, kdf in [(-2,-1),(-2,1),(-1,-2),(-1,2),
                              (1,-2),(1,2),(2,-1),(2,1)]:
                 nr, nf = r + kdr, f + kdf
@@ -523,20 +511,47 @@ class MercenaryBoard:
                         if ac != color and at == chess.KNIGHT:
                             cheapest_attacker = min(cheapest_attacker, 3.0)
             if cheapest_attacker < val:
-                # Piece attacked by something cheaper → material at risk
                 loss = val - cheapest_attacker
                 if color == chess.WHITE:
                     w_hanging += loss
                 else:
                     b_hanging += loss
-
-        # Positive = good for White (Black has more hanging)
         threat_score = (b_hanging - w_hanging) / 16.0
 
-        # ── 3. Central activity ──
+        # ── 3. Piece mobility ──
+        # Count legal moves for each side.  More mobility = better
+        # position.  This is what differentiates quiet moves: a queen
+        # in the center has ~20 moves, a queen in the corner has ~5.
+        # Without this, ALL non-capture positions score the same,
+        # making the AI shuffle pieces randomly.
+        w_mobility = 0; b_mobility = 0
+        saved_turn = self.board.turn
+        # Count white moves
+        self.board.turn = chess.WHITE
+        for sq, ptype, color, val, r, f in pieces:
+            if color != chess.WHITE:
+                continue
+            p = self.board.piece_at(sq)
+            if p and p.piece_type != chess.PAWN:
+                for m in self._get_pseudo_legal_moves_for_piece(sq, p):
+                    w_mobility += 1
+        # Count black moves
+        self.board.turn = chess.BLACK
+        for sq, ptype, color, val, r, f in pieces:
+            if color != chess.BLACK:
+                continue
+            p = self.board.piece_at(sq)
+            if p and p.piece_type != chess.PAWN:
+                for m in self._get_pseudo_legal_moves_for_piece(sq, p):
+                    b_mobility += 1
+        self.board.turn = saved_turn
+        # Normalize: typical total mobility is ~30-50 per side
+        mobility_score = math.tanh((w_mobility - b_mobility) * 0.05)
+
+        # ── 4. Central activity ──
         act_score = (w_act - b_act) / 2.0
 
-        # ── 4. King safety (pawn shield) ──
+        # ── 5. King safety (pawn shield) ──
         w_shield = 0.0; b_shield = 0.0
         for ksq, kcolor in [(w_king_sq, chess.WHITE), (b_king_sq, chess.BLACK)]:
             if ksq is None:
@@ -560,14 +575,71 @@ class MercenaryBoard:
                 b_shield = count
         safety_score = (w_shield - b_shield) / 8.0
 
+        # ── 6. Repetition penalty ──
+        # Without this the AI shuffles pieces back and forth forever
+        # because repeated positions score identically.  Penalise the
+        # side to move so the search prefers novel positions.
+        rep_penalty = 0.0
+        if self.position_history:
+            fen_key = self.board.fen().split()[0]
+            rep_count = 0
+            for h in self.position_history:
+                if h == fen_key:
+                    rep_count += 1
+            # Current position is already in history, so count - 1
+            # gives the number of PREVIOUS occurrences.
+            rep_count = max(0, rep_count - 1)
+            if rep_count >= 2:
+                rep_penalty = -0.25  # Strongly discourage 3-fold
+            elif rep_count >= 1:
+                rep_penalty = -0.10  # Mildly discourage 2-fold
+            # Penalty is from the side-to-move’s perspective.
+            # Convert to White’s perspective for the combined score.
+            if not self.board.turn:  # Black to move
+                rep_penalty = -rep_penalty
+
+        # ── 7. Endgame king chase ──
+        # When one side is ahead in material and pieces are few,
+        # drive the losing king toward the corner (where checkmate
+        # is easier) and bring our king closer to the enemy king.
+        # Without this, endgames are aimless shuffling.
+        chase_score = 0.0
+        total_mat = w_mat + b_mat
+        if total_mat <= 20.0 and w_king_sq is not None and b_king_sq is not None:
+            mat_diff = w_mat - b_mat
+            if abs(mat_diff) >= 2.0:  # Meaningful advantage
+                # Determine which side is ahead
+                if mat_diff > 0:
+                    winner_king = w_king_sq
+                    loser_king = b_king_sq
+                    sign = 1.0
+                else:
+                    winner_king = b_king_sq
+                    loser_king = w_king_sq
+                    sign = -1.0
+                # Push loser king to corner: distance from center
+                lr = chess.square_rank(loser_king)
+                lf = chess.square_file(loser_king)
+                corner_dist = max(abs(lr - 3.5), abs(lf - 3.5))  # 0.5 to 3.5
+                corner_bonus = corner_dist / 3.5  # 0 to 1 (1 = in corner)
+                # Bring winner king closer to loser king
+                wr = chess.square_rank(winner_king)
+                wf = chess.square_file(winner_king)
+                king_dist = abs(wr - lr) + abs(wf - lf)  # 1 to 14
+                proximity_bonus = (14 - king_dist) / 14.0  # 0 to 1
+                # Scale by advantage magnitude
+                advantage = min(abs(mat_diff) / 9.0, 1.0)  # 0 to 1
+                chase_score = sign * advantage * (
+                    0.15 * corner_bonus + 0.10 * proximity_bonus)
+
         # ── Weighted combination ──
-        # Material dominant now that tanh amplifies differences.
-        # Threats still important but secondary (tanh material already
-        # penalises being down material after a piece hangs).
-        raw = (0.55 * mat_score
-             + 0.25 * threat_score
-             + 0.12 * act_score
-             + 0.08 * safety_score)
+        raw = (0.40 * mat_score
+             + 0.18 * threat_score
+             + 0.15 * mobility_score
+             + 0.08 * act_score
+             + 0.04 * safety_score
+             + rep_penalty
+             + chase_score)
         return max(-1.0, min(1.0, raw))
 
 
