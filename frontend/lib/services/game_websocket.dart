@@ -80,30 +80,32 @@ class GameWebSocket {
     try {
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
 
-      _channel!.ready.then((_) {
-        _reconnectAttempt = 0;
+      _channel!.ready
+          .then((_) {
+            _reconnectAttempt = 0;
 
-        _subscription = _channel!.stream.listen(
-          (message) {
-            try {
-              final data = json.decode(message);
-              onGameUpdate?.call(data);
-            } catch (e) {
-              onError?.call('Failed to parse message: $e');
-            }
-          },
-          onError: (error) {
-            _handleConnectionLost(error.toString());
-          },
-          onDone: () {
-            _handleConnectionLost('Server closed connection');
-          },
-        );
+            _subscription = _channel!.stream.listen(
+              (message) {
+                try {
+                  final data = json.decode(message);
+                  onGameUpdate?.call(data);
+                } catch (e) {
+                  onError?.call('Failed to parse message: $e');
+                }
+              },
+              onError: (error) {
+                _handleConnectionLost(error.toString());
+              },
+              onDone: () {
+                _handleConnectionLost('Server closed connection');
+              },
+            );
 
-        onConnected?.call();
-      }).catchError((error) {
-        _handleConnectionLost('Handshake failed: $error');
-      });
+            onConnected?.call();
+          })
+          .catchError((error) {
+            _handleConnectionLost('Handshake failed: $error');
+          });
     } catch (e) {
       _handleConnectionLost('Connection failed: $e');
     }
@@ -130,13 +132,15 @@ class GameWebSocket {
   void _scheduleReconnect() {
     if (_reconnectAttempt >= _maxReconnectAttempts) {
       onError?.call(
-          'Failed to reconnect after $_maxReconnectAttempts attempts');
+        'Failed to reconnect after $_maxReconnectAttempts attempts',
+      );
       _cleanup();
       return;
     }
 
     final delaySec = (_reconnectAttempt < 4)
-        ? 1 + _reconnectAttempt       // 1, 2, 3, 4
+        ? 1 +
+              _reconnectAttempt // 1, 2, 3, 4
         : (4 * (1 << (_reconnectAttempt - 4))).clamp(4, 30);
     _reconnectAttempt++;
 
