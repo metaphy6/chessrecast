@@ -402,6 +402,7 @@ class ImprovedSelfPlay:
 
             for i, move in enumerate(legal_moves):
                 bonus = 0.0
+                victim_val = 0.0
 
                 # ── MVV-LVA capture bonus ──
                 victim = board.piece_at(move.to_square)
@@ -414,16 +415,44 @@ class ImprovedSelfPlay:
                     # queen takes pawn → 1.0 * 0.3 * 0.06 = 0.018
                     bonus += victim_val * atk_discount * 0.06
 
-                # ── Check bonus (lightweight) ──
-                # Check if the moved piece directly threatens the enemy king
-                # from its destination square. Fast per-piece-type geometry
-                # check — no board push/pop needed.
+                # ── Compute destination info once ──
                 attacker = board.piece_at(move.from_square)
+                to_r = chess.square_rank(move.to_square)
+                to_f = chess.square_file(move.to_square)
+
+                # Scan 8 adjacent squares for enemy pawns (one pass,
+                # reused by safe-capture, blunder avoidance, and check).
+                dest_near_enemy_pawn = False
+                for adr in range(-1, 2):
+                    if dest_near_enemy_pawn:
+                        break
+                    for adf in range(-1, 2):
+                        if adr == 0 and adf == 0:
+                            continue
+                        nr, nf = to_r + adr, to_f + adf
+                        if 0 <= nr <= 7 and 0 <= nf <= 7:
+                            adj = board.piece_at(chess.square(nf, nr))
+                            if (adj and adj.color != moving_color
+                                    and adj.piece_type == chess.PAWN):
+                                dest_near_enemy_pawn = True
+                                break
+
+                # ── Safe-capture bonus ──
+                # A capture where no enemy pawn defends the square is
+                # almost certainly free material.  Give a huge boost so
+                # MCTS pours simulations into verifying it.
+                #   pawn×knight (undefended) → 3.0 * 0.20 = +0.60
+                #   pawn×queen  (undefended) → 9.0 * 0.20 = +1.80
+                # These dwarf the base network prior (~0.03), so MCTS
+                # will always explore free captures first.
+                if victim is not None and victim.piece_type != chess.KING:
+                    if not dest_near_enemy_pawn:
+                        bonus += victim_val * 0.20
+
+                # ── Check bonus (lightweight) ──
                 enemy_king_sq = board.king(not moving_color)
                 if enemy_king_sq is not None and attacker:
                     gives_check = False
-                    to_r = chess.square_rank(move.to_square)
-                    to_f = chess.square_file(move.to_square)
                     k_r = chess.square_rank(enemy_king_sq)
                     k_f = chess.square_file(enemy_king_sq)
                     dr = abs(to_r - k_r)
@@ -441,38 +470,17 @@ class ImprovedSelfPlay:
                         bonus += 0.12
 
                 # ── Blunder avoidance ──
-                # In Mercenary mode, pawns attack all 8 adjacent squares.
-                # Moving a knight/bishop/rook/queen next to an enemy pawn
-                # usually means losing it. Penalize the prior unless the
-                # capture compensates for the risk.
-                if attacker and attacker.piece_type not in (chess.PAWN, chess.KING):
+                # Penalise moving a valuable piece next to an enemy pawn
+                # (mercenary pawns attack all 8 adjacent squares).
+                if (attacker and dest_near_enemy_pawn
+                        and attacker.piece_type not in (chess.PAWN, chess.KING)):
                     my_val = PIECE_VAL.get(attacker.piece_type, 0.0)
-                    cap_val = PIECE_VAL.get(victim.piece_type, 0.0) if victim else 0.0
-                    to_r = chess.square_rank(move.to_square)
-                    to_f = chess.square_file(move.to_square)
-                    dest_near_enemy_pawn = False
-                    for adr in range(-1, 2):
-                        if dest_near_enemy_pawn:
-                            break
-                        for adf in range(-1, 2):
-                            if adr == 0 and adf == 0:
-                                continue
-                            nr, nf = to_r + adr, to_f + adf
-                            if 0 <= nr <= 7 and 0 <= nf <= 7:
-                                adj = board.piece_at(chess.square(nf, nr))
-                                if (adj and adj.color != moving_color
-                                        and adj.piece_type == chess.PAWN):
-                                    dest_near_enemy_pawn = True
-                                    break
-                    if dest_near_enemy_pawn:
-                        # Net: gain capture, lose our piece to pawn
-                        net = cap_val - my_val
-                        if net < -1.0:
-                            # Clearly losing (queen walks near pawn)
-                            bonus -= 0.3
-                        elif net < 0:
-                            # Slightly losing (knight near pawn, captures pawn)
-                            bonus -= 0.1
+                    cap_val = victim_val if victim else 0.0
+                    net = cap_val - my_val
+                    if net < -1.0:
+                        bonus -= 0.35
+                    elif net < 0:
+                        bonus -= 0.12
 
                 priors[i] = max(0.001, priors[i] + bonus)
 
@@ -545,14 +553,15 @@ class ImprovedSelfPlay:
         elif schedule == 'low':
             return 0.2
         elif schedule == 'decay':
-            # Broad exploration for opening diversity
-            if move_count < 8:
-                return 1.0
-            # Quick decay to exploitation
-            elif move_count < 20:
-                return max(0.2, 1.0 - (move_count - 8) * 0.067)
+            # Moderate exploration for opening diversity
+            if move_count < 6:
+                return 0.8
+            # Fast decay — with the stronger heuristic, MCTS can
+            # actually tell good from bad, so let it exploit earlier.
+            elif move_count < 14:
+                return max(0.15, 0.8 - (move_count - 6) * 0.081)
             else:
-                return 0.2
+                return 0.15
         else:
             return 1.0
     

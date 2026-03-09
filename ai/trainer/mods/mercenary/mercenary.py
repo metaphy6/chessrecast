@@ -15,6 +15,7 @@ Usage:
   python mercenary.py --test             # Random games (rule testing)
   python mercenary.py --test --delay 1   # Slow demo mode
 """
+import math
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -474,8 +475,15 @@ class MercenaryBoard:
             else:
                 b_act += bonus
 
-        # ── 1. Material balance ──
-        mat_score = (w_mat - b_mat) / 39.0
+        # ── 1. Material balance (non-linear) ──
+        # tanh amplifies material differences so MCTS can actually
+        # hear the signal above UCB exploration noise.
+        #   +1 pawn  → tanh(0.3)  = 0.29  (noticeable)
+        #   +1 piece → tanh(0.9)  = 0.72  (strong)
+        #   +1 rook  → tanh(1.5)  = 0.91  (dominant)
+        #   +1 queen → tanh(2.7)  = 0.99  (near-decisive)
+        # Old linear /39.0 gave +1 piece → 0.08 (invisible).
+        mat_score = math.tanh((w_mat - b_mat) * 0.3)
 
         # ── 2. Hanging pieces ──
         # Build lookup for fast neighbor checks
@@ -553,10 +561,11 @@ class MercenaryBoard:
         safety_score = (w_shield - b_shield) / 8.0
 
         # ── Weighted combination ──
-        # Threats weighted equally with material: a queen hanging to a
-        # pawn (loss=8) must score as badly as having already lost it.
-        raw = (0.40 * mat_score
-             + 0.40 * threat_score
+        # Material dominant now that tanh amplifies differences.
+        # Threats still important but secondary (tanh material already
+        # penalises being down material after a piece hangs).
+        raw = (0.55 * mat_score
+             + 0.25 * threat_score
              + 0.12 * act_score
              + 0.08 * safety_score)
         return max(-1.0, min(1.0, raw))
@@ -620,7 +629,7 @@ def train_mercenary(test_mode=False, move_delay=0.3):
     else:
         NUM_ITERATIONS = 200
         GAMES_PER_ITERATION = 50
-        MCTS_SIMULATIONS = 150
+        MCTS_SIMULATIONS = 300
         EPOCHS_PER_ITERATION = 15
         BATCH_SIZE = 512
         LEARNING_RATE = 0.0005
