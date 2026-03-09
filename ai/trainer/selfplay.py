@@ -129,13 +129,28 @@ class ImprovedSelfPlay:
             
             # Temperature for this move
             temperature = self._get_temperature(move_count, temperature_schedule)
-            
-            # Run MCTS to get improved move probabilities
-            move_probs = self._mcts_search(game, legal_moves, temperature)
-            
-            # Sample move based on improved probabilities
-            chosen_move_idx = np.random.choice(len(legal_moves), p=move_probs)
-            chosen_move = legal_moves[chosen_move_idx]
+
+            # ── Forced winning capture (classic chess AI) ──
+            # Before burning 300 MCTS sims, check if there's a capture
+            # that clearly wins material after all recaptures resolve.
+            # If so, play it immediately — no search needed for the
+            # obvious.  Policy target is set to one-hot on the capture
+            # so the NN learns "this capture is always correct".
+            forced, forced_score = self._find_winning_capture(game, legal_moves)
+            if forced is not None:
+                move_probs = np.zeros(len(legal_moves))
+                for idx, m in enumerate(legal_moves):
+                    if m == forced:
+                        move_probs[idx] = 1.0
+                        break
+                chosen_move_idx = np.argmax(move_probs)
+                chosen_move = forced
+            else:
+                # Run MCTS to get improved move probabilities
+                move_probs = self._mcts_search(game, legal_moves, temperature)
+                # Sample move based on improved probabilities
+                chosen_move_idx = np.random.choice(len(legal_moves), p=move_probs)
+                chosen_move = legal_moves[chosen_move_idx]
             
             # Store training example
             game_history.append({
@@ -516,26 +531,141 @@ class ImprovedSelfPlay:
         tensor = torch.from_numpy(board_array).permute(2, 0, 1).unsqueeze(0)
         return tensor.to(self.device).float()
 
-    def _get_heuristic_value(self, game_state) -> float:
-        """Get handcrafted evaluation from the game state.
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    #  QUIESCENCE SEARCH — the classic chess AI technique
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    #
+    # Every strong chess engine (Stockfish, etc.) uses this: NEVER
+    # evaluate a position where captures are available.  Instead,
+    # play out all capture chains until the position is "quiet",
+    # then evaluate.  This guarantees free captures are never missed.
+    #
+    # Without quiescence, MCTS might evaluate a position where our
+    # queen hangs to a pawn as "equal" because the static eval
+    # runs before the opponent captures it.  With quiescence, the
+    # search plays pawn×queen automatically and evaluates the
+    # resulting position (down a queen) correctly.
 
-        Returns value from the *current side to move*'s perspective, which
-        is what MCTS expects (positive = good for the player whose turn it
-        is at this node).
+    _QS_PIECE_VAL = {
+        chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
+        chess.ROOK: 5, chess.QUEEN: 9,
+    }
+
+    def _get_heuristic_value(self, game_state) -> float:
+        """Evaluate position using quiescence search.
+
+        Plays out all capture sequences before evaluating, preventing
+        tactical blindness.  This is what makes classic chess AIs strong
+        at tactics — they never evaluate "noisy" positions.
+
+        Returns value from side-to-move's perspective in [-1, 1].
         """
+        return self._quiescence(game_state, alpha=-1.0, beta=1.0, depth=0)
+
+    def _quiescence(self, game_state, alpha: float, beta: float,
+                    depth: int) -> float:
+        """Capture-only alpha-beta search (quiescence).
+
+        At each node:
+          1. "Stand pat" — evaluate statically.  If the eval already
+             beats beta, the opponent would never allow this line
+             (beta cutoff).  If it raises alpha, remember it.
+          2. Generate all captures, ordered Most-Valuable-Victim first
+             for maximum pruning.
+          3. Recurse on each capture via negamax.
+          4. Prune branches that can't beat alpha (delta pruning).
+
+        Depth limit 6 keeps the branching bounded.  In practice
+        alpha-beta prunes most branches, so ~5-15 nodes are visited
+        per call.
+        """
+        stand_pat = self._raw_heuristic(game_state)
+
+        if depth >= 6:
+            return stand_pat
+
+        if stand_pat >= beta:
+            return beta            # Beta cutoff
+        if stand_pat > alpha:
+            alpha = stand_pat
+
+        # ── Generate & sort captures (MVV ordering) ──
+        captures = []
+        for move in game_state.get_legal_moves():
+            victim = game_state.board.piece_at(move.to_square)
+            if victim and victim.piece_type != chess.KING:
+                captures.append(
+                    (self._QS_PIECE_VAL.get(victim.piece_type, 0), move))
+
+        if not captures:
+            return stand_pat      # Quiet position — eval is accurate
+
+        captures.sort(reverse=True)  # Most valuable victim first
+
+        for victim_val, move in captures:
+            # Delta pruning: if capturing this piece can't possibly
+            # raise alpha, skip it.  (stand_pat + victim_val < alpha)
+            if stand_pat + victim_val / 9.0 + 0.05 < alpha:
+                continue
+
+            child = game_state.copy()
+            child.make_move(move)
+            # Negamax: opponent's score is the negative of ours
+            score = -self._quiescence(child, -beta, -alpha, depth + 1)
+
+            if score >= beta:
+                return beta        # Beta cutoff
+            if score > alpha:
+                alpha = score
+
+        return alpha
+
+    def _raw_heuristic(self, game_state) -> float:
+        """Static eval from side-to-move's perspective (no search)."""
         if hasattr(game_state, 'heuristic_eval'):
             raw = game_state.heuristic_eval()  # White's perspective
-            # Flip if it's Black's turn
             if hasattr(game_state, 'board') and not game_state.board.turn:
                 raw = -raw
             return raw
-        # Fallback: material balance only
         if hasattr(game_state, 'get_material_balance'):
             raw = game_state.get_material_balance()
             if hasattr(game_state, 'board') and not game_state.board.turn:
                 raw = -raw
             return raw
         return 0.0
+
+    def _find_winning_capture(self, game_state,
+                              legal_moves: List[chess.Move]):
+        """Find a capture that clearly wins material after all recaptures.
+
+        Uses quiescence search to verify the capture is sound.  If the
+        best capture exceeds the stand-pat value by ≥ 0.15 (~half a pawn
+        on the tanh scale), return it.  Otherwise return None.
+
+        This is the "forced capture" mechanism: when there's a free piece
+        on the board, the AI takes it immediately without burning 300
+        MCTS simulations to re-discover the obvious.
+        """
+        stand_pat = self._quiescence(game_state, -1.0, 1.0, depth=0)
+
+        best_move = None
+        best_score = stand_pat
+
+        for move in legal_moves:
+            victim = game_state.board.piece_at(move.to_square)
+            if not victim or victim.piece_type == chess.KING:
+                continue
+            child = game_state.copy()
+            child.make_move(move)
+            score = -self._quiescence(child, -1.0, 1.0, depth=0)
+            if score > best_score:
+                best_score = score
+                best_move = move
+
+        # Only force if the gain is significant
+        if best_move and (best_score - stand_pat) >= 0.15:
+            return best_move, best_score
+        return None, 0.0
     
     def _get_temperature(self, move_count: int, schedule: str) -> float:
         """
