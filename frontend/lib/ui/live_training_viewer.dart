@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../board/utils/exporter.dart';
-import '../mods/mercenary.dart';
 import '../mods/mods_enum.dart';
 import 'piece_renderer.dart';
 
@@ -93,38 +92,40 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
       // declaring the connection open.  Without this, `isConnected` is
       // set to true while the TCP/WS handshake is still in progress —
       // causing writes to a half-open sink that freeze the UI.
-      _channel!.ready.then((_) {
-        if (!mounted) return;
-        _reconnectAttempt = 0;
+      _channel!.ready
+          .then((_) {
+            if (!mounted) return;
+            _reconnectAttempt = 0;
 
-        _subscription = _channel!.stream.listen(
-          (message) {
+            _subscription = _channel!.stream.listen(
+              (message) {
+                if (mounted) {
+                  _handleMessage(message);
+                }
+              },
+              onError: (error) {
+                print('❌ WebSocket error: $error');
+                _handleConnectionLost('Error: $error');
+              },
+              onDone: () {
+                print('📡 WebSocket closed');
+                _handleConnectionLost('Server closed connection');
+              },
+              cancelOnError: false,
+            );
+
             if (mounted) {
-              _handleMessage(message);
+              setState(() {
+                connectionStatus = 'Connected to $host:$port';
+                isConnected = true;
+              });
             }
-          },
-          onError: (error) {
-            print('❌ WebSocket error: $error');
-            _handleConnectionLost('Error: $error');
-          },
-          onDone: () {
-            print('📡 WebSocket closed');
-            _handleConnectionLost('Server closed connection');
-          },
-          cancelOnError: false,
-        );
-
-        if (mounted) {
-          setState(() {
-            connectionStatus = 'Connected to $host:$port';
-            isConnected = true;
+            print('✅ Connected to ws://$host:$port');
+          })
+          .catchError((error) {
+            print('❌ WebSocket handshake failed: $error');
+            _handleConnectionLost('Handshake failed');
           });
-        }
-        print('✅ Connected to ws://$host:$port');
-      }).catchError((error) {
-        print('❌ WebSocket handshake failed: $error');
-        _handleConnectionLost('Handshake failed');
-      });
     } catch (e) {
       print('❌ Connection failed: $e');
       _handleConnectionLost('Failed: $e');
@@ -159,20 +160,26 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
     if (_reconnectAttempt >= _maxReconnectAttempt) {
       if (mounted) {
         setState(() {
-          connectionStatus = 'Gave up reconnecting after $_maxReconnectAttempt attempts';
+          connectionStatus =
+              'Gave up reconnecting after $_maxReconnectAttempt attempts';
         });
       }
       return;
     }
 
     final delaySec = (_reconnectAttempt < 5)
-        ? 1 + _reconnectAttempt          // 1, 2, 3, 4, 5
-        : (5 * (1 << (_reconnectAttempt - 5))).clamp(5, 30); // 5, 10, 20, 30, 30…
+        ? 1 +
+              _reconnectAttempt // 1, 2, 3, 4, 5
+        : (5 * (1 << (_reconnectAttempt - 5))).clamp(
+            5,
+            30,
+          ); // 5, 10, 20, 30, 30…
     _reconnectAttempt++;
 
     if (mounted) {
       setState(() {
-        connectionStatus = 'Reconnecting in ${delaySec}s (attempt $_reconnectAttempt)...';
+        connectionStatus =
+            'Reconnecting in ${delaySec}s (attempt $_reconnectAttempt)...';
       });
     }
 
@@ -421,17 +428,11 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
         );
       }
 
-      // Get legal moves for this piece
-      List<ChessMove> legalMoves;
-      if (piece.type == PieceType.pawn) {
-        // Use Mercenary pawn rules
-        // ignore: deprecated_member_use
-        const mercenary = Mercenary();
-        legalMoves = mercenary.getPawnMoves(piece, validationBoard) ?? [];
-      } else {
-        // Standard piece moves (with check validation)
-        legalMoves = validationBoard.getValidMovesFor(from);
-      }
+      // Get legal moves for this piece (includes king-safety filtering).
+      // getValidMovesFor already delegates to Mercenary pawn rules via
+      // _getPawnMoves → mods.mercenary.getPawnMoves, then filters out
+      // moves that leave the king in check — so it works for ALL pieces.
+      final legalMoves = validationBoard.getValidMovesFor(from);
 
       // Check if the move is in legal moves
       final isLegal = legalMoves.any((m) => m.from == from && m.to == to);
