@@ -57,7 +57,13 @@ class MercenaryMode:
         return "mercenary"
 
     def get_pawn_moves(self, board: chess.Board, from_square: int) -> List[chess.Move]:
-        """Generate Mercenary pawn moves (one square in any direction like a king)"""
+        """Generate pseudo-legal Mercenary pawn moves (king-like, 8 directions).
+
+        Returns moves that respect basic movement rules (board bounds, friendly
+        piece blocking, no king capture) but does NOT filter for king safety.
+        The caller (MercenaryBoard.get_legal_moves) handles that using
+        mercenary-aware attack detection.
+        """
         moves = []
         piece = board.piece_at(from_square)
         if not piece or piece.piece_type != chess.PAWN:
@@ -80,28 +86,11 @@ class MercenaryMode:
             target_piece = board.piece_at(to_square)
 
             if target_piece is None:
-                move = chess.Move(from_square, to_square)
-                if self._is_legal_after_move(board, move):
-                    moves.append(move)
+                moves.append(chess.Move(from_square, to_square))
             elif target_piece.color != piece.color and target_piece.piece_type != chess.KING:
-                move = chess.Move(from_square, to_square)
-                if self._is_legal_after_move(board, move):
-                    moves.append(move)
+                moves.append(chess.Move(from_square, to_square))
 
         return moves
-
-    @staticmethod
-    def _is_legal_after_move(board: chess.Board, move: chess.Move) -> bool:
-        """Check if move doesn't leave own king in check"""
-        moving_color = board.turn
-        board.push(move)
-        king_square = board.king(moving_color)
-        if king_square is None:
-            board.pop()
-            return False
-        king_attacked = board.is_attacked_by(not moving_color, king_square)
-        board.pop()
-        return not king_attacked
 
     @staticmethod
     def should_reset_fifty_move_counter(board: chess.Board, move: chess.Move) -> bool:
@@ -158,14 +147,15 @@ class MercenaryBoard:
             if not piece or piece.color != self.board.turn:
                 continue
             if piece.piece_type == chess.PAWN:
-                legal_moves.extend(self.mode.get_pawn_moves(self.board, square))
+                pseudo_moves = self.mode.get_pawn_moves(self.board, square)
             else:
-                for move in self._get_pseudo_legal_moves_for_piece(square, piece):
-                    target = self.board.piece_at(move.to_square)
-                    if target and target.piece_type == chess.KING:
-                        continue
-                    if self._is_legal_considering_custom_attacks(move):
-                        legal_moves.append(move)
+                pseudo_moves = self._get_pseudo_legal_moves_for_piece(square, piece)
+            for move in pseudo_moves:
+                target = self.board.piece_at(move.to_square)
+                if target and target.piece_type == chess.KING:
+                    continue
+                if self._is_legal_considering_custom_attacks(move):
+                    legal_moves.append(move)
         return self.mode.filter_moves(self.board, legal_moves)
 
     def _get_pseudo_legal_moves_for_piece(self, from_square: int, piece: chess.Piece) -> List[chess.Move]:
