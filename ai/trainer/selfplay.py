@@ -148,9 +148,30 @@ class ImprovedSelfPlay:
             else:
                 # Run MCTS to get improved move probabilities
                 move_probs = self._mcts_search(game, legal_moves, temperature)
-                # Sample move based on improved probabilities
-                chosen_move_idx = np.random.choice(len(legal_moves), p=move_probs)
-                chosen_move = legal_moves[chosen_move_idx]
+
+                # ── Post-move blunder check (safety net) ──
+                # MCTS is statistical and can pick a move that hangs a
+                # piece. Verify the chosen move by running quiescence
+                # from the opponent’s perspective.  If the opponent gains
+                # significant material, try the next-best MCTS move.
+                ranked = np.argsort(move_probs)[::-1][:5]  # top 5 only
+                my_score = self._quiescence(game, -1.0, 1.0, depth=0)
+                chosen_move = None
+                for rank_idx in ranked:
+                    candidate = legal_moves[rank_idx]
+                    child = game.copy()
+                    child.make_move(candidate)
+                    # Opponent's quiescence after our move
+                    opp_score = self._quiescence(child, -1.0, 1.0, depth=0)
+                    # Opponent gain = opp_score + my_score
+                    if (opp_score + my_score) < 0.20:
+                        chosen_move = candidate
+                        chosen_move_idx = rank_idx
+                        break
+                if chosen_move is None:
+                    # Top 5 all lose material — pick MCTS's #1 choice
+                    chosen_move_idx = ranked[0]
+                    chosen_move = legal_moves[chosen_move_idx]
             
             # Store training example
             game_history.append({
