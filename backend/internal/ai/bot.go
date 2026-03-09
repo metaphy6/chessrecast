@@ -531,18 +531,6 @@ func (b *Bot) getModeSpecificScore(board *engine.Board) float64 {
 			}
 		}
 
-	// DISABLED MOD: Coyote
-	// case engine.Coyote:
-	// 	... (rook advancement evaluation commented out)
-
-	// DISABLED MOD: Diamonds
-	// case engine.Diamonds:
-	// 	... (bishop activity evaluation commented out)
-
-	// DISABLED MOD: SecretPassage
-	// case engine.SecretPassage:
-	// 	... (king-rook alignment evaluation commented out)
-
 	case engine.KingsBattle:
 		// Prioritize king attacking pawns to unlock other pieces
 		if !board.KingsKillUnlock {

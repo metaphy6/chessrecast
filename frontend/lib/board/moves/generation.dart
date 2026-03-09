@@ -35,20 +35,9 @@ extension MoveGeneration on ChessBoard {
     for (final move in filteredByGameMod) {
       // CRITICAL: Never allow capturing the opponent's king
       // Exception: Heir Mod allows king captures as part of the game mechanics
-      // Exception: Snare Mod allows king capture if it's actually under attack
       if (move.capturedPiece != null &&
           move.capturedPiece!.type == PieceType.king &&
           gameType != ModsEnum.heir) {
-        // DISABLED MOD: Snare king capture logic
-        // if (gameType == ModsEnum.snare) {
-        //   final opponentColor = move.capturedPiece!.color;
-        //   if (!mods.snare.isKingCapturable(opponentColor, this)) {
-        //     continue;
-        //   }
-        //   safeMoves.add(move);
-        //   continue;
-        // }
-
         continue; // Skip this move
       }
 
@@ -90,12 +79,6 @@ extension MoveGeneration on ChessBoard {
         // Check rules apply, fall through to standard validation
       }
 
-      // Snare Mod: King cannot be checkmated while it has knights, but still cannot
-      // move into attacked squares. Knights attack normally in L-shape pattern.
-      // King can only end up in entangle zone if knights create it around the king,
-      // not by king's own movement (already filtered in snare.dart filterMoves).
-      // No special handling needed here - let normal check rules apply.
-
       if (!kingInCheck) {
         safeMoves.add(move);
       }
@@ -110,22 +93,14 @@ extension MoveGeneration on ChessBoard {
     ChessPiece piece,
   ) {
     switch (gameType) {
-      // case ModsEnum.snare: // DISABLED MOD
-      //   return mods.snare.filterMoves(potentialMoves, piece, this);
       case ModsEnum.truce:
         return mods.truce.filterMoves(potentialMoves, piece, this);
-      // case ModsEnum.diamonds: // DISABLED MOD
-      //   return mods.diamonds.filterMoves(potentialMoves, piece, this);
-      // case ModsEnum.secretPassage: // DISABLED MOD
-      //   return mods.secretPassage.filterMoves(potentialMoves, piece, this);
       case ModsEnum.friendlyFire:
         return mods.friendlyFire.filterMoves(potentialMoves, piece, this);
       case ModsEnum.kingsBattle:
         return mods.kingsBattle.filterMoves(potentialMoves, piece, this);
       case ModsEnum.saveTheQueen:
         return mods.saveTheQueen.filterMoves(potentialMoves, piece, this);
-      // case ModsEnum.coyote: // DISABLED MOD
-      //   return mods.coyote.filterMoves(potentialMoves, piece, this);
       default:
         return potentialMoves;
     }
@@ -150,12 +125,6 @@ extension MoveGeneration on ChessBoard {
   }
 
   List<ChessMove> _getPawnMoves(ChessPiece pawn) {
-    // DISABLED MOD: Coyote
-    // if (gameType == ModsEnum.coyote) {
-    //   final customMoves = mods.coyote.getPawnMoves(pawn, this);
-    //   if (customMoves != null) return customMoves;
-    // }
-
     if (gameType == ModsEnum.mercenary) {
       final customMoves = mods.mercenary.getPawnMoves(pawn, this);
       if (customMoves != null) return customMoves;
@@ -269,20 +238,10 @@ extension MoveGeneration on ChessBoard {
       return []; // No promotion in Mercenary Mod
     }
 
-    // DISABLED MOD: Diamonds - only bishops allowed
-    // if (gameType == ModsEnum.diamonds) {
-    //   return ['B']; // Only bishop promotion in Diamonds Mod
-    // }
-
     // Check for Save the Queen Mod - no queen promotion allowed
     if (gameType == ModsEnum.saveTheQueen) {
       return ['R', 'B', 'N']; // Rook, Bishop, Knight only
     }
-
-    // DISABLED MOD: Coyote - no rook promotion
-    // if (gameType == ModsEnum.coyote) {
-    //   return ['Q', 'B', 'N'];
-    // }
 
     // Check for Heir Mod - can promote to King (with restrictions)
     if (gameType == ModsEnum.heir) {
@@ -309,19 +268,6 @@ extension MoveGeneration on ChessBoard {
         return options;
       }
     }
-
-    // DISABLED MOD: Snare - knight-based promotion restrictions
-    // if (gameType == ModsEnum.snare) {
-    //   final snareMode = mods.snare;
-    //   final options = snareMode.getPromotionPieces(
-    //     color,
-    //     this,
-    //     promotionPosition: promotionPosition,
-    //   );
-    //   if (options != null) {
-    //     return options;
-    //   }
-    // }
 
     return ['Q', 'R', 'B', 'N']; // Standard promotion pieces
   }
@@ -378,49 +324,45 @@ extension MoveGeneration on ChessBoard {
     final moves = generateStepMoves(king, directions);
 
     // Add castling moves if conditions are met
-    // DISABLED mods: SecretPassage and Coyote disable castling
-    // if (gameType != ModsEnum.secretPassage && gameType != ModsEnum.coyote) {
-    if (true) {
-      if (king.color == PieceColor.white) {
-        // White kingside castling (O-O)
-        if (whiteCanCastleKingside && canCastleKingside(king.color)) {
-          final castleMove = ChessMove.castling(
-            from: king.position,
-            to: Position(0, 6), // g1
-            piece: king,
-          );
-          moves.add(castleMove);
-        }
+    if (king.color == PieceColor.white) {
+      // White kingside castling (O-O)
+      if (whiteCanCastleKingside && canCastleKingside(king.color)) {
+        final castleMove = ChessMove.castling(
+          from: king.position,
+          to: Position(0, 6), // g1
+          piece: king,
+        );
+        moves.add(castleMove);
+      }
 
-        // White queenside castling (O-O-O)
-        if (whiteCanCastleQueenside && canCastleQueenside(king.color)) {
-          final castleMove = ChessMove.castling(
-            from: king.position,
-            to: Position(0, 2), // c1
-            piece: king,
-          );
-          moves.add(castleMove);
-        }
-      } else {
-        // Black kingside castling (O-O)
-        if (blackCanCastleKingside && canCastleKingside(king.color)) {
-          final castleMove = ChessMove.castling(
-            from: king.position,
-            to: Position(7, 6), // g8
-            piece: king,
-          );
-          moves.add(castleMove);
-        }
+      // White queenside castling (O-O-O)
+      if (whiteCanCastleQueenside && canCastleQueenside(king.color)) {
+        final castleMove = ChessMove.castling(
+          from: king.position,
+          to: Position(0, 2), // c1
+          piece: king,
+        );
+        moves.add(castleMove);
+      }
+    } else {
+      // Black kingside castling (O-O)
+      if (blackCanCastleKingside && canCastleKingside(king.color)) {
+        final castleMove = ChessMove.castling(
+          from: king.position,
+          to: Position(7, 6), // g8
+          piece: king,
+        );
+        moves.add(castleMove);
+      }
 
-        // Black queenside castling (O-O-O)
-        if (blackCanCastleQueenside && canCastleQueenside(king.color)) {
-          final castleMove = ChessMove.castling(
-            from: king.position,
-            to: Position(7, 2), // c8
-            piece: king,
-          );
-          moves.add(castleMove);
-        }
+      // Black queenside castling (O-O-O)
+      if (blackCanCastleQueenside && canCastleQueenside(king.color)) {
+        final castleMove = ChessMove.castling(
+          from: king.position,
+          to: Position(7, 2), // c8
+          piece: king,
+        );
+        moves.add(castleMove);
       }
     }
 

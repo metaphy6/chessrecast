@@ -206,17 +206,6 @@ class Controller extends GetxController {
     // EXCEPTION: In Friendly Fire Mod, if clicking a friendly piece, attempt capture instead
     final selectedPiece = board.getPieceAt(_selectedPosition.value!);
 
-    // DISABLED MOD: Secret Passage king↔rook or rook↔king
-    // final isSecretPassageMove =
-    //     board.gameType == ModsEnum.secretPassage &&
-    //     selectedPiece != null &&
-    //     piece != null &&
-    //     piece.color == currentPlayer &&
-    //     ((selectedPiece.type == PieceType.king &&
-    //             piece.type == PieceType.rook) ||
-    //         (selectedPiece.type == PieceType.rook &&
-    //             piece.type == PieceType.king));
-
     final isFriendlyFireCapture =
         board.gameType == ModsEnum.friendlyFire &&
         selectedPiece != null &&
@@ -226,7 +215,6 @@ class Controller extends GetxController {
 
     if (piece != null &&
         piece.color == currentPlayer &&
-        // !isSecretPassageMove && // DISABLED MOD
         !isFriendlyFireCapture) {
       _selectPiece(position);
       return;
@@ -261,28 +249,9 @@ class Controller extends GetxController {
 
     if (previousSelection != null) {
       squaresToUpdate.add(squareIdFromPosition(previousSelection));
-      // DISABLED MOD: Diamonds diamond zone update
-      // if (board.gameType == ModsEnum.diamonds) {
-      //   final prevPiece = board.getPieceAt(previousSelection);
-      //   if (prevPiece?.type == PieceType.bishop) {
-      //     for (final pos in _getDiamondCapturePositions(previousSelection)) {
-      //       squaresToUpdate.add(squareIdFromPosition(pos));
-      //     }
-      //   }
-      // }
     }
 
     squaresToUpdate.add(squareIdFromPosition(position));
-
-    // DISABLED MOD: Diamonds diamond zone update
-    // if (board.gameType == ModsEnum.diamonds) {
-    //   final currentPiece = board.getPieceAt(position);
-    //   if (currentPiece?.type == PieceType.bishop) {
-    //     for (final pos in _getDiamondCapturePositions(position)) {
-    //       squaresToUpdate.add(squareIdFromPosition(pos));
-    //     }
-    //   }
-    // }
 
     for (final pos in previousValidMoves) {
       squaresToUpdate.add(squareIdFromPosition(pos));
@@ -308,15 +277,6 @@ class Controller extends GetxController {
 
     if (previousSelection != null) {
       squaresToUpdate.add(squareIdFromPosition(previousSelection));
-      // DISABLED MOD: Diamonds diamond zone update
-      // if (board.gameType == ModsEnum.diamonds) {
-      //   final prevPiece = board.getPieceAt(previousSelection);
-      //   if (prevPiece?.type == PieceType.bishop) {
-      //     for (final pos in _getDiamondCapturePositions(previousSelection)) {
-      //       squaresToUpdate.add(squareIdFromPosition(pos));
-      //     }
-      //   }
-      // }
     }
 
     for (final pos in previousValidMoves) {
@@ -395,34 +355,6 @@ class Controller extends GetxController {
           finalMove = ChessMove.castling(from: from, to: to, piece: piece);
         }
       }
-
-      // DISABLED MOD: Secret Passage king→rook swap
-      // if (board.gameType == ModsEnum.secretPassage &&
-      //     piece.type == PieceType.king &&
-      //     capturedPiece != null &&
-      //     capturedPiece.type == PieceType.rook &&
-      //     capturedPiece.color == piece.color) {
-      //   finalMove = ChessMove.simple(
-      //     from: from,
-      //     to: to,
-      //     piece: piece,
-      //     capturedPiece: null,
-      //   );
-      // }
-
-      // DISABLED MOD: Secret Passage rook→king swap
-      // if (board.gameType == ModsEnum.secretPassage &&
-      //     piece.type == PieceType.rook &&
-      //     capturedPiece != null &&
-      //     capturedPiece.type == PieceType.king &&
-      //     capturedPiece.color == piece.color) {
-      //   finalMove = ChessMove.simple(
-      //     from: from,
-      //     to: to,
-      //     piece: piece,
-      //     capturedPiece: null,
-      //   );
-      // }
 
       if (_gameOrchestrator.isValidMove(board, finalMove)) {
         makeMove(finalMove);
@@ -526,21 +458,6 @@ class Controller extends GetxController {
     // Get piece icons based on color and type
     final pieceIcon = _getPieceIcon(move.piece);
 
-    // DISABLED MOD: Special formatting for Secret Passage Mod swaps
-    // if (gameType == ModsEnum.secretPassage) {
-    //   final targetPiece = board.getPieceAt(move.to);
-    //   if (targetPiece != null && targetPiece.color == move.piece.color) {
-    //     if ((move.piece.type == PieceType.king &&
-    //             targetPiece.type == PieceType.rook) ||
-    //         (move.piece.type == PieceType.rook &&
-    //             targetPiece.type == PieceType.king)) {
-    //       final movingIcon = _getPieceIcon(move.piece);
-    //       final targetIcon = _getPieceIcon(targetPiece);
-    //       return '$movingIcon ${move.from.algebraic} ⇄ $targetIcon ${move.to.algebraic} SECRET PASSAGE';
-    //     }
-    //   }
-    // }
-
     final capture = move.capturedPiece != null ? '×' : '→';
 
     // Build captured piece info if applicable
@@ -610,25 +527,6 @@ class Controller extends GetxController {
         squareIdFromPosition(move.from),
         squareIdFromPosition(move.to),
       ];
-
-      // DISABLED MOD: Diamonds diamond zone updates after move
-      // if (board.gameType == ModsEnum.diamonds) {
-      //   if (move.piece.type == PieceType.bishop) {
-      //     for (final pos in _getDiamondCapturePositions(move.from)) {
-      //       squaresToUpdate.add(squareIdFromPosition(pos));
-      //     }
-      //     for (final pos in _getDiamondCapturePositions(move.to)) {
-      //       squaresToUpdate.add(squareIdFromPosition(pos));
-      //     }
-      //   }
-      //   if (move.capturedPiece?.type == PieceType.bishop) {
-      //     for (final pos in _getDiamondCapturePositions(
-      //       move.capturedPiece!.position,
-      //     )) {
-      //       squaresToUpdate.add(squareIdFromPosition(pos));
-      //     }
-      //   }
-      // }
 
       // CASTLING: Also update rook squares
       if (move.isCastling) {
@@ -985,26 +883,6 @@ class Controller extends GetxController {
     return false;
   }
 
-  /// Checks if a position is a secret passage swap target (not a capture)
-  /// Used to avoid showing red highlight for friendly king/rook in Secret Passage Mod
-  bool isTeleportSwapTarget(Position position, ChessPiece targetPiece) {
-    // DISABLED MOD: Secret Passage
-    // if (board.gameType != ModsEnum.secretPassage) return false;
-    // if (_selectedPosition.value == null) return false;
-    // final selectedPiece = board.getPieceAt(_selectedPosition.value!);
-    // if (selectedPiece == null) return false;
-    // final isKingToRook =
-    //     selectedPiece.type == PieceType.king &&
-    //     targetPiece.type == PieceType.rook &&
-    //     targetPiece.color == selectedPiece.color;
-    // final isRookToKing =
-    //     selectedPiece.type == PieceType.rook &&
-    //     targetPiece.type == PieceType.king &&
-    //     targetPiece.color == selectedPiece.color;
-    // return isKingToRook || isRookToKing;
-    return false;
-  }
-
   /// Checks if a position is the selected position
   bool isSelectedPosition(Position position) {
     return _selectedPosition.value == position;
@@ -1015,72 +893,5 @@ class Controller extends GetxController {
     // This would track captured pieces in a real implementation
     // For now, return empty list
     return [];
-  }
-
-  /// Snare Mod: Checks if a position is in an entangle zone
-  bool isPositionInEntangleZone(Position position) {
-    // DISABLED MOD: Snare
-    // if (board.gameType == ModsEnum.snare) {
-    //   return false;
-    // }
-    return false;
-  }
-
-  /// Snare Mod: Checks if a piece at this position is entangled
-  bool isPieceEntangled(Position position) {
-    // DISABLED MOD: Snare
-    // if (board.gameType == ModsEnum.snare) {
-    //   return false;
-    // }
-    return false;
-  }
-
-  /// Diamonds Mod: Checks if a position is in the selected bishop's diamond influence zone
-  bool isPositionInDiamondZone(Position position) {
-    // DISABLED MOD: Diamonds
-    return false;
-    // if (board.gameType != ModsEnum.diamonds) {
-    //   return false;
-    // }
-    // if (selectedPosition == null) {
-    //   return false;
-    // }
-    // final selectedPiece = board.getPieceAt(selectedPosition!);
-    // if (selectedPiece == null || selectedPiece.type != PieceType.bishop) {
-    //   return false;
-    // }
-    // final diamondPositions = _getDiamondCapturePositions(selectedPosition!);
-    // return diamondPositions.any((pos) => pos == position);
-  }
-
-  /// Helper: Gets the diamond capture pattern positions for a bishop
-  /// Returns up to 8 positions forming a diamond around the bishop
-  List<Position> _getDiamondCapturePositions(Position bishopPos) {
-    final capturePositions = <Position>[];
-
-    // Diamond pattern:
-    // - 4 diagonal squares (1 square diagonally)
-    // - 4 orthogonal squares (2 squares straight)
-    final offsets = [
-      // Diagonal adjacent (1 square away diagonally)
-      [-1, -1], // top-left diagonal
-      [-1, 1], // top-right diagonal
-      [1, -1], // bottom-left diagonal
-      [1, 1], // bottom-right diagonal
-      // Orthogonal 2 squares away
-      [-2, 0], // 2 up
-      [0, 2], // 2 right
-      [2, 0], // 2 down
-      [0, -2], // 2 left
-    ];
-
-    for (final offset in offsets) {
-      final pos = bishopPos.offset(offset[0], offset[1]);
-      if (pos.isValid) {
-        capturePositions.add(pos);
-      }
-    }
-
-    return capturePositions;
   }
 }

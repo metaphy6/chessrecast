@@ -17,28 +17,6 @@ class Orchestrator {
 
     final validMoves = board.getValidMovesFor(move.from);
 
-    // DISABLED MOD: Secret Passage
-    // if (board.gameType == ModsEnum.secretPassage &&
-    //     (move.piece.type == PieceType.king ||
-    //         move.piece.type == PieceType.rook)) {
-    //   final isValid = validMoves.any(
-    //     (validMove) =>
-    //         validMove.from == move.from &&
-    //         validMove.to == move.to &&
-    //         validMove.piece.type == move.piece.type,
-    //   );
-    //   return isValid;
-    // }
-
-    // DISABLED MOD: Diamonds move validation
-    // if (board.gameType == ModsEnum.diamonds &&
-    //     move.piece.type == PieceType.bishop) {
-    //   final isValid = validMoves.any(
-    //     (validMove) => validMove.from == move.from && validMove.to == move.to,
-    //   );
-    //   return isValid;
-    // }
-
     final isValid = validMoves.any((validMove) => validMove == move);
     return isValid;
   }
@@ -56,17 +34,6 @@ class Orchestrator {
         return updateGameStatus(heirBoard);
       }
     }
-
-    // DISABLED MOD: Secret Passage
-    // if (board.gameType == ModsEnum.secretPassage) {
-    //   final secretPassageBoard = mods.secretPassage.handleSpecialMove(
-    //     board,
-    //     move,
-    //   );
-    //   if (secretPassageBoard != null) {
-    //     return updateGameStatus(secretPassageBoard);
-    //   }
-    // }
 
     // Check for Kings' Battle mode special moves (King's Kill or pawn promotion)
     if (board.gameType == ModsEnum.kingsBattle) {
@@ -94,22 +61,6 @@ class Orchestrator {
         return updateGameStatus(successionBoard);
       }
     }
-
-    // DISABLED MOD: Coyote
-    // if (board.gameType == ModsEnum.coyote) {
-    //   final coyoteBoard = mods.coyote.handleSpecialMove(board, move);
-    //   if (coyoteBoard != null) {
-    //     return updateGameStatus(coyoteBoard);
-    //   }
-    // }
-
-    // DISABLED MOD: Snare
-    // if (board.gameType == ModsEnum.snare) {
-    //   final snareBoard = mods.snare.handleSpecialMove(board, move);
-    //   if (snareBoard != null) {
-    //     return updateGameStatus(snareBoard);
-    //   }
-    // }
 
     // Check for Truce Mod special move handling
     if (board.gameType == ModsEnum.truce) {
@@ -176,11 +127,6 @@ class Orchestrator {
     if (board.gameType == ModsEnum.truce) {
       return _updateTruceGameStatus(board);
     }
-
-    // DISABLED MOD: Snare
-    // if (board.gameType == ModsEnum.snare) {
-    //   return _updateSnareGameStatus(board);
-    // }
 
     final currentPlayerInCheck = board.isKingInCheck(board.currentPlayer);
     final hasValidMoves = _hasValidMoves(board);
@@ -335,12 +281,6 @@ class Orchestrator {
     return board.copyWith(gameStatus: newStatus);
   }
 
-  /// Snare Mod: Updates game status with entangled King detection
-  ChessBoard _updateSnareGameStatus(ChessBoard board) {
-    // DISABLED MOD: Snare - entire method disabled
-    return board;
-  }
-
   bool _hasValidMoves(ChessBoard board) {
     final playerPieces = board.getPiecesOfColor(board.currentPlayer);
 
@@ -370,13 +310,6 @@ class Orchestrator {
     if (_isDrawByInsufficientMaterialClassic(whitePieces, blackPieces)) {
       return true;
     }
-
-    // DISABLED MOD: Snare special insufficient material rules
-    // if (board.gameType == ModsEnum.snare) {
-    //   if (_isDrawByInsufficientMaterialSnare(whitePieces, blackPieces, board)) {
-    //     return true;
-    //   }
-    // }
 
     return false;
   }
@@ -436,59 +369,6 @@ class Orchestrator {
     return false;
   }
 
-  /// Snare Mod insufficient material rules
-  /// In Snare Mod, knights are critical for creating entangle zones
-  /// Knights can defend each other and trap kings in entangle zones
-  bool _isDrawByInsufficientMaterialSnare(
-    List<ChessPiece> whitePieces,
-    List<ChessPiece> blackPieces,
-    ChessBoard board,
-  ) {
-    // First apply classic chess insufficient material rules
-    if (_isDrawByInsufficientMaterialClassic(whitePieces, blackPieces)) {
-      return true;
-    }
-
-    // Snare-specific rules:
-    // K+N vs K+N: NOT insufficient material - both knights can defend and create entangle zones
-    // K+N+N vs K: NOT immediate insufficient material - use 50-move rule (knights can checkmate)
-    // K+N+N vs K+N+N: Insufficient material - symmetrical position, neither can gain advantage
-
-    // Check for K+N+N vs K+N+N (two knights each) - this IS insufficient
-    if (whitePieces.length == 3 && blackPieces.length == 3) {
-      final whiteKnights = whitePieces
-          .where((p) => p.type == PieceType.knight)
-          .length;
-      final blackKnights = blackPieces
-          .where((p) => p.type == PieceType.knight)
-          .length;
-
-      if (whiteKnights == 2 && blackKnights == 2) {
-        // Both players have only king + two knights
-        final whiteNonKnights = whitePieces
-            .where(
-              (p) => p.type != PieceType.knight && p.type != PieceType.king,
-            )
-            .length;
-        final blackNonKnights = blackPieces
-            .where(
-              (p) => p.type != PieceType.knight && p.type != PieceType.king,
-            )
-            .length;
-
-        if (whiteNonKnights == 0 && blackNonKnights == 0) {
-          return true; // K+N+N vs K+N+N is insufficient material (symmetrical)
-        }
-      }
-    }
-
-    // K+N vs K+N: NOT insufficient - knights can create entangle zones
-    // K+N+N vs K: NOT insufficient - handled by 50-move rule
-    // (Two knights CAN checkmate a lone king in Snare Mod via entangle zones)
-
-    return false;
-  }
-
   /// Mercenary Mod insufficient material rules
   /// Pawns can't promote but move like kings, so they can assist in checkmates
   bool _isDrawByInsufficientMaterialMercenary(
@@ -540,31 +420,10 @@ class Orchestrator {
   }
 
   /// Checks if current position is a special endgame requiring mate within 50 total moves
-  /// Snare: K+N+N vs K (knights must mate within 50 half-moves = 25 white + 25 black)
   /// Mercenary: K+pieces vs K (must mate within 50 half-moves = 25 white + 25 black)
   bool _isSpecialEndgameRequiringFasterMate(ChessBoard board) {
     final whitePieces = board.getPiecesOfColor(PieceColor.white);
     final blackPieces = board.getPiecesOfColor(PieceColor.black);
-
-    // DISABLED MOD: Snare K+N+N vs K special endgame
-    // if (board.gameType == ModsEnum.snare) {
-    //   int whiteKnights = 0;
-    //   int blackKnights = 0;
-    //   int whiteNonKingPieces = 0;
-    //   int blackNonKingPieces = 0;
-    //   for (final p in whitePieces) {
-    //     if (p.type == PieceType.knight) { whiteKnights++; }
-    //     else if (p.type != PieceType.king) { whiteNonKingPieces++; }
-    //   }
-    //   for (final p in blackPieces) {
-    //     if (p.type == PieceType.knight) { blackKnights++; }
-    //     else if (p.type != PieceType.king) { blackNonKingPieces++; }
-    //   }
-    //   if ((whiteKnights == 2 && blackNonKingPieces == 0 && blackKnights == 0) ||
-    //       (blackKnights == 2 && whiteNonKingPieces == 0 && whiteKnights == 0)) {
-    //     return true;
-    //   }
-    // }
 
     // Mercenary Mod: K+pieces vs K or K vs K+pieces
     if (board.gameType == ModsEnum.mercenary) {
@@ -581,7 +440,7 @@ class Orchestrator {
   }
 
   /// Checks for draw by fifty-move rule
-  /// Special endgames (Snare K+N+N vs K, Mercenary K+pieces vs K): 50 half-moves total (25+25)
+  /// Special endgames (Mercenary K+pieces vs K): 50 half-moves total (25+25)
   /// Normal games: 50 full moves (100 half-moves) without capture or pawn move
   bool _isDrawByFiftyMoveRule(ChessBoard board) {
     final fiftyMoveLimit = _isSpecialEndgameRequiringFasterMate(board)

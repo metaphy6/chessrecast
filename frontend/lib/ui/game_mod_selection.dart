@@ -88,18 +88,10 @@ class _GameModCard extends StatelessWidget {
         return Icons.castle;
       case ModsEnum.mercenary:
         return Icons.shield;
-      // case ModsEnum.coyote: // DISABLED MOD
-      //   return Icons.speed;
       case ModsEnum.heir:
         return Icons.auto_awesome;
       case ModsEnum.truce:
         return Icons.handshake;
-      // case ModsEnum.snare: // DISABLED MOD
-      //   return Icons.gps_fixed;
-      // case ModsEnum.diamonds: // DISABLED MOD
-      //   return Icons.diamond;
-      // case ModsEnum.secretPassage: // DISABLED MOD
-      //   return Icons.swap_horiz;
       case ModsEnum.friendlyFire:
         return Icons.local_fire_department;
       case ModsEnum.kingsBattle:
@@ -117,18 +109,10 @@ class _GameModCard extends StatelessWidget {
         return Colors.brown;
       case ModsEnum.mercenary:
         return Colors.indigo;
-      // case ModsEnum.coyote: // DISABLED MOD
-      //   return Colors.orange;
       case ModsEnum.heir:
         return Colors.purple;
       case ModsEnum.truce:
         return Colors.teal;
-      // case ModsEnum.snare: // DISABLED MOD
-      //   return Colors.red;
-      // case ModsEnum.diamonds: // DISABLED MOD
-      //   return Colors.blue;
-      // case ModsEnum.secretPassage: // DISABLED MOD
-      //   return Colors.green;
       case ModsEnum.friendlyFire:
         return Colors.deepOrange;
       case ModsEnum.kingsBattle:

@@ -4,56 +4,50 @@ package engine
 type GameMod int
 
 const (
-	Classic GameMod = iota
-	Mercenary
-	Coyote         // DISABLED MOD - kept for iota ordering
-	Heir
-	Truce
-	Snare          // DISABLED MOD - kept for iota ordering
-	Diamonds       // DISABLED MOD - kept for iota ordering
-	SecretPassage  // DISABLED MOD - kept for iota ordering
-	FriendlyFire
-	KingsBattle
-	SaveTheQueen
-	Succession
+	Classic      GameMod = 0
+	Mercenary    GameMod = 1
+	Heir         GameMod = 3
+	Truce        GameMod = 4
+	FriendlyFire GameMod = 8
+	KingsBattle  GameMod = 9
+	SaveTheQueen GameMod = 10
+	Succession   GameMod = 11
 )
 
 func (gm GameMod) String() string {
-	names := []string{
-		"classic",
-		"mercenary",
-		"coyote",
-		"heir",
-		"truce",
-		"snare",
-		"diamonds",
-		"secret_passage",
-		"friendly_fire",
-		"kings_battle",
-		"save_the_queen",
-		"succession",
+	switch gm {
+	case Classic:
+		return "classic"
+	case Mercenary:
+		return "mercenary"
+	case Heir:
+		return "heir"
+	case Truce:
+		return "truce"
+	case FriendlyFire:
+		return "friendly_fire"
+	case KingsBattle:
+		return "kings_battle"
+	case SaveTheQueen:
+		return "save_the_queen"
+	case Succession:
+		return "succession"
+	default:
+		return "unknown"
 	}
-	if int(gm) < len(names) {
-		return names[gm]
-	}
-	return "unknown"
 }
 
 // ParseGameMod converts string to GameMod
 func ParseGameMod(s string) GameMod {
 	modes := map[string]GameMod{
-		"classic":         Classic,
-		"mercenary":       Mercenary,
-		// "coyote":          Coyote,          // DISABLED MOD
-		"heir":            Heir,
-		"truce":           Truce,
-		// "snare":           Snare,           // DISABLED MOD
-		// "diamonds":        Diamonds,        // DISABLED MOD
-		// "secret_passage":  SecretPassage,   // DISABLED MOD
-		"friendly_fire":   FriendlyFire,
-		"kings_battle":    KingsBattle,
-		"save_the_queen":  SaveTheQueen,
-		"succession":      Succession,
+		"classic":        Classic,
+		"mercenary":      Mercenary,
+		"heir":           Heir,
+		"truce":          Truce,
+		"friendly_fire":  FriendlyFire,
+		"kings_battle":   KingsBattle,
+		"save_the_queen": SaveTheQueen,
+		"succession":     Succession,
 	}
 	if mode, ok := modes[s]; ok {
 		return mode
@@ -71,7 +65,6 @@ type Move struct {
 	IsPromotion    bool
 	IsCastling     bool
 	IsEnPassant    bool
-	// IsSecretPassage bool      // DISABLED MOD: Secret Passage
 	MoveNumber     int       // Track move sequence
 }
 
@@ -95,7 +88,6 @@ func (m *Move) Clone() *Move {
 		IsPromotion:    m.IsPromotion,
 		IsCastling:     m.IsCastling,
 		IsEnPassant:    m.IsEnPassant,
-		// IsSecretPassage:     m.IsSecretPassage,  // DISABLED MOD
 		MoveNumber:     m.MoveNumber,
 	}
 }

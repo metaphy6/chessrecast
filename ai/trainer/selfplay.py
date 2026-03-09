@@ -7,11 +7,8 @@ import torch
 import chess
 import numpy as np
 import math
-from typing import List, Dict, Tuple, Optional
-from rules import ChessGamePOC
+from typing import List, Dict, Optional
 from network import ChessNetPOC
-from concurrent.futures import ThreadPoolExecutor
-import queue
 
 
 class MCTSNode:
@@ -58,19 +55,23 @@ class ImprovedSelfPlay:
             device: 'cuda' or 'cpu'
             num_simulations: MCTS simulations per move (50 = fast, 200 = strong)
             batch_size: Number of positions to evaluate at once on GPU
-            game_class: Custom game rules class (defaults to ChessGamePOC)
+            game_class: Game board class (must implement get_legal_moves, make_move, 
+                        is_game_over, get_result, get_board_tensor, copy)
         """
+        if game_class is None:
+            raise ValueError("game_class is required — pass your mod's Board class")
         self.model = model.to(device)
         self.model.eval()
         self.device = device
         self.num_simulations = num_simulations
         self.batch_size = batch_size
-        self.game_class = game_class if game_class else ChessGamePOC
+        self.game_class = game_class
         self._pending_states = []  # Buffer for batch inference
         self._pending_results = []
     
     def play_game(self, temperature_schedule: str = 'decay', verbose: bool = False, 
-                  log_moves: bool = False, save_pgn: str = None, ws_server=None) -> List[Dict]:
+                  log_moves: bool = False, save_pgn: str = None, ws_server=None,
+                  logger=None) -> List[Dict]:
         """
         Play one self-play game with policy-guided MCTS.
         
@@ -92,13 +93,8 @@ class ImprovedSelfPlay:
         move_count = 0
         move_log = []  # Detailed move information for debugging
         
-        if verbose:
-            print(f"      Starting game (MCTS: {self.num_simulations} sims/move)...", end='', flush=True)
-        
-        if log_moves:
-            print(f"\n{'='*60}")
-            print(f"🎮 DETAILED GAME LOG (MCTS: {self.num_simulations} sims)")
-            print(f"{'='*60}")
+        if verbose and not logger:
+            print(f"      Starting game (MCTS: {self.num_simulations} sims/move)...", flush=True)
         
         while not game.is_game_over():
             # Get current state
@@ -133,6 +129,13 @@ class ImprovedSelfPlay:
             # Make move
             game.make_move(chosen_move)
             move_count += 1
+
+            # Log move via structured logger (when enabled for first games)
+            if log_moves and logger:
+                with torch.no_grad():
+                    _, value = self.model(state_tensor)
+                    mv_value = value.item()
+                logger.training_move(move_count, chosen_move.uci(), turn, mv_value)
             
             # Broadcast move via WebSocket AFTER making the move (FEN must reflect post-move state)
             if ws_server:
@@ -156,17 +159,25 @@ class ImprovedSelfPlay:
                     top_moves=top_moves
                 )
             
-            # Show progress every 10 moves
-            if verbose and move_count % 10 == 0:
-                print(f".", end='', flush=True)
+            # Show progress every 10 moves (skip when logger handles per-move output)
+            if verbose and not logger and move_count % 10 == 0:
+                print(f"      ... {move_count} moves", flush=True)
         
-        if verbose:
+        if verbose and not logger:
             result = game.get_result()
-            print(f" {move_count} moves, result: {result}", flush=True)
+            print(f"      Done: {move_count} moves, result: {result}", flush=True)
         
         # Assign game outcome values
         result = game.get_result()
         final_value = self._parse_result(result)
+        
+        # For draws, use material balance as a learning signal so the network
+        # learns that having more material is good even when games end in draws.
+        # This is critical for Mercenary mode where checkmate is rare.
+        if final_value == 0.0 and hasattr(game, 'get_material_balance'):
+            material = game.get_material_balance()
+            # Use material as partial reward (scaled down to avoid overpowering wins)
+            final_value = material * 0.4
         
         # Assign values from perspective of each player
         for i, entry in enumerate(game_history):
@@ -176,7 +187,7 @@ class ImprovedSelfPlay:
         
         return game_history
     
-    def _mcts_search(self, game: ChessGamePOC, legal_moves: List[chess.Move], 
+    def _mcts_search(self, game, legal_moves: List[chess.Move], 
                      temperature: float) -> np.ndarray:
         """
         MCTS-Lite with BATCHED GPU inference.
@@ -310,7 +321,7 @@ class ImprovedSelfPlay:
         
         return policy_target
     
-    def _board_to_tensor(self, game: ChessGamePOC) -> torch.Tensor:
+    def _board_to_tensor(self, game) -> torch.Tensor:
         """Convert board to tensor (1, 12, 8, 8)"""
         board_array = game.get_board_tensor()
         tensor = torch.from_numpy(board_array).permute(2, 0, 1).unsqueeze(0)
@@ -342,58 +353,8 @@ class ImprovedSelfPlay:
             return 1.0  # White won
         elif result == '0-1':
             return -1.0  # Black won
-        else:
+        elif 'draw' in result or result == '1/2-1/2' or result == '*':
             return 0.0  # Draw
-
-
-class GameModRewards:
-    """
-    Custom reward shaping for ChessRecast game mods.
-    Add mode-specific bonuses to encourage strategic play.
-    """
-    
-    @staticmethod
-    def apply_mode_bonus(game_history: List[Dict], mode: str) -> List[Dict]:
-        """
-        Apply mode-specific reward bonuses to training examples.
-        
-        Args:
-            game_history: Standard training examples from play_game()
-            mode: 'diamonds', 'friendly_fire', 'kings_battle', etc.
-        
-        Returns:
-            Modified game_history with adjusted values
-        """
-        if mode == 'other_side':
-            return GameModRewards._other_side_rewards(game_history)
-        elif mode == 'kings_battle':
-            return GameModRewards._kings_battle_rewards(game_history)
-        # elif mode == 'diamonds':  # DISABLED MOD
-        #     return GameModRewards._diamonds_rewards(game_history)
         else:
-            return game_history  # No modification for classic mode
-    
-    @staticmethod
-    def _other_side_rewards(game_history: List[Dict]) -> List[Dict]:
-        """
-        Other Side Mod: Reward rook advancement toward opponent's back rank.
-        """
-        # TODO: Implement when game_rules supports mode-specific features
-        # For now, return unchanged
-        return game_history
-    
-    @staticmethod
-    def _kings_battle_rewards(game_history: List[Dict]) -> List[Dict]:
-        """
-        Kings' Battle Mod: Reward "King's Kill" trigger and pawn promotions.
-        """
-        # TODO: Implement when game_rules supports mode tracking
-        return game_history
-    
-    @staticmethod
-    def _diamonds_rewards(game_history: List[Dict]) -> List[Dict]:
-        """
-        Diamonds Mod: Reward bishop positioning for diamond captures.
-        """
-        # TODO: Implement when game_rules exposes piece positions
-        return game_history
+            return 0.0  # Unknown → treat as draw
+
