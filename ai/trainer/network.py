@@ -31,7 +31,7 @@ class ChessNetPOC(nn.Module):
     GPU-optimized AlphaZero-style network.
     
     Architecture:
-    - Input: 8x8x12 board (6 piece types × 2 colors)
+    - Input: 8x8xN board (default 12 piece planes; mods add extra feature planes)
     - Backbone: Convolutional layers with residual blocks
     - Outputs: Policy (4096 possible moves) + Value (-1 to +1)
     
@@ -41,11 +41,11 @@ class ChessNetPOC(nn.Module):
     - Efficient memory layout
     """
     
-    def __init__(self, num_channels=64, num_res_blocks=2):
+    def __init__(self, num_channels=64, num_res_blocks=2, input_channels=12):
         super(ChessNetPOC, self).__init__()
         
         # Initial convolution (no bias before BatchNorm)
-        self.conv_initial = nn.Conv2d(12, num_channels, 3, padding=1, bias=False)
+        self.conv_initial = nn.Conv2d(input_channels, num_channels, 3, padding=1, bias=False)
         self.bn_initial = nn.BatchNorm2d(num_channels)
         self.relu = nn.ReLU(inplace=True)
         

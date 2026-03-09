@@ -335,14 +335,56 @@ class MercenaryBoard:
     # ── Tensor / Copy ─────────────────────────────────────────
 
     def get_board_tensor(self) -> np.ndarray:
-        tensor = np.zeros((8, 8, 12), dtype=np.float32)
+        """Board state as an (8, 8, 17) tensor for the neural network.
+
+        Planes 0-11:  Piece positions (6 types x 2 colors, binary)
+        Plane 12:     Side to move (1.0 = white, 0.0 = black)
+        Plane 13:     Position repetition count (0.0/0.5/1.0)
+        Plane 14:     Fifty-move counter, normalized (counter / 100)
+        Plane 15:     White material, normalized (total / 39)
+        Plane 16:     Black material, normalized (total / 39)
+
+        The extra planes give the network awareness of whose turn it is,
+        draw proximity, and material balance — all critical for learning
+        strategy in Mercenary mode where checkmate is rare.
+        """
+        tensor = np.zeros((8, 8, 17), dtype=np.float32)
         plane_map = {chess.PAWN: 0, chess.KNIGHT: 1, chess.BISHOP: 2,
                      chess.ROOK: 3, chess.QUEEN: 4, chess.KING: 5}
+
+        piece_values = {chess.PAWN: 1.0, chess.KNIGHT: 3.0, chess.BISHOP: 3.0,
+                        chess.ROOK: 5.0, chess.QUEEN: 9.0}
+        white_mat = 0.0
+        black_mat = 0.0
+
         for sq in chess.SQUARES:
             p = self.board.piece_at(sq)
             if p:
                 pl = plane_map[p.piece_type] + (6 if p.color == chess.BLACK else 0)
                 tensor[chess.square_rank(sq), chess.square_file(sq), pl] = 1.0
+                if p.piece_type != chess.KING:
+                    val = piece_values.get(p.piece_type, 0.0)
+                    if p.color == chess.WHITE:
+                        white_mat += val
+                    else:
+                        black_mat += val
+
+        # Plane 12: side to move
+        if self.board.turn == chess.WHITE:
+            tensor[:, :, 12] = 1.0
+
+        # Plane 13: repetition count (0 = first, 0.5 = seen once, 1.0 = seen 2+)
+        if self.position_history:
+            rep = self.position_history.count(self.position_history[-1]) - 1
+            tensor[:, :, 13] = min(rep / 2.0, 1.0)
+
+        # Plane 14: fifty-move counter (normalized)
+        tensor[:, :, 14] = self.fifty_move_counter / 100.0
+
+        # Planes 15-16: material per side (normalized by starting total 39)
+        tensor[:, :, 15] = white_mat / 39.0
+        tensor[:, :, 16] = black_mat / 39.0
+
         return tensor
 
     def copy(self):
@@ -482,10 +524,10 @@ def train_mercenary(test_mode=False, move_delay=0.3):
     # Neural Network
     if not test_mode:
         if DEVICE == 'cuda':
-            model = ChessNetPOC(num_channels=128, num_res_blocks=10).to(DEVICE)
+            model = ChessNetPOC(num_channels=128, num_res_blocks=10, input_channels=17).to(DEVICE)
             log.network_info(128, 10, count_parameters(model), DEVICE)
         else:
-            model = ChessNetPOC(num_channels=64, num_res_blocks=4).to(DEVICE)
+            model = ChessNetPOC(num_channels=64, num_res_blocks=4, input_channels=17).to(DEVICE)
             log.network_info(64, 4, count_parameters(model), DEVICE)
     else:
         model = None
@@ -619,43 +661,36 @@ def train_mercenary(test_mode=False, move_delay=0.3):
         wins_black = 0
         draws = 0
 
-        # Log moves for first game of first 5 iterations
-        LOG_MOVES_ITERATIONS = 5
-
         with torch.no_grad():
             for game_num in range(GAMES_PER_ITERATION):
                 _game_start = time.time()
-                log_this_game = (iteration <= LOG_MOVES_ITERATIONS and game_num == 0)
 
                 ws_server.clear_validation_error()
                 ws_server.start_game(iteration, game_num + 1, mode='mercenary')
 
-                game_history = self_play.play_game(
+                game_history, game_result = self_play.play_game(
                     temperature_schedule='decay',
                     verbose=True,
-                    log_moves=log_this_game,
                     ws_server=ws_server,
-                    logger=log if log_this_game else None)
+                    logger=log)
                 all_data.extend(game_history)
 
                 _game_elapsed = time.time() - _game_start
+                hw_status = gpu_monitor.get_status_str()
                 log.game_result(game_num + 1, GAMES_PER_ITERATION,
-                                len(game_history), _game_elapsed)
+                                len(game_history), _game_elapsed,
+                                hw_status=hw_status)
 
                 if game_history:
-                    final_value = game_history[-1]['value']
-                    if final_value > 0.5:
-                        result = '1-0'
+                    if game_result == '1-0':
                         wins_white += 1
-                    elif final_value < -0.5:
-                        result = '0-1'
+                    elif game_result == '0-1':
                         wins_black += 1
                     else:
-                        result = '1/2-1/2'
                         draws += 1
-                    ws_server.end_game(result)
+                    ws_server.end_game(game_result)
                     log.training_game_end(game_num + 1, GAMES_PER_ITERATION,
-                                          result, len(game_history))
+                                          game_result, len(game_history))
 
                 if (game_num + 1) % 10 == 0:
                     gpu_util = gpu_monitor.get_utilization()

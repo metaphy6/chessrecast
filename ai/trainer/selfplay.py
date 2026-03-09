@@ -1,7 +1,6 @@
 """
-Improved self-play with policy-guided move selection and MCTS-Lite.
+Self-play engine with policy-guided MCTS tree search.
 Designed for ChessRecast custom game mods.
-GPU-OPTIMIZED: Uses batched inference for high GPU utilization.
 """
 import torch
 import chess
@@ -12,40 +11,58 @@ from network import ChessNetPOC
 
 
 class MCTSNode:
-    """Lightweight MCTS node for policy-guided search"""
-    def __init__(self, prior: float):
-        self.prior = prior  # P(s,a) from policy network
+    """MCTS tree node for multi-level search.
+    
+    Each node represents a game position in the search tree. Children
+    are created when a node is expanded, with game states assigned lazily
+    on first visit to avoid copying boards for unvisited branches.
+    """
+    __slots__ = ['prior', 'visit_count', 'total_value', 'mean_value',
+                 'children', 'game_state', 'is_expanded']
+    
+    def __init__(self, prior: float, game_state=None):
+        self.prior = prior
         self.visit_count = 0
         self.total_value = 0.0
         self.mean_value = 0.0
+        self.children = {}        # move_uci -> MCTSNode
+        self.game_state = game_state  # Set at root; lazy for children
+        self.is_expanded = False
     
-    def ucb_score(self, parent_visits: int, c_puct: float = 1.5) -> float:
-        """Upper Confidence Bound for Trees (UCT) score"""
+    def ucb_score(self, parent_visits: int, c_puct: float = 2.5) -> float:
+        """Upper Confidence Bound for Trees (UCT) score.
+        c_puct=2.5 encourages broader exploration, critical for Mercenary
+        mode where the branching factor is high.
+        """
         if self.visit_count == 0:
-            return float('inf')  # Explore unvisited nodes first
-        
+            return float('inf')
         exploitation = self.mean_value
         exploration = c_puct * self.prior * math.sqrt(parent_visits) / (1 + self.visit_count)
         return exploitation + exploration
     
     def update(self, value: float):
-        """Update statistics after simulation"""
+        """Update statistics after a simulation passes through this node."""
         self.visit_count += 1
         self.total_value += value
         self.mean_value = self.total_value / self.visit_count
+    
+    def select_child(self):
+        """Select child with highest UCB score. Returns (move_uci, child)."""
+        pv = self.visit_count
+        return max(self.children.items(), key=lambda kv: kv[1].ucb_score(pv))
 
 
 class ImprovedSelfPlay:
     """
-    Policy-guided self-play with MCTS-Lite.
-    GPU-OPTIMIZED: Batched inference for 80-100% GPU utilization.
+    Policy-guided self-play with multi-level MCTS tree search.
     
-    Key improvements over SimpleSelfPlay:
+    Key features:
     1. Uses neural network policy to guide move selection
-    2. MCTS-Lite for lookahead (configurable simulations)
+    2. Multi-level MCTS tree search (typically depth 3-6)
     3. Temperature scheduling (exploration → exploitation)
     4. Proper move probability tracking for policy learning
-    5. BATCHED INFERENCE: Evaluate multiple positions at once on GPU
+    5. Capture-aware priors for bootstrapping early training
+    6. Dirichlet noise at root for game diversity
     """
     
     def __init__(self, model, device='cuda', num_simulations=50, batch_size=64, game_class=None):
@@ -66,27 +83,24 @@ class ImprovedSelfPlay:
         self.num_simulations = num_simulations
         self.batch_size = batch_size
         self.game_class = game_class
-        self._pending_states = []  # Buffer for batch inference
-        self._pending_results = []
     
     def play_game(self, temperature_schedule: str = 'decay', verbose: bool = False, 
-                  log_moves: bool = False, save_pgn: str = None, ws_server=None,
-                  logger=None) -> List[Dict]:
+                  save_pgn: str = None, ws_server=None,
+                  logger=None) -> tuple:
         """
         Play one self-play game with policy-guided MCTS.
         
         Args:
             temperature_schedule: 
-                - 'decay': Start at 1.0, decay to 0.1 (exploration → exploitation)
+                - 'decay': Start at 1.0, decay to 0.25 (exploration → exploitation)
                 - 'constant': Fixed at 1.0 (more random)
-                - 'low': Fixed at 0.1 (more deterministic)
+                - 'low': Fixed at 0.25 (more deterministic)
             verbose: If True, print progress during game
-            log_moves: If True, log detailed move information
             save_pgn: If provided, save game to this PGN file path
             ws_server: WebSocket server for live streaming (optional)
         
         Returns:
-            List of training examples with proper policy targets
+            (game_history, result) — training examples and game result string
         """
         game = self.game_class()  # Use custom game class (e.g., MercenaryGameRules)
         game_history = []
@@ -117,7 +131,7 @@ class ImprovedSelfPlay:
             
             # Store training example
             game_history.append({
-                'state': state_tensor.cpu().numpy()[0],  # (12, 8, 8)
+                'state': state_tensor.cpu().numpy()[0],  # (C, 8, 8)
                 'policy': self._moves_to_policy_target(legal_moves, move_probs),  # (4096,)
                 'moves': legal_moves,
                 'move_probs': move_probs,
@@ -130,8 +144,8 @@ class ImprovedSelfPlay:
             game.make_move(chosen_move)
             move_count += 1
 
-            # Log move via structured logger (when enabled for first games)
-            if log_moves and logger:
+            # Log every move via structured logger
+            if logger:
                 with torch.no_grad():
                     _, value = self.model(state_tensor)
                     mv_value = value.item()
@@ -159,25 +173,34 @@ class ImprovedSelfPlay:
                     top_moves=top_moves
                 )
             
-            # Show progress every 10 moves (skip when logger handles per-move output)
+            # Show progress every 10 moves (only when no logger)
             if verbose and not logger and move_count % 10 == 0:
                 print(f"      ... {move_count} moves", flush=True)
         
-        if verbose and not logger:
-            result = game.get_result()
+        # Log game completion
+        result = game.get_result()
+        if logger:
+            logger.game_done(move_count, result)
+        elif verbose:
             print(f"      Done: {move_count} moves, result: {result}", flush=True)
         
         # Assign game outcome values
-        result = game.get_result()
         final_value = self._parse_result(result)
         
         # For draws, use material balance as a learning signal so the network
         # learns that having more material is good even when games end in draws.
         # This is critical for Mercenary mode where checkmate is rare.
+        #
+        # Raw balance uses /39 normalization — too gentle for learning.
+        # Amplify so a real advantage produces a strong gradient signal:
+        #   1 pawn up  → ~0.09    (noticeable)
+        #   1 piece up → ~0.27    (clear advantage)
+        #   1 rook up  → ~0.45    (strong)
+        #   1 queen up → ~0.81    (near-decisive)
+        # Clipped at ±0.85 to keep draws below actual wins (±1.0).
         if final_value == 0.0 and hasattr(game, 'get_material_balance'):
             material = game.get_material_balance()
-            # Use material as partial reward (scaled down to avoid overpowering wins)
-            final_value = material * 0.4
+            final_value = float(np.clip(material * 3.5, -0.85, 0.85))
         
         # Assign values from perspective of each player
         for i, entry in enumerate(game_history):
@@ -185,123 +208,150 @@ class ImprovedSelfPlay:
             turn_multiplier = 1 if i % 2 == 0 else -1
             entry['value'] = final_value * turn_multiplier
         
-        return game_history
+        return game_history, result
     
     def _mcts_search(self, game, legal_moves: List[chess.Move], 
                      temperature: float) -> np.ndarray:
         """
-        MCTS-Lite with BATCHED GPU inference.
-        Collects all positions to evaluate, then runs single batched inference.
+        Multi-level MCTS tree search.
+        
+        Builds a search tree several moves deep via 4 phases per simulation:
+          1. SELECT  — walk down the tree via UCB until hitting a leaf
+          2. EXPAND  — add children for all legal moves at the leaf
+          3. EVALUATE — get neural network value for the leaf position
+          4. BACKUP  — propagate the value back up the search path
+        
+        With 150 simulations the tree typically reaches depth 3-6 along the
+        principal variation, enabling basic tactical awareness (captures,
+        threats, piece safety).
         
         Returns:
             Probability distribution over legal_moves
         """
-        # Initialize MCTS tree
-        move_nodes = {}  # move -> MCTSNode
+        # Create and expand root node
+        root = MCTSNode(prior=1.0, game_state=game)
+        self._expand_node(root, legal_moves, add_noise=True)
         
-        # Get neural network policy and value for root
-        state_tensor = self._board_to_tensor(game)
-        with torch.no_grad():
-            policy_logits, root_value = self.model(state_tensor)
-        
-        # Extract priors for legal moves
-        priors = self._get_move_priors(policy_logits[0], legal_moves)
-        
-        for move, prior in zip(legal_moves, priors):
-            move_nodes[move.uci()] = MCTSNode(prior)
-        
-        # BATCHED MCTS: Collect all positions first, then batch evaluate
-        # Process in batches of self.batch_size simulations
-        remaining_sims = self.num_simulations
-        
-        while remaining_sims > 0:
-            batch_count = min(remaining_sims, self.batch_size)
-            remaining_sims -= batch_count
+        for _ in range(self.num_simulations):
+            node = root
+            search_path = [node]
             
-            # Collect positions for this batch
-            positions_to_eval = []  # (move_uci, game_copy, state_tensor)
-            terminal_results = []   # (move_uci, value) for terminal positions
+            # ── SELECT: traverse tree following UCB ──
+            while node.is_expanded and node.children:
+                move_uci, child = node.select_child()
+                # Lazily create game state on first visit
+                if child.game_state is None:
+                    child.game_state = node.game_state.copy()
+                    child.game_state.make_move(chess.Move.from_uci(move_uci))
+                node = child
+                search_path.append(node)
             
-            for _ in range(batch_count):
-                # Select move with highest UCB score
-                parent_visits = sum(node.visit_count for node in move_nodes.values())
-                best_move_uci = max(
-                    move_nodes.keys(),
-                    key=lambda m: move_nodes[m].ucb_score(parent_visits + 1)
-                )
-                best_move = chess.Move.from_uci(best_move_uci)
-                
-                # Simulate move using the correct game class
-                game_copy = game.copy()
-                game_copy.make_move(best_move)
-                
-                if game_copy.is_game_over():
-                    # Terminal: use actual result
-                    result = game_copy.get_result()
-                    value = self._parse_result(result)
-                    terminal_results.append((best_move_uci, value))
-                else:
-                    # Non-terminal: queue for batch evaluation
-                    next_state = self._board_to_tensor(game_copy)
-                    positions_to_eval.append((best_move_uci, next_state))
-            
-            # BATCHED GPU INFERENCE for non-terminal positions
-            if positions_to_eval:
-                # Stack all states into single batch tensor
-                batch_states = torch.cat([s for _, s in positions_to_eval], dim=0)
-                
+            # ── EVALUATE ──
+            if node.game_state.is_game_over():
+                value = self._parse_result(node.game_state.get_result())
+            else:
+                state_tensor = self._board_to_tensor(node.game_state)
                 with torch.no_grad():
-                    _, batch_values = self.model(batch_states)
+                    policy_logits, value_tensor = self.model(state_tensor)
+                value = value_tensor.item()
                 
-                # Distribute results back
-                for i, (move_uci, _) in enumerate(positions_to_eval):
-                    value = batch_values[i].item()
-                    move_nodes[move_uci].update(-value)
+                # ── EXPAND leaf node ──
+                child_moves = node.game_state.get_legal_moves()
+                if child_moves:
+                    priors = self._get_move_priors(
+                        policy_logits[0], child_moves, node.game_state)
+                    for move, prior in zip(child_moves, priors):
+                        node.children[move.uci()] = MCTSNode(prior=prior)
+                    node.is_expanded = True
             
-            # Process terminal results
-            for move_uci, value in terminal_results:
-                move_nodes[move_uci].update(-value)
+            # ── BACKUP: propagate value up the path ──
+            # Each level alternates perspective (my value = -opponent's)
+            for i, path_node in enumerate(reversed(search_path)):
+                sign = 1 if i % 2 == 0 else -1
+                path_node.update(sign * value)
         
-        # Convert visit counts to probabilities with temperature
-        visit_counts = np.array([move_nodes[m.uci()].visit_count for m in legal_moves])
+        # Convert root children visit counts to move probabilities
+        visit_counts = np.array([
+            root.children[m.uci()].visit_count for m in legal_moves])
         
         if temperature == 0:
-            # Deterministic: pick most visited
             probs = np.zeros(len(legal_moves))
             probs[np.argmax(visit_counts)] = 1.0
         else:
-            # Stochastic: visits^(1/T) 
             counts_temp = visit_counts ** (1.0 / temperature)
-            probs = counts_temp / counts_temp.sum()
+            total = counts_temp.sum()
+            if total == 0:
+                probs = np.ones(len(legal_moves)) / len(legal_moves)
+            else:
+                probs = counts_temp / total
         
         return probs
     
+    def _expand_node(self, node: 'MCTSNode', legal_moves: List[chess.Move],
+                     add_noise: bool = False):
+        """Expand a node: evaluate with network, create child stubs.
+        
+        Children are created without game_state — that's set lazily when
+        the child is first visited during SELECT. This avoids copying the
+        board for all ~30 legal moves when only a few will be explored.
+        """
+        state_tensor = self._board_to_tensor(node.game_state)
+        with torch.no_grad():
+            policy_logits, _ = self.model(state_tensor)
+        
+        priors = self._get_move_priors(
+            policy_logits[0], legal_moves, node.game_state)
+        
+        # Dirichlet noise at root for exploration diversity (AlphaZero)
+        if add_noise and len(legal_moves) > 0:
+            noise = np.random.dirichlet([0.3] * len(legal_moves))
+            priors = [0.75 * p + 0.25 * n for p, n in zip(priors, noise)]
+        
+        for move, prior in zip(legal_moves, priors):
+            node.children[move.uci()] = MCTSNode(prior=prior)
+        node.is_expanded = True
+    
     def _get_move_priors(self, policy_logits: torch.Tensor, 
-                         legal_moves: List[chess.Move]) -> List[float]:
+                         legal_moves: List[chess.Move],
+                         game_state=None) -> List[float]:
         """
-        Extract policy network priors for legal moves.
+        Extract policy network priors for legal moves, with capture bonus.
         
-        Policy logits shape: (4096,) representing all possible moves
-        Move encoding: from_square * 64 + to_square (simplified)
+        Policy logits shape: (4096,) representing all possible moves.
+        Move encoding: from_square * 64 + to_square
+        
+        Capture bonus: boosts prior probability of capture moves so MCTS
+        explores them more during early training when the network is random.
+        The bonus is proportional to the captured piece value. As training
+        progresses, the network's learned priors dominate.
         """
-        priors = []
         move_indices = []
-        
         for move in legal_moves:
-            # Simplified move encoding: from_square * 64 + to_square
-            from_sq = move.from_square
-            to_sq = move.to_square
-            move_idx = from_sq * 64 + to_sq
-            move_indices.append(move_idx)
+            move_indices.append(move.from_square * 64 + move.to_square)
         
         # Extract logits for legal moves only
         move_logits = policy_logits[move_indices].cpu().numpy()
         
         # Softmax to get probabilities
-        exp_logits = np.exp(move_logits - np.max(move_logits))  # Numerical stability
-        priors = exp_logits / exp_logits.sum()
+        exp_logits = np.exp(move_logits - np.max(move_logits))
+        priors = (exp_logits / exp_logits.sum()).tolist()
         
-        return priors.tolist()
+        # Capture bonus: proportional to captured piece value.
+        # Gives MCTS a basic strategic signal before the network learns.
+        if game_state is not None and hasattr(game_state, 'board'):
+            CAPTURE_BONUS = {
+                chess.PAWN: 0.03, chess.KNIGHT: 0.06,
+                chess.BISHOP: 0.06, chess.ROOK: 0.09, chess.QUEEN: 0.15,
+            }
+            for i, move in enumerate(legal_moves):
+                target = game_state.board.piece_at(move.to_square)
+                if target is not None and target.piece_type != chess.KING:
+                    priors[i] += CAPTURE_BONUS.get(target.piece_type, 0.03)
+            total = sum(priors)
+            if total > 0:
+                priors = [p / total for p in priors]
+        
+        return priors
     
     def _moves_to_policy_target(self, legal_moves: List[chess.Move], 
                                 move_probs: np.ndarray) -> np.ndarray:
@@ -322,7 +372,7 @@ class ImprovedSelfPlay:
         return policy_target
     
     def _board_to_tensor(self, game) -> torch.Tensor:
-        """Convert board to tensor (1, 12, 8, 8)"""
+        """Convert board to tensor (1, C, 8, 8) where C = game's channel count."""
         board_array = game.get_board_tensor()
         tensor = torch.from_numpy(board_array).permute(2, 0, 1).unsqueeze(0)
         return tensor.to(self.device).float()
@@ -332,18 +382,26 @@ class ImprovedSelfPlay:
         Temperature controls exploration vs exploitation.
         
         High temperature (1.0) = explore more (random-ish moves)
-        Low temperature (0.1) = exploit more (best moves)
+        Low temperature (0.25) = exploit more (best moves)
+        
+        The 'decay' schedule mirrors AlphaZero: keep temperature = 1.0
+        for the opening phase to generate diverse positions, then decay
+        to a moderate level.  Never goes below 0.25 so that even late-game
+        play retains enough stochasticity for the network to keep learning.
         """
         if schedule == 'constant':
             return 1.0
         elif schedule == 'low':
-            return 0.1
+            return 0.25
         elif schedule == 'decay':
-            # Decay from 1.0 to 0.1 over first 30 moves
-            if move_count < 30:
-                return max(0.1, 1.0 - move_count * 0.03)
+            # Full exploration for opening (diverse games for training)
+            if move_count < 15:
+                return 1.0
+            # Gradual decay to moderate randomness
+            elif move_count < 35:
+                return max(0.25, 1.0 - (move_count - 15) * 0.0375)
             else:
-                return 0.1
+                return 0.25
         else:
             return 1.0
     

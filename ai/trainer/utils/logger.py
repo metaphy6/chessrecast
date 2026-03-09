@@ -142,7 +142,7 @@ class TrainingLogger:
     def banner(self, title: str, subtitle: str = "", test_mode: bool = False):
         """Print the big startup banner."""
         self._train_start = time.time()
-        mode_label = f"{self.emoji}  {self.mode.upper()} MOD"
+        mode_label = f"{self.mode.upper()} MOD"
         status = f"{'TEST / DEMO' if test_mode else title}"
 
         self._p(f"\n{CYAN}{_box_top()}{RESET}")
@@ -222,15 +222,17 @@ class TrainingLogger:
                 f"{GRAY}{DOT}{RESET} MCTS: {mcts_sims}  "
                 f"{GRAY}{DOT}{RESET} T={temperature:.2f}")
 
-    def game_result(self, game_num: int, total_games: int, moves: int, elapsed: float):
+    def game_result(self, game_num: int, total_games: int, moves: int, elapsed: float,
+                    hw_status: str = ""):
         if moves > 0:
             speed = elapsed / moves
             bar_pct = game_num / total_games
             bar_filled = int(bar_pct * 20)
             bar = f"{GREEN}{'█' * bar_filled}{GRAY}{'░' * (20 - bar_filled)}{RESET}"
+            hw = f"  {GRAY}[{hw_status}]{RESET}" if hw_status else ""
             self._p(f"  {bar} {GRAY}{game_num:>3}/{total_games}{RESET}  "
                     f"{moves:>3} moves  {elapsed:.1f}s  "
-                    f"{DIM}({speed:.2f}s/move){RESET}")
+                    f"{DIM}({speed:.2f}s/move){RESET}{hw}")
         else:
             self._p(f"  {YELLOW}⚠{RESET}  Game {game_num}: 0 moves")
 
@@ -326,8 +328,12 @@ class TrainingLogger:
     def training_move(self, move_num: int, uci: str, turn: str, value: float = 0.0):
         """Log a single move during training self-play."""
         color = GREEN if turn == "white" else BLUE
-        val_str = f"  {DIM}v={value:+.2f}{RESET}" if value != 0.0 else ""
+        val_str = f"  {DIM}v={value:+.2f}{RESET}"
         self._p(f"    {color}{DOT}{RESET} {move_num:>3}. {uci}{val_str}")
+
+    def game_done(self, moves: int, result: str):
+        """Log end-of-game line (moves + result) after per-move output."""
+        self._p(f"      Done: {moves} moves, result: {result}")
 
     def training_game_end(self, game_num: int, total_games: int, result: str, moves: int):
         """Log the outcome of a training self-play game."""
@@ -336,7 +342,10 @@ class TrainingLogger:
             '0-1':     f"{BLUE}Black wins{RESET}",
             '1/2-1/2': f"{YELLOW}Draw{RESET}",
         }
-        label = RESULT_DISPLAY.get(result, f"{DIM}{result}{RESET}")
+        if result.startswith('draw'):
+            label = f"{YELLOW}Draw{RESET}"
+        else:
+            label = RESULT_DISPLAY.get(result, f"{DIM}{result}{RESET}")
         self._p(f"    {ARROW} Game {game_num}/{total_games}  {label}  ({moves} moves)")
 
     def test_game_end(self, game_num: int, result: str, move_count: int):
