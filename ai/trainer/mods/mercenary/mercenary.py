@@ -99,7 +99,7 @@ class MercenaryMode:
 
     @staticmethod
     def get_draw_conditions() -> dict:
-        return {'fifty_move_limit': 100, 'insufficient_material_rules': 'mercenary'}
+        return {'fifty_move_limit': 60, 'insufficient_material_rules': 'mercenary'}
 
     @staticmethod
     def filter_moves(board: chess.Board, moves: List[chess.Move]) -> List[chess.Move]:
@@ -423,6 +423,88 @@ class MercenaryBoard:
         # Normalize to [-1, 1] — divide by starting material (39 per side)
         return max(-1.0, min(1.0, (white_material - black_material) / 39.0))
 
+    def heuristic_eval(self) -> float:
+        """Fast handcrafted evaluation for bootstrapping MCTS.
+
+        Returns value in [-1, 1] from White's perspective.
+        Combines material balance, piece activity (central control),
+        and king safety (pawn shield). This gives MCTS a usable value
+        signal before the neural network has learned anything.
+
+        Called thousands of times per game (every MCTS leaf), so must
+        be fast — no legal-move generation.
+        """
+        PIECE_VAL = {
+            chess.PAWN: 1.0, chess.KNIGHT: 3.0, chess.BISHOP: 3.0,
+            chess.ROOK: 5.0, chess.QUEEN: 9.0,
+        }
+        # Central squares get a bonus for piece activity
+        CENTER_BONUS = {}
+        for sq in chess.SQUARES:
+            r, f = chess.square_rank(sq), chess.square_file(sq)
+            # Manhattan distance from center (3.5, 3.5)
+            dist = abs(r - 3.5) + abs(f - 3.5)
+            CENTER_BONUS[sq] = max(0, (3.5 - dist) / 3.5)  # 0..1
+
+        w_mat = 0.0; b_mat = 0.0
+        w_activity = 0.0; b_activity = 0.0
+        w_king_sq = None; b_king_sq = None
+
+        for sq in chess.SQUARES:
+            p = self.board.piece_at(sq)
+            if not p:
+                continue
+            if p.piece_type == chess.KING:
+                if p.color == chess.WHITE:
+                    w_king_sq = sq
+                else:
+                    b_king_sq = sq
+                continue
+            val = PIECE_VAL.get(p.piece_type, 0.0)
+            bonus = CENTER_BONUS[sq] * 0.15  # Up to +0.15 per piece
+            if p.color == chess.WHITE:
+                w_mat += val
+                w_activity += bonus
+            else:
+                b_mat += val
+                b_activity += bonus
+
+        # Material component (dominant — captures must matter)
+        mat_score = (w_mat - b_mat) / 39.0  # [-1, 1]
+
+        # Activity component (minor — encourages central play)
+        act_score = (w_activity - b_activity) / 2.5  # roughly [-1, 1]
+
+        # King safety: count friendly pawns adjacent to king
+        w_shield = 0.0; b_shield = 0.0
+        if w_king_sq is not None:
+            for dr in [-1, 0, 1]:
+                for df in [-1, 0, 1]:
+                    if dr == 0 and df == 0:
+                        continue
+                    nr = chess.square_rank(w_king_sq) + dr
+                    nf = chess.square_file(w_king_sq) + df
+                    if 0 <= nr <= 7 and 0 <= nf <= 7:
+                        adj = self.board.piece_at(chess.square(nf, nr))
+                        if adj and adj.color == chess.WHITE and adj.piece_type == chess.PAWN:
+                            w_shield += 1.0
+        if b_king_sq is not None:
+            for dr in [-1, 0, 1]:
+                for df in [-1, 0, 1]:
+                    if dr == 0 and df == 0:
+                        continue
+                    nr = chess.square_rank(b_king_sq) + dr
+                    nf = chess.square_file(b_king_sq) + df
+                    if 0 <= nr <= 7 and 0 <= nf <= 7:
+                        adj = self.board.piece_at(chess.square(nf, nr))
+                        if adj and adj.color == chess.BLACK and adj.piece_type == chess.PAWN:
+                            b_shield += 1.0
+        safety_score = (w_shield - b_shield) / 8.0  # [-1, 1]
+
+        # Weighted combination: material >> activity > safety
+        raw = 0.70 * mat_score + 0.20 * act_score + 0.10 * safety_score
+        return max(-1.0, min(1.0, raw))
+
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -642,9 +724,16 @@ def train_mercenary(test_mode=False, move_delay=0.3):
 
         # ── Self-play ─────────────────────────────────────────
         log.self_play_header(GAMES_PER_ITERATION, MCTS_SIMULATIONS, temperature)
+
+        # Heuristic weight: start high (trust handcrafted eval when NN is
+        # random), decay linearly to near-zero as the network improves.
+        # Iteration 1 → 0.80,  50 → 0.60,  100 → 0.40,  200 → 0.0
+        heuristic_weight = max(0.0, 0.80 - 0.80 * ((iteration - 1) / max(1, NUM_ITERATIONS - 1)))
+
         self_play = ImprovedSelfPlay(
             model, device=DEVICE, num_simulations=MCTS_SIMULATIONS,
-            batch_size=64, game_class=MercenaryBoard)
+            batch_size=64, game_class=MercenaryBoard,
+            heuristic_weight=heuristic_weight)
 
         all_data = []
         wins_white = 0

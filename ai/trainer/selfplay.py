@@ -61,11 +61,13 @@ class ImprovedSelfPlay:
     2. Multi-level MCTS tree search (typically depth 3-6)
     3. Temperature scheduling (exploration → exploitation)
     4. Proper move probability tracking for policy learning
-    5. Capture-aware priors for bootstrapping early training
+    5. MVV-LVA tactical priors for bootstrapping early training
     6. Dirichlet noise at root for game diversity
+    7. Heuristic-blended value to bootstrap MCTS before NN learns
     """
     
-    def __init__(self, model, device='cuda', num_simulations=50, batch_size=64, game_class=None):
+    def __init__(self, model, device='cuda', num_simulations=50, batch_size=64,
+                 game_class=None, heuristic_weight=0.7):
         """
         Args:
             model: ChessNetPOC neural network
@@ -73,7 +75,11 @@ class ImprovedSelfPlay:
             num_simulations: MCTS simulations per move (50 = fast, 200 = strong)
             batch_size: Number of positions to evaluate at once on GPU
             game_class: Game board class (must implement get_legal_moves, make_move, 
-                        is_game_over, get_result, get_board_tensor, copy)
+                        is_game_over, get_result, get_board_tensor, copy,
+                        heuristic_eval)
+            heuristic_weight: 0.0-1.0, how much to trust the handcrafted eval
+                              vs the neural network value.  Start high (~0.7),
+                              decay toward 0.0 as the network improves.
         """
         if game_class is None:
             raise ValueError("game_class is required — pass your mod's Board class")
@@ -83,6 +89,7 @@ class ImprovedSelfPlay:
         self.num_simulations = num_simulations
         self.batch_size = batch_size
         self.game_class = game_class
+        self.heuristic_weight = heuristic_weight
     
     def play_game(self, temperature_schedule: str = 'decay', verbose: bool = False, 
                   save_pgn: str = None, ws_server=None,
@@ -253,7 +260,16 @@ class ImprovedSelfPlay:
                 state_tensor = self._board_to_tensor(node.game_state)
                 with torch.no_grad():
                     policy_logits, value_tensor = self.model(state_tensor)
-                value = value_tensor.item()
+                nn_value = value_tensor.item()
+
+                # Blend neural network value with handcrafted heuristic.
+                # The NN is random early on, so heuristic_weight starts high
+                # and decays over training iterations. The heuristic knows
+                # that capturing a queen is good and losing one is bad —
+                # exactly the signal MCTS needs to pick non-random moves.
+                heuristic_value = self._get_heuristic_value(node.game_state)
+                hw = self.heuristic_weight
+                value = hw * heuristic_value + (1.0 - hw) * nn_value
                 
                 # ── EXPAND leaf node ──
                 child_moves = node.game_state.get_legal_moves()
@@ -315,15 +331,18 @@ class ImprovedSelfPlay:
                          legal_moves: List[chess.Move],
                          game_state=None) -> List[float]:
         """
-        Extract policy network priors for legal moves, with capture bonus.
+        Extract policy network priors for legal moves, with MVV-LVA bonus.
         
         Policy logits shape: (4096,) representing all possible moves.
         Move encoding: from_square * 64 + to_square
         
-        Capture bonus: boosts prior probability of capture moves so MCTS
-        explores them more during early training when the network is random.
-        The bonus is proportional to the captured piece value. As training
-        progresses, the network's learned priors dominate.
+        MVV-LVA (Most Valuable Victim – Least Valuable Attacker):
+        Strongly boosts captures where a cheap piece takes an expensive one.
+        This makes MCTS immediately explore "pawn takes queen" before the
+        neural network has learned anything about piece values.
+        
+        Check bonus: Moves that give check are tactically important and
+        get a prior boost so MCTS explores them early.
         """
         move_indices = []
         for move in legal_moves:
@@ -336,17 +355,64 @@ class ImprovedSelfPlay:
         exp_logits = np.exp(move_logits - np.max(move_logits))
         priors = (exp_logits / exp_logits.sum()).tolist()
         
-        # Capture bonus: proportional to captured piece value.
-        # Gives MCTS a basic strategic signal before the network learns.
+        # MVV-LVA + check bonus: strong tactical signal for bootstrapping.
         if game_state is not None and hasattr(game_state, 'board'):
-            CAPTURE_BONUS = {
-                chess.PAWN: 0.03, chess.KNIGHT: 0.06,
-                chess.BISHOP: 0.06, chess.ROOK: 0.09, chess.QUEEN: 0.15,
+            PIECE_VAL = {
+                chess.PAWN: 1.0, chess.KNIGHT: 3.0, chess.BISHOP: 3.0,
+                chess.ROOK: 5.0, chess.QUEEN: 9.0, chess.KING: 0.0,
             }
+            # Attacker discount: cheaper attacker → bigger bonus
+            ATTACKER_DISCOUNT = {
+                chess.PAWN: 1.0, chess.KNIGHT: 0.7, chess.BISHOP: 0.7,
+                chess.ROOK: 0.5, chess.QUEEN: 0.3, chess.KING: 0.3,
+            }
+            board = game_state.board
+            moving_color = board.turn
+
             for i, move in enumerate(legal_moves):
-                target = game_state.board.piece_at(move.to_square)
-                if target is not None and target.piece_type != chess.KING:
-                    priors[i] += CAPTURE_BONUS.get(target.piece_type, 0.03)
+                bonus = 0.0
+
+                # ── MVV-LVA capture bonus ──
+                victim = board.piece_at(move.to_square)
+                if victim is not None and victim.piece_type != chess.KING:
+                    attacker = board.piece_at(move.from_square)
+                    victim_val = PIECE_VAL.get(victim.piece_type, 0.0)
+                    atk_discount = ATTACKER_DISCOUNT.get(
+                        attacker.piece_type, 0.5) if attacker else 0.5
+                    # Scale: pawn takes queen → 9.0 * 1.0 * 0.06 = 0.54
+                    # queen takes pawn → 1.0 * 0.3 * 0.06 = 0.018
+                    bonus += victim_val * atk_discount * 0.06
+
+                # ── Check bonus (lightweight) ──
+                # Check if the moved piece directly threatens the enemy king
+                # from its destination square. Fast per-piece-type geometry
+                # check — no board push/pop needed.
+                enemy_king_sq = board.king(not moving_color)
+                if enemy_king_sq is not None:
+                    attacker = board.piece_at(move.from_square)
+                    if attacker:
+                        gives_check = False
+                        to_r = chess.square_rank(move.to_square)
+                        to_f = chess.square_file(move.to_square)
+                        k_r = chess.square_rank(enemy_king_sq)
+                        k_f = chess.square_file(enemy_king_sq)
+                        dr = abs(to_r - k_r)
+                        df = abs(to_f - k_f)
+                        atype = attacker.piece_type
+                        if atype == chess.PAWN:
+                            # Mercenary pawn: king-like attack (adjacent)
+                            gives_check = dr <= 1 and df <= 1 and (dr > 0 or df > 0)
+                        elif atype == chess.KNIGHT:
+                            gives_check = (dr == 2 and df == 1) or (dr == 1 and df == 2)
+                        elif atype in (chess.BISHOP, chess.QUEEN) and dr == df and dr > 0:
+                            gives_check = True  # Diagonal alignment (approximate)
+                        elif atype in (chess.ROOK, chess.QUEEN) and (dr == 0 or df == 0) and (dr + df) > 0:
+                            gives_check = True  # Rank/file alignment (approximate)
+                        if gives_check:
+                            bonus += 0.12
+
+                priors[i] += bonus
+
             total = sum(priors)
             if total > 0:
                 priors = [p / total for p in priors]
@@ -376,32 +442,54 @@ class ImprovedSelfPlay:
         board_array = game.get_board_tensor()
         tensor = torch.from_numpy(board_array).permute(2, 0, 1).unsqueeze(0)
         return tensor.to(self.device).float()
+
+    def _get_heuristic_value(self, game_state) -> float:
+        """Get handcrafted evaluation from the game state.
+
+        Returns value from the *current side to move*'s perspective, which
+        is what MCTS expects (positive = good for the player whose turn it
+        is at this node).
+        """
+        if hasattr(game_state, 'heuristic_eval'):
+            raw = game_state.heuristic_eval()  # White's perspective
+            # Flip if it's Black's turn
+            if hasattr(game_state, 'board') and not game_state.board.turn:
+                raw = -raw
+            return raw
+        # Fallback: material balance only
+        if hasattr(game_state, 'get_material_balance'):
+            raw = game_state.get_material_balance()
+            if hasattr(game_state, 'board') and not game_state.board.turn:
+                raw = -raw
+            return raw
+        return 0.0
     
     def _get_temperature(self, move_count: int, schedule: str) -> float:
         """
         Temperature controls exploration vs exploitation.
         
         High temperature (1.0) = explore more (random-ish moves)
-        Low temperature (0.25) = exploit more (best moves)
+        Low temperature (0.2) = exploit more (best moves)
         
-        The 'decay' schedule mirrors AlphaZero: keep temperature = 1.0
-        for the opening phase to generate diverse positions, then decay
-        to a moderate level.  Never goes below 0.25 so that even late-game
-        play retains enough stochasticity for the network to keep learning.
+        The 'decay' schedule keeps high temperature for the first 8 moves
+        to generate diverse opening positions, then drops quickly so the
+        rest of the game uses MCTS's actual judgment.  With the heuristic-
+        blended value, MCTS can now tell good from bad positions, so low
+        temperature produces noticeably better play.
         """
         if schedule == 'constant':
             return 1.0
         elif schedule == 'low':
-            return 0.25
+            return 0.2
         elif schedule == 'decay':
-            # Full exploration for opening (diverse games for training)
-            if move_count < 15:
+            # Broad exploration for opening diversity
+            if move_count < 8:
                 return 1.0
-            # Gradual decay to moderate randomness
-            elif move_count < 35:
-                return max(0.25, 1.0 - (move_count - 15) * 0.0375)
+            # Quick decay to exploitation
+            elif move_count < 20:
+                return max(0.2, 1.0 - (move_count - 8) * 0.067)
             else:
-                return 0.25
+                return 0.2
         else:
             return 1.0
     
