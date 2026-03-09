@@ -1,5 +1,5 @@
 # ╔══════════════════════════════════════════════════════════════╗
-# ║  ⚔️  Mercenary Mod — AI Training                            ║
+# ║  Mercenary Mod — AI Training                                 ║
 # ║  Pawns change color when captured                            ║
 # ╚══════════════════════════════════════════════════════════════╝
 services:
@@ -8,7 +8,7 @@ services:
       context: ../../..
       dockerfile: docker/Dockerfile
       args:
-        TRAIN_SCRIPT: mods/train_mercenary.py
+        TRAIN_SCRIPT: mods/mercenary/mercenary.py
     container_name: chessrecast-mercenary-trainer
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
@@ -26,9 +26,9 @@ services:
     working_dir: /workspace
     command: >
       sh -c "if [ \"$${TEST_MODE}\" = 'true' ]; then
-        python mods/train_mercenary.py --test --delay $${MOVE_DELAY};
+        python mods/mercenary/mercenary.py --test --delay $${MOVE_DELAY};
       else
-        python mods/train_mercenary.py --delay $${MOVE_DELAY};
+        python mods/mercenary/mercenary.py --delay $${MOVE_DELAY};
       fi"
     shm_size: '8gb'
     deploy:

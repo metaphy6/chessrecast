@@ -25,20 +25,6 @@ void logError(dynamic message, [Object? error, StackTrace? stackTrace]) {
 
 // ===== GAME MOD SPECIFIC LOGGING =====
 
-/// Coyote Mod: Rook reached opponent's back rank
-void logCoyoteBackRank(String playerColor) {
-  debugPrint(
-    '🏆 COYOTE - Back Rank: $playerColor rook reached opponent\'s back rank! VICTORY!',
-  );
-}
-
-/// Coyote Mod: Both rooks were captured
-void logCoyoteRookCapture(String capturedBy, String position) {
-  debugPrint(
-    '⚔️ COYOTE - Both Rooks Captured: Final rook captured by $capturedBy at $position! VICTORY!',
-  );
-}
-
 /// Save the Queen Mod: Queen escaped
 void logSaveTheQueenEscape(String playerColor) {
   debugPrint(
@@ -74,13 +60,6 @@ void logSuccessionNoPawns(String winner) {
   );
 }
 
-/// Secret Passage Mod: King-Rook swap
-void logSecretPassageSwap(String playerColor, String fromPos, String toPos) {
-  debugPrint(
-    '🌀 SECRET PASSAGE - Swap: $playerColor King and Rook teleported! From $fromPos to $toPos',
-  );
-}
-
 /// King's Battle Mod: King unlocks by capturing pawn
 void logKingsBattleUnlock(String playerColor, String position) {
   debugPrint(
@@ -92,41 +71,6 @@ void logKingsBattleUnlock(String playerColor, String position) {
 void logKingsBattleKingKill(String winner, String position) {
   debugPrint(
     '⚡ KING\'S BATTLE - King Kill: $winner King killed opponent\'s King at $position! VICTORY!',
-  );
-}
-
-/// Diamonds Mod: Bishop capture in diamond pattern
-void logDiamondsBishopCapture(String playerColor, String position) {
-  debugPrint(
-    '💎 DIAMONDS - Capture: $playerColor Bishop captured in diamond pattern at $position!',
-  );
-}
-
-/// Snare Mod: Knight creates/updates entangle zone
-void logSnareEntangle(String playerColor, String position) {
-  debugPrint(
-    '🕸️ SNARE - Entangle: $playerColor Knight created entangle zone at $position!',
-  );
-}
-
-/// Snare Mod: King caught in entangle zone
-void logSnareKingCaught(String playerColor) {
-  debugPrint(
-    '🪤 SNARE - Trapped: $playerColor King caught in entangle zone! CHECKMATE!',
-  );
-}
-
-/// Snare Mod: Revengeful knight capture (last knight destroyed with attacker)
-void logSnareRevengefulKnight(String attackerColor, String position) {
-  debugPrint(
-    '💥 SNARE - Revengeful Knight: $attackerColor captured the last knight at $position! Both pieces destroyed!',
-  );
-}
-
-/// Snare Mod: All knights lost - game ends in stalemate
-void logSnareAllKnightsLost() {
-  debugPrint(
-    '🏳️ SNARE - Stalemate: All knights have been lost! Game ends in stalemate!',
   );
 }
 

@@ -48,7 +48,7 @@ WHITE   = "\033[97m"
 GRAY    = "\033[90m"
 
 # ─── Mod Emojis ───────────────────────────────────────────────
-MODE_EMOJI = {
+MOD_EMOJI = {
     "mercenary":    "⚔️",
     "heir":         "👑",
     "truce":        "🤝",
@@ -127,7 +127,7 @@ class TrainingLogger:
 
     def __init__(self, mode: str = "mercenary"):
         self.mode = mode
-        self.emoji = MODE_EMOJI.get(mode, "🎯")
+        self.emoji = MOD_EMOJI.get(mode, "🎯")
         self._game_start: Optional[float] = None
         self._iter_start: Optional[float] = None
         self._train_start: Optional[float] = None
@@ -142,7 +142,7 @@ class TrainingLogger:
     def banner(self, title: str, subtitle: str = "", test_mode: bool = False):
         """Print the big startup banner."""
         self._train_start = time.time()
-        mode_label = f"{self.emoji}  {self.mode.upper()} MODE"
+        mode_label = f"{self.emoji}  {self.mode.upper()} MOD"
         status = f"{'TEST / DEMO' if test_mode else title}"
 
         self._p(f"\n{CYAN}{_box_top()}{RESET}")
@@ -174,7 +174,7 @@ class TrainingLogger:
             self._p(f"  {GREEN}{CHECK}{RESET} GPU: {BOLD}{gpu_name}{RESET}")
             self._p(f"  {GREEN}{CHECK}{RESET} VRAM: {vram_gb:.1f} GB")
         else:
-            self._p(f"  {YELLOW}⚠{RESET}  CPU mode (slower)")
+            self._p(f"  {YELLOW}⚠{RESET}  CPU (no GPU — slower)")
 
     def gpu_optimizations(self, items: list[str]):
         self.section("🔥", "GPU Optimizations")
@@ -190,8 +190,7 @@ class TrainingLogger:
         max_key_len = max(len(str(k)) for k in params.keys())
         for key, value in params.items():
             padded = str(key).ljust(max_key_len)
-            self._p(f"  {GRAY}{LIGHT_V}{RESET}  {padded}  {CYAN}{value}{RESET}")
-        self._p(f"  {GRAY}{LIGHT_BL}{LIGHT_H * (max_key_len + 20)}{RESET}")
+            self._p(f"    {padded}  {CYAN}{value}{RESET}")
 
     # ═══════════════════════════════════════════════════════════
     #  Network
@@ -200,11 +199,10 @@ class TrainingLogger:
     def network_info(self, channels: int, res_blocks: int, params: int, device: str):
         label = "Large" if channels >= 128 else "Small"
         self.section("🧠", f"Neural Network ({label})")
-        self._p(f"  {GRAY}{LIGHT_V}{RESET}  Channels:    {CYAN}{channels}{RESET}")
-        self._p(f"  {GRAY}{LIGHT_V}{RESET}  Res Blocks:  {CYAN}{res_blocks}{RESET}")
-        self._p(f"  {GRAY}{LIGHT_V}{RESET}  Parameters:  {CYAN}{params:,}{RESET}")
-        self._p(f"  {GRAY}{LIGHT_V}{RESET}  Device:      {CYAN}{device.upper()}{RESET}")
-        self._p(f"  {GRAY}{LIGHT_BL}{LIGHT_H * 30}{RESET}")
+        self._p(f"    Channels:    {CYAN}{channels}{RESET}")
+        self._p(f"    Res Blocks:  {CYAN}{res_blocks}{RESET}")
+        self._p(f"    Parameters:  {CYAN}{params:,}{RESET}")
+        self._p(f"    Device:      {CYAN}{device.upper()}{RESET}")
 
     # ═══════════════════════════════════════════════════════════
     #  Iteration
@@ -280,14 +278,13 @@ class TrainingLogger:
         eta = (total_time / iteration) * (total - iteration) if iteration > 0 else 0
 
         self._p(f"\n  📊 {BOLD}Summary{RESET}")
-        self._p(f"  {GRAY}{LIGHT_V}{RESET}  Loss:     {YELLOW}{loss:.4f}{RESET}")
-        self._p(f"  {GRAY}{LIGHT_V}{RESET}  LR:       {CYAN}{lr:.6f}{RESET}")
-        self._p(f"  {GRAY}{LIGHT_V}{RESET}  Time:     {iter_time:.1f}s")
-        self._p(f"  {GRAY}{LIGHT_V}{RESET}  ETA:      {eta/3600:.1f}h  "
+        self._p(f"    Loss:     {YELLOW}{loss:.4f}{RESET}")
+        self._p(f"    LR:       {CYAN}{lr:.6f}{RESET}")
+        self._p(f"    Time:     {iter_time:.1f}s")
+        self._p(f"    ETA:      {eta/3600:.1f}h  "
                 f"{DIM}({total_time/3600:.1f}h elapsed){RESET}")
         if checkpoint:
-            self._p(f"  {GRAY}{LIGHT_V}{RESET}  {GREEN}{CHECK}{RESET} Checkpoint: {checkpoint}")
-        self._p(f"  {GRAY}{LIGHT_BL}{LIGHT_H * 40}{RESET}")
+            self._p(f"    {GREEN}{CHECK}{RESET} Checkpoint: {checkpoint}")
 
     # ═══════════════════════════════════════════════════════════
     #  Final / Completion
@@ -304,7 +301,7 @@ class TrainingLogger:
         self._p(f"\n{GREEN}{_box_top()}{RESET}")
         self._p(f"{GREEN}{_box_row(f'🏁 {BOLD}TRAINING COMPLETE{RESET}{GREEN}')}{RESET}")
         self._p(f"{GREEN}{_box_row(f'   Total time: {total_hours:.2f} hours')}{RESET}")
-        self._p(f"{GREEN}{_box_row(f'   {self.emoji}  {self.mode.upper()} mode')}{RESET}")
+        self._p(f"{GREEN}{_box_row(f'   {self.emoji}  {self.mode.upper()} mod')}{RESET}")
         self._p(f"{GREEN}{_box_bot()}{RESET}")
 
     # ═══════════════════════════════════════════════════════════
@@ -313,18 +310,34 @@ class TrainingLogger:
 
     def test_mode_banner(self, move_delay: float):
         self._p(f"\n{YELLOW}{_box_top()}{RESET}")
-        self._p(f"{YELLOW}{_box_row(f'{self.emoji}  {BOLD}TEST MODE{RESET}{YELLOW}  {GRAY}Playing random games{RESET}{YELLOW}')}{RESET}")
+        self._p(f"{YELLOW}{_box_row(f'{self.emoji}  {BOLD}TEST MOD{RESET}{YELLOW}  {GRAY}Playing random games{RESET}{YELLOW}')}{RESET}")
         self._p(f"{YELLOW}{_box_row(f'   Move delay: {move_delay}s  {GRAY}{DOT}  Ctrl+C to stop{RESET}{YELLOW}')}{RESET}")
         self._p(f"{YELLOW}{_box_bot()}{RESET}")
 
     def test_game_start(self, game_num: int, fen: str):
         self._game_start = time.time()
         self._p(f"\n  {self.emoji}  {BOLD}Game {game_num}{RESET}")
-        self._p(f"  {GRAY}{LIGHT_V}{RESET}  FEN: {DIM}{fen}{RESET}")
+        self._p(f"    FEN: {DIM}{fen}{RESET}")
 
     def test_move(self, move_num: int, uci: str, turn: str):
         color = GREEN if turn == "white" else BLUE
-        self._p(f"  {GRAY}{LIGHT_V}{RESET}  {color}{DOT}{RESET} {move_num:>3}. {uci}")
+        self._p(f"    {color}{DOT}{RESET} {move_num:>3}. {uci}")
+
+    def training_move(self, move_num: int, uci: str, turn: str, value: float = 0.0):
+        """Log a single move during training self-play."""
+        color = GREEN if turn == "white" else BLUE
+        val_str = f"  {DIM}v={value:+.2f}{RESET}" if value != 0.0 else ""
+        self._p(f"    {color}{DOT}{RESET} {move_num:>3}. {uci}{val_str}")
+
+    def training_game_end(self, game_num: int, total_games: int, result: str, moves: int):
+        """Log the outcome of a training self-play game."""
+        RESULT_DISPLAY = {
+            '1-0':     f"{GREEN}White wins{RESET}",
+            '0-1':     f"{BLUE}Black wins{RESET}",
+            '1/2-1/2': f"{YELLOW}Draw{RESET}",
+        }
+        label = RESULT_DISPLAY.get(result, f"{DIM}{result}{RESET}")
+        self._p(f"    {ARROW} Game {game_num}/{total_games}  {label}  ({moves} moves)")
 
     def test_game_end(self, game_num: int, result: str, move_count: int):
         elapsed = time.time() - self._game_start if self._game_start else 0
@@ -337,13 +350,13 @@ class TrainingLogger:
 
     def validation_error(self, move_num: int, uci: str, error: str):
         self._p(f"\n  {RED}🛑 VALIDATION ERROR{RESET}")
-        self._p(f"  {GRAY}{LIGHT_V}{RESET}  Move #{move_num}: {uci}")
-        self._p(f"  {GRAY}{LIGHT_V}{RESET}  {RED}{error}{RESET}")
+        self._p(f"    Move #{move_num}: {uci}")
+        self._p(f"    {RED}{error}{RESET}")
 
     def critical_error(self, msg: str, fen: str = ""):
         self._p(f"\n  {RED}🚨 CRITICAL: {msg}{RESET}")
         if fen:
-            self._p(f"  {GRAY}{LIGHT_V}{RESET}  FEN: {DIM}{fen}{RESET}")
+            self._p(f"    FEN: {DIM}{fen}{RESET}")
 
     def info(self, msg: str):
         self._p(f"  {GREEN}{CHECK}{RESET} {msg}")

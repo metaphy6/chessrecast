@@ -23,12 +23,6 @@ func (mg *MoveGenerator) GetValidMoves(pos Position) []Move {
 	case Pawn:
 		moves = mg.getPawnMoves(piece)
 	case Rook:
-		// DISABLED MOD: Coyote
-		// if mg.board.Mod == Coyote {
-		// 	moves = mg.getCoyoteRookMoves(piece)
-		// } else {
-		// 	moves = mg.getRookMoves(piece)
-		// }
 		moves = mg.getRookMoves(piece)
 	case Knight:
 		moves = mg.getKnightMoves(piece)
@@ -53,10 +47,6 @@ func (mg *MoveGenerator) GetValidMoves(pos Position) []Move {
 	if !mg.allowsSelfCheck() {
 		moves = mg.filterCheckMoves(moves)
 	}
-	// DISABLED MOD: Snare
-	// } else if mg.board.Mod == Snare && piece.Type == King {
-	// 	moves = mg.filterKingMovesSelfCheck(moves, piece)
-	// }
 
 	return moves
 }
@@ -67,11 +57,6 @@ func (mg *MoveGenerator) getPawnMoves(pawn *Piece) []Move {
 	if mg.board.Mod == Mercenary {
 		return mg.getMercenaryPawnMoves(pawn)
 	}
-
-	// DISABLED MOD: Coyote
-	// if mg.board.Mod == Coyote {
-	// 	return mg.getCoyotePawnMoves(pawn)
-	// }
 
 	moves := []Move{}
 	direction := 1
@@ -184,19 +169,6 @@ func (mg *MoveGenerator) getMercenaryPawnMoves(pawn *Piece) []Move {
 	return moves
 }
 
-// DISABLED MOD: Coyote
-// getCoyotePawnMoves - Special pawn rules for Coyote mod
-// Pawns move normally (forward only), but cannot promote to rooks
-// func (mg *MoveGenerator) getCoyotePawnMoves(pawn *Piece) []Move {
-// 	...commented out...
-// }
-
-// DISABLED MOD: Coyote
-// getCoyoteRookMoves - Rooks can only capture opponent rooks in Coyote mod
-// func (mg *MoveGenerator) getCoyoteRookMoves(rook *Piece) []Move {
-// 	...commented out...
-// }
-
 // getRookMoves generates rook moves
 func (mg *MoveGenerator) getRookMoves(rook *Piece) []Move {
 	return mg.getSlidingMoves(rook, [][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}})
@@ -231,59 +203,7 @@ func (mg *MoveGenerator) getKnightMoves(knight *Piece) []Move {
 
 // getBishopMoves generates bishop moves
 func (mg *MoveGenerator) getBishopMoves(bishop *Piece) []Move {
-	// DISABLED MOD: Diamonds
-	// if mg.board.Mod == Diamonds {
-	// 	return mg.getDiamondBishopMoves(bishop)
-	// }
 	return mg.getSlidingMoves(bishop, [][2]int{{-1, -1}, {-1, 1}, {1, -1}, {1, 1}})
-}
-
-// getDiamondBishopMoves - Bishops capture in diamond pattern in Diamonds mod
-func (mg *MoveGenerator) getDiamondBishopMoves(bishop *Piece) []Move {
-	// Move diagonally but capture in diamond pattern
-	moves := mg.getSlidingMoves(bishop, [][2]int{{-1, -1}, {-1, 1}, {1, -1}, {1, 1}})
-	
-	// Add diamond capture pattern:
-	// - 4 diagonal squares (1 square away diagonally)
-	// - 4 orthogonal squares (2 squares away)
-	diamondOffsets := [][2]int{
-		// Diagonal adjacent (1 square away diagonally)
-		{-1, -1}, // top-left diagonal
-		{-1, 1},  // top-right diagonal
-		{1, -1},  // bottom-left diagonal
-		{1, 1},   // bottom-right diagonal
-		// Orthogonal 2 squares away
-		{-2, 0}, // 2 up
-		{0, 2},  // 2 right
-		{2, 0},  // 2 down
-		{0, -2}, // 2 left
-	}
-
-	for _, offset := range diamondOffsets {
-		capturePos := bishop.Position.Offset(offset[0], offset[1])
-		if !capturePos.IsValid() {
-			continue
-		}
-
-		targetPiece := mg.board.GetPieceAt(capturePos)
-		if targetPiece != nil && targetPiece.Color != bishop.Color {
-			move := NewMove(bishop.Position, capturePos, bishop)
-			move.CapturedPiece = targetPiece
-			// Check if this move isn't already in moves
-			found := false
-			for _, m := range moves {
-				if m.To.Equals(capturePos) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				moves = append(moves, *move)
-			}
-		}
-	}
-
-	return moves
 }
 
 // getQueenMoves generates queen moves
@@ -334,16 +254,9 @@ func (mg *MoveGenerator) getKingMoves(king *Piece) []Move {
 	}
 
 	// Castling
-	// DISABLED MODS: SecretPassage and Coyote used to disable castling
-	// if mg.board.Mod != SecretPassage && mg.board.Mod != Coyote && !king.HasMoved {
 	if !king.HasMoved {
 		moves = append(moves, mg.getCastlingMoves(king)...)
 	}
-
-	// DISABLED MOD: Secret Passage moves
-	// if mg.board.Mod == SecretPassage {
-	// 	moves = append(moves, mg.getSecretPassageMoves(king)...)
-	// }
 
 	return moves
 }
@@ -438,33 +351,9 @@ func (mg *MoveGenerator) getCastlingMoves(king *Piece) []Move {
 	return moves
 }
 
-// getSecretPassageMoves generates king-rook secret passage moves for Secret Passage mod
-// DISABLED MOD: Secret Passage
-// func (mg *MoveGenerator) getSecretPassageMoves(king *Piece) []Move {
-// 	moves := []Move{}
-// 	for row := 0; row < 8; row++ {
-// 		for col := 0; col < 8; col++ {
-// 			piece := mg.board.GetPieceAt(Position{Row: row, Col: col})
-// 			if piece == nil || piece.Type != Rook || piece.Color != king.Color {
-// 				continue
-// 			}
-// 			aligned := (piece.Position.Row == king.Position.Row) ||
-// 				(piece.Position.Col == king.Position.Col)
-// 			if aligned {
-// 				move := NewMove(king.Position, piece.Position, king)
-// 				move.IsSecretPassage = true
-// 				moves = append(moves, *move)
-// 			}
-// 		}
-// 	}
-// 	return moves
-// }
-
 // getPromotionPieces returns available promotion pieces for a color
 func (mg *MoveGenerator) getPromotionPieces(color Color) []PieceType {
 	switch mg.board.Mod {
-	// case Diamonds: // DISABLED MOD
-	// 	return []PieceType{Bishop} // Only bishop promotion
 	case Succession:
 		// Cannot promote to queen (each side has two queens already)
 		// Check if can promote to king
@@ -483,20 +372,6 @@ func (mg *MoveGenerator) getPromotionPieces(color Color) []PieceType {
 			return []PieceType{Queen, Rook, Bishop, Knight, King}
 		}
 		return []PieceType{Queen, Rook, Bishop, Knight}
-	// case Snare: // DISABLED MOD
-	// 	// Snare mod knight-based promotion rules
-	// 	knightCount := mg.board.CountKnights(color)
-	// 	switch knightCount {
-	// case 0:
-	// 		// No knights = no promotion at all
-	// 		return []PieceType{}
-	// 	case 1:
-	// 		// One knight = can only promote to knight (to get back to 2)
-	// 		return []PieceType{Knight}
-	// 	default:
-	// 		// Two knights = Q, R, B only (no knight, max 2 knights per game)
-	// 		return []PieceType{Queen, Rook, Bishop}
-	// 	}
 	default:
 		return []PieceType{Queen, Rook, Bishop, Knight}
 	}
@@ -511,8 +386,6 @@ func (mg *MoveGenerator) applyGameModRules(moves []Move, piece *Piece) []Move {
 		return mg.applyKingsBattleRules(moves, piece)
 	case Truce:
 		return mg.applyTruceRules(moves, piece)
-	// case Snare: // DISABLED MOD
-	// 	return mg.applySnareRules(moves, piece)
 	case SaveTheQueen:
 		return mg.applySaveTheQueenRules(moves, piece)
 	case Heir:
@@ -590,340 +463,6 @@ func (mg *MoveGenerator) applyTruceRules(moves []Move, piece *Piece) []Move {
 	}
 
 	return nonCaptureMoves
-}
-
-// applySnareRules handles knight entanglement zones
-func (mg *MoveGenerator) applySnareRules(moves []Move, piece *Piece) []Move {
-	// Check if piece is entangled
-	if mg.isPieceEntangled(piece) {
-		return mg.getEntangledPieceMoves(piece)
-	}
-
-	// King cannot voluntarily move into ANY entangle zone
-	if piece.Type == King {
-		filteredMoves := []Move{}
-		for _, move := range moves {
-			if !mg.isInAnyEntangleZone(move.To) {
-				filteredMoves = append(filteredMoves, move)
-			}
-		}
-		return filteredMoves
-	}
-
-	// Filter out moves INTO or THROUGH entangle zones (except from adjacent)
-	filteredMoves := []Move{}
-	for _, move := range moves {
-		blocked := false
-		
-		// Check all entangle zones
-		for _, color := range []Color{White, Black} {
-			zone := mg.getEntangleZone(color)
-			if len(zone) == 0 {
-				continue
-			}
-
-			// Check if destination is in zone
-			inZone := false
-			for _, zonePos := range zone {
-				if move.To.Equals(zonePos) {
-					inZone = true
-					break
-				}
-			}
-
-			if inZone {
-				// Check if move is from adjacent square or already in zone
-				rowDiff := abs(move.To.Row - move.From.Row)
-				colDiff := abs(move.To.Col - move.From.Col)
-				isAdjacent := rowDiff <= 1 && colDiff <= 1
-
-				alreadyInZone := false
-				for _, zonePos := range zone {
-					if move.From.Equals(zonePos) {
-						alreadyInZone = true
-						break
-					}
-				}
-
-				if !isAdjacent && !alreadyInZone {
-					blocked = true
-					break
-				}
-			}
-
-			// Check if move passes through zone
-			if mg.movePassesThroughZone(move.From, move.To, zone) {
-				blocked = true
-				break
-			}
-		}
-
-		if !blocked {
-			filteredMoves = append(filteredMoves, move)
-		}
-	}
-
-	return filteredMoves
-}
-
-// getKnights returns all knights of the specified color
-func (mg *MoveGenerator) getKnights(color Color) []*Piece {
-	knights := []*Piece{}
-	for row := 0; row < 8; row++ {
-		for col := 0; col < 8; col++ {
-			piece := mg.board.GetPieceAt(Position{Row: row, Col: col})
-			if piece != nil && piece.Type == Knight && piece.Color == color {
-				knights = append(knights, piece)
-			}
-		}
-	}
-	return knights
-}
-
-// areKnightsDefending checks if two knights defend each other
-func (mg *MoveGenerator) areKnightsDefending(k1, k2 *Piece) bool {
-	// Knight moves in L-shape
-	offsets := [][2]int{
-		{-2, -1}, {-2, 1}, {-1, -2}, {-1, 2},
-		{1, -2}, {1, 2}, {2, -1}, {2, 1},
-	}
-	
-	// Check if k1 can attack k2's position
-	k1CanAttackK2 := false
-	for _, offset := range offsets {
-		if k1.Position.Offset(offset[0], offset[1]).Equals(k2.Position) {
-			k1CanAttackK2 = true
-			break
-		}
-	}
-	
-	if !k1CanAttackK2 {
-		return false
-	}
-
-	// Check if k2 can attack k1's position
-	for _, offset := range offsets {
-		if k2.Position.Offset(offset[0], offset[1]).Equals(k1.Position) {
-			return true
-		}
-	}
-	
-	return false
-}
-
-// getEntangleZone returns the entangle zone positions for a color's knights
-func (mg *MoveGenerator) getEntangleZone(color Color) []Position {
-	knights := mg.getKnights(color)
-	if len(knights) != 2 {
-		return []Position{}
-	}
-
-	if !mg.areKnightsDefending(knights[0], knights[1]) {
-		return []Position{}
-	}
-
-	// Calculate the zone between the knights
-	k1 := knights[0].Position
-	k2 := knights[1].Position
-	
-	rowDiff := abs(k1.Row - k2.Row)
-	colDiff := abs(k1.Col - k2.Col)
-
-	zone := []Position{}
-
-	// For a knight move, one diff is 1 and the other is 2
-	if rowDiff == 1 && colDiff == 2 {
-		// Horizontal corridor (2 column difference, 1 row difference)
-		minCol := k1.Col
-		if k2.Col < minCol {
-			minCol = k2.Col
-		}
-		middleCol := minCol + 1
-
-		zone = append(zone, Position{Row: k1.Row, Col: middleCol})
-		zone = append(zone, Position{Row: k2.Row, Col: middleCol})
-	} else if rowDiff == 2 && colDiff == 1 {
-		// Vertical corridor (2 row difference, 1 column difference)
-		minRow := k1.Row
-		if k2.Row < minRow {
-			minRow = k2.Row
-		}
-		middleRow := minRow + 1
-
-		zone = append(zone, Position{Row: middleRow, Col: k1.Col})
-		zone = append(zone, Position{Row: middleRow, Col: k2.Col})
-	}
-
-	return zone
-}
-
-// isPieceEntangled checks if a piece is in an entangle zone
-func (mg *MoveGenerator) isPieceEntangled(piece *Piece) bool {
-	for _, color := range []Color{White, Black} {
-		zone := mg.getEntangleZone(color)
-		for _, zonePos := range zone {
-			if piece.Position.Equals(zonePos) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// isInAnyEntangleZone checks if a position is in any entangle zone
-func (mg *MoveGenerator) isInAnyEntangleZone(pos Position) bool {
-	for _, color := range []Color{White, Black} {
-		zone := mg.getEntangleZone(color)
-		for _, zonePos := range zone {
-			if pos.Equals(zonePos) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// getEntangledPieceMoves returns valid moves for an entangled piece
-func (mg *MoveGenerator) getEntangledPieceMoves(piece *Piece) []Move {
-	moves := []Move{}
-	
-	// Find which zone this piece is in
-	var zone []Position
-	for _, color := range []Color{White, Black} {
-		z := mg.getEntangleZone(color)
-		for _, zonePos := range z {
-			if piece.Position.Equals(zonePos) {
-				zone = z
-				break
-			}
-		}
-		if len(zone) > 0 {
-			break
-		}
-	}
-
-	if len(zone) == 0 {
-		return moves
-	}
-
-	// Count entangled pieces in zone
-	entangledCount := 0
-	for _, zonePos := range zone {
-		if mg.board.GetPieceAt(zonePos) != nil {
-			entangledCount++
-		}
-	}
-
-	// If only 1 piece entangled, it can move within the zone
-	if entangledCount == 1 {
-		for _, zonePos := range zone {
-			if !piece.Position.Equals(zonePos) && mg.board.GetPieceAt(zonePos) == nil {
-				moves = append(moves, Move{
-					From:  piece.Position,
-					To:    zonePos,
-					Piece: piece,
-				})
-			}
-		}
-	}
-
-	// All entangled pieces can escape via king-like moves
-	offsets := [][2]int{
-		{-1, -1}, {-1, 0}, {-1, 1},
-		{0, -1}, {0, 1},
-		{1, -1}, {1, 0}, {1, 1},
-	}
-
-	for _, offset := range offsets {
-		newPos := piece.Position.Offset(offset[0], offset[1])
-		if !newPos.IsValid() {
-			continue
-		}
-
-		// Can't escape to a position still in the zone
-		inZone := false
-		for _, zonePos := range zone {
-			if newPos.Equals(zonePos) {
-				inZone = true
-				break
-			}
-		}
-		if inZone {
-			continue
-		}
-
-		targetPiece := mg.board.GetPieceAt(newPos)
-		if targetPiece == nil {
-			moves = append(moves, Move{
-				From:  piece.Position,
-				To:    newPos,
-				Piece: piece,
-			})
-		} else if targetPiece.Color != piece.Color {
-			moves = append(moves, Move{
-				From:          piece.Position,
-				To:            newPos,
-				Piece:         piece,
-				CapturedPiece: targetPiece,
-			})
-		}
-	}
-
-	return moves
-}
-
-// movePassesThroughZone checks if a move passes through an entangle zone
-func (mg *MoveGenerator) movePassesThroughZone(from, to Position, zone []Position) bool {
-	path := mg.getPathBetween(from, to)
-	for _, pathPos := range path {
-		if pathPos.Equals(from) {
-			continue
-		}
-		for _, zonePos := range zone {
-			if pathPos.Equals(zonePos) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// getPathBetween returns all positions along a straight line path
-func (mg *MoveGenerator) getPathBetween(from, to Position) []Position {
-	path := []Position{}
-	
-	dr := to.Row - from.Row
-	dc := to.Col - from.Col
-	
-	// Determine step direction
-	rowStep := 0
-	if dr != 0 {
-		rowStep = dr / abs(dr)
-	}
-	colStep := 0
-	if dc != 0 {
-		colStep = dc / abs(dc)
-	}
-	
-	// Not a straight line
-	if rowStep == 0 && colStep == 0 {
-		return path
-	}
-	if rowStep != 0 && colStep != 0 && abs(dr) != abs(dc) {
-		return path
-	}
-	
-	currentRow := from.Row
-	currentCol := from.Col
-	
-	for currentRow != to.Row || currentCol != to.Col {
-		path = append(path, Position{Row: currentRow, Col: currentCol})
-		currentRow += rowStep
-		currentCol += colStep
-	}
-	path = append(path, to)
-	
-	return path
 }
 
 // applySaveTheQueenRules handles imprisoned queen movement and capture restrictions
@@ -1207,21 +746,6 @@ func (mg *MoveGenerator) filterCheckMoves(moves []Move) []Move {
 	return validMoves
 }
 
-// filterKingMovesSelfCheck filters king moves to prevent moving into attacked squares
-// Used in Snare mod where traditional "check" doesn't apply but king still can't move to attacked squares
-func (mg *MoveGenerator) filterKingMovesSelfCheck(moves []Move, king *Piece) []Move {
-	validMoves := []Move{}
-	
-	for _, move := range moves {
-		// Check if destination square is attacked by enemy
-		if !mg.isSquareAttacked(move.To, king.Color.Opposite()) {
-			validMoves = append(validMoves, move)
-		}
-	}
-
-	return validMoves
-}
-
 func (mg *MoveGenerator) isKingInCheck(board *Board, color Color) bool {
 	// Find king position
 	var kingPos Position
@@ -1319,15 +843,6 @@ func (mg *MoveGenerator) canAttackSquareOnBoard(board *Board, piece *Piece, targ
 		}
 	}
 
-	// DISABLED MOD: Coyote rook attack restriction
-	// if board.Mod == Coyote && piece.Type == Rook {
-	// 	targetPiece := board.GetPieceAt(target)
-	// 	if targetPiece == nil {
-	// 		return false
-	// 	}
-	// 	return targetPiece.Type == Rook && targetPiece.Color != piece.Color
-	// }
-
 	// Simplified attack check without generating full moves
 	switch piece.Type {
 	case Queen:
@@ -1416,7 +931,6 @@ func (mg *MoveGenerator) allowsSelfCheck() bool {
 		// Has pawns and hasn't promoted → king can be captured freely
 		return true
 	}
-	// Snare mod uses normal chess rules for check - king cannot move into attacked squares
 	return false
 }
 

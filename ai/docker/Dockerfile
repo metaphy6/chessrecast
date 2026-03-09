@@ -9,7 +9,7 @@
 FROM pytorch/pytorch:2.1.0-cuda12.1-cudnn8-runtime
 
 # Build arguments (passed from docker-compose)
-ARG TRAIN_SCRIPT=mods/train_mercenary.py
+ARG TRAIN_SCRIPT=mods/mercenary/mercenary.py
 ARG TRAIN_ARGS=""
 
 # Persist as env vars so CMD/entrypoint can use them at runtime

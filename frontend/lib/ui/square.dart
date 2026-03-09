@@ -10,18 +10,12 @@ class _BorderDecorations {
   static const selected = BoxDecoration(
     border: Border.fromBorderSide(BorderSide(color: Colors.blue, width: 3)),
   );
-
-  static final entangled = BoxDecoration(
-    border: Border.all(color: Colors.purple.shade700, width: 3),
-  );
 }
 
 // Cached color overlays to eliminate allocations
 class _ColorOverlays {
   static final selected = Colors.yellow.withValues(alpha: 0.5);
   static final validMove = Colors.green.withValues(alpha: 0.3);
-  static final entangleZone = Colors.purple.withValues(alpha: 0.2);
-  static final diamondZone = Colors.cyan.withValues(alpha: 0.25);
   static const transparent = Colors.transparent;
 }
 
@@ -43,14 +37,6 @@ class ChessSquare extends StatelessWidget {
         final isValidMove = controller.isValidMoveTarget(position);
         final chessPiece = controller.getPieceAt(position);
 
-        // Snare Mod: Check if this square is in an entangle zone
-        final isEntangleZone = controller.isPositionInEntangleZone(position);
-        final hasEntangledPiece =
-            chessPiece != null && controller.isPieceEntangled(position);
-
-        // Diamonds Mod: Check if this square is in a bishop's diamond zone
-        final isDiamondZone = controller.isPositionInDiamondZone(position);
-
         return GestureDetector(
           onTap: () {
             try {
@@ -61,51 +47,18 @@ class ChessSquare extends StatelessWidget {
           },
           behavior: HitTestBehavior.opaque,
           child: Container(
-            color: _getSquareColor(
-              isLight,
-              isSelected,
-              isValidMove,
-              isEntangleZone,
-              isDiamondZone,
-            ),
+            color: _getSquareColor(isLight, isSelected, isValidMove),
             child: Container(
-              decoration: isSelected
-                  ? _BorderDecorations.selected
-                  : hasEntangledPiece
-                  ? _BorderDecorations.entangled
-                  : null,
+              decoration: isSelected ? _BorderDecorations.selected : null,
               child: Stack(
                 children: [
                   // Valid move indicator (render first, underneath)
                   if (isValidMove)
-                    _ValidMoveIndicator(
-                      hasCapture:
-                          chessPiece != null &&
-                          !controller.isTeleportSwapTarget(
-                            position,
-                            chessPiece,
-                          ),
-                    ),
-
-                  // Entangle zone indicator (under pieces)
-                  if (isEntangleZone && chessPiece == null)
-                    const _EntangleZoneIndicator(),
-
-                  // Diamonds Mod: Diamond zone indicator (under pieces)
-                  if (isDiamondZone && chessPiece == null)
-                    const _DiamondZoneIndicator(),
+                    _ValidMoveIndicator(hasCapture: chessPiece != null),
 
                   // Chess piece (main content, rendered on top)
                   if (chessPiece != null)
                     Center(child: chessPiece.toWidget(size: 45)),
-
-                  // Entangled piece indicator overlay (small badge)
-                  if (hasEntangledPiece)
-                    const Positioned(
-                      bottom: 2,
-                      right: 2,
-                      child: _EntangledBadge(),
-                    ),
 
                   // Coordinate labels (development only)
                   if (_shouldShowCoordinates())
@@ -130,13 +83,7 @@ class ChessSquare extends StatelessWidget {
     );
   }
 
-  Color _getSquareColor(
-    bool isLight,
-    bool isSelected,
-    bool isValidMove,
-    bool isEntangleZone,
-    bool isDiamondZone,
-  ) {
+  Color _getSquareColor(bool isLight, bool isSelected, bool isValidMove) {
     // Since we're using a background image, make squares transparent
     // Only add color overlays for selected/valid moves
     if (isSelected) {
@@ -145,16 +92,6 @@ class ChessSquare extends StatelessWidget {
 
     if (isValidMove) {
       return _ColorOverlays.validMove;
-    }
-
-    // Snare Mod: Entangle zone gets a purple tint
-    if (isEntangleZone) {
-      return _ColorOverlays.entangleZone;
-    }
-
-    // Diamonds Mod: Diamond zone gets a cyan/blue tint
-    if (isDiamondZone) {
-      return _ColorOverlays.diamondZone;
     }
 
     // Transparent for normal squares to show board image
@@ -166,72 +103,6 @@ class ChessSquare extends StatelessWidget {
 
   bool _shouldShowCoordinates() {
     return _showCoordinates;
-  }
-}
-
-/// Const widget for entangled piece badge - prevents rebuilds
-class _EntangledBadge extends StatelessWidget {
-  const _EntangledBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: Colors.purple.shade800,
-        shape: BoxShape.circle,
-      ),
-      child: const Icon(Icons.link, size: 12, color: Colors.white),
-    );
-  }
-}
-
-/// Const widget for entangle zone indicator - prevents rebuilds
-class _EntangleZoneIndicator extends StatelessWidget {
-  const _EntangleZoneIndicator();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: 30,
-        height: 30,
-        decoration: BoxDecoration(
-          color: Colors.purple.withValues(alpha: 0.3),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.purple.shade600, width: 2),
-        ),
-        child: Icon(
-          Icons.warning_amber_rounded,
-          size: 16,
-          color: Colors.purple.shade900,
-        ),
-      ),
-    );
-  }
-}
-
-/// Const widget for diamond zone indicator - prevents rebuilds
-class _DiamondZoneIndicator extends StatelessWidget {
-  const _DiamondZoneIndicator();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: Colors.cyan.withValues(alpha: 0.3),
-          border: Border.all(color: Colors.cyan.shade700, width: 2),
-        ),
-        child: Icon(
-          Icons.change_history, // Diamond/triangle shape
-          size: 18,
-          color: Colors.cyan.shade900,
-        ),
-      ),
-    );
   }
 }
 

@@ -66,23 +66,31 @@ class TrainingWebSocketServer:
         await self.register(websocket)
         try:
             async for message in websocket:
-                # Handle incoming messages if needed
+                # Handle incoming messages from Flutter clients
                 try:
                     data = json.loads(message)
-                    if data.get('type') == 'ping':
+                    msg_type = data.get('type', 'unknown')
+
+                    # Log all Flutter client messages
+                    if msg_type == 'ping':
+                        print(f"  📱 Flutter → ping")
                         await websocket.send(json.dumps({'type': 'pong'}))
-                    elif data.get('type') == 'get_state':
+                    elif msg_type == 'get_state':
+                        print(f"  📱 Flutter → get_state")
                         # Send current game state if available
                         if self.current_game and self.current_game.get('status') == 'in_progress':
                             await websocket.send(json.dumps({
                                 'type': 'game_state',
                                 'data': self.current_game
                             }))
-                    elif data.get('type') == 'validation_error':
+                    elif msg_type == 'validation_error':
+                        print(f"  📱 Flutter → validation_error")
                         # Client reported an invalid move
                         self._handle_validation_error(data.get('data', {}))
+                    else:
+                        print(f"  📱 Flutter → {msg_type}: {json.dumps(data.get('data', {}), default=str)[:120]}")
                 except Exception as e:
-                    print(f"Error handling client message: {e}")
+                    print(f"⚠️ Error handling client message: {e}")
         except websockets.exceptions.ConnectionClosed:
             pass
         finally:

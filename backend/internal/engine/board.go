@@ -319,16 +319,6 @@ func (b *Board) MakeMove(move Move) error {
 		}
 		
 		b.FiftyMoveRule = 0
-		
-		// DISABLED MOD: Snare - Revengeful knight
-		// if b.Mod == Snare && move.CapturedPiece.Type == Knight {
-		// 	capturedColor := move.CapturedPiece.Color
-		// 	remainingKnights := b.CountKnights(capturedColor)
-		// 	if remainingKnights == 0 {
-		// 		piece = nil
-		// 		revengefulKnight = true
-		// 	}
-		// }
 	}
 
 	// Handle special moves
@@ -337,10 +327,6 @@ func (b *Board) MakeMove(move Move) error {
 	} else if move.IsEnPassant {
 		b.executeEnPassant(move)
 	}
-	// DISABLED MOD: Secret Passage
-	// } else if move.IsSecretPassage {
-	// 	b.executeSecretPassage(move)
-	// }
 
 	// Move piece to destination (unless revengeful knight destroyed it)
 	if piece != nil {
@@ -466,17 +452,6 @@ func (b *Board) executeEnPassant(move Move) {
 		Col: move.To.Col,
 	}
 	b.removePiece(capturedPawnPos)
-}
-
-// executeSecretPassage handles king-rook teleportation in Secret Passage mod
-func (b *Board) executeSecretPassage(move Move) {
-	// Swap king and rook positions
-	rook := b.GetPieceAt(move.To)
-	if rook != nil {
-		b.removePiece(move.To)
-		rook.Position = move.From
-		b.setPiece(rook)
-	}
 }
 
 // updateCastlingRights updates castling availability after a move
@@ -719,32 +694,6 @@ func (b *Board) CountKnights(color Color) int {
 		}
 	}
 	return count
-}
-
-// IsKingEntangled checks if the king of the specified color is in an entangle zone
-func (b *Board) IsKingEntangled(color Color) bool {
-	// Find king
-	var king *Piece
-	for row := 0; row < 8; row++ {
-		for col := 0; col < 8; col++ {
-			piece := b.squares[row][col]
-			if piece != nil && piece.Type == King && piece.Color == color {
-				king = piece
-				break
-			}
-		}
-		if king != nil {
-			break
-		}
-	}
-	
-	if king == nil {
-		return false
-	}
-
-	// Check if king is in any entangle zone
-	mg := NewMoveGenerator(b)
-	return mg.isInAnyEntangleZone(king.Position)
 }
 
 // GetPiecesOfColor returns all pieces of the specified color
