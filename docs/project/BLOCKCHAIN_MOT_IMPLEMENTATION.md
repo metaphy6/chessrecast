@@ -870,11 +870,11 @@ class GameValidator {
       );
     }
     
-    // Check 4: Mode-specific rules
+    // Check 4: Mod-specific rules
     if (!_validateModeSpecificRules(game)) {
       return ValidationResult(
         isValid: false,
-        reason: 'Mode-specific rule violation',
+        reason: 'Mod-specific rule violation',
       );
     }
     

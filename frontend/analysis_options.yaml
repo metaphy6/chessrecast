@@ -27,7 +27,7 @@ linter:
 analyzer:
   errors:
     # Treat using deprecated members as errors to disallow direct instantiation
-    # of Mode classes in favor of the centralized `modes` alias.
+    # of Mod classes in favor of the centralized `modes` alias.
     # NOTE: `modes_cache.dart` intentionally uses constructors and suppresses
     # deprecated_member_use via `// ignore_for_file: deprecated_member_use`.
     deprecated_member_use: error

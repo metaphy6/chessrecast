@@ -5,13 +5,13 @@ Auto-detects GPU/CPU and provides flexible training and testing modes.
 ## Features
 
 - ✅ **Auto GPU/CPU Detection**: Automatically uses GPU if available, falls back to CPU
-- ✅ **Test Mode**: Play random games without training for rule testing
+- ✅ **Test Mod**: Play random games without training for rule testing
 - ✅ **Adjustable Speed**: Set move delay from 0.1 to 10 seconds
 - ✅ **WebSocket Streaming**: Live game viewing on port 8765
 
 ## Usage
 
-### Test Mode (Random Games)
+### Test Mod (Random Games)
 
 Play random Mercenary games with adjustable speed:
 
@@ -26,7 +26,7 @@ python mods/train_mercenary.py --test --delay 1.0
 python mods/train_mercenary.py --test --delay 5.0
 ```
 
-### Training Mode
+### Training Mod
 
 Full neural network training:
 
@@ -58,10 +58,10 @@ python mods/train_mercenary.py
 Edit `.env` file or set environment variables:
 
 ```bash
-# Test Mode with 1s delay (default)
+# Test Mod with 1s delay (default)
 TEST_MODE=true MOVE_DELAY=1.0
 
-# Fast Test Mode
+# Fast Test Mod
 TEST_MODE=true MOVE_DELAY=0.3
 
 # Slow demo (5s per move)
@@ -76,14 +76,14 @@ TEST_MODE=false MOVE_DELAY=0.3
 ```bash
 cd ai/docker/mods/mercenary
 
-# Test Mode with 2s delay
+# Test Mod with 2s delay
 TEST_MODE=true MOVE_DELAY=2.0 docker compose up
 
 # Training mode
 TEST_MODE=false docker compose up
 ```
 
-### Test Mode (Default)
+### Test Mod (Default)
 
 ```bash
 cd ai/docker/mods/mercenary
@@ -96,7 +96,7 @@ TEST_MODE=true
 MOVE_DELAY=2.0
 ```
 
-### Training Mode
+### Training Mod
 
 ```bash
 cd ai/docker/mods/mercenary
@@ -106,7 +106,7 @@ docker compose run --rm mercenary-trainer python mods/train_mercenary.py
 ### Direct Docker Run
 
 ```bash
-# Test Mode with 1s delay
+# Test Mod with 1s delay
 sudo docker run -p 8765:8765 -v $(pwd)/trainer:/workspace docker-mercenary-trainer:latest python mods/train_mercenary.py --test --delay 1.0
 
 # Training mode
@@ -130,7 +130,7 @@ The script automatically:
 
 ## Performance
 
-| Mode | Device | Speed | Purpose |
+| Mod | Device | Speed | Purpose |
 |------|--------|-------|---------|
 | Test | CPU | Real-time | Rule testing, demos |
 | Test | GPU | Real-time | Rule testing, demos |

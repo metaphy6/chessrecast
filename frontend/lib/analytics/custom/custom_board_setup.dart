@@ -315,7 +315,7 @@ class _CustomControlPanel extends StatelessWidget {
             Expanded(
               child: InputDecorator(
                 decoration: const InputDecoration(
-                  labelText: 'Mode',
+                  labelText: 'Mod',
                   border: OutlineInputBorder(),
                   filled: true,
                   fillColor: Colors.white,

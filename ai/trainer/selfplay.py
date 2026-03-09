@@ -376,7 +376,7 @@ class GameModRewards:
     @staticmethod
     def _other_side_rewards(game_history: List[Dict]) -> List[Dict]:
         """
-        Other Side Mode: Reward rook advancement toward opponent's back rank.
+        Other Side Mod: Reward rook advancement toward opponent's back rank.
         """
         # TODO: Implement when game_rules supports mode-specific features
         # For now, return unchanged
@@ -385,7 +385,7 @@ class GameModRewards:
     @staticmethod
     def _kings_battle_rewards(game_history: List[Dict]) -> List[Dict]:
         """
-        Kings' Battle Mode: Reward "King's Kill" trigger and pawn promotions.
+        Kings' Battle Mod: Reward "King's Kill" trigger and pawn promotions.
         """
         # TODO: Implement when game_rules supports mode tracking
         return game_history
@@ -393,7 +393,7 @@ class GameModRewards:
     @staticmethod
     def _diamonds_rewards(game_history: List[Dict]) -> List[Dict]:
         """
-        Diamonds Mode: Reward bishop positioning for diamond captures.
+        Diamonds Mod: Reward bishop positioning for diamond captures.
         """
         # TODO: Implement when game_rules exposes piece positions
         return game_history

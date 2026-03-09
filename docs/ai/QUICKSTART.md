@@ -15,13 +15,13 @@ python -c "import torch; print('CUDA:', torch.cuda.is_available()); print('GPU:'
 
 ## Start Training
 
-### Full Training Mode (6-10 hours on RTX 4080)
+### Full Training Mod (6-10 hours on RTX 4080)
 ```bash
 cd ai/trainer
 python mods/train_mercenary.py
 ```
 
-### Test Mode (Watch AI Play - Configurable Delays)
+### Test Mod (Watch AI Play - Configurable Delays)
 
 **Recommended for watching (1.5s per move):**
 ```bash

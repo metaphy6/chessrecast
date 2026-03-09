@@ -47,7 +47,7 @@ CYAN    = "\033[96m"
 WHITE   = "\033[97m"
 GRAY    = "\033[90m"
 
-# ─── Mode Emojis ───────────────────────────────────────────────
+# ─── Mod Emojis ───────────────────────────────────────────────
 MODE_EMOJI = {
     "mercenary":    "⚔️",
     "heir":         "👑",
@@ -308,7 +308,7 @@ class TrainingLogger:
         self._p(f"{GREEN}{_box_bot()}{RESET}")
 
     # ═══════════════════════════════════════════════════════════
-    #  Test Mode
+    #  Test Mod
     # ═══════════════════════════════════════════════════════════
 
     def test_mode_banner(self, move_delay: float):

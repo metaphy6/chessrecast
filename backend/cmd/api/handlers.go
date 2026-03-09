@@ -28,7 +28,7 @@ func handleGuestLogin(c *gin.Context) {
 
 // BotVsBotRequest represents a bot vs bot game request
 type BotVsBotRequest struct {
-    Mode            string `json:"mode"`
+    Mod            string `json:"mode"`
     WhiteDifficulty int    `json:"white_difficulty"`
     BlackDifficulty int    `json:"black_difficulty"`
     AutoPlay        bool   `json:"auto_play"`
@@ -44,7 +44,7 @@ func handleBotVsBot(c *gin.Context) {
     }
 
     // Parse game mod
-    GameMod := parseGameMod(req.Mode)
+    GameMod := parseGameMod(req.Mod)
 
     // Create white bot player
     whiteBot := ai.NewBot(req.WhiteDifficulty, engine.White)
@@ -86,7 +86,7 @@ func handleBotVsBot(c *gin.Context) {
 
 // CustomBoardBotVsBotRequest represents a custom board bot vs bot game request
 type CustomBoardBotVsBotRequest struct {
-    Mode            string               `json:"mode"`
+    Mod            string               `json:"mode"`
     Pieces          []engine.CustomPiece `json:"pieces"`
     CurrentPlayer   string               `json:"current_player"` // "white" or "black"
     WhiteDifficulty int                  `json:"white_difficulty"`
@@ -97,7 +97,7 @@ type CustomBoardBotVsBotRequest struct {
 
 // CustomBoardHumanVsBotRequest represents a custom board human vs bot game request
 type CustomBoardHumanVsBotRequest struct {
-    Mode          string                `json:"mode"`
+    Mod          string                `json:"mode"`
     Pieces        []engine.CustomPiece `json:"pieces"`
     CurrentPlayer string                `json:"current_player"`
     BotDifficulty int                   `json:"bot_difficulty"`
@@ -112,7 +112,7 @@ func handleCustomBoardHumanVsBot(c *gin.Context) {
         return
     }
 
-    GameMod := parseGameMod(req.Mode)
+    GameMod := parseGameMod(req.Mod)
     currentPlayer := engine.White
     if req.CurrentPlayer == "black" {
         currentPlayer = engine.Black
@@ -189,7 +189,7 @@ func handleCustomBoardBotVsBot(c *gin.Context) {
     }
 
     // Parse game mod
-    GameMod := parseGameMod(req.Mode)
+    GameMod := parseGameMod(req.Mod)
 
     // Parse current player
     currentTurn := engine.White
@@ -245,7 +245,7 @@ func handleCustomBoardBotVsBot(c *gin.Context) {
 
 // CreateGameRequest represents a game creation request
 type CreateGameRequest struct {
-    Mode          string `json:"mode"`
+    Mod          string `json:"mode"`
     BotDifficulty *int   `json:"bot_difficulty,omitempty"`
     OpponentID    string `json:"opponent_id,omitempty"`
 }
@@ -258,7 +258,7 @@ func handleCreateGame(c *gin.Context) {
         return
     }
 
-    GameMod := parseGameMod(req.Mode)
+    GameMod := parseGameMod(req.Mod)
 
     // Create human player (white)
     humanPlayer := &game.Player{

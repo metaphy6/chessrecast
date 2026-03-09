@@ -338,9 +338,9 @@ class Controller extends GetxController {
       final capturedPiece = board.getPieceAt(to);
 
       // Check if this is a pawn promotion move
-      // Note: Mercenary Mod has NO promotion
+      // Note: Mercenary Mod has NO promotion — pawns stay as pawns on the last rank
       if (piece.type == PieceType.pawn &&
-          board.gameType == ModsEnum.mercenary) {
+          board.gameType != ModsEnum.mercenary) {
         final lastRank = piece.color == PieceColor.white ? 7 : 0;
         if (to.row == lastRank) {
           _showPromotionDialog(from, to, piece, capturedPiece);

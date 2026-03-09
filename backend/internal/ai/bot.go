@@ -97,7 +97,7 @@ func (b *Bot) GetBestMove(board *engine.Board) (*engine.Move, error) {
 		}
 	}()
 	
-	fmt.Printf("🤖 Bot calculating move for mode: %s, turn: %s\n", board.Mode, board.CurrentTurn)
+	fmt.Printf("🤖 Bot calculating move for mode: %s, turn: %s\n", board.Mod, board.CurrentTurn)
 
 	// Check opening book first (only for higher difficulties)
 	if b.Difficulty >= 7 && board.MoveCount < 6 {
@@ -114,8 +114,8 @@ func (b *Bot) GetBestMove(board *engine.Board) (*engine.Move, error) {
 	}
 	
 	// Log moves in debug mode for special modes
-	if board.Mode != engine.Classic && len(allMoves) > 0 {
-		fmt.Printf("🎯 Mode %s: Generated %d valid moves\n", board.Mode, len(allMoves))
+	if board.Mod != engine.Classic && len(allMoves) > 0 {
+		fmt.Printf("🎯 Mod %s: Generated %d valid moves\n", board.Mod, len(allMoves))
 	}
 	
 	// If only one move available, return it immediately (forced move)
@@ -499,7 +499,7 @@ func (b *Bot) getPositionalValue(piece *engine.Piece, pos engine.Position) float
 func (b *Bot) getModeSpecificScore(board *engine.Board) float64 {
 	score := 0.0
 
-	switch board.Mode {
+	switch board.Mod {
 	case engine.Mercenary:
 		// In Royal Pawns, pawns move like kings - prioritize pawn advancement and aggression
 		for row := 0; row < 8; row++ {
@@ -861,7 +861,7 @@ func (b *Bot) canPieceAttack(board *engine.Board, piece *engine.Piece, target en
 	switch piece.Type {
 	case engine.Pawn:
 		// In Royal Pawns mode, pawns attack like kings (all 8 directions)
-		if board.Mode == engine.Mercenary {
+		if board.Mod == engine.Mercenary {
 			if abs(dr) <= 1 && abs(dc) <= 1 && (dr != 0 || dc != 0) {
 				return true
 			}

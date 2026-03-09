@@ -8,7 +8,7 @@ ChessRecast reinvents chess with creative rule variants like Mercenary (king-lik
 
 ## 🎮 game mods
 
-| Mode | Emoji | Description | Status |
+| Mod | Emoji | Description | Status |
 |------|-------|-------------|--------|
 | **Classic** | ♟️ | Standard chess | ✅ Active |
 | **Mercenary** | ⚔️ | Pawns move & capture like kings | ✅ Active |
@@ -251,7 +251,7 @@ frontend/lib/
 ├── management/                     # Game controllers
 │   ├── controller.dart             # Main game controller (GetX)
 │   ├── online_controller.dart      # WebSocket online play
-│   ├── orchestrator.dart           # Mode-aware move orchestration
+│   ├── orchestrator.dart           # Mod-aware move orchestration
 │   └── options.dart                # Game setup options
 ├── analytics/                      # Game analysis
 │   ├── ai/                         # AI player + manager
@@ -263,7 +263,7 @@ frontend/lib/
 └── ui/                             # Screens & widgets
     ├── start.dart                  # Home screen
     ├── game_page.dart              # Chess game screen
-    ├── game_mod_selection.dart     # Mode picker
+    ├── game_mod_selection.dart     # Mod picker
     ├── play_options.dart            # Play type selection
     ├── ai_setup.dart                # AI game configuration
     ├── training_viewer.dart         # Saved training game viewer

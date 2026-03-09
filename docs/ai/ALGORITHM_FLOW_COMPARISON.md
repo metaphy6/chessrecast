@@ -262,6 +262,6 @@ Flutter → Load Model → Run 25 MCTS Simulations
 ```
 
 **Recommendation for ChessRecast:**
-- Easy Mode: Neural network only (fast, 600 Elo)
-- Medium Mode: MCTS with 25 sims (800 Elo)
-- Hard Mode: MCTS with 50+ sims (1000+ Elo)
+- Easy Mod: Neural network only (fast, 600 Elo)
+- Medium Mod: MCTS with 25 sims (800 Elo)
+- Hard Mod: MCTS with 50+ sims (1000+ Elo)

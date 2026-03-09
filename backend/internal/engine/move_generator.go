@@ -24,7 +24,7 @@ func (mg *MoveGenerator) GetValidMoves(pos Position) []Move {
 		moves = mg.getPawnMoves(piece)
 	case Rook:
 		// DISABLED MOD: Coyote
-		// if mg.board.Mode == Coyote {
+		// if mg.board.Mod == Coyote {
 		// 	moves = mg.getCoyoteRookMoves(piece)
 		// } else {
 		// 	moves = mg.getRookMoves(piece)
@@ -45,7 +45,7 @@ func (mg *MoveGenerator) GetValidMoves(pos Position) []Move {
 
 	// Truce mod: During truce, there is NO check concept - kings move freely
 	// Skip all check-related filtering when truce is active
-	if mg.board.Mode == Truce && mg.board.TruceActive {
+	if mg.board.Mod == Truce && mg.board.TruceActive {
 		return moves
 	}
 
@@ -54,7 +54,7 @@ func (mg *MoveGenerator) GetValidMoves(pos Position) []Move {
 		moves = mg.filterCheckMoves(moves)
 	}
 	// DISABLED MOD: Snare
-	// } else if mg.board.Mode == Snare && piece.Type == King {
+	// } else if mg.board.Mod == Snare && piece.Type == King {
 	// 	moves = mg.filterKingMovesSelfCheck(moves, piece)
 	// }
 
@@ -64,12 +64,12 @@ func (mg *MoveGenerator) GetValidMoves(pos Position) []Move {
 // getPawnMoves generates pawn moves
 func (mg *MoveGenerator) getPawnMoves(pawn *Piece) []Move {
 	// Special handling for Mercenary mod
-	if mg.board.Mode == Mercenary {
+	if mg.board.Mod == Mercenary {
 		return mg.getMercenaryPawnMoves(pawn)
 	}
 
 	// DISABLED MOD: Coyote
-	// if mg.board.Mode == Coyote {
+	// if mg.board.Mod == Coyote {
 	// 	return mg.getCoyotePawnMoves(pawn)
 	// }
 
@@ -171,7 +171,7 @@ func (mg *MoveGenerator) getMercenaryPawnMoves(pawn *Piece) []Move {
 			moves = append(moves, *NewMove(pawn.Position, newPos, pawn))
 		} else if targetPiece.Color != pawn.Color {
 			// Enemy piece - can capture (but not king unless Heir mod)
-			if targetPiece.Type == King && mg.board.Mode != Heir {
+			if targetPiece.Type == King && mg.board.Mod != Heir {
 				continue // Skip capturing king
 			}
 			move := NewMove(pawn.Position, newPos, pawn)
@@ -232,7 +232,7 @@ func (mg *MoveGenerator) getKnightMoves(knight *Piece) []Move {
 // getBishopMoves generates bishop moves
 func (mg *MoveGenerator) getBishopMoves(bishop *Piece) []Move {
 	// DISABLED MOD: Diamonds
-	// if mg.board.Mode == Diamonds {
+	// if mg.board.Mod == Diamonds {
 	// 	return mg.getDiamondBishopMoves(bishop)
 	// }
 	return mg.getSlidingMoves(bishop, [][2]int{{-1, -1}, {-1, 1}, {1, -1}, {1, 1}})
@@ -335,13 +335,13 @@ func (mg *MoveGenerator) getKingMoves(king *Piece) []Move {
 
 	// Castling
 	// DISABLED MODS: SecretPassage and Coyote used to disable castling
-	// if mg.board.Mode != SecretPassage && mg.board.Mode != Coyote && !king.HasMoved {
+	// if mg.board.Mod != SecretPassage && mg.board.Mod != Coyote && !king.HasMoved {
 	if !king.HasMoved {
 		moves = append(moves, mg.getCastlingMoves(king)...)
 	}
 
 	// DISABLED MOD: Secret Passage moves
-	// if mg.board.Mode == SecretPassage {
+	// if mg.board.Mod == SecretPassage {
 	// 	moves = append(moves, mg.getSecretPassageMoves(king)...)
 	// }
 
@@ -462,7 +462,7 @@ func (mg *MoveGenerator) getCastlingMoves(king *Piece) []Move {
 
 // getPromotionPieces returns available promotion pieces for a color
 func (mg *MoveGenerator) getPromotionPieces(color Color) []PieceType {
-	switch mg.board.Mode {
+	switch mg.board.Mod {
 	// case Diamonds: // DISABLED MOD
 	// 	return []PieceType{Bishop} // Only bishop promotion
 	case Succession:
@@ -504,7 +504,7 @@ func (mg *MoveGenerator) getPromotionPieces(color Color) []PieceType {
 
 // applyGameModRules applies game-specific movement rules
 func (mg *MoveGenerator) applyGameModRules(moves []Move, piece *Piece) []Move {
-	switch mg.board.Mode {
+	switch mg.board.Mod {
 	case FriendlyFire:
 		return mg.applyFriendlyFireRules(moves, piece)
 	case KingsBattle:
@@ -1088,7 +1088,7 @@ func (mg *MoveGenerator) canPieceReach(piece *Piece, target Position) bool {
 func (mg *MoveGenerator) canPieceReachOnBoard(board *Board, piece *Piece, target Position) bool {
 	// KINGS' BATTLE PHASE 1: Only pawns and kings can reach targets (they have effect)
 	// Other pieces are placeholders with no effect
-	if board.Mode == KingsBattle && !board.KingsKillUnlock {
+	if board.Mod == KingsBattle && !board.KingsKillUnlock {
 		if piece.Type != Pawn && piece.Type != King {
 			return false // Other pieces are placeholders
 		}
@@ -1159,7 +1159,7 @@ func (mg *MoveGenerator) isPathClearOnBoard(board *Board, from, to Position) boo
 		if blockingPiece != nil {
 			// KINGS' BATTLE PHASE 1: Only pawns and kings block paths (they have effect)
 			// Other pieces are placeholders with no effect
-			if board.Mode == KingsBattle && !board.KingsKillUnlock {
+			if board.Mod == KingsBattle && !board.KingsKillUnlock {
 				if blockingPiece.Type != Pawn && blockingPiece.Type != King {
 					// Ignore other pieces - they have no effect
 					row += dr
@@ -1258,7 +1258,7 @@ func (mg *MoveGenerator) isSquareAttacked(pos Position, byColor Color) bool {
 func (mg *MoveGenerator) isSquareAttackedOnBoard(board *Board, pos Position, byColor Color) bool {
 	// Heir mod: Kings ALWAYS control adjacent squares to prevent opponent king from moving there
 	// This ensures king-to-king respect regardless of check rule state
-	if board.Mode == Heir {
+	if board.Mod == Heir {
 		targetPiece := board.GetPieceAt(pos)
 		if targetPiece != nil && targetPiece.Type == King {
 			// Checking if a king position is under attack - kings always control adjacent squares
@@ -1289,7 +1289,7 @@ func (mg *MoveGenerator) isSquareAttackedOnBoard(board *Board, pos Position, byC
 
 			// Kings' Battle Phase 1: Only pawns and kings can attack/control squares
 			// Kings and pawns follow classic chess rules between themselves
-			if board.Mode == KingsBattle && !board.KingsKillUnlock {
+			if board.Mod == KingsBattle && !board.KingsKillUnlock {
 				if piece.Type != Pawn && piece.Type != King {
 					continue // Other pieces have no effect before First Blood
 				}
@@ -1313,14 +1313,14 @@ func (mg *MoveGenerator) canAttackSquare(piece *Piece, target Position) bool {
 func (mg *MoveGenerator) canAttackSquareOnBoard(board *Board, piece *Piece, target Position) bool {
 	// KINGS' BATTLE PHASE 1: Only pawns and kings can attack/control squares before First Blood
 	// Kings and pawns follow classic chess rules between themselves
-	if board.Mode == KingsBattle && !board.KingsKillUnlock {
+	if board.Mod == KingsBattle && !board.KingsKillUnlock {
 		if piece.Type != Pawn && piece.Type != King {
 			return false // Other pieces are placeholders with no effect
 		}
 	}
 
 	// DISABLED MOD: Coyote rook attack restriction
-	// if board.Mode == Coyote && piece.Type == Rook {
+	// if board.Mod == Coyote && piece.Type == Rook {
 	// 	targetPiece := board.GetPieceAt(target)
 	// 	if targetPiece == nil {
 	// 		return false
@@ -1332,7 +1332,7 @@ func (mg *MoveGenerator) canAttackSquareOnBoard(board *Board, piece *Piece, targ
 	switch piece.Type {
 	case Queen:
 		// Save the Queen mod: Prisoner queens (not escaped) cannot attack/check
-		if board.Mode == SaveTheQueen {
+		if board.Mod == SaveTheQueen {
 			escaped := board.EscapedQueens[piece.Color]
 			if !escaped {
 				return false // Prisoner queen cannot attack
@@ -1343,7 +1343,7 @@ func (mg *MoveGenerator) canAttackSquareOnBoard(board *Board, piece *Piece, targ
 		
 	case Pawn:
 		// In Royal Pawns mode, pawns attack like kings (all 8 directions)
-		if board.Mode == Mercenary {
+		if board.Mod == Mercenary {
 			rowDiff := abs(piece.Position.Row - target.Row)
 			colDiff := abs(piece.Position.Col - target.Col)
 			return rowDiff <= 1 && colDiff <= 1 && (rowDiff > 0 || colDiff > 0)
@@ -1404,7 +1404,7 @@ func (mg *MoveGenerator) allowsSelfCheck() bool {
 	// Heir mod: allows king to be captured like a regular piece UNTIL:
 	// 1. Player promotes a king (no more replacements possible), OR
 	// 2. Player has no pawns left (can't get a replacement king)
-	if mg.board.Mode == Heir {
+	if mg.board.Mod == Heir {
 		// Check if the current player has promoted a king
 		if mg.board.PromotedKings[mg.board.CurrentTurn] > 0 {
 			return false // Promoted king → must follow classic check rules
