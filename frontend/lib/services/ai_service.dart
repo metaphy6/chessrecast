@@ -27,7 +27,7 @@ class AIService {
 
   /// Initialize the AI model
   Future<void> initialize({
-    String modelPath = 'assets/models/mercenary_1800.tflite',
+    String modelPath = 'assets/models/mercenary.tflite',
   }) async {
     if (_isInitialized) return;
 
@@ -46,8 +46,6 @@ class AIService {
       print('✓ AI Service ready!');
     } catch (e) {
       print('⚠️ AI model not available: $e');
-      print('   To use AI features, train the model first:');
-      print('   cd ai && docker compose -f docker-compose.mercenary.yml up');
       // Don't rethrow - allow app to start without AI
       _isInitialized = false;
     }

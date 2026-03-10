@@ -1,6 +1,6 @@
 # ╔══════════════════════════════════════════════════════════════╗
-# ║  ♟️  Classic Mod — AI Training                             ║
-# ║  Standard chess rules                                      ║
+# ║  Classic Mod — AI Training                                   ║
+# ║  Standard chess rules                                        ║
 # ╚══════════════════════════════════════════════════════════════╝
 services:
   classic-trainer:
