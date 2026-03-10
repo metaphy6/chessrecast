@@ -15,7 +15,7 @@ services:
       - CUDA_VISIBLE_DEVICES=0
       - PYTHONUNBUFFERED=1
       - TEST_MODE=${TEST_MODE:-false}
-      - MOVE_DELAY=${MOVE_DELAY:-0.3}
+      - MOVE_DELAY=${MOVE_DELAY:-0.05}
     ports:
       - "8765:8765"    # WebSocket → Flutter live training viewer
     volumes:

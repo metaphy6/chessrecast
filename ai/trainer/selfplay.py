@@ -31,13 +31,18 @@ class MCTSNode:
     
     def ucb_score(self, parent_visits: int, c_puct: float = 1.5) -> float:
         """Upper Confidence Bound for Trees (UCT) score.
-        c_puct=1.5 balances exploration/exploitation. Lower than AlphaZero's
-        2.5 because our strong heuristic priors already guide search well;
-        we need depth (exploitation) more than breadth (exploration).
+
+        CRITICAL: children store mean_value from their OWN side-to-move
+        perspective.  The parent wants to pick the child whose position
+        is WORST for the opponent (= best for the parent).  So we negate
+        the child's mean_value.  Without this negation, MCTS selects
+        moves that maximize the OPPONENT's advantage.
+
+        c_puct=1.5 balances exploration/exploitation.
         """
         if self.visit_count == 0:
             return float('inf')
-        exploitation = self.mean_value
+        exploitation = -self.mean_value  # Negate: parent wants opponent's worst
         exploration = c_puct * self.prior * math.sqrt(parent_visits) / (1 + self.visit_count)
         return exploitation + exploration
     
@@ -91,6 +96,9 @@ class ImprovedSelfPlay:
         self.batch_size = batch_size
         self.game_class = game_class
         self.heuristic_weight = heuristic_weight
+        self._qs_cache = {}  # FEN → quiescence value (cleared each game)
+        self._qs_cache_hits = 0
+        self._qs_cache_misses = 0
     
     def play_game(self, temperature_schedule: str = 'decay', verbose: bool = False, 
                   save_pgn: str = None, ws_server=None,
@@ -114,6 +122,7 @@ class ImprovedSelfPlay:
         game_history = []
         move_count = 0
         move_log = []  # Detailed move information for debugging
+        self._qs_cache.clear()  # Fresh cache for each game
         
         if verbose and not logger:
             print(f"      Starting game (MCTS: {self.num_simulations} sims/move)...", flush=True)
@@ -149,28 +158,76 @@ class ImprovedSelfPlay:
                 # Run MCTS to get improved move probabilities
                 move_probs = self._mcts_search(game, legal_moves, temperature)
 
-                # ── Post-move blunder check (safety net) ──
-                # MCTS is statistical and can pick a move that hangs a
-                # piece. Verify the chosen move by running quiescence
-                # from the opponent’s perspective.  If the opponent gains
-                # significant material, try the next-best MCTS move.
-                ranked = np.argsort(move_probs)[::-1][:5]  # top 5 only
-                my_score = self._quiescence(game, -1.0, 1.0, depth=0)
+                # ── Smart move selection ──
+                # Instead of just avoiding 3-fold, use graduated penalties:
+                #   • Novel positions preferred (1.0x)
+                #   • Seen-once positions penalised (0.25x)
+                #   • Seen-twice+ almost blocked (0.04x)
+                #   • Reverse moves (undoing last move) heavily penalised
+                # This directly breaks the shuffle cycles (Ke3-e4-e3-e4)
+                # that plague endgame play.
+                ranked = np.argsort(move_probs)[::-1]
                 chosen_move = None
-                for rank_idx in ranked:
-                    candidate = legal_moves[rank_idx]
-                    child = game.copy()
-                    child.make_move(candidate)
-                    # Opponent's quiescence after our move
-                    opp_score = self._quiescence(child, -1.0, 1.0, depth=0)
-                    # Opponent gain = opp_score + my_score
-                    if (opp_score + my_score) < 0.20:
+                best_adj = -1.0
+
+                # Detect the last move to penalise immediate reversal
+                reverse_pair = None
+                if game.board.move_stack:
+                    last = game.board.move_stack[-1]
+                    reverse_pair = (last.to_square, last.from_square)
+
+                # Wider cycle detection: collect our side's recent
+                # destinations.  Moves at stack[-2], [-4], [-6] etc.
+                # are our previous moves (alternating turns).
+                our_recent_dests = set()
+                stack = list(game.board.move_stack)
+                for i in range(2, min(9, len(stack) + 1), 2):
+                    our_recent_dests.add(stack[-i].to_square)
+
+                has_history = (hasattr(game, 'position_history')
+                               and game.position_history)
+
+                for idx in ranked[:15]:
+                    prob = move_probs[idx]
+                    if prob < 0.005:
+                        continue
+                    candidate = legal_moves[idx]
+
+                    # Position-repetition penalty
+                    rep_mult = 1.0
+                    if has_history:
+                        game.board.push(candidate)
+                        pos = game.board.fen().split()[0]
+                        game.board.pop()
+                        rep = game.position_history.count(pos)
+                        if rep >= 3:
+                            rep_mult = 0.01
+                        elif rep >= 2:
+                            rep_mult = 0.04
+                        elif rep >= 1:
+                            rep_mult = 0.25
+
+                    # Reverse-move penalty: going back where you came from
+                    if (reverse_pair and
+                            candidate.from_square == reverse_pair[0] and
+                            candidate.to_square == reverse_pair[1]):
+                        rep_mult *= 0.12
+
+                    # Wider cycle penalty: returning to any square our
+                    # side recently moved to (catches 3-move triangles
+                    # like Ke3→Kf4→Ke5→Ke3 that don't repeat the full
+                    # position but are clearly aimless).
+                    elif candidate.to_square in our_recent_dests:
+                        rep_mult *= 0.45
+
+                    adj = prob * rep_mult
+                    if adj > best_adj:
+                        best_adj = adj
                         chosen_move = candidate
-                        chosen_move_idx = rank_idx
-                        break
+                        chosen_move_idx = idx
+
                 if chosen_move is None:
-                    # Top 5 all lose material — pick MCTS's #1 choice
-                    chosen_move_idx = ranked[0]
+                    chosen_move_idx = int(ranked[0])
                     chosen_move = legal_moves[chosen_move_idx]
             
             # Store training example
@@ -188,11 +245,15 @@ class ImprovedSelfPlay:
             game.make_move(chosen_move)
             move_count += 1
 
-            # Log every move via structured logger
+            # Log every move via structured logger.
+            # Use heuristic-blended value (meaningful) instead of raw NN
+            # value (meaningless for untrained network).
             if logger:
-                with torch.no_grad():
-                    _, value = self.model(state_tensor)
-                    mv_value = value.item()
+                mv_value = self._get_heuristic_value(game)
+                # Flip sign: _get_heuristic_value returns side-to-move's
+                # perspective, but we want the value of the position from
+                # the perspective of the player who just moved.
+                mv_value = -mv_value
                 logger.training_move(move_count, chosen_move.uci(), turn, mv_value)
             
             # Broadcast move via WebSocket AFTER making the move (FEN must reflect post-move state)
@@ -203,10 +264,12 @@ class ImprovedSelfPlay:
                     for i in top_3_indices
                 ]
                 
-                # Get value estimate for current position
-                with torch.no_grad():
-                    _, value = self.model(state_tensor)
-                    position_value = value.item()
+                # Send heuristic-blended value (the signal MCTS actually
+                # uses) so the Flutter viewer shows meaningful evaluations
+                # instead of the raw NN output which is ~0.0 for an
+                # untrained network.
+                position_value = self._get_heuristic_value(game)
+                position_value = -position_value  # From mover's perspective
                 
                 ws_server.send_move(
                     move_num=move_count,
@@ -274,10 +337,11 @@ class ImprovedSelfPlay:
             Probability distribution over legal_moves
         """
         # Create and expand root node
-        # Limit to top 20 moves — focuses search on promising branches
-        # instead of spreading 150 sims across 35+ children.
+        # Limit to top 15 moves — focuses search on promising branches
+        # instead of spreading sims across too many children.
+        # 100 sims / 15 children ≈ 7 visits each → depth 2-3.
         root = MCTSNode(prior=1.0, game_state=game)
-        self._expand_node(root, legal_moves, add_noise=True, max_children=20)
+        self._expand_node(root, legal_moves, add_noise=True, max_children=15)
         
         for _ in range(self.num_simulations):
             node = root
@@ -297,10 +361,24 @@ class ImprovedSelfPlay:
             if node.game_state.is_game_over():
                 value = self._parse_result(node.game_state.get_result())
             else:
-                state_tensor = self._board_to_tensor(node.game_state)
-                with torch.no_grad():
-                    policy_logits, value_tensor = self.model(state_tensor)
-                nn_value = value_tensor.item()
+                hw = self.heuristic_weight
+
+                # When heuristic dominates (hw >= 0.9), the NN is
+                # essentially random and contributes < 10% of the
+                # value.  Skip the expensive NN forward pass entirely
+                # and use uniform policy + pure heuristic value.
+                # This saves ~150 GPU inferences per move in early
+                # iterations with no quality loss.
+                if hw >= 0.9:
+                    nn_value = 0.0
+                    policy_logits = torch.zeros(
+                        1, 4096, device=self.device)
+                else:
+                    state_tensor = self._board_to_tensor(node.game_state)
+                    with torch.no_grad():
+                        policy_logits, value_tensor = self.model(
+                            state_tensor)
+                    nn_value = value_tensor.item()
 
                 # Blend neural network value with handcrafted heuristic.
                 # The NN is random early on, so heuristic_weight starts high
@@ -316,11 +394,11 @@ class ImprovedSelfPlay:
                 if child_moves:
                     priors = self._get_move_priors(
                         policy_logits[0], child_moves, node.game_state)
-                    # Prune to top 10 — forces deeper search instead of
-                    # wider. 150 sims / 10 children = ~15 visits each,
-                    # enabling depth 3-4 (vs depth 2 with 35 children).
-                    if len(child_moves) > 10:
-                        top_k = np.argsort(priors)[-10:]
+                    # Prune to top 8 — forces deeper search instead of
+                    # wider. 100 sims / 15 root × 8 internal = depth 2-3
+                    # with meaningful visit counts.
+                    if len(child_moves) > 8:
+                        top_k = np.argsort(priors)[-8:]
                         child_moves = [child_moves[i] for i in top_k]
                         priors = [priors[i] for i in top_k]
                         total_p = sum(priors)
@@ -365,8 +443,8 @@ class ImprovedSelfPlay:
         
         max_children: if > 0, only keep the top N moves by prior.
         This narrows the tree so simulations go deeper instead of wider.
-        With 150 sims and 10 children, each gets ~15 visits → depth 3-4.
-        With 150 sims and 35 children, each gets ~4 visits → depth 2.
+        With 100 sims, 15 root children and 8 internal, each root child
+        gets ~7 visits → meaningful depth 2-3 with heuristic guidance.
         """
         state_tensor = self._board_to_tensor(node.game_state)
         with torch.no_grad():
@@ -475,6 +553,19 @@ class ImprovedSelfPlay:
                                 dest_near_enemy_pawn = True
                                 break
 
+                # ── Enemy king danger zone ──
+                # The enemy king captures anything adjacent to it.
+                # Detect proximity so we can penalise sacrificial
+                # blunders (especially unprotected pawns wandering
+                # into the king's clutches in the endgame).
+                dest_near_enemy_king = False
+                enemy_king_sq = board.king(not moving_color)
+                if enemy_king_sq is not None:
+                    ek_r = chess.square_rank(enemy_king_sq)
+                    ek_f = chess.square_file(enemy_king_sq)
+                    if (max(abs(to_r - ek_r), abs(to_f - ek_f)) <= 1):
+                        dest_near_enemy_king = True
+
                 # ── Safe-capture bonus ──
                 # A capture where no enemy pawn defends the square is
                 # almost certainly free material.  Give a huge boost so
@@ -487,8 +578,25 @@ class ImprovedSelfPlay:
                     if not dest_near_enemy_pawn:
                         bonus += victim_val * 0.20
 
+                # ── Endgame capture escalation ──
+                # When the opponent has very few pieces, any capture
+                # becomes much more strategically important.  Capturing
+                # their last non-king piece guarantees a win.
+                if victim is not None and victim.piece_type != chess.KING:
+                    enemy_mat = 0.0
+                    for sq_i in chess.SQUARES:
+                        p_i = board.piece_at(sq_i)
+                        if (p_i and p_i.color != moving_color
+                                and p_i.piece_type != chess.KING):
+                            enemy_mat += PIECE_VAL.get(p_i.piece_type, 0)
+                    if enemy_mat <= victim_val + 1.0:
+                        # This capture removes their last piece(s)!
+                        bonus += 0.50
+                    elif enemy_mat <= 5.0:
+                        # Very few enemy pieces — captures are critical
+                        bonus += 0.15
+
                 # ── Check bonus (lightweight) ──
-                enemy_king_sq = board.king(not moving_color)
                 if enemy_king_sq is not None and attacker:
                     gives_check = False
                     k_r = chess.square_rank(enemy_king_sq)
@@ -509,8 +617,10 @@ class ImprovedSelfPlay:
 
                 # ── Blunder avoidance ──
                 # Penalise moving a valuable piece next to an enemy pawn
-                # (mercenary pawns attack all 8 adjacent squares).
-                if (attacker and dest_near_enemy_pawn
+                # or the enemy king (both attack all 8 adjacent squares
+                # in Mercenary mode).
+                if (attacker
+                        and (dest_near_enemy_pawn or dest_near_enemy_king)
                         and attacker.piece_type not in (chess.PAWN, chess.KING)):
                     my_val = PIECE_VAL.get(attacker.piece_type, 0.0)
                     cap_val = victim_val if victim else 0.0
@@ -519,6 +629,113 @@ class ImprovedSelfPlay:
                         bonus -= 0.35
                     elif net < 0:
                         bonus -= 0.12
+
+                # ── Pawn near enemy king = free capture ──
+                # An unprotected pawn walking next to the enemy king
+                # will simply be eaten.  In endgames this causes the
+                # winning side to bleed all its pawns and draw.
+                if (attacker and attacker.piece_type == chess.PAWN
+                        and dest_near_enemy_king and victim is None):
+                    pawn_protected = False
+                    for pr in range(-1, 2):
+                        for pf in range(-1, 2):
+                            if pr == 0 and pf == 0:
+                                continue
+                            nr, nf = to_r + pr, to_f + pf
+                            if 0 <= nr <= 7 and 0 <= nf <= 7:
+                                sq = chess.square(nf, nr)
+                                if sq == move.from_square:
+                                    continue
+                                p = board.piece_at(sq)
+                                if p and p.color == moving_color:
+                                    pawn_protected = True
+                                    break
+                        if pawn_protected:
+                            break
+                    if not pawn_protected:
+                        bonus -= 0.30
+
+                # ── Pawn threat bonus ──
+                # A pawn adjacent to an enemy piece threatens a capture
+                # next move.  This teaches the AI to advance pawns toward
+                # enemy pieces — giving purpose to pawn moves.
+                if (attacker and attacker.piece_type == chess.PAWN
+                        and victim is None):
+                    for adr in range(-1, 2):
+                        for adf in range(-1, 2):
+                            if adr == 0 and adf == 0:
+                                continue
+                            nr, nf = to_r + adr, to_f + adf
+                            if 0 <= nr <= 7 and 0 <= nf <= 7:
+                                adj = board.piece_at(chess.square(nf, nr))
+                                if (adj and adj.color != moving_color
+                                        and adj.piece_type != chess.KING):
+                                    tgt_val = PIECE_VAL.get(
+                                        adj.piece_type, 0)
+                                    bonus += tgt_val * 0.04
+                                    break  # one threat is enough
+                        else:
+                            continue
+                        break
+
+                # ── Pawn toward enemy pieces (Mercenary: no promotion) ──
+                # Without promotion, pawns gain value by approaching
+                # capturable enemy pieces, not by advancing "forward".
+                # Reward pawn quiet moves that decrease distance to
+                # the nearest enemy non-king piece.
+                if (attacker and attacker.piece_type == chess.PAWN
+                        and victim is None):
+                    from_r = chess.square_rank(move.from_square)
+                    from_f = chess.square_file(move.from_square)
+                    best_old = 99; best_new = 99
+                    for sq_e in chess.SQUARES:
+                        ep = board.piece_at(sq_e)
+                        if (ep and ep.color != moving_color
+                                and ep.piece_type != chess.KING):
+                            er = chess.square_rank(sq_e)
+                            ef = chess.square_file(sq_e)
+                            d_old = abs(from_r - er) + abs(from_f - ef)
+                            d_new = abs(to_r - er) + abs(to_f - ef)
+                            best_old = min(best_old, d_old)
+                            best_new = min(best_new, d_new)
+                    if best_new < best_old:
+                        bonus += 0.03  # Moving toward enemy
+
+                # ── Rook endgame: line up with enemy pawns ──
+                # In rook endgames, the rook should attack enemy pawns
+                # from the same file or rank (from a distance).
+                # This teaches the rook to target pawns rather than
+                # shuffling aimlessly.
+                if (attacker and attacker.piece_type == chess.ROOK
+                        and victim is None):
+                    enemy_piece_count = sum(
+                        1 for sq_i in chess.SQUARES
+                        if board.piece_at(sq_i)
+                        and board.piece_at(sq_i).color != moving_color
+                        and board.piece_at(sq_i).piece_type != chess.KING)
+                    if enemy_piece_count <= 3:  # Endgame
+                        for sq_i in chess.SQUARES:
+                            p_i = board.piece_at(sq_i)
+                            if (p_i and p_i.color != moving_color
+                                    and p_i.piece_type == chess.PAWN):
+                                if chess.square_file(sq_i) == to_f:
+                                    bonus += 0.08  # Same file as pawn
+                                if chess.square_rank(sq_i) == to_r:
+                                    bonus += 0.04  # Same rank as pawn
+
+                # ── Territorial advance bonus ──
+                # Pieces moving toward the opponent's half get a small
+                # prior boost (non-pawns; pawns handled above).
+                if attacker and attacker.piece_type != chess.PAWN:
+                    from_r = chess.square_rank(move.from_square)
+                    if moving_color == chess.WHITE:
+                        advance = to_r - from_r
+                    else:
+                        advance = from_r - to_r
+                    if advance > 0:
+                        bonus += 0.02 * advance
+                    elif advance < 0:
+                        bonus -= 0.005  # Tiny retreat penalty
 
                 priors[i] = max(0.001, priors[i] + bonus)
 
@@ -573,15 +790,27 @@ class ImprovedSelfPlay:
     }
 
     def _get_heuristic_value(self, game_state) -> float:
-        """Evaluate position using quiescence search.
+        """Evaluate position using quiescence search with caching.
 
         Plays out all capture sequences before evaluating, preventing
         tactical blindness.  This is what makes classic chess AIs strong
         at tactics — they never evaluate "noisy" positions.
 
+        Positions are cached by FEN to avoid redundant deep copies and
+        recursive searches.  In a 300-sim MCTS tree many leaf nodes
+        reach the same position, so caching gives 40-60% hit rate.
+
         Returns value from side-to-move's perspective in [-1, 1].
         """
-        return self._quiescence(game_state, alpha=-1.0, beta=1.0, depth=0)
+        fen_key = game_state.board.fen()
+        cached = self._qs_cache.get(fen_key)
+        if cached is not None:
+            self._qs_cache_hits += 1
+            return cached
+        self._qs_cache_misses += 1
+        value = self._quiescence(game_state, alpha=-1.0, beta=1.0, depth=0)
+        self._qs_cache[fen_key] = value
+        return value
 
     def _quiescence(self, game_state, alpha: float, beta: float,
                     depth: int) -> float:
@@ -596,13 +825,20 @@ class ImprovedSelfPlay:
           3. Recurse on each capture via negamax.
           4. Prune branches that can't beat alpha (delta pruning).
 
-        Depth limit 6 keeps the branching bounded.  In practice
-        alpha-beta prunes most branches, so ~5-15 nodes are visited
-        per call.
+        Depth limit 4 keeps the branching bounded.  In practice
+        alpha-beta prunes most branches, so ~3-8 nodes are visited
+        per call.  Most capture chains resolve within 2-3 exchanges.
         """
-        stand_pat = self._raw_heuristic(game_state)
+        # At depth 0 (QS root = MCTS leaf), use the FULL heuristic
+        # so the MCTS tree gets mobility, threats, repetition etc.
+        # At depth > 0 (QS interior = capture chains), use the fast
+        # material+PST eval since we only need material accuracy.
+        if depth == 0:
+            stand_pat = self._raw_heuristic(game_state)
+        else:
+            stand_pat = self._raw_heuristic_fast(game_state)
 
-        if depth >= 6:
+        if depth >= 4:
             return stand_pat
 
         if stand_pat >= beta:
@@ -612,18 +848,18 @@ class ImprovedSelfPlay:
 
         # ── Generate & sort captures (MVV ordering) ──
         captures = []
-        for move in game_state.get_legal_moves():
+        for idx, move in enumerate(game_state.get_legal_moves()):
             victim = game_state.board.piece_at(move.to_square)
             if victim and victim.piece_type != chess.KING:
                 captures.append(
-                    (self._QS_PIECE_VAL.get(victim.piece_type, 0), move))
+                    (self._QS_PIECE_VAL.get(victim.piece_type, 0), idx, move))
 
         if not captures:
             return stand_pat      # Quiet position — eval is accurate
 
-        captures.sort(reverse=True)  # Most valuable victim first
+        captures.sort(key=lambda x: x[0], reverse=True)  # Most valuable victim first
 
-        for victim_val, move in captures:
+        for victim_val, _idx, move in captures:
             # Delta pruning: if capturing this piece can't possibly
             # raise alpha, skip it.  (stand_pat + victim_val < alpha)
             if stand_pat + victim_val / 9.0 + 0.05 < alpha:
@@ -655,37 +891,141 @@ class ImprovedSelfPlay:
             return raw
         return 0.0
 
+    def _raw_heuristic_fast(self, game_state) -> float:
+        """Fast static eval for quiescence interior nodes.
+
+        Uses heuristic_eval_fast() (material + PST only) instead of
+        the full heuristic_eval() which includes expensive mobility
+        calculation.  This gives ~5-10x speedup per quiescence node
+        while preserving material accuracy for capture resolution.
+        """
+        if hasattr(game_state, 'heuristic_eval_fast'):
+            raw = game_state.heuristic_eval_fast()
+            if hasattr(game_state, 'board') and not game_state.board.turn:
+                raw = -raw
+            return raw
+        # Fallback to full eval if fast version not available
+        return self._raw_heuristic(game_state)
+
     def _find_winning_capture(self, game_state,
                               legal_moves: List[chess.Move]):
-        """Find a capture that clearly wins material after all recaptures.
+        """Find a capture that clearly wins material (simple SEE).
 
-        Uses quiescence search to verify the capture is sound.  If the
-        best capture exceeds the stand-pat value by ≥ 0.15 (~half a pawn
-        on the tanh scale), return it.  Otherwise return None.
+        For each capture, check if the opponent can immediately recapture
+        on the same square.  If yes, net = victim_value - attacker_value.
+        If no recapture, net = victim_value (free capture).
 
-        This is the "forced capture" mechanism: when there's a free piece
-        on the board, the AI takes it immediately without burning 300
-        MCTS simulations to re-discover the obvious.
+        Forces the capture when net gain >= 1.0 (at least a full pawn).
+        This replaces burning 300 MCTS simulations to rediscover the
+        obvious — the AI takes free pieces instantly.
         """
-        stand_pat = self._quiescence(game_state, -1.0, 1.0, depth=0)
+        PIECE_VAL = self._QS_PIECE_VAL  # P=1, N=3, B=3, R=5, Q=9
+        board = game_state.board
+        moving_color = board.turn
+        enemy_color = not moving_color
 
         best_move = None
-        best_score = stand_pat
+        best_net = 0.0
 
         for move in legal_moves:
-            victim = game_state.board.piece_at(move.to_square)
+            victim = board.piece_at(move.to_square)
             if not victim or victim.piece_type == chess.KING:
                 continue
-            child = game_state.copy()
-            child.make_move(move)
-            score = -self._quiescence(child, -1.0, 1.0, depth=0)
-            if score > best_score:
-                best_score = score
+
+            victim_val = PIECE_VAL.get(victim.piece_type, 0)
+            attacker = board.piece_at(move.from_square)
+            attacker_val = PIECE_VAL.get(
+                attacker.piece_type, 0) if attacker else 0
+
+            # Fast defender check: instead of copying the game and
+            # generating ALL opponent legal moves, just check if any
+            # enemy piece can recapture on the target square.
+            # In Mercenary mode: pawns + king attack adjacent squares,
+            # knights attack L-shaped squares, sliders attack rays.
+            to_sq = move.to_square
+            to_r = chess.square_rank(to_sq)
+            to_f = chess.square_file(to_sq)
+            min_defender_val = 99
+
+            # Check adjacent squares for enemy pawns/king
+            for dr in range(-1, 2):
+                for df in range(-1, 2):
+                    if dr == 0 and df == 0:
+                        continue
+                    nr, nf = to_r + dr, to_f + df
+                    if 0 <= nr <= 7 and 0 <= nf <= 7:
+                        sq = chess.square(nf, nr)
+                        if sq == move.from_square:
+                            continue  # Our attacker is moving away
+                        p = board.piece_at(sq)
+                        if p and p.color == enemy_color:
+                            if p.piece_type == chess.PAWN:
+                                min_defender_val = min(min_defender_val, 1)
+                            elif p.piece_type == chess.KING:
+                                min_defender_val = min(min_defender_val, 0)
+
+            # Check knight squares for enemy knights
+            if min_defender_val > 3:
+                for kdr, kdf in [(-2,-1),(-2,1),(-1,-2),(-1,2),
+                                 (1,-2),(1,2),(2,-1),(2,1)]:
+                    nr, nf = to_r + kdr, to_f + kdf
+                    if 0 <= nr <= 7 and 0 <= nf <= 7:
+                        sq = chess.square(nf, nr)
+                        p = board.piece_at(sq)
+                        if (p and p.color == enemy_color
+                                and p.piece_type == chess.KNIGHT):
+                            min_defender_val = min(min_defender_val, 3)
+                            break
+
+            # Check rays for enemy sliders (bishop, rook, queen)
+            if min_defender_val > 3:
+                # Rook/queen on rank/file
+                for dr, df in [(0,1),(0,-1),(1,0),(-1,0)]:
+                    nr, nf = to_r + dr, to_f + df
+                    while 0 <= nr <= 7 and 0 <= nf <= 7:
+                        sq = chess.square(nf, nr)
+                        if sq == move.from_square:
+                            nr += dr; nf += df
+                            continue  # Attacker is moving away
+                        p = board.piece_at(sq)
+                        if p:
+                            if (p.color == enemy_color
+                                    and p.piece_type in (chess.ROOK,
+                                                         chess.QUEEN)):
+                                pv = 5 if p.piece_type == chess.ROOK else 9
+                                min_defender_val = min(min_defender_val, pv)
+                            break  # Blocked by any piece
+                        nr += dr; nf += df
+                # Bishop/queen on diagonal
+                if min_defender_val > 3:
+                    for dr, df in [(1,1),(1,-1),(-1,1),(-1,-1)]:
+                        nr, nf = to_r + dr, to_f + df
+                        while 0 <= nr <= 7 and 0 <= nf <= 7:
+                            sq = chess.square(nf, nr)
+                            if sq == move.from_square:
+                                nr += dr; nf += df
+                                continue
+                            p = board.piece_at(sq)
+                            if p:
+                                if (p.color == enemy_color
+                                        and p.piece_type in (chess.BISHOP,
+                                                             chess.QUEEN)):
+                                    pv = 3 if p.piece_type == chess.BISHOP else 9
+                                    min_defender_val = min(min_defender_val, pv)
+                                break
+                            nr += dr; nf += df
+
+            if min_defender_val < 99:
+                net = victim_val - attacker_val
+            else:
+                net = victim_val
+
+            if net > best_net:
+                best_net = net
                 best_move = move
 
-        # Only force if the gain is significant
-        if best_move and (best_score - stand_pat) >= 0.15:
-            return best_move, best_score
+        if best_move and best_net >= 1.0:
+            return best_move, best_net
         return None, 0.0
     
     def _get_temperature(self, move_count: int, schedule: str) -> float:

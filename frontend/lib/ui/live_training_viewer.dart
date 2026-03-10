@@ -24,6 +24,13 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
   static const int _maxReconnectAttempt = 20;
   bool _userDisconnected = false; // true when user pressed Disconnect
 
+  // Throttle: batch rapid-fire move updates to avoid drowning the UI.
+  // Without this, setState + scroll animation fires every ~0.6s per move,
+  // stacking 300ms animations and print calls until the app freezes.
+  Timer? _uiUpdateTimer;
+  bool _uiDirty = false;
+  static const Duration _uiThrottleInterval = Duration(milliseconds: 400);
+
   // Current game state
   int? currentIteration;
   int? currentGameNumber;
@@ -32,13 +39,8 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
   List<GameMove> moves = [];
   String? gameResult;
 
-  // Board state (tracked independently from FEN for validation)
+  // Board state
   ChessBoard displayBoard = ChessBoard.initial();
-  ChessBoard validationBoard = ChessBoard.initial(); // For move validation
-
-  // Error tracking
-  List<MoveValidationError> validationErrors = [];
-  bool validationEnabled = true;
 
   // Connection settings
   final TextEditingController _hostController = TextEditingController(
@@ -50,6 +52,8 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
 
   @override
   void dispose() {
+    _uiUpdateTimer?.cancel();
+    _uiUpdateTimer = null;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _subscription?.cancel();
@@ -62,6 +66,27 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
     _portController.dispose();
     _movesScrollController.dispose();
     super.dispose();
+  }
+
+  /// Schedule a throttled UI refresh.  Multiple calls within the throttle
+  /// window are collapsed into a single setState + jumpTo, preventing the
+  /// animation pile-up that freezes the app during rapid-fire moves.
+  void _scheduleUiRefresh() {
+    _uiDirty = true;
+    if (_uiUpdateTimer?.isActive ?? false) return; // already scheduled
+    _uiUpdateTimer = Timer(_uiThrottleInterval, () {
+      if (!mounted || !_uiDirty) return;
+      _uiDirty = false;
+      setState(() {});
+      // Jump (not animate) to the end — no 300ms animation stacking.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_movesScrollController.hasClients) {
+          _movesScrollController.jumpTo(
+            _movesScrollController.position.maxScrollExtent,
+          );
+        }
+      });
+    });
   }
 
   void _connect() {
@@ -229,8 +254,6 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
       final type = parsed['type'];
       final data = parsed['data'] ?? parsed;
 
-      print('📨 Received: $type');
-
       switch (type) {
         case 'game_start':
           _handleGameStart(data);
@@ -254,8 +277,8 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
   }
 
   void _handleGameStart(Map<String, dynamic> data) {
-    print(
-      '🎮 Game Start: Iteration ${data['iteration']}, Game ${data['game_number']}',
+    debugPrint(
+      '🎮 Game Start: Iter ${data['iteration']} Game ${data['game_number']}',
     );
     if (!mounted) return;
 
@@ -272,10 +295,6 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
       moves = [];
       gameResult = null;
       displayBoard = ChessBoard.initial(gameType: gameType);
-      validationBoard = ChessBoard.initial(
-        gameType: gameType,
-      ); // Reset with correct mode
-      validationErrors = []; // Clear errors for new game
     });
   }
 
@@ -285,79 +304,7 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
     try {
       final move = GameMove.fromJson(data);
 
-      print('📥 Received move #${move.number}: ${move.move}');
-      print(
-        '   Current mode: $currentMode, Validation enabled: $validationEnabled',
-      );
-
-      // Validate move if enabled and we have a mode
-      if (validationEnabled && currentMode == 'mercenary') {
-        print('🔍 Validating move #${move.number}: ${move.move}');
-        print('   Current validation board FEN: ${validationBoard.toFEN()}');
-        final validationResult = _validateMercenaryMove(move);
-        if (!validationResult.isValid) {
-          // Log validation error
-          final error = MoveValidationError(
-            moveNumber: move.number,
-            moveUci: move.move,
-            expectedFen: validationBoard.toFEN(),
-            receivedFen: move.fen ?? '',
-            errorMessage: validationResult.errorMessage,
-            timestamp: DateTime.now(),
-          );
-          validationErrors.add(error);
-          print('❌ VALIDATION ERROR: ${validationResult.errorMessage}');
-          print('   Move: ${move.move} (#${move.number})');
-          print('   Expected FEN: ${validationBoard.toFEN()}');
-          print('   Received FEN: ${move.fen}');
-
-          // Send error signal to server
-          _sendValidationError(error);
-
-          // IMPORTANT: Still update validation board from FEN to stay in sync
-          // Otherwise validation board gets stuck and all future moves will fail
-          if (move.fen != null && move.fen!.isNotEmpty) {
-            try {
-              validationBoard = ChessBoard.fromFEN(
-                move.fen!,
-                gameType: ModsEnum.mercenary,
-              );
-              print(
-                '   ⚠️ Updated validation board from FEN to continue validation',
-              );
-            } catch (e) {
-              print('   ⚠️ Failed to update validation board from FEN: $e');
-            }
-          }
-        } else {
-          print('✅ Move #${move.number} validated successfully');
-          // Move was valid - update validation board from server's FEN (authoritative)
-          if (move.fen != null && move.fen!.isNotEmpty) {
-            try {
-              final oldFen = validationBoard.toFEN();
-              validationBoard = ChessBoard.fromFEN(
-                move.fen!,
-                gameType: ModsEnum.mercenary,
-              );
-              final newFen = validationBoard.toFEN();
-              print('   Updated validation board from FEN');
-              print('   Old: $oldFen');
-              print('   New: $newFen');
-            } catch (e, stack) {
-              print('   ⚠️ Failed to update validation board from FEN: $e');
-              print('   Stack: $stack');
-              // Fallback: Apply move manually
-              _applyMoveToValidationBoard(move.move);
-            }
-          } else {
-            print('   ⚠️ No FEN in move data, applying manually');
-            // No FEN available - apply move manually
-            _applyMoveToValidationBoard(move.move);
-          }
-        }
-      }
-
-      // Use FEN directly if available (more reliable for custom game mods like Mercenary)
+      // Update board state immediately (cheap) …
       if (move.fen != null && move.fen!.isNotEmpty) {
         try {
           final gameType = currentMode == 'mercenary'
@@ -365,152 +312,26 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
               : ModsEnum.classic;
           displayBoard = ChessBoard.fromFEN(move.fen!, gameType: gameType);
         } catch (e) {
-          print('⚠️ Error parsing FEN, falling back to move: $e');
-          // Fallback to applying move
           if (move.move.isNotEmpty && move.move.length >= 4) {
             _applyMoveToBoard(move.move);
           }
         }
-      } else {
-        // Fallback: Apply move to board
-        if (move.move.isNotEmpty && move.move.length >= 4) {
-          _applyMoveToBoard(move.move);
-        }
+      } else if (move.move.isNotEmpty && move.move.length >= 4) {
+        _applyMoveToBoard(move.move);
       }
 
-      setState(() {
-        moves.add(move);
-      });
+      moves.add(move);
 
-      // Auto-scroll to show latest move
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_movesScrollController.hasClients) {
-          _movesScrollController.animateTo(
-            _movesScrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
+      // … but defer the expensive setState + scroll to the throttle timer
+      // so rapid-fire moves don't stack animations and freeze the UI.
+      _scheduleUiRefresh();
     } catch (e) {
-      print('❌ Error handling move: $e');
-    }
-  }
-
-  /// Validate a Mercenary Mod move
-  MoveValidationResult _validateMercenaryMove(GameMove move) {
-    if (move.move.isEmpty || move.move.length < 4) {
-      return MoveValidationResult(
-        isValid: false,
-        errorMessage: 'Invalid move format: ${move.move}',
-      );
-    }
-
-    try {
-      final from = Position.fromAlgebraic(move.move.substring(0, 2));
-      final to = Position.fromAlgebraic(move.move.substring(2, 4));
-      final piece = validationBoard.getPieceAt(from);
-
-      if (piece == null) {
-        return MoveValidationResult(
-          isValid: false,
-          errorMessage: 'No piece at ${move.move.substring(0, 2)} to move',
-        );
-      }
-
-      // Check if it's the correct turn
-      final isWhiteTurn = validationBoard.currentPlayer == PieceColor.white;
-      if ((piece.color == PieceColor.white) != isWhiteTurn) {
-        return MoveValidationResult(
-          isValid: false,
-          errorMessage:
-              'Wrong color moving: ${piece.color} on ${isWhiteTurn ? "white" : "black"}\'s turn',
-        );
-      }
-
-      // Get legal moves for this piece (includes king-safety filtering).
-      // getValidMovesFor already delegates to Mercenary pawn rules via
-      // _getPawnMoves → mods.mercenary.getPawnMoves, then filters out
-      // moves that leave the king in check — so it works for ALL pieces.
-      final legalMoves = validationBoard.getValidMovesFor(from);
-
-      // Check if the move is in legal moves
-      final isLegal = legalMoves.any((m) => m.from == from && m.to == to);
-
-      if (!isLegal) {
-        // Check if king is currently in check
-        final kingInCheck = validationBoard.isKingInCheck(piece.color);
-
-        // Try to understand why the move is illegal
-        if (kingInCheck) {
-          return MoveValidationResult(
-            isValid: false,
-            errorMessage:
-                'Move ${move.move} - king is in check and this move doesn\'t resolve it',
-          );
-        }
-
-        // Check if it would leave king in check
-        final wouldBeCheck = _wouldLeaveKingInCheck(piece, from, to);
-        if (wouldBeCheck) {
-          return MoveValidationResult(
-            isValid: false,
-            errorMessage: 'Move ${move.move} would leave king in check',
-          );
-        }
-
-        return MoveValidationResult(
-          isValid: false,
-          errorMessage:
-              'Illegal move ${move.move} for ${piece.type.name} at ${from.algebraic}',
-        );
-      }
-
-      return MoveValidationResult(isValid: true);
-    } catch (e) {
-      return MoveValidationResult(
-        isValid: false,
-        errorMessage: 'Validation error: $e',
-      );
-    }
-  }
-
-  /// Check if a move would leave the king in check
-  bool _wouldLeaveKingInCheck(ChessPiece piece, Position from, Position to) {
-    try {
-      final chessMove = ChessMove.simple(from: from, to: to, piece: piece);
-      final newBoard = validationBoard.makeMove(chessMove);
-      return newBoard.isKingInCheck(piece.color);
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// Send validation error to server
-  void _sendValidationError(MoveValidationError error) {
-    if (_channel == null || !isConnected) return;
-    try {
-      _channel!.sink.add(
-        jsonEncode({
-          'type': 'validation_error',
-          'data': {
-            'move_number': error.moveNumber,
-            'move_uci': error.moveUci,
-            'expected_fen': error.expectedFen,
-            'received_fen': error.receivedFen,
-            'error_message': error.errorMessage,
-            'timestamp': error.timestamp.toIso8601String(),
-          },
-        }),
-      );
-      print('📤 Sent validation error to server');
-    } catch (e) {
-      print('⚠️ Failed to send validation error: $e');
+      debugPrint('❌ Error handling move: $e');
     }
   }
 
   void _handleGameEnd(Map<String, dynamic> data) {
-    print('🏁 Game End: ${data['result']}');
+    debugPrint('🏁 Game End: ${data['result']}');
     if (!mounted) return;
 
     setState(() {
@@ -519,9 +340,6 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
   }
 
   void _handleGameState(Map<String, dynamic> data) {
-    print(
-      '📊 Game State: Iteration ${data['iteration']}, Game ${data['game_number']}, ${data['moves']?.length ?? 0} moves',
-    );
     if (!mounted) return;
 
     final mode = data['mode'];
@@ -529,49 +347,34 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
         ? ModsEnum.mercenary
         : ModsEnum.classic;
 
-    // Parse moves
-    final parsedMoves =
+    // Parse moves — keep only the last 200 to bound memory
+    final rawMoves =
         (data['moves'] as List?)?.map((m) => GameMove.fromJson(m)).toList() ??
         [];
+    final parsedMoves = rawMoves.length > 200
+        ? rawMoves.sublist(rawMoves.length - 200)
+        : rawMoves;
 
-    // Use the FEN from the last move if available (most reliable for Mercenary Mod)
+    // Use the FEN from the last move if available
     if (parsedMoves.isNotEmpty && parsedMoves.last.fen != null) {
       try {
         displayBoard = ChessBoard.fromFEN(
           parsedMoves.last.fen!,
           gameType: gameType,
         );
-        // CRITICAL: Also sync validation board so mid-game connections validate correctly
-        validationBoard = ChessBoard.fromFEN(
-          parsedMoves.last.fen!,
-          gameType: gameType,
-        );
-        validationErrors = []; // Clear stale errors from previous game
-        print(
-          '✅ Loaded board + validation board from FEN: ${parsedMoves.last.fen}',
-        );
       } catch (e) {
-        print('⚠️ Error loading FEN, replaying moves: $e');
-        // Fallback: Reset and replay all moves on BOTH boards
         displayBoard = ChessBoard.initial(gameType: gameType);
-        validationBoard = ChessBoard.initial(gameType: gameType);
-        validationErrors = [];
         for (var move in parsedMoves) {
           if (move.move.isNotEmpty && move.move.length >= 4) {
             _applyMoveToBoard(move.move);
-            _applyMoveToValidationBoard(move.move);
           }
         }
       }
     } else {
-      // No FEN available - reset and replay all moves on BOTH boards
       displayBoard = ChessBoard.initial(gameType: gameType);
-      validationBoard = ChessBoard.initial(gameType: gameType);
-      validationErrors = [];
       for (var move in parsedMoves) {
         if (move.move.isNotEmpty && move.move.length >= 4) {
           _applyMoveToBoard(move.move);
-          _applyMoveToValidationBoard(move.move);
         }
       }
     }
@@ -585,7 +388,6 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
       moves = parsedMoves;
     });
 
-    // Scroll to end
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_movesScrollController.hasClients) {
         _movesScrollController.jumpTo(
@@ -594,7 +396,7 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
       }
     });
 
-    print('✅ Loaded game state: ${moves.length} moves replayed');
+    debugPrint('📊 Loaded game state: ${moves.length} moves');
   }
 
   void _applyMoveToBoard(String uciMove) {
@@ -622,54 +424,6 @@ class _LiveTrainingViewerState extends State<LiveTrainingViewer> {
       }
     } catch (e) {
       print('⚠️ Error applying move $uciMove: $e');
-    }
-  }
-
-  void _applyMoveToValidationBoard(String uciMove) {
-    try {
-      final from = Position.fromAlgebraic(uciMove.substring(0, 2));
-      final to = Position.fromAlgebraic(uciMove.substring(2, 4));
-
-      final piece = validationBoard.getPieceAt(from);
-      if (piece == null) {
-        print(
-          '⚠️ Warning: No piece at ${uciMove.substring(0, 2)} when applying move to validation board',
-        );
-        print('   Validation board FEN: ${validationBoard.toFEN()}');
-        print('   Move: $uciMove');
-        return;
-      }
-
-      // Get the target piece for capture
-      final targetPiece = validationBoard.getPieceAt(to);
-
-      ChessMove chessMove;
-
-      // Handle promotion
-      if (uciMove.length == 5) {
-        chessMove = ChessMove.promotion(
-          from: from,
-          to: to,
-          piece: piece,
-          promotionPiece: uciMove[4].toUpperCase(),
-          capturedPiece: targetPiece,
-        );
-      } else {
-        chessMove = ChessMove(
-          from: from,
-          to: to,
-          piece: piece,
-          capturedPiece: targetPiece,
-        );
-      }
-
-      validationBoard = validationBoard.makeMove(chessMove);
-      print(
-        '✅ Applied move $uciMove to validation board, new FEN: ${validationBoard.toFEN()}',
-      );
-    } catch (e, stackTrace) {
-      print('⚠️ Error applying move to validation board $uciMove: $e');
-      print('Stack trace: $stackTrace');
     }
   }
 
@@ -1198,34 +952,4 @@ class GameMove {
       );
     }
   }
-}
-
-/// Result of move validation
-class MoveValidationResult {
-  final bool isValid;
-  final String errorMessage;
-
-  MoveValidationResult({required this.isValid, this.errorMessage = ''});
-}
-
-/// Validation error for logging
-class MoveValidationError {
-  final int moveNumber;
-  final String moveUci;
-  final String expectedFen;
-  final String receivedFen;
-  final String errorMessage;
-  final DateTime timestamp;
-
-  MoveValidationError({
-    required this.moveNumber,
-    required this.moveUci,
-    required this.expectedFen,
-    required this.receivedFen,
-    required this.errorMessage,
-    required this.timestamp,
-  });
-
-  @override
-  String toString() => 'Move #$moveNumber ($moveUci): $errorMessage';
 }

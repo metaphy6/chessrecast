@@ -13,7 +13,7 @@ Mercenary mod:
 Usage:
   python mercenary.py                    # Full GPU training
   python mercenary.py --test             # Random games (rule testing)
-  python mercenary.py --test --delay 1   # Slow demo mode
+  python mercenary.py --test --delay 1   # Slow demo mode (default 0.05s)
 """
 import math
 import torch
@@ -41,6 +41,131 @@ from utils import (
     GPUMonitor, ChessDataset,
     get_websocket_server, TrainingLogger
 )
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Piece-Square Tables (PST) — positional guidance for heuristic
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Indexed by square (a1=0 .. h8=63), values in centipawns.
+# White uses table directly; Black mirrors rank: (7-r)*8+f.
+# These give the heuristic a gradient for quiet positions so
+# "knight on d4" scores higher than "knight on a1".
+
+_KNIGHT_PST = [
+    -50, -40, -30, -30, -30, -30, -40, -50,
+    -40, -20,   0,   5,   5,   0, -20, -40,
+    -30,   0,  10,  15,  15,  10,   0, -30,
+    -30,   5,  15,  20,  20,  15,   5, -30,
+    -30,   0,  15,  20,  20,  15,   0, -30,
+    -30,   5,  10,  15,  15,  10,   5, -30,
+    -40, -20,   0,   5,   5,   0, -20, -40,
+    -50, -40, -30, -30, -30, -30, -40, -50,
+]
+
+_BISHOP_PST = [
+    -20, -10, -10, -10, -10, -10, -10, -20,
+    -10,   5,   0,   0,   0,   0,   5, -10,
+    -10,  10,  10,  10,  10,  10,  10, -10,
+    -10,   0,  10,  15,  15,  10,   0, -10,
+    -10,   5,   5,  10,  10,   5,   5, -10,
+    -10,   0,   5,  10,  10,   5,   0, -10,
+    -10,   0,   0,   0,   0,   0,   0, -10,
+    -20, -10, -10, -10, -10, -10, -10, -20,
+]
+
+_ROOK_PST = [
+      0,   0,   0,   5,   5,   0,   0,   0,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+     -5,   0,   0,   0,   0,   0,   0,  -5,
+      5,  10,  10,  10,  10,  10,  10,   5,
+      0,   0,   0,   5,   5,   0,   0,   0,
+]
+
+_QUEEN_PST = [
+    -20, -10, -10,  -5,  -5, -10, -10, -20,
+    -10,   0,   5,   0,   0,   0,   0, -10,
+    -10,   5,   5,   5,   5,   5,   0, -10,
+      0,   0,   5,   5,   5,   5,   0,  -5,
+     -5,   0,   5,   5,   5,   5,   0,  -5,
+    -10,   0,   5,   5,   5,   5,   0, -10,
+    -10,   0,   0,   0,   0,   0,   0, -10,
+    -20, -10, -10,  -5,  -5, -10, -10, -20,
+]
+
+# Mercenary pawns: centrality-focused (NO promotion — rank 7/8 useless)
+# Pawns move like kings, so central = more useful squares.
+# Peak at ranks 4-5, symmetric drop toward edges.
+_PAWN_PST = [
+      0,   0,   0,   0,   0,   0,   0,   0,
+      5,   8,  12,  15,  15,  12,   8,   5,
+      8,  14,  20,  24,  24,  20,  14,   8,
+     10,  18,  25,  30,  30,  25,  18,  10,
+     12,  20,  26,  30,  30,  26,  20,  12,
+      8,  14,  20,  24,  24,  20,  14,   8,
+      3,   5,   8,  10,  10,   8,   5,   3,
+      0,   0,   0,   0,   0,   0,   0,   0,
+]
+
+# King: safe in corners (middlegame), central (endgame)
+_KING_MG_PST = [
+     20,  30,  10,   0,   0,  10,  30,  20,
+     20,  20,   0,   0,   0,   0,  20,  20,
+    -10, -20, -20, -20, -20, -20, -20, -10,
+    -20, -30, -30, -40, -40, -30, -30, -20,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+    -30, -40, -40, -50, -50, -40, -40, -30,
+]
+
+_KING_EG_PST = [
+    -50, -30, -30, -30, -30, -30, -30, -50,
+    -30, -30,   0,   0,   0,   0, -30, -30,
+    -30, -10,  20,  30,  30,  20, -10, -30,
+    -30, -10,  30,  40,  40,  30, -10, -30,
+    -30, -10,  30,  40,  40,  30, -10, -30,
+    -30, -10,  20,  30,  30,  20, -10, -30,
+    -30, -20, -10,   0,   0, -10, -20, -30,
+    -50, -40, -30, -20, -20, -30, -40, -50,
+]
+
+_PST_MAP = {
+    chess.KNIGHT: _KNIGHT_PST,
+    chess.BISHOP: _BISHOP_PST,
+    chess.ROOK: _ROOK_PST,
+    chess.QUEEN: _QUEEN_PST,
+    chess.PAWN: _PAWN_PST,
+}
+
+# Pawn positional value by rank (index 0 = rank 1, 7 = rank 8).
+# White's perspective.  Peaks at center ranks (4-5), drops at edges.
+# No promotion in Mercenary — rank 7/8 pawns have reduced mobility.
+_PAWN_RANK_VALUE = [0.00, 0.10, 0.30, 0.60, 0.85, 1.00, 0.55, 0.15]
+
+
+def _pst_score(piece_type, sq, color):
+    """Lookup PST value in centipawns (positive = good for that color)."""
+    pst = _PST_MAP.get(piece_type)
+    if pst is None:
+        return 0
+    r, f = chess.square_rank(sq), chess.square_file(sq)
+    if color == chess.BLACK:
+        r = 7 - r
+    return pst[r * 8 + f]
+
+
+def _king_pst_score(sq, color, total_material):
+    """King PST with middlegame/endgame interpolation (centipawns)."""
+    r, f = chess.square_rank(sq), chess.square_file(sq)
+    if color == chess.BLACK:
+        r = 7 - r
+    idx = r * 8 + f
+    # Smooth transition: full MG at 40 material, full EG at 10
+    eg_w = max(0.0, min(1.0, (40.0 - total_material) / 30.0))
+    return _KING_MG_PST[idx] * (1.0 - eg_w) + _KING_EG_PST[idx] * eg_w
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -429,13 +554,17 @@ class MercenaryBoard:
 
         Returns value in [-1, 1] from White's perspective.
         Components:
-          1. Material balance  (tanh-scaled for strong signal)
+          1. Material balance  (tanh-scaled, dominant weight)
           2. Hanging pieces    (attacked by cheaper enemy)
           3. Piece mobility    (more legal moves = better position)
-          4. Central activity  (pieces near the center)
+          4. Piece placement   (PST — positional quality of each piece)
           5. King safety       (pawn shield around king)
           6. Repetition penalty (break move cycles)
-          7. Endgame king chase (drive losing king to corner)
+          7. Endgame king chase / centralisation
+          8. Pawn positioning + connectivity (NO promotion)
+          9. Territorial control  (pieces on opponent's side)
+         10. Fifty-move draw pressure (urgency to capture/push)
+         11. Decisive advantage (extra bonus when far ahead)
         """
         PIECE_VAL = {
             chess.PAWN: 1.0, chess.KNIGHT: 3.0, chess.BISHOP: 3.0,
@@ -443,9 +572,10 @@ class MercenaryBoard:
         }
 
         w_mat = 0.0; b_mat = 0.0
-        w_act = 0.0; b_act = 0.0
+        w_pst = 0.0; b_pst = 0.0
         w_king_sq = None; b_king_sq = None
         pieces = []  # (square, piece_type, color, value, rank, file)
+        w_pawn_advance = 0.0; b_pawn_advance = 0.0
 
         for sq in chess.SQUARES:
             p = self.board.piece_at(sq)
@@ -463,18 +593,29 @@ class MercenaryBoard:
             pieces.append((sq, p.piece_type, p.color, val, r, f))
             if p.color == chess.WHITE:
                 w_mat += val
+                w_pst += _pst_score(p.piece_type, sq, chess.WHITE)
+                if p.piece_type == chess.PAWN:
+                    w_pawn_advance += _PAWN_RANK_VALUE[r]
             else:
                 b_mat += val
-            # Central activity: Manhattan distance from center
-            dist = abs(r - 3.5) + abs(f - 3.5)
-            bonus = max(0.0, (3.5 - dist) / 3.5) * 0.12
-            if p.color == chess.WHITE:
-                w_act += bonus
-            else:
-                b_act += bonus
+                b_pst += _pst_score(p.piece_type, sq, chess.BLACK)
+                if p.piece_type == chess.PAWN:
+                    b_pawn_advance += _PAWN_RANK_VALUE[7 - r]
 
         # ── 1. Material balance (non-linear) ──
         mat_score = math.tanh((w_mat - b_mat) * 0.3)
+
+        # ── Decisive advantage ──
+        # When one side has >= 5 pawns worth of material advantage
+        # (a piece + pawns), the position is nearly won.  Push the
+        # eval strongly toward +/-1.0 so MCTS treats it as decisive.
+        #   5 ahead → +0.20,  9 ahead → +0.35,  12+ → +0.40
+        mat_diff_raw = w_mat - b_mat
+        decisive_bonus = 0.0
+        if abs(mat_diff_raw) >= 5.0:
+            decisive_bonus = min(0.40, 0.20 + (abs(mat_diff_raw) - 5.0) * 0.04)
+            if mat_diff_raw < 0:
+                decisive_bonus = -decisive_bonus
 
         # ── 2. Hanging pieces ──
         piece_at_sq = {}
@@ -518,38 +659,74 @@ class MercenaryBoard:
                     b_hanging += loss
         threat_score = (b_hanging - w_hanging) / 16.0
 
-        # ── 3. Piece mobility ──
-        # Count legal moves for each side.  More mobility = better
-        # position.  This is what differentiates quiet moves: a queen
-        # in the center has ~20 moves, a queen in the corner has ~5.
-        # Without this, ALL non-capture positions score the same,
-        # making the AI shuffle pieces randomly.
+        # ── 3. Piece mobility (fast square counting) ──
+        # Count reachable squares for each side WITHOUT creating
+        # Move objects.  Directly counts destination squares via
+        # ray-casting for sliders and jump tables for knights/kings.
+        # This is ~3-5x faster than _get_pseudo_legal_moves_for_piece().
         w_mobility = 0; b_mobility = 0
-        saved_turn = self.board.turn
-        # Count white moves
-        self.board.turn = chess.WHITE
         for sq, ptype, color, val, r, f in pieces:
-            if color != chess.WHITE:
+            if ptype == chess.PAWN or ptype == chess.KING:
                 continue
-            p = self.board.piece_at(sq)
-            if p and p.piece_type != chess.PAWN:
-                for m in self._get_pseudo_legal_moves_for_piece(sq, p):
-                    w_mobility += 1
-        # Count black moves
-        self.board.turn = chess.BLACK
-        for sq, ptype, color, val, r, f in pieces:
-            if color != chess.BLACK:
-                continue
-            p = self.board.piece_at(sq)
-            if p and p.piece_type != chess.PAWN:
-                for m in self._get_pseudo_legal_moves_for_piece(sq, p):
-                    b_mobility += 1
-        self.board.turn = saved_turn
+            count = 0
+            if ptype == chess.KNIGHT:
+                for kdr, kdf in ((-2,-1),(-2,1),(-1,-2),(-1,2),
+                                 (1,-2),(1,2),(2,-1),(2,1)):
+                    nr, nf = r + kdr, f + kdf
+                    if 0 <= nr <= 7 and 0 <= nf <= 7:
+                        asq = chess.square(nf, nr)
+                        if asq not in piece_at_sq or piece_at_sq[asq][1] != color:
+                            count += 1
+            elif ptype == chess.BISHOP:
+                for dr, df in ((1,1),(1,-1),(-1,1),(-1,-1)):
+                    nr, nf = r + dr, f + df
+                    while 0 <= nr <= 7 and 0 <= nf <= 7:
+                        asq = chess.square(nf, nr)
+                        if asq in piece_at_sq:
+                            if piece_at_sq[asq][1] != color:
+                                count += 1
+                            break
+                        count += 1
+                        nr += dr; nf += df
+            elif ptype == chess.ROOK:
+                for dr, df in ((0,1),(0,-1),(1,0),(-1,0)):
+                    nr, nf = r + dr, f + df
+                    while 0 <= nr <= 7 and 0 <= nf <= 7:
+                        asq = chess.square(nf, nr)
+                        if asq in piece_at_sq:
+                            if piece_at_sq[asq][1] != color:
+                                count += 1
+                            break
+                        count += 1
+                        nr += dr; nf += df
+            elif ptype == chess.QUEEN:
+                for dr, df in ((0,1),(0,-1),(1,0),(-1,0),
+                               (1,1),(1,-1),(-1,1),(-1,-1)):
+                    nr, nf = r + dr, f + df
+                    while 0 <= nr <= 7 and 0 <= nf <= 7:
+                        asq = chess.square(nf, nr)
+                        if asq in piece_at_sq:
+                            if piece_at_sq[asq][1] != color:
+                                count += 1
+                            break
+                        count += 1
+                        nr += dr; nf += df
+            if color == chess.WHITE:
+                w_mobility += count
+            else:
+                b_mobility += count
         # Normalize: typical total mobility is ~30-50 per side
         mobility_score = math.tanh((w_mobility - b_mobility) * 0.05)
 
-        # ── 4. Central activity ──
-        act_score = (w_act - b_act) / 2.0
+        # ── 4. Piece placement (PST) ──
+        # Add king PST (interpolated middlegame/endgame)
+        total_mat_for_pst = w_mat + b_mat
+        if w_king_sq is not None:
+            w_pst += _king_pst_score(w_king_sq, chess.WHITE, total_mat_for_pst)
+        if b_king_sq is not None:
+            b_pst += _king_pst_score(b_king_sq, chess.BLACK, total_mat_for_pst)
+        # Normalize: max realistic difference ~200-300 centipawns
+        placement_score = math.tanh((w_pst - b_pst) / 150.0)
 
         # ── 5. King safety (pawn shield) ──
         w_shield = 0.0; b_shield = 0.0
@@ -589,10 +766,14 @@ class MercenaryBoard:
             # Current position is already in history, so count - 1
             # gives the number of PREVIOUS occurrences.
             rep_count = max(0, rep_count - 1)
-            if rep_count >= 2:
-                rep_penalty = -0.25  # Strongly discourage 3-fold
+            if rep_count >= 4:
+                rep_penalty = -0.80  # Slam the brakes on 5-fold+
+            elif rep_count >= 3:
+                rep_penalty = -0.65  # Very strongly discourage 4-fold
+            elif rep_count >= 2:
+                rep_penalty = -0.50  # Strongly discourage 3-fold
             elif rep_count >= 1:
-                rep_penalty = -0.10  # Mildly discourage 2-fold
+                rep_penalty = -0.25  # Discourage 2-fold
             # Penalty is from the side-to-move’s perspective.
             # Convert to White’s perspective for the combined score.
             if not self.board.turn:  # Black to move
@@ -602,7 +783,8 @@ class MercenaryBoard:
         # When one side is ahead in material and pieces are few,
         # drive the losing king toward the corner (where checkmate
         # is easier) and bring our king closer to the enemy king.
-        # Without this, endgames are aimless shuffling.
+        # In equal endgames, centralise both kings (central king
+        # controls more squares and supports pawn advances).
         chase_score = 0.0
         total_mat = w_mat + b_mat
         if total_mat <= 20.0 and w_king_sq is not None and b_king_sq is not None:
@@ -630,30 +812,279 @@ class MercenaryBoard:
                 # Scale by advantage magnitude
                 advantage = min(abs(mat_diff) / 9.0, 1.0)  # 0 to 1
                 chase_score = sign * advantage * (
-                    0.15 * corner_bonus + 0.10 * proximity_bonus)
+                    0.25 * corner_bonus + 0.20 * proximity_bonus)
+            else:
+                # Equal-ish endgame: reward king centralisation for both
+                # sides.  A centralised king is always useful — it can
+                # support pawn advances and cut off the opponent's king.
+                if w_king_sq is not None:
+                    wr = chess.square_rank(w_king_sq)
+                    wf = chess.square_file(w_king_sq)
+                    w_central = max(0.0, (3.5 - max(abs(wr - 3.5), abs(wf - 3.5))) / 3.5)
+                else:
+                    w_central = 0.0
+                if b_king_sq is not None:
+                    br = chess.square_rank(b_king_sq)
+                    bf = chess.square_file(b_king_sq)
+                    b_central = max(0.0, (3.5 - max(abs(br - 3.5), abs(bf - 3.5))) / 3.5)
+                else:
+                    b_central = 0.0
+                chase_score = 0.08 * (w_central - b_central)
+
+            # King-pawn proximity: in endgames the king should escort
+            # its own pawns.  This prevents the enemy king from just
+            # walking up and eating unprotected pawns.
+            if total_mat <= 15.0:
+                w_kp = 0.0; b_kp = 0.0
+                for sq, pt, color, val, r, f in pieces:
+                    if pt != chess.PAWN:
+                        continue
+                    if color == chess.WHITE and w_king_sq is not None:
+                        kd = (abs(chess.square_rank(w_king_sq) - r)
+                              + abs(chess.square_file(w_king_sq) - f))
+                        w_kp += max(0.0, (7 - kd)) / 7.0
+                    elif color == chess.BLACK and b_king_sq is not None:
+                        kd = (abs(chess.square_rank(b_king_sq) - r)
+                              + abs(chess.square_file(b_king_sq) - f))
+                        b_kp += max(0.0, (7 - kd)) / 7.0
+                chase_score += 0.15 * (w_kp - b_kp)
+
+            # ── Rook vs pawn endgame: line up rook against enemy pawns ──
+            # In R+K vs K+P, the rook must attack the pawn from the
+            # same rank/file (from a distance, not adjacent to the
+            # defending king).  Also reward the rook cutting off the
+            # enemy king on a rank (restricting king movement).
+            if total_mat <= 15.0:
+                for sq, pt, color, val, r, f in pieces:
+                    if pt != chess.ROOK:
+                        continue
+                    rook_bonus = 0.0
+                    # Check if rook lines up with any enemy pawn
+                    for esq, ept, ecol, ev, er, ef in pieces:
+                        if ept == chess.PAWN and ecol != color:
+                            if f == ef:  # Same file
+                                rook_bonus += 0.06
+                            if r == er:  # Same rank
+                                rook_bonus += 0.03
+                    # Rook cutting off enemy king by rank
+                    enemy_k = b_king_sq if color == chess.WHITE else w_king_sq
+                    if enemy_k is not None:
+                        ek_r = chess.square_rank(enemy_k)
+                        # Rook between kings = cutting off
+                        my_k = w_king_sq if color == chess.WHITE else b_king_sq
+                        if my_k is not None:
+                            mk_r = chess.square_rank(my_k)
+                            if min(mk_r, ek_r) < r < max(mk_r, ek_r):
+                                rook_bonus += 0.05  # Rook cuts off enemy king
+                    if color == chess.WHITE:
+                        chase_score += rook_bonus
+                    else:
+                        chase_score -= rook_bonus
+
+        # ── 8. Pawn positioning + connectivity ──
+        # In Mercenary there is NO pawn promotion, so pawns can never
+        # become queens.  Pawn value comes from:
+        #   - Centrality (more squares to move/attack)
+        #   - Territorial pressure (on enemy half)
+        #   - Connectivity (adjacent pawns protect each other)
+        # "Passed pawns" still matter slightly — an unopposed pawn
+        # has freedom to maneuver — but NOT because it can promote.
+        pawn_advance_score = 0.0
+        n_pawns = max(1, sum(1 for _, pt, _, _, _, _ in pieces if pt == chess.PAWN))
+        if n_pawns > 0:
+            pawn_advance_score = (w_pawn_advance - b_pawn_advance) / max(n_pawns, 4)
+        # Passed pawn bonus (flat — no rank scaling since no promotion)
+        # A pawn with no enemy pawn on adjacent files ahead of it
+        # has more freedom to maneuver.  Small flat bonus.
+        passed_pawn_score = 0.0
+        w_pawn_files = set(); b_pawn_files = set()
+        w_pawn_ranks = {}; b_pawn_ranks = {}
+        for sq, pt, color, val, r, f in pieces:
+            if pt == chess.PAWN:
+                if color == chess.WHITE:
+                    w_pawn_files.add(f)
+                    w_pawn_ranks.setdefault(f, []).append(r)
+                else:
+                    b_pawn_files.add(f)
+                    b_pawn_ranks.setdefault(f, []).append(r)
+        # White passed pawns: no black pawn on same or adjacent files
+        # at same rank or higher
+        for f, ranks in w_pawn_ranks.items():
+            for r in ranks:
+                is_passed = True
+                for adj_f in range(max(0, f - 1), min(8, f + 2)):
+                    if adj_f in b_pawn_ranks:
+                        for br in b_pawn_ranks[adj_f]:
+                            if br >= r:
+                                is_passed = False
+                                break
+                    if not is_passed:
+                        break
+                if is_passed:
+                    passed_pawn_score += 0.15  # Flat: free to maneuver
+        # Black passed pawns
+        for f, ranks in b_pawn_ranks.items():
+            for r in ranks:
+                is_passed = True
+                for adj_f in range(max(0, f - 1), min(8, f + 2)):
+                    if adj_f in w_pawn_ranks:
+                        for wr in w_pawn_ranks[adj_f]:
+                            if wr <= r:
+                                is_passed = False
+                                break
+                    if not is_passed:
+                        break
+                if is_passed:
+                    passed_pawn_score -= 0.15
+
+        # Pawn connectivity (Mercenary-specific)
+        # Pawns attack all 8 adjacent squares (like kings), so
+        # adjacent friendly pawns protect each other.  Connected
+        # pawn clusters are very hard to break through.
+        w_connected = 0; b_connected = 0
+        for sq, pt, color, val, r, f in pieces:
+            if pt != chess.PAWN:
+                continue
+            for dr in range(-1, 2):
+                for df in range(-1, 2):
+                    if dr == 0 and df == 0:
+                        continue
+                    nr, nf = r + dr, f + df
+                    if 0 <= nr <= 7 and 0 <= nf <= 7:
+                        nsq = chess.square(nf, nr)
+                        np_ = self.board.piece_at(nsq)
+                        if (np_ and np_.piece_type == chess.PAWN
+                                and np_.color == color):
+                            if color == chess.WHITE:
+                                w_connected += 1
+                            else:
+                                b_connected += 1
+                            break  # One neighbor enough per pawn
+                else:
+                    continue
+                break
+        pawn_connectivity = 0.02 * (w_connected - b_connected)
+
+        # ── 9. Territorial control ──
+        # Pieces on the opponent's half of the board exert pressure.
+        # This differentiates quiet moves that all score similarly
+        # on material/threats/mobility — a knight on rank 6 is better
+        # than one on rank 2 even if both have the same mobility.
+        w_territory = 0.0; b_territory = 0.0
+        for sq, pt, color, val, r, f in pieces:
+            if color == chess.WHITE and r >= 4:  # White piece on Black's side
+                w_territory += (r - 3) * 0.04 * val / 3.0
+            elif color == chess.BLACK and r <= 3:  # Black piece on White's side
+                b_territory += (4 - r) * 0.04 * val / 3.0
+        territory_score = (w_territory - b_territory)
+
+        # ── 10. Fifty-move draw pressure (asymmetric) ──
+        # The WINNING side should feel urgent pressure to make
+        # progress (captures, pawn moves) as the counter grows.
+        # The LOSING side is happy with a draw, so less pressure.
+        # This prevents the winning side from shuffling to a draw.
+        draw_pressure = 0.0
+        if self.fifty_move_counter > 3:
+            progress = (self.fifty_move_counter - 3) / 52.0  # 0→1 over 3..55
+            base_pressure = -0.50 * min(progress, 1.0)
+            # Determine who's ahead
+            mat_diff = w_mat - b_mat
+            stm_ahead = (mat_diff > 1.0 and self.board.turn) or (
+                         mat_diff < -1.0 and not self.board.turn)
+            if stm_ahead:
+                # Winning side: EXTRA pressure to break the shuffle
+                draw_pressure = base_pressure * 1.5
+            else:
+                draw_pressure = base_pressure
+            if not self.board.turn:
+                draw_pressure = -draw_pressure
 
         # ── Weighted combination ──
+        # Material is the dominant signal (0.40) — being up a piece
+        # matters more than anything.  PST placement (0.12) gives
+        # quiet-position differentiation.  Decisive bonus pushes
+        # winning positions firmly toward ±1.0.
         raw = (0.40 * mat_score
-             + 0.18 * threat_score
-             + 0.15 * mobility_score
-             + 0.08 * act_score
-             + 0.04 * safety_score
+             + 0.14 * threat_score
+             + 0.12 * mobility_score
+             + 0.12 * placement_score
+             + 0.03 * safety_score
+             + 0.05 * pawn_advance_score
+             + 0.05 * passed_pawn_score
+             + 0.03 * territory_score
              + rep_penalty
-             + chase_score)
+             + chase_score
+             + draw_pressure
+             + decisive_bonus
+             + pawn_connectivity)
         return max(-1.0, min(1.0, raw))
 
+
+
+    def heuristic_eval_fast(self) -> float:
+        """Lightweight eval for quiescence search nodes.
+
+        Only computes material + PST + decisive bonus.  Skips the
+        expensive mobility calculation, hanging-piece detection,
+        repetition penalty, king safety, passed pawns, etc.
+
+        Quiescence search resolves capture chains — it only needs
+        to know "is this position materially good?" not "is this
+        position positionally good?".  The full heuristic_eval()
+        is still used at the top-level MCTS leaf before quiescence.
+
+        This is ~5-10x faster than heuristic_eval() because it
+        avoids generating pseudo-legal moves for mobility.
+        """
+        PIECE_VAL = {
+            chess.PAWN: 1.0, chess.KNIGHT: 3.0, chess.BISHOP: 3.0,
+            chess.ROOK: 5.0, chess.QUEEN: 9.0,
+        }
+        w_mat = 0.0; b_mat = 0.0
+        w_pst = 0.0; b_pst = 0.0
+
+        for sq in chess.SQUARES:
+            p = self.board.piece_at(sq)
+            if not p:
+                continue
+            if p.piece_type == chess.KING:
+                continue
+            val = PIECE_VAL.get(p.piece_type, 0.0)
+            if p.color == chess.WHITE:
+                w_mat += val
+                w_pst += _pst_score(p.piece_type, sq, chess.WHITE)
+            else:
+                b_mat += val
+                b_pst += _pst_score(p.piece_type, sq, chess.BLACK)
+
+        # Material (tanh-scaled)
+        mat_score = math.tanh((w_mat - b_mat) * 0.3)
+
+        # PST placement
+        placement_score = math.tanh((w_pst - b_pst) / 150.0)
+
+        # Decisive advantage
+        mat_diff_raw = w_mat - b_mat
+        decisive_bonus = 0.0
+        if abs(mat_diff_raw) >= 5.0:
+            decisive_bonus = min(0.40, 0.20 + (abs(mat_diff_raw) - 5.0) * 0.04)
+            if mat_diff_raw < 0:
+                decisive_bonus = -decisive_bonus
+
+        raw = 0.55 * mat_score + 0.15 * placement_score + decisive_bonus
+        return max(-1.0, min(1.0, raw))
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  Main Training / Test Loop
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-def train_mercenary(test_mode=False, move_delay=0.3):
+def train_mercenary(test_mode=False, move_delay=0.05):
     """Train Mercenary AI or run test games.
 
     Args:
         test_mode: If True, play random games without training (for testing rules)
-        move_delay: Delay in seconds between moves (0.1-10, default 0.3)
+        move_delay: Delay in seconds between moves (0.01-10, default 0.05)
     """
 
     log = TrainingLogger(mode='mercenary')
@@ -700,7 +1131,7 @@ def train_mercenary(test_mode=False, move_delay=0.3):
                    label='CPU Training Configuration')
     else:
         NUM_ITERATIONS = 200
-        GAMES_PER_ITERATION = 50
+        GAMES_PER_ITERATION = 25
         MCTS_SIMULATIONS = 300
         EPOCHS_PER_ITERATION = 15
         BATCH_SIZE = 512
@@ -797,7 +1228,25 @@ def train_mercenary(test_mode=False, move_delay=0.3):
                     if not legal_moves:
                         break
 
-                    move = random.choice(legal_moves)
+                    # ── Heuristic-guided move selection ──
+                    # Instead of random moves, evaluate each candidate
+                    # with a one-ply heuristic search.  This makes test
+                    # games show real strategy: captures, piece activity,
+                    # and avoidance of blunders.
+                    is_white = game.board.turn
+                    best_score = -999.0
+                    best_moves = []
+                    for candidate in legal_moves:
+                        child = game.copy()
+                        child.make_move(candidate)
+                        h = child.heuristic_eval()  # White's perspective
+                        score = h if is_white else -h
+                        if score > best_score + 0.01:
+                            best_score = score
+                            best_moves = [candidate]
+                        elif abs(score - best_score) <= 0.01:
+                            best_moves.append(candidate)
+                    move = random.choice(best_moves) if best_moves else random.choice(legal_moves)
                     turn_color = 'white' if game.board.turn else 'black'
                     move_success = game.make_move(move)
 
@@ -860,6 +1309,7 @@ def train_mercenary(test_mode=False, move_delay=0.3):
         temperature = max(0.5, 1.5 - (iteration / NUM_ITERATIONS) * 1.0)
 
         # ── Self-play ─────────────────────────────────────────
+        # Note: actual sims will be adaptive (see below), but log the max
         log.self_play_header(GAMES_PER_ITERATION, MCTS_SIMULATIONS, temperature)
 
         # Heuristic weight: start very high (trust handcrafted eval when NN
@@ -869,8 +1319,16 @@ def train_mercenary(test_mode=False, move_delay=0.3):
         # giving MCTS a clean signal for material-based decisions.
         heuristic_weight = max(0.0, 0.95 - 0.95 * ((iteration - 1) / max(1, NUM_ITERATIONS - 1)))
 
+        # Scale MCTS sims by heuristic_weight.  When heuristic
+        # dominates (early iterations), fewer sims suffice because
+        # the heuristic already provides a strong signal.  As the NN
+        # improves and heuristic_weight drops, we ramp up sims.
+        #   hw=0.95 (iter 1)  → 150 sims  (min floor)
+        #   hw=0.50 (iter 100) → 175 sims
+        #   hw=0.00 (iter 200) → 300 sims (full strength)
+        adaptive_sims = max(150, int(MCTS_SIMULATIONS * (1.0 - 0.83 * heuristic_weight)))
         self_play = ImprovedSelfPlay(
-            model, device=DEVICE, num_simulations=MCTS_SIMULATIONS,
+            model, device=DEVICE, num_simulations=adaptive_sims,
             batch_size=64, game_class=MercenaryBoard,
             heuristic_weight=heuristic_weight)
 
@@ -1018,8 +1476,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='ChessRecast — Mercenary Mod AI')
     parser.add_argument('--test', action='store_true',
                         help='Random games for rule testing')
-    parser.add_argument('--delay', type=float, default=0.3,
-                        help='Move delay 0.1-10s (default 0.3)')
+    parser.add_argument('--delay', type=float, default=0.05,
+                        help='Move delay 0.01-10s (default 0.05)')
     args = parser.parse_args()
     train_mercenary(test_mode=args.test,
-                    move_delay=max(0.1, min(10.0, args.delay)))
+                    move_delay=max(0.01, min(10.0, args.delay)))
