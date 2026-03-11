@@ -353,50 +353,56 @@ class ImprovedSelfPlay:
                 # Lazily create game state on first visit
                 if child.game_state is None:
                     child.game_state = node.game_state.copy()
-                    child.game_state.make_move(chess.Move.from_uci(move_uci))
+                    child.game_state.make_move_unchecked(chess.Move.from_uci(move_uci))
                 node = child
                 search_path.append(node)
             
             # ── EVALUATE ──
-            if node.game_state.is_game_over():
-                value = self._parse_result(node.game_state.get_result())
+            # First check cheap draw conditions before expensive legal-move gen
+            gs = node.game_state
+            is_terminal = False
+            if gs.board.king(chess.WHITE) is None or gs.board.king(chess.BLACK) is None:
+                is_terminal = True
+            elif gs.fifty_move_counter >= 60:  # Mercenary fifty-move limit
+                is_terminal = True
+            elif gs._is_threefold_repetition():
+                is_terminal = True
+            elif gs._is_insufficient_material():
+                is_terminal = True
+
+            if is_terminal:
+                value = self._parse_result(gs.get_result())
             else:
-                hw = self.heuristic_weight
-
-                # When heuristic dominates (hw >= 0.9), the NN is
-                # essentially random and contributes < 10% of the
-                # value.  Skip the expensive NN forward pass entirely
-                # and use uniform policy + pure heuristic value.
-                # This saves ~150 GPU inferences per move in early
-                # iterations with no quality loss.
-                if hw >= 0.9:
-                    nn_value = 0.0
-                    policy_logits = torch.zeros(
-                        1, 4096, device=self.device)
+                # Generate legal moves ONCE — reused for game-over check AND expansion
+                child_moves = gs.get_legal_moves()
+                if not child_moves:
+                    # No legal moves = checkmate or stalemate
+                    value = self._parse_result(gs.get_result())
                 else:
-                    state_tensor = self._board_to_tensor(node.game_state)
-                    with torch.no_grad():
-                        policy_logits, value_tensor = self.model(
-                            state_tensor)
-                    nn_value = value_tensor.item()
+                    hw = self.heuristic_weight
 
-                # Blend neural network value with handcrafted heuristic.
-                # The NN is random early on, so heuristic_weight starts high
-                # and decays over training iterations. The heuristic knows
-                # that capturing a queen is good and losing one is bad —
-                # exactly the signal MCTS needs to pick non-random moves.
-                heuristic_value = self._get_heuristic_value(node.game_state)
-                hw = self.heuristic_weight
-                value = hw * heuristic_value + (1.0 - hw) * nn_value
-                
-                # ── EXPAND leaf node ──
-                child_moves = node.game_state.get_legal_moves()
-                if child_moves:
+                    # When heuristic dominates (hw >= 0.9), the NN is
+                    # essentially random and contributes < 10% of the
+                    # value.  Skip the expensive NN forward pass entirely
+                    # and use uniform policy + pure heuristic value.
+                    if hw >= 0.9:
+                        nn_value = 0.0
+                        policy_logits = torch.zeros(
+                            1, 4096, device=self.device)
+                    else:
+                        state_tensor = self._board_to_tensor(gs)
+                        with torch.no_grad():
+                            policy_logits, value_tensor = self.model(
+                                state_tensor)
+                        nn_value = value_tensor.item()
+
+                    heuristic_value = self._get_heuristic_value(gs)
+                    hw = self.heuristic_weight
+                    value = hw * heuristic_value + (1.0 - hw) * nn_value
+                    
+                    # ── EXPAND leaf node ──
                     priors = self._get_move_priors(
-                        policy_logits[0], child_moves, node.game_state)
-                    # Prune to top 8 — forces deeper search instead of
-                    # wider. 100 sims / 15 root × 8 internal = depth 2-3
-                    # with meaningful visit counts.
+                        policy_logits[0], child_moves, gs)
                     if len(child_moves) > 8:
                         top_k = np.argsort(priors)[-8:]
                         child_moves = [child_moves[i] for i in top_k]
@@ -446,9 +452,16 @@ class ImprovedSelfPlay:
         With 100 sims, 15 root children and 8 internal, each root child
         gets ~7 visits → meaningful depth 2-3 with heuristic guidance.
         """
-        state_tensor = self._board_to_tensor(node.game_state)
-        with torch.no_grad():
-            policy_logits, _ = self.model(state_tensor)
+        # When heuristic dominates, use flat policy (matching
+        # internal-node behaviour) so heuristic bonuses control
+        # the prior entirely — no random NN noise.
+        if self.heuristic_weight >= 0.9:
+            policy_logits = torch.zeros(
+                1, 4096, device=self.device)
+        else:
+            state_tensor = self._board_to_tensor(node.game_state)
+            with torch.no_grad():
+                policy_logits, _ = self.model(state_tensor)
         
         priors = self._get_move_priors(
             policy_logits[0], legal_moves, node.game_state)
@@ -516,6 +529,80 @@ class ImprovedSelfPlay:
             board = game_state.board
             moving_color = board.turn
 
+            # Precompute enemy non-king piece positions (for pawn-toward-enemy prior)
+            enemy_positions = []
+            my_material = 0.0
+            opp_material = 0.0
+            # Precompute ALL enemy pieces for cheapest-attacker lookup
+            enemy_pieces = []  # (sq, piece_type, rank, file, value)
+            enemy_king_sq_pre = board.king(not moving_color)
+            for sq_e in chess.SQUARES:
+                ep = board.piece_at(sq_e)
+                if ep and ep.piece_type != chess.KING:
+                    v = PIECE_VAL.get(ep.piece_type, 0)
+                    if ep.color == moving_color:
+                        my_material += v
+                    else:
+                        opp_material += v
+                        er = chess.square_rank(sq_e)
+                        ef = chess.square_file(sq_e)
+                        enemy_positions.append((er, ef))
+                        enemy_pieces.append(
+                            (sq_e, ep.piece_type, er, ef, v))
+            mat_advantage = my_material - opp_material
+
+            def _cheapest_enemy_attacker(to_sq, ignore_sq=None):
+                """Find cheapest enemy piece attacking to_sq.
+
+                Returns the value of the cheapest attacker, or 99.0 if
+                none.  ``ignore_sq`` is the from-square of the moving
+                piece (so we don't count it as a blocker on the ray).
+                Mercenary: pawns+king attack all 8 adjacent squares.
+                """
+                tr = chess.square_rank(to_sq)
+                tf = chess.square_file(to_sq)
+                cheapest = 99.0
+                # Enemy king attacks adjacent
+                if enemy_king_sq_pre is not None:
+                    ekr = chess.square_rank(enemy_king_sq_pre)
+                    ekf = chess.square_file(enemy_king_sq_pre)
+                    if max(abs(tr - ekr), abs(tf - ekf)) <= 1:
+                        cheapest = 0.0  # King captures for free
+                        return cheapest
+                for esq, ept, er, ef, ev in enemy_pieces:
+                    if ept == chess.PAWN:
+                        if max(abs(tr - er), abs(tf - ef)) <= 1:
+                            cheapest = min(cheapest, ev)
+                    elif ept == chess.KNIGHT:
+                        dr, df = abs(tr - er), abs(tf - ef)
+                        if (dr == 2 and df == 1) or (dr == 1 and df == 2):
+                            cheapest = min(cheapest, ev)
+                    else:
+                        # Slider (bishop/rook/queen): ray check
+                        ddr = tr - er
+                        ddf = tf - ef
+                        can_rook = ept in (chess.ROOK, chess.QUEEN) and (
+                            ddr == 0 or ddf == 0)
+                        can_bishop = ept in (chess.BISHOP, chess.QUEEN) and (
+                            abs(ddr) == abs(ddf) and ddr != 0)
+                        if not (can_rook or can_bishop):
+                            continue
+                        sr = (1 if ddr > 0 else -1) if ddr != 0 else 0
+                        sf = (1 if ddf > 0 else -1) if ddf != 0 else 0
+                        cr, cf = er + sr, ef + sf
+                        clear = True
+                        while cr != tr or cf != tf:
+                            bsq = chess.square(cf, cr)
+                            if bsq != ignore_sq and board.piece_at(bsq) is not None:
+                                clear = False
+                                break
+                            cr += sr; cf += sf
+                        if clear:
+                            cheapest = min(cheapest, ev)
+                    if cheapest <= 1.0:
+                        break  # Can't get cheaper (pawn = 1)
+                return cheapest
+
             for i, move in enumerate(legal_moves):
                 bonus = 0.0
                 victim_val = 0.0
@@ -567,16 +654,22 @@ class ImprovedSelfPlay:
                         dest_near_enemy_king = True
 
                 # ── Safe-capture bonus ──
-                # A capture where no enemy pawn defends the square is
-                # almost certainly free material.  Give a huge boost so
-                # MCTS pours simulations into verifying it.
-                #   pawn×knight (undefended) → 3.0 * 0.20 = +0.60
-                #   pawn×queen  (undefended) → 9.0 * 0.20 = +1.80
-                # These dwarf the base network prior (~0.03), so MCTS
-                # will always explore free captures first.
+                # A capture where no enemy piece defends the square is
+                # free material.  If defended, reward only if the trade
+                # is clearly winning (victim much more valuable than
+                # cheapest defender's recapture cost).
                 if victim is not None and victim.piece_type != chess.KING:
-                    if not dest_near_enemy_pawn:
+                    cheapest_def = _cheapest_enemy_attacker(
+                        move.to_square, ignore_sq=move.from_square)
+                    if cheapest_def >= 99.0:
+                        # Undefended capture — free material
                         bonus += victim_val * 0.20
+                    elif attacker and attacker.piece_type != chess.KING:
+                        # Defended — only worthwhile if we win material
+                        atk_val = PIECE_VAL.get(attacker.piece_type, 0)
+                        net_gain = victim_val - atk_val
+                        if net_gain >= 1.0:
+                            bonus += net_gain * 0.10
 
                 # ── Endgame capture escalation ──
                 # When the opponent has very few pieces, any capture
@@ -597,38 +690,54 @@ class ImprovedSelfPlay:
                         bonus += 0.15
 
                 # ── Check bonus (lightweight) ──
+                # In Mercenary mode the king captures adjacent squares,
+                # so only count as "safe check" if distance > 1 for
+                # long-range pieces (rook, bishop, queen).  Adjacent
+                # checks by these pieces are suicidal — the king eats
+                # the checker.
+                gives_check = False
                 if enemy_king_sq is not None and attacker:
-                    gives_check = False
                     k_r = chess.square_rank(enemy_king_sq)
                     k_f = chess.square_file(enemy_king_sq)
                     dr = abs(to_r - k_r)
                     df = abs(to_f - k_f)
+                    chebyshev = max(dr, df)
                     atype = attacker.piece_type
                     if atype == chess.PAWN:
                         gives_check = dr <= 1 and df <= 1 and (dr > 0 or df > 0)
                     elif atype == chess.KNIGHT:
                         gives_check = (dr == 2 and df == 1) or (dr == 1 and df == 2)
-                    elif atype in (chess.BISHOP, chess.QUEEN) and dr == df and dr > 0:
+                    elif atype in (chess.BISHOP, chess.QUEEN) and dr == df and dr > 1:
                         gives_check = True
-                    elif atype in (chess.ROOK, chess.QUEEN) and (dr == 0 or df == 0) and (dr + df) > 0:
+                    elif atype in (chess.ROOK, chess.QUEEN) and (dr == 0 or df == 0) and (dr + df) > 1:
                         gives_check = True
                     if gives_check:
                         bonus += 0.12
 
                 # ── Blunder avoidance ──
-                # Penalise moving a valuable piece next to an enemy pawn
-                # or the enemy king (both attack all 8 adjacent squares
-                # in Mercenary mode).
+                # Penalise moving a valuable piece to any square
+                # attacked by a cheaper enemy piece.  Covers pawns,
+                # knights, bishops, rooks, queens, and king.
                 if (attacker
-                        and (dest_near_enemy_pawn or dest_near_enemy_king)
                         and attacker.piece_type not in (chess.PAWN, chess.KING)):
                     my_val = PIECE_VAL.get(attacker.piece_type, 0.0)
                     cap_val = victim_val if victim else 0.0
-                    net = cap_val - my_val
-                    if net < -1.0:
-                        bonus -= 0.35
-                    elif net < 0:
-                        bonus -= 0.12
+                    cheapest_atk = _cheapest_enemy_attacker(
+                        move.to_square, ignore_sq=move.from_square)
+                    if cheapest_atk < 99.0:
+                        # Square is defended — compute net after trade
+                        net = cap_val - my_val
+                        if cheapest_atk == 0.0 and not gives_check and net < 0:
+                            # King captures for free — almost always a
+                            # blunder unless we're giving check.
+                            bonus -= 0.70
+                        elif net < -2.0:
+                            # Losing 3+ material (e.g. queen for pawn)
+                            bonus -= 0.70
+                        elif net < -1.0:
+                            bonus -= 0.50
+                        elif net < 0:
+                            bonus -= 0.25
 
                 # ── Pawn near enemy king = free capture ──
                 # An unprotected pawn walking next to the enemy king
@@ -681,23 +790,17 @@ class ImprovedSelfPlay:
                 # ── Pawn toward enemy pieces (Mercenary: no promotion) ──
                 # Without promotion, pawns gain value by approaching
                 # capturable enemy pieces, not by advancing "forward".
-                # Reward pawn quiet moves that decrease distance to
-                # the nearest enemy non-king piece.
+                # Uses precomputed enemy_positions list (built once above).
                 if (attacker and attacker.piece_type == chess.PAWN
-                        and victim is None):
+                        and victim is None and enemy_positions):
                     from_r = chess.square_rank(move.from_square)
                     from_f = chess.square_file(move.from_square)
                     best_old = 99; best_new = 99
-                    for sq_e in chess.SQUARES:
-                        ep = board.piece_at(sq_e)
-                        if (ep and ep.color != moving_color
-                                and ep.piece_type != chess.KING):
-                            er = chess.square_rank(sq_e)
-                            ef = chess.square_file(sq_e)
-                            d_old = abs(from_r - er) + abs(from_f - ef)
-                            d_new = abs(to_r - er) + abs(to_f - ef)
-                            best_old = min(best_old, d_old)
-                            best_new = min(best_new, d_new)
+                    for er, ef in enemy_positions:
+                        d_old = abs(from_r - er) + abs(from_f - ef)
+                        d_new = abs(to_r - er) + abs(to_f - ef)
+                        best_old = min(best_old, d_old)
+                        best_new = min(best_new, d_new)
                     if best_new < best_old:
                         bonus += 0.03  # Moving toward enemy
 
@@ -722,6 +825,148 @@ class ImprovedSelfPlay:
                                     bonus += 0.08  # Same file as pawn
                                 if chess.square_rank(sq_i) == to_r:
                                     bonus += 0.04  # Same rank as pawn
+
+                # ── Endgame mating priors ──
+                # When we have overwhelming material (enemy has few
+                # pieces left), guide MCTS toward checkmate rather
+                # than shuffling.  Priority:
+                #   - Rook/queen moves that give check
+                #   - Rook/queen moves on same rank/file as enemy king
+                #     (boxing the king in)
+                #   - King moves approaching the enemy king (needed
+                #     for R+K vs K mating procedure)
+                if (enemy_king_sq is not None and attacker
+                        and mat_advantage >= 3.0 and opp_material <= 5.0):
+                    ek_r = chess.square_rank(enemy_king_sq)
+                    ek_f = chess.square_file(enemy_king_sq)
+                    ek_dist = max(abs(to_r - ek_r), abs(to_f - ek_f))
+
+                    # Rook/queen: reward landing on enemy king's
+                    # rank or file (controls escape route).
+                    # MUST be distance > 1 from king — adjacent pieces
+                    # get captured by king in Mercenary mode.
+                    if (attacker.piece_type in (chess.ROOK, chess.QUEEN)
+                            and ek_dist > 1):
+                        if to_r == ek_r or to_f == ek_f:
+                            bonus += 0.15
+
+                        # Extra bonus for giving check from distance.
+                        dr_k = abs(to_r - ek_r)
+                        df_k = abs(to_f - ek_f)
+                        if attacker.piece_type == chess.ROOK:
+                            if (dr_k == 0 or df_k == 0) and (dr_k + df_k) > 1:
+                                # Rook on same rank/file — check if clear
+                                clear = True
+                                if dr_k == 0:
+                                    step = 1 if ek_f > to_f else -1
+                                    nf2 = to_f + step
+                                    while nf2 != ek_f:
+                                        sq2 = chess.square(nf2, to_r)
+                                        if board.piece_at(sq2):
+                                            clear = False
+                                            break
+                                        nf2 += step
+                                else:
+                                    step = 1 if ek_r > to_r else -1
+                                    nr2 = to_r + step
+                                    while nr2 != ek_r:
+                                        sq2 = chess.square(to_f, nr2)
+                                        if board.piece_at(sq2):
+                                            clear = False
+                                            break
+                                        nr2 += step
+                                if clear:
+                                    bonus += 0.20  # Gives check!
+                        elif attacker.piece_type == chess.QUEEN:
+                            # Queen checks: rank, file, or diagonal
+                            if ((dr_k == 0 or df_k == 0 or dr_k == df_k)
+                                    and (dr_k + df_k) > 1):
+                                bonus += 0.15  # Approximate check
+
+                    # King: approach enemy king (needed for
+                    # R+K vs K cooperation).
+                    if attacker.piece_type == chess.KING:
+                        from_r2 = chess.square_rank(move.from_square)
+                        from_f2 = chess.square_file(move.from_square)
+                        old_dist = abs(from_r2 - ek_r) + abs(from_f2 - ek_f)
+                        new_dist = abs(to_r - ek_r) + abs(to_f - ek_f)
+                        if new_dist < old_dist:
+                            bonus += 0.10  # Moving toward enemy king
+
+                # ── K+P mating priors (pawn-only endgame) ──
+                # In Mercenary, K+P CAN checkmate (pawn checks like
+                # king).  When no heavy pieces remain and we have a
+                # pawn advantage, guide pawn toward enemy king and
+                # keep our king nearby for support.
+                if (enemy_king_sq is not None and attacker
+                        and mat_advantage >= 1.0
+                        and opp_material <= 2.0 and my_material <= 3.0):
+                    ek_r2 = chess.square_rank(enemy_king_sq)
+                    ek_f2 = chess.square_file(enemy_king_sq)
+                    if attacker.piece_type == chess.PAWN:
+                        from_r3 = chess.square_rank(move.from_square)
+                        from_f3 = chess.square_file(move.from_square)
+                        old_d = max(abs(from_r3 - ek_r2),
+                                    abs(from_f3 - ek_f2))
+                        new_d = max(abs(to_r - ek_r2),
+                                    abs(to_f - ek_f2))
+                        if new_d < old_d:
+                            bonus += 0.15  # Pawn approaching king
+                        if new_d == 1:
+                            bonus += 0.20  # Pawn checks enemy king!
+                    elif attacker.piece_type == chess.KING:
+                        # King should stay close to its own pawn
+                        # while also approaching enemy king.
+                        for sq_i in chess.SQUARES:
+                            p_i = board.piece_at(sq_i)
+                            if (p_i and p_i.color == moving_color
+                                    and p_i.piece_type == chess.PAWN):
+                                pd = max(abs(to_r - chess.square_rank(sq_i)),
+                                         abs(to_f - chess.square_file(sq_i)))
+                                if pd <= 2:
+                                    bonus += 0.05  # Supporting pawn
+                                break
+
+                # ── Stalemate avoidance (winning endgame) ──
+                # In Mercenary, the winning side often traps the losing
+                # king with 0 legal moves — stalemate (draw) instead
+                # of checkmate.  After making this move, count the
+                # opponent king's escape squares; if 0 and we're not
+                # giving check, heavily penalise.
+                if (enemy_king_sq is not None
+                        and mat_advantage >= 1.0
+                        and opp_material <= 2.0):
+                    # Quick stalemate probe: push, count escapes, pop
+                    board.push(move)
+                    ek_sq2 = board.king(not moving_color)
+                    if ek_sq2 is not None:
+                        ekr2 = chess.square_rank(ek_sq2)
+                        ekf2 = chess.square_file(ek_sq2)
+                        opp_escapes = 0
+                        for dr2 in range(-1, 2):
+                            for df2 in range(-1, 2):
+                                if dr2 == 0 and df2 == 0:
+                                    continue
+                                nr2, nf2 = ekr2 + dr2, ekf2 + df2
+                                if 0 <= nr2 <= 7 and 0 <= nf2 <= 7:
+                                    esq = chess.square(nf2, nr2)
+                                    ep2 = board.piece_at(esq)
+                                    if ep2 and ep2.color == (not moving_color):
+                                        continue  # Own piece blocks
+                                    opp_escapes += 1
+                        # Check if opponent has non-king pieces
+                        opp_has_pieces = False
+                        for sq_j in chess.SQUARES:
+                            pj = board.piece_at(sq_j)
+                            if (pj and pj.color == (not moving_color)
+                                    and pj.piece_type != chess.KING):
+                                opp_has_pieces = True
+                                break
+                        if opp_escapes == 0 and not opp_has_pieces and not gives_check:
+                            bonus -= 0.80  # Would stalemate!
+                        elif opp_escapes == 1 and not opp_has_pieces and not gives_check:
+                            bonus -= 0.30  # Near-stalemate risk
+                    board.pop()
 
                 # ── Territorial advance bonus ──
                 # Pieces moving toward the opponent's half get a small
@@ -866,7 +1111,7 @@ class ImprovedSelfPlay:
                 continue
 
             child = game_state.copy()
-            child.make_move(move)
+            child.make_move_unchecked(move)
             # Negamax: opponent's score is the negative of ours
             score = -self._quiescence(child, -beta, -alpha, depth + 1)
 
@@ -1025,6 +1270,14 @@ class ImprovedSelfPlay:
                 best_move = move
 
         if best_move and best_net >= 1.0:
+            # Check for stalemate: don't force a capture that draws!
+            board = game_state.board
+            board.push(best_move)
+            opp_moves = game_state.get_legal_moves()
+            opp_in_check = game_state._is_king_attacked(board.turn)
+            board.pop()
+            if not opp_moves and not opp_in_check:
+                return None, 0.0  # Would stalemate — skip
             return best_move, best_net
         return None, 0.0
     
