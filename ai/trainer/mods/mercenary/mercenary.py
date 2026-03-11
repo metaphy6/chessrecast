@@ -146,6 +146,24 @@ _PST_MAP = {
 _PAWN_RANK_VALUE = [0.00, 0.10, 0.30, 0.60, 0.85, 1.00, 0.55, 0.15]
 
 
+def _soft_clamp(x):
+    """Clamp to (-1, 1) without saturation.
+
+    Below |0.9|: identity (no change to existing eval behavior).
+    Above |0.9|: exponential compression toward +/-1.0 that preserves
+    ordering — a better raw score always produces a higher output.
+
+    This prevents MCTS from becoming blind when one side has an
+    overwhelming advantage: without this, all positions clamp to
+    identical +/-1.0, making every move look equally good.
+    """
+    if abs(x) <= 0.9:
+        return x
+    sign = 1.0 if x > 0 else -1.0
+    excess = abs(x) - 0.9
+    return sign * (0.9 + 0.1 * (1.0 - math.exp(-excess * 3.0)))
+
+
 def _pst_score(piece_type, sq, color):
     """Lookup PST value in centipawns (positive = good for that color)."""
     pst = _PST_MAP.get(piece_type)
@@ -225,7 +243,7 @@ class MercenaryMode:
 
     @staticmethod
     def get_draw_conditions() -> dict:
-        return {'fifty_move_limit': 60, 'insufficient_material_rules': 'mercenary'}
+        return {'fifty_move_limit': 100, 'insufficient_material_rules': 'mercenary'}
 
     @staticmethod
     def filter_moves(board: chess.Board, moves: List[chess.Move]) -> List[chess.Move]:
@@ -337,20 +355,52 @@ class MercenaryBoard:
         if king_square is None:
             self.board.pop()
             return False
+        kr = chess.square_rank(king_square)
+        kf = chess.square_file(king_square)
+        in_check = False
         for square in chess.SQUARES:
             piece = self.board.piece_at(square)
-            if piece and piece.color != moving_color:
-                if piece.piece_type == chess.PAWN:
-                    if self._can_pawn_attack_square(square, king_square):
-                        self.board.pop()
-                        return False
-                else:
-                    for m in self._get_pseudo_legal_moves_for_piece(square, piece):
-                        if m.to_square == king_square:
-                            self.board.pop()
-                            return False
+            if not piece or piece.color == moving_color:
+                continue
+            pr = chess.square_rank(square)
+            pf = chess.square_file(square)
+            pt = piece.piece_type
+            if pt == chess.PAWN or pt == chess.KING:
+                # Both attack all adjacent squares in Mercenary
+                if abs(pr - kr) <= 1 and abs(pf - kf) <= 1 and (pr != kr or pf != kf):
+                    in_check = True
+                    break
+            elif pt == chess.KNIGHT:
+                dr, df = abs(pr - kr), abs(pf - kf)
+                if (dr == 2 and df == 1) or (dr == 1 and df == 2):
+                    in_check = True
+                    break
+            else:
+                # Slider (bishop/rook/queen): ray check without generating moves
+                dr = kr - pr
+                df = kf - pf
+                # Rook/Queen: same rank or file
+                can_rook = (pt == chess.ROOK or pt == chess.QUEEN) and (dr == 0 or df == 0)
+                # Bishop/Queen: same diagonal
+                can_bishop = (pt == chess.BISHOP or pt == chess.QUEEN) and abs(dr) == abs(df)
+                if not (can_rook or can_bishop):
+                    continue
+                # Check ray is clear
+                step_r = (1 if dr > 0 else -1) if dr != 0 else 0
+                step_f = (1 if df > 0 else -1) if df != 0 else 0
+                cr, cf = pr + step_r, pf + step_f
+                clear = True
+                while cr != kr or cf != kf:
+                    if self.board.piece_at(chess.square(cf, cr)) is not None:
+                        clear = False
+                        break
+                    cr += step_r
+                    cf += step_f
+                if clear:
+                    in_check = True
+                    break
         self.board.pop()
-        return True
+        return not in_check
 
     @staticmethod
     def _can_pawn_attack_square(pawn_square: int, target_square: int) -> bool:
@@ -373,6 +423,19 @@ class MercenaryBoard:
         self._add_position_to_history()
         return True
 
+    def make_move_unchecked(self, move: chess.Move):
+        """Push move without legality check (fast path for MCTS/QS).
+
+        ONLY call when the move was already validated by get_legal_moves().
+        Saves ~2ms per call by skipping redundant legal move generation.
+        """
+        if self.mode.should_reset_fifty_move_counter(self.board, move):
+            self.fifty_move_counter = 0
+        else:
+            self.fifty_move_counter += 1
+        self.board.push(move)
+        self._add_position_to_history()
+
     # ── Game over ─────────────────────────────────────────────
 
     def is_game_over(self) -> bool:
@@ -382,18 +445,19 @@ class MercenaryBoard:
         if self.board.king(chess.BLACK) is None:
             print("🚨 CRITICAL ERROR: Black king is missing!")
             return True
-        legal_moves = self.get_legal_moves()
-        custom = self.mode.is_game_over_custom(self.board, legal_moves)
-        if custom is not None:
-            return custom
-        if not legal_moves:
-            return True
+        # Check cheap draw conditions BEFORE expensive legal-move gen
         draw = self.mode.get_draw_conditions()
         if self.fifty_move_counter >= draw['fifty_move_limit']:
             return True
         if self._is_threefold_repetition():
             return True
         if self._is_insufficient_material():
+            return True
+        legal_moves = self.get_legal_moves()
+        custom = self.mode.is_game_over_custom(self.board, legal_moves)
+        if custom is not None:
+            return custom
+        if not legal_moves:
             return True
         return False
 
@@ -428,24 +492,47 @@ class MercenaryBoard:
     def _is_king_attacked(self, color: bool) -> bool:
         """Check if the king of `color` is under attack using Mercenary rules.
         
-        python-chess's board.is_check() doesn't know that pawns attack like
-        kings in Mercenary mode, so we need our own check detection.
+        Uses direct distance/ray checks instead of generating all moves.
         """
         king_sq = self.board.king(color)
         if king_sq is None:
             return False
+        kr = chess.square_rank(king_sq)
+        kf = chess.square_file(king_sq)
         enemy = not color
         for sq in chess.SQUARES:
             piece = self.board.piece_at(sq)
-            if piece and piece.color == enemy:
-                if piece.piece_type == chess.PAWN:
-                    # Mercenary: pawn attacks all adjacent squares
-                    if self._can_pawn_attack_square(sq, king_sq):
-                        return True
-                else:
-                    for m in self._get_pseudo_legal_moves_for_piece(sq, piece):
-                        if m.to_square == king_sq:
-                            return True
+            if not piece or piece.color != enemy:
+                continue
+            pr = chess.square_rank(sq)
+            pf = chess.square_file(sq)
+            pt = piece.piece_type
+            if pt == chess.PAWN or pt == chess.KING:
+                if abs(pr - kr) <= 1 and abs(pf - kf) <= 1 and (pr != kr or pf != kf):
+                    return True
+            elif pt == chess.KNIGHT:
+                dr, df = abs(pr - kr), abs(pf - kf)
+                if (dr == 2 and df == 1) or (dr == 1 and df == 2):
+                    return True
+            else:
+                dr = kr - pr
+                df = kf - pf
+                can_rook = (pt == chess.ROOK or pt == chess.QUEEN) and (dr == 0 or df == 0)
+                can_bishop = (pt == chess.BISHOP or pt == chess.QUEEN) and abs(dr) == abs(df)
+                if not (can_rook or can_bishop):
+                    continue
+                step_r = (1 if dr > 0 else -1) if dr != 0 else 0
+                step_f = (1 if df > 0 else -1) if df != 0 else 0
+                cr, cf = pr + step_r, pf + step_f
+                clear = True
+                while cr != kr or cf != kf:
+                    if self.board.piece_at(chess.square(cf, cr)) is not None:
+                        clear = False
+                        break
+                    cr += step_r
+                    cf += step_f
+                if clear:
+                    return True
         return False
 
     # ── Tensor / Copy ─────────────────────────────────────────
@@ -608,12 +695,14 @@ class MercenaryBoard:
         # ── Decisive advantage ──
         # When one side has >= 5 pawns worth of material advantage
         # (a piece + pawns), the position is nearly won.  Push the
-        # eval strongly toward +/-1.0 so MCTS treats it as decisive.
-        #   5 ahead → +0.20,  9 ahead → +0.35,  12+ → +0.40
+        # eval toward +/-0.70 but NOT to 1.0 — leave headroom for
+        # mating-quality signals so MCTS can differentiate "winning
+        # but shuffling" from "about to checkmate".
+        #   5 ahead → +0.08,  9 ahead → +0.12,  15+ → +0.15
         mat_diff_raw = w_mat - b_mat
         decisive_bonus = 0.0
         if abs(mat_diff_raw) >= 5.0:
-            decisive_bonus = min(0.40, 0.20 + (abs(mat_diff_raw) - 5.0) * 0.04)
+            decisive_bonus = min(0.15, 0.08 + (abs(mat_diff_raw) - 5.0) * 0.02)
             if mat_diff_raw < 0:
                 decisive_bonus = -decisive_bonus
 
@@ -631,6 +720,7 @@ class MercenaryBoard:
             if val <= 1.0:
                 continue
             cheapest_attacker = 99.0
+            # Adjacent: pawn or king attacks (Mercenary)
             for dr in range(-1, 2):
                 for df in range(-1, 2):
                     if dr == 0 and df == 0:
@@ -642,6 +732,9 @@ class MercenaryBoard:
                             at, ac, av = piece_at_sq[asq]
                             if ac != color and at == chess.PAWN:
                                 cheapest_attacker = min(cheapest_attacker, 1.0)
+                            elif ac != color and at == chess.KING:
+                                cheapest_attacker = min(cheapest_attacker, 0.0)
+            # Knight attacks
             for kdr, kdf in [(-2,-1),(-2,1),(-1,-2),(-1,2),
                              (1,-2),(1,2),(2,-1),(2,1)]:
                 nr, nf = r + kdr, f + kdf
@@ -651,6 +744,35 @@ class MercenaryBoard:
                         at, ac, av = piece_at_sq[asq]
                         if ac != color and at == chess.KNIGHT:
                             cheapest_attacker = min(cheapest_attacker, 3.0)
+            # Slider attacks (bishop, rook, queen)
+            if cheapest_attacker > 3.0:
+                for esq, ept, ec, ev, er, ef in pieces:
+                    if ec == color:
+                        continue
+                    if ept not in (chess.BISHOP, chess.ROOK, chess.QUEEN):
+                        continue
+                    ddr = r - er
+                    ddf = f - ef
+                    can_rook = ept in (chess.ROOK, chess.QUEEN) and (
+                        ddr == 0 or ddf == 0) and (ddr != 0 or ddf != 0)
+                    can_bishop = ept in (chess.BISHOP, chess.QUEEN) and (
+                        abs(ddr) == abs(ddf) and ddr != 0)
+                    if not (can_rook or can_bishop):
+                        continue
+                    sr = (1 if ddr > 0 else -1) if ddr != 0 else 0
+                    sf = (1 if ddf > 0 else -1) if ddf != 0 else 0
+                    cr, cf = er + sr, ef + sf
+                    clear = True
+                    while cr != r or cf != f:
+                        bsq = chess.square(cf, cr)
+                        if bsq in piece_at_sq:
+                            clear = False
+                            break
+                        cr += sr; cf += sf
+                    if clear:
+                        cheapest_attacker = min(cheapest_attacker, ev)
+                        if cheapest_attacker <= 3.0:
+                            break
             if cheapest_attacker < val:
                 loss = val - cheapest_attacker
                 if color == chess.WHITE:
@@ -774,6 +896,15 @@ class MercenaryBoard:
                 rep_penalty = -0.50  # Strongly discourage 3-fold
             elif rep_count >= 1:
                 rep_penalty = -0.25  # Discourage 2-fold
+            # When one side is winning, repeating is even worse —
+            # it wastes turns toward the fifty-move draw.  Even a
+            # single-pawn advantage (mat_adv=1) should trigger
+            # scaling, since K+P vs K is winning in Mercenary.
+            mat_adv_rep = abs(w_mat - b_mat)
+            stm_winning = ((w_mat > b_mat and self.board.turn)
+                           or (b_mat > w_mat and not self.board.turn))
+            if stm_winning and mat_adv_rep >= 1.0 and rep_penalty < 0:
+                rep_penalty *= min(2.5, 1.0 + mat_adv_rep / 5.0)
             # Penalty is from the side-to-move’s perspective.
             # Convert to White’s perspective for the combined score.
             if not self.board.turn:  # Black to move
@@ -789,7 +920,7 @@ class MercenaryBoard:
         total_mat = w_mat + b_mat
         if total_mat <= 20.0 and w_king_sq is not None and b_king_sq is not None:
             mat_diff = w_mat - b_mat
-            if abs(mat_diff) >= 2.0:  # Meaningful advantage
+            if abs(mat_diff) >= 1.0:  # Any material advantage
                 # Determine which side is ahead
                 if mat_diff > 0:
                     winner_king = w_king_sq
@@ -809,10 +940,18 @@ class MercenaryBoard:
                 wf = chess.square_file(winner_king)
                 king_dist = abs(wr - lr) + abs(wf - lf)  # 1 to 14
                 proximity_bonus = (14 - king_dist) / 14.0  # 0 to 1
-                # Scale by advantage magnitude
-                advantage = min(abs(mat_diff) / 9.0, 1.0)  # 0 to 1
+                # Scale by advantage magnitude — stronger for bare-king
+                # endgames where conversion is the sole objective.
+                loser_c_chase = chess.BLACK if mat_diff > 0 else chess.WHITE
+                bare_king = not any(
+                    c == loser_c_chase and pt != chess.KING
+                    for _, pt, c, _, _, _ in pieces)
+                if bare_king and total_mat <= 10.0:
+                    advantage = min(abs(mat_diff) / 3.0, 1.0)
+                else:
+                    advantage = min(abs(mat_diff) / 9.0, 1.0)
                 chase_score = sign * advantage * (
-                    0.25 * corner_bonus + 0.20 * proximity_bonus)
+                    0.15 * corner_bonus + 0.15 * proximity_bonus)
             else:
                 # Equal-ish endgame: reward king centralisation for both
                 # sides.  A centralised king is always useful — it can
@@ -847,7 +986,49 @@ class MercenaryBoard:
                         kd = (abs(chess.square_rank(b_king_sq) - r)
                               + abs(chess.square_file(b_king_sq) - f))
                         b_kp += max(0.0, (7 - kd)) / 7.0
-                chase_score += 0.15 * (w_kp - b_kp)
+                chase_score += 0.08 * (w_kp - b_kp)
+
+            # ── Pawn-to-enemy-king proximity (Mercenary mating aid) ──
+            # In Mercenary, pawns attack all 8 adjacent squares —
+            # a pawn adjacent to the enemy king delivers check.
+            # K+P can checkmate (pawn checks, king covers escapes).
+            # Reward advancing our pawn toward the enemy king when
+            # we have material advantage (guides the mating pattern).
+            if total_mat <= 10.0 and abs(w_mat - b_mat) >= 1.0:
+                pawn_ek = 0.0
+                enemy_k = b_king_sq if w_mat > b_mat else w_king_sq
+                pawn_side = chess.WHITE if w_mat > b_mat else chess.BLACK
+                my_king = w_king_sq if pawn_side == chess.WHITE else b_king_sq
+                if enemy_k is not None:
+                    ekr = chess.square_rank(enemy_k)
+                    ekf = chess.square_file(enemy_k)
+                    for sq, pt, color, val, r, f in pieces:
+                        if pt == chess.PAWN and color == pawn_side:
+                            pdist = max(abs(r - ekr), abs(f - ekf))
+                            if pdist <= 1:
+                                # Adjacent to enemy king — checking!
+                                # Only reward if defended (king/pawn
+                                # nearby) so the enemy can't just eat it.
+                                defended = False
+                                if my_king is not None:
+                                    mkr = chess.square_rank(my_king)
+                                    mkf = chess.square_file(my_king)
+                                    if max(abs(r - mkr), abs(f - mkf)) <= 1:
+                                        defended = True
+                                if not defended:
+                                    for s2, p2, c2, _, r2, f2 in pieces:
+                                        if p2 == chess.PAWN and c2 == pawn_side and s2 != sq:
+                                            if max(abs(r - r2), abs(f - f2)) <= 1:
+                                                defended = True; break
+                                if defended:
+                                    pawn_ek += 1.0   # Check + defended!
+                                # else: undefended — no bonus (will be captured)
+                            elif pdist == 2:
+                                pawn_ek += 0.4   # Close — one move away
+                            elif pdist <= 4:
+                                pawn_ek += 0.15  # Approaching
+                    psign = 1.0 if pawn_side == chess.WHITE else -1.0
+                    chase_score += psign * 0.12 * pawn_ek
 
             # ── Rook vs pawn endgame: line up rook against enemy pawns ──
             # In R+K vs K+P, the rook must attack the pawn from the
@@ -880,6 +1061,141 @@ class MercenaryBoard:
                         chase_score += rook_bonus
                     else:
                         chase_score -= rook_bonus
+
+            # ── King restriction (mating net) ──
+            # In winning endgames the key to checkmate is restricting
+            # the enemy king's escape squares.  Count how many squares
+            # the loser's king can safely move to (not attacked by
+            # winner's pieces), and reward positions where that number
+            # is small.  This gives MCTS a gradient to push toward
+            # mating configurations instead of shuffling.
+            #
+            # Also reward rooks/queens that share a rank or file with
+            # the enemy king from distance > 1 (they control that line,
+            # boxing the king in).  In Mercenary, rooks adjacent to the
+            # king get captured, so distance > 1 is essential.
+            if abs(mat_diff) >= 1.0:
+                if mat_diff > 0:
+                    loser_k = b_king_sq
+                    winner_c = chess.WHITE
+                    rsign = 1.0
+                else:
+                    loser_k = w_king_sq
+                    winner_c = chess.BLACK
+                    rsign = -1.0
+                if loser_k is not None:
+                    lk_r = chess.square_rank(loser_k)
+                    lk_f = chess.square_file(loser_k)
+                    # Collect winner piece positions for attack checks
+                    winner_pieces = []
+                    for sq, pt, c, v, r, f in pieces:
+                        if c == winner_c:
+                            winner_pieces.append((sq, pt, r, f))
+                    winner_k = w_king_sq if winner_c == chess.WHITE else b_king_sq
+
+                    # Count king escape squares that are NOT attacked
+                    # by winner's pieces.
+                    safe_escapes = 0
+                    total_adj = 0
+                    for dr in range(-1, 2):
+                        for df in range(-1, 2):
+                            if dr == 0 and df == 0:
+                                continue
+                            nr, nf = lk_r + dr, lk_f + df
+                            if not (0 <= nr <= 7 and 0 <= nf <= 7):
+                                continue
+                            sq = chess.square(nf, nr)
+                            # Blocked by own piece (can't move there)
+                            if sq in piece_at_sq:
+                                _, pc, _ = piece_at_sq[sq]
+                                if pc != winner_c:
+                                    continue  # Loser's own piece blocks
+                            total_adj += 1
+                            # Check if attacked by winner king
+                            attacked = False
+                            if winner_k is not None:
+                                wk_r = chess.square_rank(winner_k)
+                                wk_f = chess.square_file(winner_k)
+                                if max(abs(nr - wk_r), abs(nf - wk_f)) <= 1:
+                                    attacked = True
+                            # Check winner pieces
+                            if not attacked:
+                                for _, wpt, wr, wf in winner_pieces:
+                                    if wpt == chess.PAWN:
+                                        if max(abs(nr - wr), abs(nf - wf)) <= 1:
+                                            attacked = True; break
+                                    elif wpt == chess.KNIGHT:
+                                        ddr = abs(nr - wr)
+                                        ddf = abs(nf - wf)
+                                        if (ddr == 2 and ddf == 1) or (ddr == 1 and ddf == 2):
+                                            attacked = True; break
+                                    elif wpt in (chess.ROOK, chess.QUEEN):
+                                        ddr = abs(nr - wr)
+                                        ddf = abs(nf - wf)
+                                        if ddr == 0 or ddf == 0:
+                                            # Same rank or file — check clear path
+                                            clear = True
+                                            if ddr == 0 and ddf > 0:
+                                                step = 1 if wf < nf else -1
+                                                cf = wf + step
+                                                while cf != nf:
+                                                    csq = chess.square(cf, nr)
+                                                    if csq in piece_at_sq:
+                                                        clear = False; break
+                                                    cf += step
+                                            elif ddf == 0 and ddr > 0:
+                                                step = 1 if wr < nr else -1
+                                                cr = wr + step
+                                                while cr != nr:
+                                                    csq = chess.square(nf, cr)
+                                                    if csq in piece_at_sq:
+                                                        clear = False; break
+                                                    cr += step
+                                            if clear:
+                                                attacked = True; break
+                                    if not attacked and wpt in (chess.BISHOP, chess.QUEEN):
+                                        ddr = abs(nr - wr)
+                                        ddf = abs(nf - wf)
+                                        if ddr == ddf and ddr > 0:
+                                            clear = True
+                                            sr = 1 if wr < nr else -1
+                                            sf = 1 if wf < nf else -1
+                                            cr, cf = wr + sr, wf + sf
+                                            while cr != nr:
+                                                csq = chess.square(cf, cr)
+                                                if csq in piece_at_sq:
+                                                    clear = False; break
+                                                cr += sr; cf += sf
+                                            if clear:
+                                                attacked = True; break
+                            if not attacked:
+                                safe_escapes += 1
+
+                    # Restriction: fewer safe escapes = closer to mate.
+                    # BUT: if safe_escapes is 0 and the loser's king is
+                    # NOT in check, this is stalemate (draw) — terrible
+                    # for the winning side!  Penalise instead of reward.
+                    loser_color = chess.BLACK if winner_c == chess.WHITE else chess.WHITE
+                    loser_has_pieces = any(
+                        c == loser_color and pt != chess.KING
+                        for _, pt, c, _, _, _ in pieces)
+                    loser_in_check = self._is_king_attacked(loser_color)
+                    if safe_escapes == 0 and not loser_in_check and not loser_has_pieces:
+                        # Stalemate! The winning side trapped the king
+                        # without checkmating — this is a draw.
+                        chase_score += rsign * (-0.80)
+                    elif safe_escapes <= 1 and not loser_in_check and not loser_has_pieces:
+                        # One move from stalemate — proceed with extreme
+                        # caution.  Don't reward restriction here.
+                        chase_score += rsign * (-0.30)
+                    else:
+                        max_esc = max(total_adj, 1)
+                        restriction = 1.0 - safe_escapes / max_esc
+                        if not loser_has_pieces and total_mat <= 10.0:
+                            adv_scale = min(abs(mat_diff) / 3.0, 1.0)
+                        else:
+                            adv_scale = min(abs(mat_diff) / 9.0, 1.0)
+                        chase_score += rsign * adv_scale * 0.30 * restriction
 
         # ── 8. Pawn positioning + connectivity ──
         # In Mercenary there is NO pawn promotion, so pawns can never
@@ -984,16 +1300,19 @@ class MercenaryBoard:
         # The LOSING side is happy with a draw, so less pressure.
         # This prevents the winning side from shuffling to a draw.
         draw_pressure = 0.0
+        draw_limit = self.mode.get_draw_conditions()['fifty_move_limit']
         if self.fifty_move_counter > 3:
-            progress = (self.fifty_move_counter - 3) / 52.0  # 0→1 over 3..55
-            base_pressure = -0.50 * min(progress, 1.0)
+            # Scale 0→1 over 3..draw_limit (e.g. 3..100)
+            progress = min(1.0, (self.fifty_move_counter - 3)
+                           / max(1, draw_limit - 3))
+            base_pressure = -0.60 * progress
             # Determine who's ahead
             mat_diff = w_mat - b_mat
-            stm_ahead = (mat_diff > 1.0 and self.board.turn) or (
-                         mat_diff < -1.0 and not self.board.turn)
+            stm_ahead = (mat_diff > 0.5 and self.board.turn) or (
+                         mat_diff < -0.5 and not self.board.turn)
             if stm_ahead:
                 # Winning side: EXTRA pressure to break the shuffle
-                draw_pressure = base_pressure * 1.5
+                draw_pressure = base_pressure * 2.0
             else:
                 draw_pressure = base_pressure
             if not self.board.turn:
@@ -1017,7 +1336,7 @@ class MercenaryBoard:
              + draw_pressure
              + decisive_bonus
              + pawn_connectivity)
-        return max(-1.0, min(1.0, raw))
+        return _soft_clamp(raw)
 
 
 
@@ -1067,12 +1386,12 @@ class MercenaryBoard:
         mat_diff_raw = w_mat - b_mat
         decisive_bonus = 0.0
         if abs(mat_diff_raw) >= 5.0:
-            decisive_bonus = min(0.40, 0.20 + (abs(mat_diff_raw) - 5.0) * 0.04)
+            decisive_bonus = min(0.15, 0.08 + (abs(mat_diff_raw) - 5.0) * 0.02)
             if mat_diff_raw < 0:
                 decisive_bonus = -decisive_bonus
 
         raw = 0.55 * mat_score + 0.15 * placement_score + decisive_bonus
-        return max(-1.0, min(1.0, raw))
+        return _soft_clamp(raw)
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

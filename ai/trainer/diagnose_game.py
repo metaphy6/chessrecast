@@ -296,7 +296,7 @@ def play_diagnostic_game(game_num, num_sims=300, heuristic_weight=0.95):
 
 
 if __name__ == '__main__':
-    num_games = 3
+    num_games = int(sys.argv[1]) if len(sys.argv) > 1 else 3
     num_sims = 100  # Match Docker adaptive min (was 50)
     
     print(f"Running {num_games} diagnostic games with {num_sims} MCTS simulations...")
