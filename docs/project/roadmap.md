@@ -125,7 +125,7 @@ But for **gaming**, which is actually simpler because:
 
 ```
 ┌─────────────────────────────────────────┐
-│     Your Central Server (Minimal)      │
+│     Your Central Server (Minimal)       │
 ├─────────────────────────────────────────┤
 │ - Matchmaking & lobby                   │
 │ - Coin wallet & transactions            │
@@ -138,11 +138,11 @@ But for **gaming**, which is actually simpler because:
 ┌──────────────────────────────────────────┐
 │         Distributed P2P Layer            │
 ├──────────────────────────────────────────┤
-│ Player A: Game host (earning 10c/hr)    │
+│ Player A: Game host (earning 10c/hr)     │
 │ Player B: Opponent (playing)             │
-│ Player C: Witness 1 (earning 2c/hr)     │
-│ Player D: Witness 2 (earning 2c/hr)     │
-│ Player E: Backup host (earning 5c/hr)   │
+│ Player C: Witness 1 (earning 2c/hr)      │
+│ Player D: Witness 2 (earning 2c/hr)      │
+│ Player E: Backup host (earning 5c/hr)    │
 └──────────────────────────────────────────┘
 ```
 

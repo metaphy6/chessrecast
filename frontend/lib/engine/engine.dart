@@ -1,8 +1,8 @@
-import 'dart:async';
-import 'dart:isolate';
+import 'package:flutter/foundation.dart';
 
 import '../board/board.dart';
 import '../board/moves/move.dart';
+import '../management/orchestrator.dart';
 import 'search.dart';
 
 // ─── Chess Engine ────────────────────────────────────────────────────────────
@@ -81,28 +81,9 @@ class ChessEngine {
 
   /// Find the best move for the current position.
   ///
-  /// Runs the alpha-beta search on a background isolate so the UI stays
-  /// responsive.  Returns `null` only if there are no legal moves.
-  Future<ChessMove?> findBestMove(
-    ChessBoard board, {
-    EngineLevel level = EngineLevel.hard,
-    int? timeLimitMs,
-    int? maxDepth,
-  }) async {
-    final timeMs = timeLimitMs ?? level.timeLimitMs;
-    final depth = maxDepth ?? level.maxDepth;
-
-    final result = await Isolate.run(() {
-      final search = Search();
-      return search.think(board, timeLimitMs: timeMs, maxDepth: depth);
-    });
-
-    return result.bestMove;
-  }
-
-  /// Synchronous version (blocks the calling thread).
-  /// Use this only for testing or when running inside an isolate already.
-  SearchResult findBestMoveSync(
+  /// Runs the alpha-beta search on a background isolate via [compute]
+  /// so the UI stays responsive.  Returns the full [SearchResult].
+  Future<SearchResult> findBestMove(
     ChessBoard board, {
     EngineLevel level = EngineLevel.hard,
     int? timeLimitMs,
@@ -111,7 +92,67 @@ class ChessEngine {
     final timeMs = timeLimitMs ?? level.timeLimitMs;
     final depth = maxDepth ?? level.maxDepth;
 
-    final search = Search();
-    return search.think(board, timeLimitMs: timeMs, maxDepth: depth);
+    return compute(_runSearch, _SearchArgs(board, timeMs, depth));
   }
+
+  /// Find the best move AND apply it, all inside an isolate.
+  ///
+  /// Returns the search result together with the resulting board after the
+  /// move has been executed and game status updated.  The caller only needs
+  /// to do lightweight UI state assignment — zero heavy work on the main
+  /// thread.
+  Future<EngineMoveResult> computeEngineMove(
+    ChessBoard board, {
+    EngineLevel level = EngineLevel.hard,
+  }) {
+    return compute(
+      _searchAndMove,
+      _SearchArgs(board, level.timeLimitMs, level.maxDepth),
+    );
+  }
+}
+
+/// Result of [computeEngineMove] — bundles the search stats with the new board.
+class EngineMoveResult {
+  final SearchResult searchResult;
+  final ChessBoard newBoard;
+  const EngineMoveResult(this.searchResult, this.newBoard);
+}
+
+// ─── Isolate helpers (must be top-level for compute()) ───────────────────────
+
+class _SearchArgs {
+  final ChessBoard board;
+  final int timeMs;
+  final int depth;
+  const _SearchArgs(this.board, this.timeMs, this.depth);
+}
+
+SearchResult _runSearch(_SearchArgs args) {
+  final search = Search();
+  return search.think(
+    args.board,
+    timeLimitMs: args.timeMs,
+    maxDepth: args.depth,
+  );
+}
+
+/// Search + execute move + update game status — all inside the isolate.
+EngineMoveResult _searchAndMove(_SearchArgs args) {
+  final search = Search();
+  final result = search.think(
+    args.board,
+    timeLimitMs: args.timeMs,
+    maxDepth: args.depth,
+  );
+
+  if (result.bestMove == null) {
+    return EngineMoveResult(result, args.board);
+  }
+
+  // Execute the move and compute game status inside the isolate so the
+  // main thread never blocks.
+  final orchestrator = Orchestrator();
+  final newBoard = orchestrator.executeMove(args.board, result.bestMove!);
+  return EngineMoveResult(result, newBoard);
 }

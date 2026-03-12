@@ -579,6 +579,36 @@ class Controller extends GetxController {
     }
   }
 
+  /// Apply a board that was already computed off-thread (e.g. by the engine
+  /// isolate).  Updates history, status, and triggers UI rebuilds without
+  /// re-executing the move through the orchestrator.
+  @protected
+  void applyComputedMove(ChessBoard newBoard) {
+    // Log the last move for debug output
+    if (newBoard.moveHistory.isNotEmpty) {
+      final lastMove = newBoard.moveHistory.last;
+      logMove(_formatMoveNotation(lastMove));
+    }
+
+    _board.value = newBoard;
+
+    // History bookkeeping
+    if (_historyIndex.value < _boardHistory.length - 1) {
+      _boardHistory.removeRange(_historyIndex.value + 1, _boardHistory.length);
+    }
+    _boardHistory.add(newBoard);
+    _historyIndex.value = _boardHistory.length - 1;
+
+    _updateStatusMessage();
+
+    // Notify all square GetBuilders by their specific IDs so pieces redraw.
+    updateAllSquaresAndHistory(this);
+
+    if (isGameOver) {
+      _endGameAnalytics();
+    }
+  }
+
   /// End game analytics
   void _endGameAnalytics() {
     _analytics?.endGame(

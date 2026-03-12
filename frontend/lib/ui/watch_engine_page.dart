@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../management/watch_engine_controller.dart';
 import '../management/controller.dart';
 import '../engine/engine.dart';
+import '../routes.dart';
 import 'board.dart';
 
 /// Page for watching the engine play against itself.
@@ -15,9 +16,13 @@ class WatchEnginePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Register our controller *as* Controller so ChessBoardWidget works
-    final wc = Get.put<Controller>(WatchEngineController());
-    final controller = wc as WatchEngineController;
+    // Ensure a fresh WatchEngineController — delete any stale Controller
+    // left over from a previous page (game page, custom board, etc.).
+    if (Get.isRegistered<Controller>()) {
+      Get.delete<Controller>(force: true);
+    }
+    final controller =
+        Get.put<Controller>(WatchEngineController()) as WatchEngineController;
     controller.setBuildContext(context);
 
     return Scaffold(
@@ -49,22 +54,45 @@ class WatchEnginePage extends StatelessWidget {
           },
         ),
         actions: [
-          // Pause / Play toggle
-          Obx(
-            () => IconButton(
+          // Play / Pause / Start toggle
+          Obx(() {
+            final playing = controller.isPlaying.value;
+            final paused = controller.isPaused.value;
+            return IconButton(
               icon: Icon(
-                controller.isPaused.value ? Icons.play_arrow : Icons.pause,
+                playing && !paused ? Icons.pause : Icons.play_arrow,
                 color: Colors.white,
               ),
-              onPressed: () => controller.togglePause(),
-              tooltip: controller.isPaused.value ? 'Resume' : 'Pause',
+              onPressed: () {
+                if (!playing) {
+                  controller.startPlaying();
+                } else if (paused) {
+                  controller.resume();
+                } else {
+                  controller.pause();
+                }
+              },
+              tooltip: playing && !paused
+                  ? 'Pause'
+                  : (playing ? 'Resume' : 'Start'),
+            );
+          }),
+          // Stop
+          Obx(
+            () => IconButton(
+              icon: const Icon(Icons.stop, color: Colors.white),
+              onPressed: controller.isPlaying.value
+                  ? () => controller.stopPlaying()
+                  : null,
+              tooltip: 'Stop',
             ),
           ),
           // Step one move
           Obx(
             () => IconButton(
               icon: const Icon(Icons.skip_next, color: Colors.white),
-              onPressed: controller.isPaused.value
+              onPressed:
+                  controller.isPaused.value || !controller.isPlaying.value
                   ? () => controller.stepOneMove()
                   : null,
               tooltip: 'Step one move',
@@ -75,6 +103,21 @@ class WatchEnginePage extends StatelessWidget {
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () => controller.restartGame(),
             tooltip: 'New game',
+          ),
+          // Analyze position in custom board
+          IconButton(
+            icon: const Icon(Icons.open_in_new, color: Colors.white),
+            onPressed: () {
+              controller.stopPlaying();
+              Get.toNamed(
+                AppRoutes.customBoard,
+                arguments: {
+                  'fen': controller.board.toFEN(),
+                  'gameType': controller.gameType,
+                },
+              );
+            },
+            tooltip: 'Analyze position',
           ),
         ],
       ),
