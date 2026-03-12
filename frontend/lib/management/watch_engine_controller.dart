@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../board/moves/move.dart';
 import '../board/pieces/piece_color.dart';
@@ -132,9 +133,16 @@ class WatchEngineController extends Controller {
 
       // Search + move execution + game-status update all run inside an
       // isolate via compute().  The UI thread does ZERO heavy work.
+      final sw = Stopwatch()..start();
       final moveResult = await _engine.computeEngineMove(
         currentBoard,
         level: level,
+      );
+      sw.stop();
+      debugPrint(
+        '[WatchEngine] move computed in ${sw.elapsedMilliseconds}ms '
+        'depth=${moveResult.searchResult.depth} '
+        'nodes=${moveResult.searchResult.nodesSearched}',
       );
 
       // If the controller was disposed while we awaited, bail out.
