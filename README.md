@@ -1,8 +1,8 @@
 # ♟️ ChessRecast
 
-> **AI-powered chess variants — 8 original game mods, self-learning neural networks, and a full-stack mobile platform.**
+> **Chess variants with a pure Dart engine — 8 original game mods, Minimax + Alpha-Beta search, and a full-stack mobile platform.**
 
-ChessRecast reinvents chess with creative rule variants like Mercenary (king-like pawns), Heir (promotable kings), Truce (no-attack opening phase), and more. Each mode has its own dedicated AI trained via AlphaZero-style reinforcement learning, running on GPU-accelerated Docker containers with live streaming to a Flutter mobile app.
+ChessRecast reinvents chess with creative rule variants like Mercenary (king-like pawns), Heir (promotable kings), Truce (no-attack opening phase), and more. Each mode is supported by a built-in Dart chess engine using Minimax with Alpha-Beta pruning, iterative deepening, quiescence search, and hand-crafted evaluation — all running natively in the Flutter app.
 
 ---
 
@@ -28,21 +28,19 @@ ChessRecast reinvents chess with creative rule variants like Mercenary (king-lik
 ```
 chessrecast/
 ├── 📱 frontend/          Flutter mobile app (Android / iOS / Web)
+│   └── lib/engine/        Pure Dart chess engine (Minimax + Alpha-Beta)
 ├── 🖥️  backend/           Go API server + PostgreSQL + Redis
-├── 🧠 ai/                PyTorch AI training infrastructure
-│   ├── docker/            Docker configs (per-mode compose files)
-│   └── trainer/           Neural network, MCTS, training scripts
-└── 📚 docs/              Project & AI documentation
+└── 📚 docs/              Project documentation
 ```
 
 ### Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| **Mobile** | Flutter 3.x · Dart · GetX · TFLite |
+|-------|------------|
+| **Mobile** | Flutter 3.x · Dart · GetX |
+| **Engine** | Minimax · Alpha-Beta · Iterative Deepening · Transposition Tables |
 | **Backend** | Go 1.21 · Gin · PostgreSQL 18 · Redis 8 · WebSocket |
-| **AI** | PyTorch 2.1 · CUDA 12.1 · python-chess · MCTS |
-| **Infra** | Docker · NVIDIA Container Toolkit · docker-compose |
+| **Infra** | Docker · docker-compose |
 
 ---
 
@@ -52,9 +50,8 @@ chessrecast/
 
 - [Flutter SDK](https://flutter.dev/docs/get-started/install) (3.x+)
 - [Go](https://go.dev/dl/) (1.21+)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) with NVIDIA Container Toolkit (for GPU training)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - [Android Studio](https://developer.android.com/studio) (emulator) or a physical device
-- Python 3.10+ with CUDA (for local AI training without Docker)
 
 ---
 
@@ -110,116 +107,6 @@ docker compose down
 
 ---
 
-### 🧠 3. AI Training (Docker — Recommended)
-
-Each game mod has its own Docker Compose config. Training uses GPU acceleration with NVIDIA Container Toolkit.
-
-**Start Mercenary training:**
-```powershell
-cd ai/docker/mods/mercenary
-docker compose up --build
-```
-
-**Test mode** (watch AI play random games with live WebSocket streaming):
-```powershell
-cd ai/docker/mods/mercenary
-# Edit .env: TEST_MODE=true, MOVE_DELAY=1.5
-docker compose up --build
-```
-
-**Other modes:**
-```powershell
-cd ai/docker/mods/heir          # 👑 Heir mode
-cd ai/docker/mods/truce         # 🤝 Truce mode
-cd ai/docker/mods/friendly-fire # 🔥 Friendly Fire
-cd ai/docker/mods/kings-battle  # ⚔️👑 Kings' Battle
-cd ai/docker/mods/save-the-queen # 🛡️ Save the Queen
-cd ai/docker/mods/succession    # 🏰 Succession
-cd ai/docker/mods/classic       # ♟️ Classic
-# Then: docker compose up --build
-```
-
-**Local training (without Docker):**
-```powershell
-cd ai/trainer
-pip install -r requirements.txt
-python mods/mercenary/mercenary.py           # Full training
-python mods/mercenary/mercenary.py --test    # Test mode
-python mods/mercenary/mercenary.py --test --delay 1.5  # Slow demo
-```
-
----
-
-### 📺 4. Watch Live Training in Flutter App
-
-1. Start training in test mode (Docker or local)
-2. Open ChessRecast → **Watch Live Training**
-3. Connect to the WebSocket:
-   - **Android emulator:** `10.0.2.2:8765`
-   - **Desktop / Web:** `localhost:8765`
-   - **Physical device:** `<your-lan-ip>:8765`
-
-The app validates every move against Flutter's game logic in real-time and reports discrepancies back to the Python trainer.
-
----
-
-## 🧠 AI System
-
-### Algorithm
-
-AlphaZero-style **Policy-guided MCTS** (Monte Carlo Tree Search):
-
-| Parameter | Value |
-|-----------|-------|
-| Architecture | ResNet (128 channels, 10 residual blocks, 11.9M params) |
-| MCTS Simulations | 150 per move |
-| Exploration Constant (c_puct) | 1.4 |
-| Dirichlet Noise | α=0.3, ε=0.25 |
-| Policy Loss | Cross-entropy |
-| Value Loss | MSE |
-| Training | 200 iterations × 50 games × 150 MCTS sims |
-
-### Hardware
-
-| Component | Recommended | Minimum |
-|-----------|-------------|---------|
-| GPU | NVIDIA RTX 4080+ | RTX 3080 |
-| VRAM | 12 GB+ | 8 GB |
-| RAM | 32 GB | 16 GB |
-| Training Time | ~6-10 hours/mode (RTX 4080) | Longer on CPU |
-
-### File Structure
-
-```
-ai/
-├── docker/
-│   ├── Dockerfile                  # Universal (ARG TRAIN_SCRIPT)
-│   └── mods/                       # Per-mode docker-compose configs
-│       ├── mercenary/
-│       ├── heir/
-│       ├── truce/
-│       ├── friendly-fire/
-│       ├── kings-battle/
-│       ├── save-the-queen/
-│       ├── succession/
-│       └── classic/
-└── trainer/
-    ├── network.py                  # Neural network (ResNet, CPU/GPU)
-    ├── selfplay.py                 # MCTS self-play engine
-    ├── requirements.txt
-    ├── mods/                       # Game mod training scripts
-    │   └── mercenary/
-    │       └── mercenary.py        # Mercenary rules + training entry point
-    └── utils/                      # Utilities
-        ├── logger.py               # Pretty ANSI console output
-        ├── server.py               # WebSocket live streaming
-        └── export.py               # TFLite export for Flutter
-```
-
-> See [docs/ai/README.md](docs/ai/README.md) for detailed AI documentation.
-
----
-
 ## 📱 Frontend Structure
 
 ```
@@ -244,13 +131,18 @@ frontend/lib/
 ├── management/                     # Game controllers
 │   ├── controller.dart             # Main game controller (GetX)
 │   ├── online_controller.dart      # WebSocket online play
+│   ├── watch_engine_controller.dart # Engine Lab auto-play controller
 │   ├── orchestrator.dart           # Mod-aware move orchestration
 │   └── options.dart                # Game setup options
+├── engine/                         # Pure Dart chess engine
+│   ├── transposition.dart          # Zobrist hashing + TT
+│   ├── move_ordering.dart          # MVV-LVA, killers, history
+│   ├── evaluation.dart             # Material, PST, king safety, mod bonuses
+│   ├── search.dart                 # Alpha-Beta + ID + QSearch + NMP + LMR
+│   └── engine.dart                 # Public API (Isolate.run)
 ├── analytics/                      # Game analysis
-│   ├── ai/                         # AI player + manager
 │   └── custom/                     # Custom board setup
 ├── services/                       # External services
-│   ├── ai_service.dart             # TFLite AI inference
 │   ├── api_service.dart            # REST API client
 │   └── game_websocket.dart         # WebSocket client
 └── ui/                             # Screens & widgets
@@ -258,8 +150,7 @@ frontend/lib/
     ├── game_page.dart              # Chess game screen
     ├── game_mod_selection.dart     # Mod picker
     ├── play_options.dart            # Play type selection
-    ├── ai_setup.dart                # AI game configuration
-    ├── live_training_viewer.dart    # Real-time training stream
+    ├── watch_engine_page.dart       # Engine Lab (watch engine play)
     ├── bot_selection_page.dart      # Online bot setup (Go backend)
     └── online_bot_vs_bot_page.dart  # Online bot spectator
 ```
@@ -295,15 +186,12 @@ backend/
 
 | Document | Description |
 |----------|-------------|
-| [docs/ai/README.md](docs/ai/README.md) | AI training overview, file structure, algorithm |
-| [docs/ai/QUICKSTART.md](docs/ai/QUICKSTART.md) | Quick start guide for Mercenary training |
-| [docs/ai/README_MERCENARY.md](docs/ai/README_MERCENARY.md) | Mercenary mode training details |
-| [docs/ai/IMPROVED_ALGORITHM.md](docs/ai/IMPROVED_ALGORITHM.md) | Policy-guided MCTS algorithm design |
-| [docs/ai/ALGORITHM_FLOW_COMPARISON.md](docs/ai/ALGORITHM_FLOW_COMPARISON.md) | Old vs improved algorithm comparison |
 | [docs/project/GAME_MODS_DOCUMENTATION.md](docs/project/GAME_MODS_DOCUMENTATION.md) | Full rules for all 8 game mods |
 | [docs/project/MASTER_IMPLEMENTATION_PLAN.md](docs/project/MASTER_IMPLEMENTATION_PLAN.md) | Project roadmap & phases |
-| [docs/code/docker-commands.md](docs/code/docker-commands.md) | Docker volume & cleanup commands |
-| [docs/code/db-commands.md](docs/code/db-commands.md) | Database access & query reference |
+| [docs/project/BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md](docs/project/BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md) | MOT blockchain roadmap |
+| [docs/project/BLOCKCHAIN_MOT_IMPLEMENTATION.md](docs/project/BLOCKCHAIN_MOT_IMPLEMENTATION.md) | MOT blockchain technical spec |
+| [docs/project/roadmap.md](docs/project/roadmap.md) | P2P architecture design |
+| [docs/project/roadmap_nft.md](docs/project/roadmap_nft.md) | NFT system design |
 
 ---
 
@@ -327,8 +215,7 @@ Pre-configured tasks in `.vscode/tasks.json`:
 1.  Start backend          →  cd backend && docker compose up -d --build
 2.  Start emulator         →  VS Code task or: emulator -avd Pixel9ProXL
 3.  Run Flutter app        →  cd frontend && flutter run
-4.  (Optional) AI training →  cd ai/docker/mods/mercenary && docker compose up
-5.  (Optional) Live viewer →  In app: Watch Live Training → connect ws
+4.  (Optional) Engine Lab  →  In app: Play Options → Watch Engine Play
 ```
 
 ---
@@ -337,12 +224,10 @@ Pre-configured tasks in `.vscode/tasks.json`:
 
 - [x] 8 active game mods with full Dart logic
 - [x] Go backend with PostgreSQL, Redis, WebSocket
-- [x] AlphaZero-style MCTS training pipeline
-- [x] GPU-accelerated Docker training (per-mode)
-- [x] Live training viewer (WebSocket → Flutter)
-- [x] TFLite model export for on-device inference
-- [ ] Train all 8 active modes to 1200+ Elo
-- [ ] P2P distributed training network (GameNet)
+- [x] Pure Dart chess engine (Minimax + Alpha-Beta + ID + QSearch)
+- [x] 5 engine difficulty levels (Easy → Maximum)
+- [x] Engine Lab UI (watch engine self-play with live stats)
+- [ ] P2P distributed network (GameNet)
 - [ ] Quantum-resistant blockchain (MOT) for validation
 - [ ] NFT system for game replays
 - [ ] Token economics with play-to-earn rewards

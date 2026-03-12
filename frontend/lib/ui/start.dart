@@ -70,43 +70,6 @@ class StartPage extends StatelessWidget {
                 );
               }),
               const SizedBox(height: 16),
-              // AI vs Player/AI Button
-              ElevatedButton.icon(
-                onPressed: () {
-                  Get.toNamed(
-                    '/ai-setup',
-                    arguments: {'gameType': controller.selectedGameType.value},
-                  );
-                },
-                icon: const Icon(Icons.psychology),
-                label: const Text('🧠 Play vs AI (Neural Network)'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  backgroundColor: Colors.purple.shade600,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 12),
-              // Live Training Viewer Button
-              OutlinedButton.icon(
-                onPressed: () {
-                  Get.toNamed('/live-training-viewer');
-                },
-                icon: const Icon(Icons.live_tv),
-                label: const Text('🔴 Watch Live Training'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  side: BorderSide(color: Colors.red.shade600, width: 2),
-                  foregroundColor: Colors.red.shade600,
-                ),
-              ),
-              const SizedBox(height: 12),
               // Play Online Against Bot Button
               OutlinedButton.icon(
                 onPressed: () {

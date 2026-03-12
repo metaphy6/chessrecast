@@ -53,19 +53,6 @@ class PlayOptionsPage extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // AI Options
-              _PlayOptionCard(
-                title: 'Play vs AI (Neural Network)',
-                subtitle: 'Challenge our trained AI opponent',
-                icon: Icons.psychology,
-                color: Colors.purple.shade600,
-                onTap: () {
-                  Get.toNamed(
-                    '/ai-setup',
-                    arguments: {'gameType': controller.selectedGameType.value},
-                  );
-                },
-              ),
               const SizedBox(height: 24),
 
               // Divider with text
@@ -75,7 +62,7 @@ class PlayOptionsPage extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
-                      'Online & Training',
+                      'Online',
                       style: TextStyle(
                         color: Colors.grey.shade600,
                         fontSize: 14,
@@ -112,11 +99,16 @@ class PlayOptionsPage extends StatelessWidget {
               const SizedBox(height: 12),
 
               _PlayOptionCard(
-                title: 'Watch Live Training',
-                subtitle: 'Real-time AI training stream',
-                icon: Icons.live_tv,
-                color: Colors.red.shade600,
-                onTap: () => Get.toNamed('/live-training-viewer'),
+                title: 'Watch Engine Play',
+                subtitle: 'Watch the chess engine play itself',
+                icon: Icons.smart_toy,
+                color: Colors.blueGrey.shade700,
+                onTap: () {
+                  Get.toNamed(
+                    '/watch-engine',
+                    arguments: {'gameType': controller.selectedGameType.value},
+                  );
+                },
               ),
 
               // Dev options
