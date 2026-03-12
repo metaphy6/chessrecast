@@ -43,6 +43,7 @@ dependencies:
   
   # Chess UI
   chess_vectors_flutter: ^1.0.12
+  ffi: ^2.2.0
 
 
 dev_dependencies:

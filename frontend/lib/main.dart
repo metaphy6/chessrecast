@@ -4,6 +4,7 @@ import 'routes.dart';
 import 'constants.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const ChessRecastApp());
 }
 

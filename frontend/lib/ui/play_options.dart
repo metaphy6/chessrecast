@@ -53,6 +53,19 @@ class PlayOptionsPage extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
+              _PlayOptionCard(
+                title: 'Play vs Engine',
+                subtitle: 'Challenge the chess engine',
+                icon: Icons.psychology,
+                color: Colors.indigo.shade700,
+                onTap: () {
+                  Get.toNamed(
+                    '/play-engine',
+                    arguments: {'gameType': controller.selectedGameType.value},
+                  );
+                },
+              ),
+
               const SizedBox(height: 24),
 
               // Divider with text
