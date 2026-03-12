@@ -54,7 +54,7 @@ class Search {
   ChessMove? _bestRootMove;
 
   Search({TranspositionTable? tt, MoveOrderer? orderer})
-    : _tt = tt ?? TranspositionTable(sizeMB: 16),
+    : _tt = tt ?? TranspositionTable(sizeMB: 4),
       _orderer = orderer ?? MoveOrderer();
 
   /// Run an iterative-deepening search with a time limit.

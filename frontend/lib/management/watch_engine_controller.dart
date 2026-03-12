@@ -40,13 +40,6 @@ class WatchEngineController extends Controller {
   bool _thinking = false;
 
   @override
-  void onInit() {
-    super.onInit();
-    // Start playing automatically
-    Future.delayed(const Duration(milliseconds: 300), () => startPlaying());
-  }
-
-  @override
   void onClose() {
     _moveTimer?.cancel();
     super.onClose();
@@ -137,7 +130,20 @@ class WatchEngineController extends Controller {
           ? whiteLevel.value
           : blackLevel.value;
 
-      final result = _engine.findBestMoveSync(currentBoard, level: level);
+      // Search + move execution + game-status update all run inside an
+      // isolate via compute().  The UI thread does ZERO heavy work.
+      final moveResult = await _engine.computeEngineMove(
+        currentBoard,
+        level: level,
+      );
+
+      // If the controller was disposed while we awaited, bail out.
+      if (!isPlaying.value && !isPaused.value && isClosed) {
+        _thinking = false;
+        return;
+      }
+
+      final result = moveResult.searchResult;
 
       if (result.bestMove == null) {
         _thinking = false;
@@ -145,7 +151,7 @@ class WatchEngineController extends Controller {
         return;
       }
 
-      // Update stats
+      // Update stats (lightweight reactive assignments)
       lastDepth.value = result.depth;
       lastScore.value = result.score;
       lastNodes.value = result.nodesSearched;
@@ -160,8 +166,8 @@ class WatchEngineController extends Controller {
         '(d${result.depth} $scoreStr ${_formatNodes(result.nodesSearched)})',
       );
 
-      // Execute the move through the parent Controller's makeMove
-      makeMove(result.bestMove!);
+      // Apply the already-computed board (no orchestrator work on UI thread)
+      applyComputedMove(moveResult.newBoard);
     } catch (e) {
       moveLog.add('⚠ Error: $e');
     }
