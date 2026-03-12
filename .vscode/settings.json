@@ -15,9 +15,9 @@
         "**/ios/**": true,
         "**/android/build/**": true
     },
-    "dart.flutterSdkPath": "C:\\Users\\dev\\code\\lib\\flutter",
+    "dart.flutterSdkPath": "C:\\code\\libs\\flutter",
     "dart.flutterSdkPaths": [
-        "C:\\Users\\dev\\code\\lib\\flutter",
+        "C:\\code\\libs\\flutter",
         "/home/serhatakbak/code/lib/flutter"
     ],
     "dart.env": {

@@ -12,6 +12,21 @@
       }
     },
     {
+      "label": "start-emulator-Pixel9ProXL-win",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy", "Bypass",
+        "-File", "${workspaceFolder}/.vscode/start_android_emulator.ps1",
+        "Pixel9ProXL"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
       "label": "Backend: Start Docker Compose",
       "type": "shell",
       "command": "docker-compose",

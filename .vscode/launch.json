@@ -8,10 +8,10 @@
       "cwd": "frontend",
       "program": "lib/main.dart",
       "flutterMode": "debug",
-      "deviceId": "",
+      "deviceId": "emulator-5554",
       "env": {
         "ANDROID_SDK_ROOT": "C:\\Users\\dev\\AppData\\Local\\Android\\sdk",
-        "PATH": "${env:PATH};C:\\Users\\dev\\AppData\\Local\\Android\\sdk\\platform-tools"
+        "PATH": "${env:PATH};C:\\Users\\dev\\AppData\\Local\\Android\\sdk\\platform-tools;C:\\Users\\dev\\AppData\\Local\\Android\\sdk\\emulator"
       }
     },
     {
@@ -103,6 +103,21 @@
         "ANDROID_SDK_ROOT": "${env:ANDROID_SDK_ROOT:-}",
         "ANDROID_HOME": "${env:ANDROID_SDK_ROOT:-}",
         "PATH": "${env:PATH}:${env:ANDROID_SDK_ROOT:-$HOME/Android/Sdk}/platform-tools:${env:ANDROID_SDK_ROOT:-$HOME/Android/Sdk}/emulator:${env:HOME}/Android/Sdk/platform-tools:${env:HOME}/Android/Sdk/emulator"
+      }
+    },
+    {
+      "name": "Flutter: frontend (mobile - Pixel9ProXL) [Windows]",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "frontend",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "deviceId": "Pixel9ProXL",
+      "preLaunchTask": "start-emulator-Pixel9ProXL-win",
+      "env": {
+        "ANDROID_SDK_ROOT": "C:\\Users\\dev\\AppData\\Local\\Android\\sdk",
+        "ANDROID_HOME": "C:\\Users\\dev\\AppData\\Local\\Android\\sdk",
+        "PATH": "${env:PATH};C:\\Users\\dev\\AppData\\Local\\Android\\sdk\\platform-tools;C:\\Users\\dev\\AppData\\Local\\Android\\sdk\\emulator"
       }
     }
   ]
