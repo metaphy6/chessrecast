@@ -14,10 +14,11 @@ This is the **master index** for ChessRecast's complete implementation. It coord
 
 ## 🎯 Project Vision
 
-**ChessRecast** is building a revolutionary AI-powered chess platform with:
+**ChessRecast** is building a revolutionary chess platform with:
 - **12 Custom Chess Variants** (8 active, 4 in development) with unique rules and mechanics
-- **Self-Learning AI Agents** trained via reinforcement learning
-- **Distributed P2P Training** across user devices
+- **Pure Dart Chess Engine** — Minimax + Alpha-Beta Pruning with Iterative Deepening, Quiescence Search, Null Move Pruning, LMR, Transposition Tables, and hand-crafted evaluation (mod-aware)
+- **Bot vs Human Play** powered entirely by the in-app engine (no external dependencies)
+- **Engine Lab** — watch the engine play itself with configurable levels and real-time stats
 - **Quantum-Resistant Blockchain** (MOT) for validation and rewards
 - **Private NFT System** for game replay ownership
 - **Fair Token Economics** with pyramid + time-spent rewards
@@ -35,24 +36,21 @@ This is the **master index** for ChessRecast's complete implementation. It coord
 | **[GAME_MODS_DOCUMENTATION.md](./GAME_MODS_DOCUMENTATION.md)** | Full rules for all 12 game mods | docs/project/ |
 | **[BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md](./BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md)** | MOT blockchain system | docs/project/ |
 
-### AI Documentation
+### Engine Architecture
 
-| Document | Purpose | Location |
-|----------|---------|----------|
-| **[README.md](../ai/README.md)** | AI training overview & file structure | docs/ai/ |
-| **[QUICKSTART.md](../ai/QUICKSTART.md)** | Quick start for Mercenary training | docs/ai/ |
-| **[README_MERCENARY.md](../ai/README_MERCENARY.md)** | Mercenary mode training details | docs/ai/ |
-| **[IMPROVED_ALGORITHM.md](../ai/IMPROVED_ALGORITHM.md)** | Policy-guided MCTS algorithm design | docs/ai/ |
-| **[ALGORITHM_FLOW_COMPARISON.md](../ai/ALGORITHM_FLOW_COMPARISON.md)** | Old vs improved algorithm | docs/ai/ |
+The chess engine lives in `frontend/lib/engine/` and consists of:
 
-### Code References
+| File | Purpose |
+|------|--------|
+| `transposition.dart` | Zobrist hashing & transposition table (32MB default) |
+| `move_ordering.dart` | MVV-LVA, killer moves (2 per ply), history heuristic |
+| `evaluation.dart` | Material, piece-square tables, pawn structure, king safety, mod-specific bonuses |
+| `search.dart` | Alpha-Beta + Iterative Deepening + Quiescence Search + Null Move Pruning + LMR |
+| `engine.dart` | Public API — `ChessEngine.findBestMove()` (async via Isolate) and `findBestMoveSync()` |
 
-| Document | Purpose | Location |
-|----------|---------|----------|
-| **[docker-commands.md](../code/docker-commands.md)** | Docker volume & cleanup | docs/code/ |
-| **[db-commands.md](../code/db-commands.md)** | Database access & queries | docs/code/ |
+Engine levels: Easy (depth 2), Medium (depth 4), Hard (depth 6), Expert (depth 8), Maximum (depth 64).
 
-**Note for AI Assistants**: The AI training system is actively maintained in `ai/trainer/`. Refer to `docs/ai/` for up-to-date training documentation.
+**Note for AI Assistants**: There is no external AI training or TFLite model. The bot uses a pure Dart Minimax engine.
 
 ---
 
@@ -60,34 +58,19 @@ This is the **master index** for ChessRecast's complete implementation. It coord
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    PHASE 1: AI FOUNDATION                        │
-│                         Weeks 1-8                                │
+│               PHASE 1: CHESS ENGINE (COMPLETE)                   │
 │  ┌────────────────────────────────────────────────────────────┐ │
-│  │ Goal: Train 8 baseline AI models (900-1200 Elo)           │ │
+│  │ Goal: Pure Dart chess engine for all game mods             │ │
 │  │                                                             │ │
-│  │ Week 1:  Project setup & infrastructure                    │ │
-│  │ Week 2:  Neural network architecture                       │ │
-│  │ Week 3:  Self-play engine (MCTS)                          │ │
-│  │ Week 4:  Training loop & validation                       │ │
-│  │ Week 5:  Train Classic mode (first model)                 │ │
-│  │ Weeks 6-8: Train remaining 7 active modes                 │ │
+│  │ ✅ Transposition table with Zobrist hashing                │ │
+│  │ ✅ Move ordering (MVV-LVA, killer moves, history)          │ │
+│  │ ✅ Hand-crafted evaluation with mod-specific bonuses       │ │
+│  │ ✅ Alpha-Beta + Iterative Deepening + Quiescence Search    │ │
+│  │ ✅ Null Move Pruning + Late Move Reductions                │ │
+│  │ ✅ 5 difficulty levels (Easy → Maximum)                    │ │
+│  │ ✅ Engine Lab UI for watching engine self-play              │ │
 │  │                                                             │ │
-│  │ Deliverable: 8 trained PyTorch models                     │ │
-│  └────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────┐
-│                  PHASE 2: MOBILE INTEGRATION                     │
-│                        Weeks 9-12                                │
-│  ┌────────────────────────────────────────────────────────────┐ │
-│  │ Goal: Deploy AI to Flutter, enable offline play           │ │
-│  │                                                             │ │
-│  │ Week 9:  Convert PyTorch → TFLite (8 models)              │ │
-│  │ Week 10: Flutter TFLite service + MCTS                    │ │
-│  │ Week 11: UI integration & game controller                 │ │
-│  │ Week 12: Testing, polish, optimization                    │ │
-│  │                                                             │ │
-│  │ Deliverable: Playable AI in Flutter app                   │ │
+│  │ Deliverable: Playable engine bot in Flutter app            │ │
 │  └────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 
@@ -122,120 +105,68 @@ This is the **master index** for ChessRecast's complete implementation. It coord
 │  └────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 
-Total Duration: 26 weeks (6.5 months)
+Total Duration: 18 weeks (reduced — engine phase already complete)
 ```
 
 ---
 
 ## 🎯 Phase-by-Phase Breakdown
 
-### Phase 1: AI Foundation (Weeks 1-8)
+### Phase 1: Chess Engine (Complete)
 
-**Document**: [AI_IMPLEMENTATION_ROADMAP_V2.md](./AI_IMPLEMENTATION_ROADMAP_V2.md)
-
-**Objective**: Train 14 specialized AI models using self-play reinforcement learning
+**Objective**: Build a pure Dart chess engine supporting all game mods
 
 **Key Milestones**:
-- ✅ Week 1: Docker infrastructure running, GPU accessible
-- ✅ Week 2: Neural network implemented (policy-value network)
-- ✅ Week 3: MCTS engine working, self-play generating games
-- ✅ Week 4: Training loop converges, models improve
-- ✅ Week 5: First model (Classic) reaches 900+ Elo
-- ✅ Week 8: All 14 models trained to 900-1200 Elo
+- ✅ Zobrist hashing & transposition table
+- ✅ Move ordering (MVV-LVA, killer moves, history heuristic)
+- ✅ Hand-crafted evaluation with piece-square tables, pawn structure, king safety
+- ✅ Mod-specific evaluation bonuses (Mercenary, Succession, etc.)
+- ✅ Alpha-Beta search with Iterative Deepening
+- ✅ Quiescence Search with check evasions
+- ✅ Null Move Pruning + Late Move Reductions
+- ✅ 5 difficulty levels (Easy through Maximum)
+- ✅ Async search via `Isolate.run`
+- ✅ Engine Lab UI for watching engine self-play
 
 **Success Criteria**:
-- Each model reaches 900+ Elo in self-play tournaments
-- Models respect game rules (0% illegal moves)
-- Training infrastructure stable (no crashes)
-- Checkpoints saved and versioned
+- Engine plays legal moves in all 8 active mods
+- Search runs in background isolate (non-blocking)
+- Configurable difficulty via depth and time limits
+- `dart analyze lib/` passes with zero errors/warnings
 
-**Hardware Requirements**:
-- RTX 4080 Mobile (12GB VRAM)
-- Can train one mode at a time
-- 3-5 days per mode
-
-**Critical Path Items**:
-1. Game rule validators for all 14 modes
-2. Neural network architecture (policy-value)
-3. MCTS implementation
-4. Training loop with Elo evaluation
+**Architecture** (`frontend/lib/engine/`):
+- `transposition.dart` — Zobrist hashing + TranspositionTable
+- `move_ordering.dart` — MVV-LVA, killer moves, history heuristic
+- `evaluation.dart` — Material, PST, pawn structure, king safety, mod bonuses
+- `search.dart` — Alpha-Beta + ID + QSearch + NMP + LMR
+- `engine.dart` — Public API with `EngineLevel` enum
 
 ---
 
-### Phase 2: Mobile Integration (Weeks 9-12)
+### Phase 2: P2P GameNet (Weeks 1-6)
 
-**Document**: [AI_IMPLEMENTATION_ROADMAP_V2.md](./AI_IMPLEMENTATION_ROADMAP_V2.md) (Section: Phase 2)
-
-**Objective**: Deploy AI models to Flutter app for offline play
+**Objective**: Enable online play and model sharing via P2P network
 
 **Key Milestones**:
-- ✅ Week 9: All 14 models exported to TFLite (5-20MB each)
-- ✅ Week 10: TFLite inference working in Flutter (<100ms)
-- ✅ Week 11: Game UI integrated with AI
-- ✅ Week 12: All edge cases handled, performance optimized
-
-**Success Criteria**:
-- Inference time <100ms on mid-range phones
-- AI never makes illegal moves
-- Users can play complete games offline
-- 4 difficulty levels work correctly
-
-**Hardware Requirements**:
-- Android phones: 2-8GB RAM
-- iOS phones: 2-8GB RAM
-- GPU acceleration where available
-
-**Critical Path Items**:
-1. PyTorch → TFLite conversion pipeline
-2. Flutter TFLite service implementation
-3. MCTS engine ported to Dart
-4. Game controller integration
-
----
-
-### Phase 3: P2P GameNet (Weeks 13-18)
-
-**Document**: [AI_IMPLEMENTATION_ROADMAP_V2.md](./AI_IMPLEMENTATION_ROADMAP_V2.md) (Section: Phase 3)
-
-**Objective**: Enable distributed training across user devices via P2P network
-
-**Key Milestones**:
-- ✅ Week 13: Network protocol designed
-- ✅ Week 15: Bootstrap server operational
-- ✅ Week 16: Flutter P2P client connects successfully
-- ✅ Week 17: On-device training improves models
-- ✅ Week 18: Network scales to 100+ peers
+- ✅ Week 1: Network protocol designed
+- ✅ Week 3: Bootstrap server operational
+- ✅ Week 4: Flutter P2P client connects successfully
+- ✅ Week 5: Online bot play working
+- ✅ Week 6: Network scales to 100+ peers
 
 **Success Criteria**:
 - Network remains stable with 100+ peers
-- Training data shared efficiently (<10MB/day per user)
-- Models improve faster with federated learning
+- Online bot matches work reliably
 - User privacy maintained (encryption + opt-in)
-- **Bots learn continuously on host devices** (resource-efficient)
-
-**Resource-Efficient Learning Strategy**:
-1. **Initial bots**: 500-700 Elo (small, fast, understand rules)
-2. **Continuous learning**: Fine-tune on device when idle + charging
-3. **Progressive growth**: 500 Elo → 900 Elo (Month 3) → 1600 Elo (Year 1)
-4. **Resource constraints**: <10% CPU, only when battery >50%, pause if app active
-5. **Validator eligibility**: Once bot reaches 900+ Elo, can earn MOTON
-6. **Personal AI companion**: Bot grows with owner, adapts to their style
-
-**Hardware Requirements**:
-- Bootstrap server: Any modern server (2GB RAM sufficient)
-- User devices: Training only when charging + WiFi, <10% CPU usage
 
 **Critical Path Items**:
 1. WebSocket hub server
 2. Peer discovery protocol
-3. Local encrypted model storage
-4. On-device incremental training
-5. Continuous learning engine (background fine-tuning)
-6. Resource monitoring (battery, CPU, foreground state)
+3. Online bot game orchestration
 
 ---
 
-### Phase 4: Blockchain Integration (Weeks 19-26)
+### Phase 3: Blockchain Integration (Weeks 7-18)
 
 **Document**: [BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md](./BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md)
 
@@ -249,7 +180,7 @@ Total Duration: 26 weeks (6.5 months)
 
 **Success Criteria**:
 - Blockchain survives 50+ years (quantum-resistant)
-- sdata proves AI training authenticity
+- sdata proves game authenticity
 - NFT content stays private (encrypted)
 - MOTON distribution is fair (time-spent > pyramid)
 - Total supply never exceeds 21B
@@ -332,16 +263,15 @@ Total Duration: 26 weeks (6.5 months)
 Read MASTER_IMPLEMENTATION_PLAN.md (this file)
 ↓
 Check which phase is active:
-- Phase 1: AI training (look for trained models)
-- Phase 2: Mobile deployment (look for TFLite models in Flutter)
-- Phase 3: P2P network (look for GameNet services)
-- Phase 4: Blockchain (look for cryptography services)
+- Phase 1: Chess Engine (check frontend/lib/engine/) — COMPLETE
+- Phase 2: P2P network (look for GameNet services)
+- Phase 3: Blockchain (look for cryptography services)
 ```
 
 **Step 2: Open Appropriate Roadmap**
 ```
-Phase 1-3: AI_IMPLEMENTATION_ROADMAP_V2.md
-Phase 4: BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md
+Phase 2: This document (P2P GameNet section)
+Phase 3: BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md
 ```
 
 **Step 3: Find Current Step**
@@ -368,30 +298,21 @@ Update progress tracking
 
 ### Quick Status Check Commands
 
-**Check Phase 1 Status (AI Training)**:
+**Check Phase 1 Status (Chess Engine)**:
 ```bash
-# Check if models trained
-ls ai/models/checkpoints/
-# Should see: classic/ heir/ snare/ ... (14 folders)
+# Check engine files exist
+ls frontend/lib/engine/
+# Should see: transposition.dart, move_ordering.dart, evaluation.dart, search.dart, engine.dart
 
-# Check training logs
-docker-compose logs trainer | tail -100
+# Check Engine Lab UI
+ls frontend/lib/ui/watch_engine_page.dart
+ls frontend/lib/management/watch_engine_controller.dart
 
-# Check Elo ratings
-python evaluate_elo.py --all-modes
+# Run static analysis
+cd frontend && dart analyze lib/
 ```
 
-**Check Phase 2 Status (Mobile)**:
-```bash
-# Check TFLite models
-ls frontend/assets/models/
-# Should see: 14 .tflite files (5-20MB each)
-
-# Check Flutter service
-grep -r "TFLiteModelService" frontend/lib/services/
-```
-
-**Check Phase 3 Status (P2P)**:
+**Check Phase 2 Status (P2P)**:
 ```bash
 # Check bootstrap server
 curl http://localhost:8765/status
@@ -400,7 +321,7 @@ curl http://localhost:8765/status
 grep -r "GameNetService" frontend/lib/services/
 ```
 
-**Check Phase 4 Status (Blockchain)**:
+**Check Phase 3 Status (Blockchain)**:
 ```bash
 # Check cryptography
 grep -r "QuantumSafeKeys" frontend/lib/services/crypto/
@@ -415,28 +336,23 @@ grep -r "Block" frontend/lib/services/blockchain/
 
 ### Completion Checklist
 
-**Phase 1: AI Foundation**
-- [ ] Week 1: Infrastructure setup complete
-- [ ] Week 2: Neural network implemented
-- [ ] Week 3: MCTS engine working
-- [ ] Week 4: Training loop converges
-- [ ] Week 5: Classic model at 900+ Elo
-- [ ] Week 6-8: All 14 models trained
+**Phase 1: Chess Engine**
+- [x] Transposition table with Zobrist hashing
+- [x] Move ordering (MVV-LVA, killer moves, history)
+- [x] Hand-crafted evaluation with mod-specific bonuses
+- [x] Alpha-Beta + Iterative Deepening + Quiescence Search
+- [x] Null Move Pruning + Late Move Reductions
+- [x] 5 difficulty levels
+- [x] Engine Lab UI
 
-**Phase 2: Mobile Integration**
-- [ ] Week 9: TFLite export complete
-- [ ] Week 10: Flutter TFLite service working
-- [ ] Week 11: Game UI integrated
-- [ ] Week 12: Testing complete
-
-**Phase 3: P2P GameNet**
+**Phase 2: P2P GameNet**
 - [ ] Week 13: Protocol designed
 - [ ] Week 14-15: Bootstrap server running
 - [ ] Week 16: Flutter P2P client working
 - [ ] Week 17: On-device training active
 - [ ] Week 18: Network tested at scale
 
-**Phase 4: Blockchain**
+**Phase 3: Blockchain**
 - [ ] Week 19-20: Cryptography implemented
 - [ ] Week 21-22: Blockchain core operational
 - [ ] Week 23-24: sdata & NFTs working
@@ -448,10 +364,10 @@ grep -r "Block" frontend/lib/services/blockchain/
 
 ### Must-Have Before Launch
 
-1. **AI Quality**:
-   - All 14 models reach 900+ Elo
-   - 0% illegal moves
-   - Inference <100ms on mobile
+1. **Engine Quality**:
+   - Engine plays legal moves in all active mods
+   - Search runs without blocking the UI
+   - 5 difficulty levels provide varied challenge
 
 2. **P2P Stability**:
    - Network scales to 100+ peers
@@ -477,8 +393,8 @@ grep -r "Block" frontend/lib/services/blockchain/
 
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
-| Training takes longer than 5 days/mode | Medium | Medium | Use smaller models (32 channels) |
-| Mobile inference too slow | Low | High | Aggressive quantization, GPU acceleration |
+| Training takes longer than 5 days/mode | N/A | N/A | Replaced by Dart engine |
+| Mobile inference too slow | Low | Medium | Engine runs in isolate, configurable depth |
 | P2P network doesn't scale | Medium | High | Keep bootstrap server as relay |
 | Blockchain bloat | Low | Medium | Increase block time, prune old blocks |
 | Economic imbalance | Medium | High | Run simulations, adjust percentages before launch |
@@ -489,11 +405,6 @@ grep -r "Block" frontend/lib/services/blockchain/
 
 ### When to Update Roadmaps
 
-**Update AI_IMPLEMENTATION_ROADMAP_V2.md when**:
-- Model architecture changes
-- Training approach changes
-- Hardware constraints change
-- New game mods added
 
 **Update BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md when**:
 - Cryptography algorithm changes
@@ -526,25 +437,23 @@ grep -r "Block" frontend/lib/services/blockchain/
 
 **Essential Reading Order**:
 1. **MASTER_IMPLEMENTATION_PLAN.md** (this file) - Understand overall structure
-2. **AI_IMPLEMENTATION_ROADMAP_V2.md** - Learn AI system design
+2. **GAME_MODS_DOCUMENTATION.md** - All 12 game mod rules
 3. **BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md** - Learn blockchain design
-4. Legacy docs (optional) - See code examples
 
 **Key Concepts to Understand**:
-- AlphaZero-style reinforcement learning
-- Policy-value neural networks
-- Monte Carlo Tree Search (MCTS)
+- Minimax with Alpha-Beta pruning (chess engine)
+- Iterative Deepening + Quiescence Search
+- Transposition tables and Zobrist hashing
 - Quantum-resistant cryptography (CRYSTALS-Dilithium)
 - Proof of Training consensus
 - Private NFT design
 - Pyramid + time-spent rewards balance
 
 **Common Mistakes to Avoid**:
-- Don't use pre-trained models (they don't understand custom rules)
-- Don't skip validation steps (critical for quality)
 - Don't change tokenomics after launch (immutable blockchain)
 - Don't leak private keys (use secure storage)
 - Don't ignore economic simulations (can't fix after launch)
+- Don't modify engine evaluation without running Engine Lab to verify
 
 ---
 
@@ -557,11 +466,8 @@ grep -r "Block" frontend/lib/services/blockchain/
 1. **Read this file completely** (MASTER_IMPLEMENTATION_PLAN.md)
 2. **Determine current phase**:
    ```bash
-   # Check for trained models
-   ls ai/models/checkpoints/
-   
-   # Check for TFLite models
-   ls frontend/assets/models/
+   # Check engine files
+   ls frontend/lib/engine/
    
    # Check for P2P services
    grep -r "GameNetService" frontend/lib/
@@ -569,7 +475,7 @@ grep -r "Block" frontend/lib/services/blockchain/
    # Check for blockchain services
    grep -r "QuantumSafeKeys" frontend/lib/
    ```
-3. **Open appropriate roadmap** (AI or Blockchain)
+3. **Open appropriate roadmap** (this doc or Blockchain)
 4. **Find next uncompleted step**
 5. **Begin implementation**
 
@@ -578,17 +484,15 @@ grep -r "Block" frontend/lib/services/blockchain/
 AI: "I'm reading MASTER_IMPLEMENTATION_PLAN.md..."
 
 Checking current phase...
-- ai/models/checkpoints/ has 5 folders (not 14) ❌
-- Phase 1 IN PROGRESS
+- frontend/lib/engine/ has 5 files ✅
+- Phase 1 (Chess Engine) COMPLETE
 
-Opening AI_IMPLEMENTATION_ROADMAP_V2.md...
-Current location: Week 6, training 6th mode
+Phase 2 (P2P GameNet) is next.
+Checking for GameNet services... not found.
+Phase 2 IN PROGRESS.
 
-Next step: Train mode #6 (Teleport)
-Expected outcome: 900+ Elo in 3-5 days
-Beginning training...
-
-[executes training]
+Next step: Design WebSocket hub server
+[begins implementation]
 ```
 
 ---
@@ -600,29 +504,27 @@ Beginning training...
 - **Repository**: metaphy6/chessrecast
 - **Branch**: main
 - **Started**: December 11, 2025
-- **Status**: Strategic planning complete, ready for implementation
+- **Status**: Phase 1 (Chess Engine) complete, Phase 2 (P2P) next
 
 ### External Resources
 - **NIST Post-Quantum Cryptography**: https://csrc.nist.gov/projects/post-quantum-cryptography
-- **AlphaZero Paper**: "Mastering Chess and Shogi by Self-Play with a General Reinforcement Learning Algorithm"
-- **Flutter TFLite**: https://pub.dev/packages/tflite_flutter
+- **Chess Programming Wiki**: https://www.chessprogramming.org/
 - **Docker Compose**: https://docs.docker.com/compose/
 
 ---
 
 ## ✅ Final Checklist Before Implementation
 
-**Before starting Week 1**:
-- [ ] All three roadmap documents read and understood
-- [ ] Hardware requirements met (RTX 4080 Mobile or equivalent)
-- [ ] Development environment set up (Docker, Git, VS Code)
-- [ ] Time commitment understood (26 weeks full-time)
-- [ ] Backup strategy defined (code, models, checkpoints)
+**Before starting next phase**:
+- [ ] This document read and understood
+- [ ] Development environment set up (Flutter, Docker, Git, VS Code)
+- [ ] Engine Lab tested (verify engine plays correctly)
+- [ ] Backup strategy defined
 
 **Ready to begin?**
-→ Open [AI_IMPLEMENTATION_ROADMAP_V2.md](./AI_IMPLEMENTATION_ROADMAP_V2.md)  
-→ Start with Phase 1, Week 1, Step 1.1  
-→ Follow step-by-step until complete  
+→ Phase 1 (Chess Engine) is complete  
+→ Next: Phase 2 (P2P GameNet) — see section above  
+→ Then: Phase 3 (Blockchain) — see [BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md](./BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md)  
 
 ---
 
