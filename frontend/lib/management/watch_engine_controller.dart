@@ -20,8 +20,8 @@ class WatchEngineController extends Controller {
   final RxBool isPlaying = false.obs;
   final RxBool isPaused = false.obs;
   final RxInt moveDelayMs = 800.obs;
-  final Rx<EngineLevel> whiteLevel = EngineLevel.hard.obs;
-  final Rx<EngineLevel> blackLevel = EngineLevel.hard.obs;
+  final Rx<EngineLevel> whiteLevel = EngineLevel.maximum.obs;
+  final Rx<EngineLevel> blackLevel = EngineLevel.easy.obs;
 
   // Live search stats (updated after every move)
   final RxInt lastDepth = 0.obs;
@@ -41,6 +41,15 @@ class WatchEngineController extends Controller {
   bool _thinking = false;
 
   @override
+  void onInit() {
+    super.onInit();
+    // Auto-start playing when the page opens
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!isPlaying.value) startPlaying();
+    });
+  }
+
+  @override
   void onClose() {
     _moveTimer?.cancel();
     super.onClose();
@@ -49,6 +58,7 @@ class WatchEngineController extends Controller {
   // ── Playback controls ──────────────────────────────────────────────────
 
   void startPlaying() {
+    debugPrint('[WatchEngine] startPlaying() called - W=${whiteLevel.value.name} B=${blackLevel.value.name}');
     isPlaying.value = true;
     isPaused.value = false;
     _scheduleNextMove();
@@ -139,10 +149,11 @@ class WatchEngineController extends Controller {
         level: level,
       );
       sw.stop();
+      final side = currentBoard.currentPlayer == PieceColor.white ? 'W' : 'B';
       debugPrint(
-        '[WatchEngine] move computed in ${sw.elapsedMilliseconds}ms '
-        'depth=${moveResult.searchResult.depth} '
-        'nodes=${moveResult.searchResult.nodesSearched}',
+        '[WatchEngine] $side level=${level.name} move=${moveResult.searchResult.bestMove} '
+        'depth=${moveResult.searchResult.depth} score=${moveResult.searchResult.score} '
+        'nodes=${moveResult.searchResult.nodesSearched} time=${sw.elapsedMilliseconds}ms',
       );
 
       // If the controller was disposed while we awaited, bail out.
@@ -166,7 +177,6 @@ class WatchEngineController extends Controller {
       totalMoves.value += 1;
 
       // Build move log entry
-      final side = currentBoard.currentPlayer == PieceColor.white ? 'W' : 'B';
       final moveNum = (totalMoves.value + 1) ~/ 2;
       final scoreStr = _formatScore(result.score);
       moveLog.add(
@@ -193,6 +203,7 @@ class WatchEngineController extends Controller {
   void _onGameOver() {
     gamesPlayed.value += 1;
     final status = board.gameStatus;
+    debugPrint('[WatchEngine] _onGameOver status=$status isPlaying=${isPlaying.value} autoRestart=${autoRestart.value}');
 
     if (status == GameStatus.checkmate) {
       // The side that just moved won (current player is the loser)
@@ -212,6 +223,7 @@ class WatchEngineController extends Controller {
     // Auto-restart after a short delay
     if (autoRestart.value && isPlaying.value) {
       Timer(const Duration(seconds: 2), () {
+        debugPrint('[WatchEngine] Auto-restart timer fired: isPlaying=${isPlaying.value} isPaused=${isPaused.value}');
         if (isPlaying.value && !isPaused.value) {
           restartGame();
         }

@@ -21,3 +21,9 @@ target_compile_options(chess_engine PRIVATE
 if(NOT WIN32)
     target_compile_options(chess_engine PRIVATE -fvisibility=hidden)
 endif()
+
+# Link Android log library
+if(ANDROID)
+    find_library(log-lib log)
+    target_link_libraries(chess_engine ${log-lib})
+endif()

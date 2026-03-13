@@ -95,16 +95,18 @@ static const int PST_KING_EG[64] = {
     -50,-40,-30,-20,-20,-30,-40,-50,
 };
 
-/* Mercenary pawns: centrality matters most (they act like mini-kings) */
+/* Mercenary pawns: centrality matters most (they act like mini-kings).
+   Values are aggressive to break the "all moves score equal" problem
+   caused by massive transposition space with 16 king-like pawns. */
 static const int PST_MERC_PAWN[64] = {
-     0,  0,  0,  0,  0,  0,  0,  0,
-     5,  5,  5,  5,  5,  5,  5,  5,
-     5, 10, 15, 20, 20, 15, 10,  5,
-    10, 15, 25, 30, 30, 25, 15, 10,
-    10, 15, 25, 30, 30, 25, 15, 10,
-     5, 10, 15, 20, 20, 15, 10,  5,
-     5,  5,  5,  5,  5,  5,  5,  5,
-     0,  0,  0,  0,  0,  0,  0,  0,
+     0,  0,  0,  0,  0,  0,  0,  0,   /* rank 1: back rank, no bonus */
+     5, 10, 12, 15, 15, 12, 10,  5,   /* rank 2 */
+    12, 22, 35, 45, 45, 35, 22, 12,   /* rank 3 */
+    18, 32, 50, 65, 65, 50, 32, 18,   /* rank 4: center is king */
+    18, 32, 50, 65, 65, 50, 32, 18,   /* rank 5 */
+    12, 22, 35, 45, 45, 35, 22, 12,   /* rank 6 */
+     5, 10, 12, 15, 15, 12, 10,  5,   /* rank 7 */
+     0,  0,  0,  0,  0,  0,  0,  0,   /* rank 8: back rank */
 };
 
 static const int *PST_TABLE[6] = {
@@ -144,11 +146,18 @@ int evaluate(const Board *b) {
                 eg_score[c] += mat;
 
                 if (t == PAWN && is_merc) {
-                    /* Rank-based advancement bonus (no centrality bias) */
+                    /* Mercenary pawns use their own PST for positional play */
+                    mg_score[c] += PST_MERC_PAWN[idx];
+                    eg_score[c] += PST_MERC_PAWN[idx];
+
+                    /* Quadratic advancement bonus: makes retreating very costly.
+                       rank 1=3, 2=12, 3=27, 4=48, 5=75, 6=108 */
                     int rank = (c == WHITE) ? SQ_ROW(sq) : (7 - SQ_ROW(sq));
-                    int adv = (rank >= 1 && rank <= 6) ? rank * 3 : 0;
-                    mg_score[c] += adv;
-                    eg_score[c] += adv;
+                    if (rank >= 1 && rank <= 6) {
+                        int adv = rank * rank * 3;
+                        mg_score[c] += adv;
+                        eg_score[c] += adv * 2;
+                    }
                 } else if (t == KING) {
                     mg_score[c] += PST_KING_MG[idx];
                     eg_score[c] += PST_KING_EG[idx];
@@ -163,7 +172,10 @@ int evaluate(const Board *b) {
                 /* Mobility: count squares attacked not blocked by own pieces */
                 Bitboard own_occ = b->occupied[c];
                 if (t == PAWN && is_merc) {
-                    /* Mercenary: skip mobility — too uniform, adds noise */
+                    /* Mercenary pawns move like kings — mobility matters */
+                    int mob = bb_popcount(king_attacks[sq] & ~own_occ);
+                    mg_score[c] += mob * 5;
+                    eg_score[c] += mob * 5;
                 } else if (t == KNIGHT) {
                     int mob = bb_popcount(knight_attacks[sq] & ~own_occ);
                     mg_score[c] += mob * 4;
@@ -205,10 +217,10 @@ int evaluate(const Board *b) {
 
     if (is_merc) {
         /* Extra incentive to keep pawns */
-        score += (pawn_count[WHITE] - pawn_count[BLACK]) * 20;
+        score += (pawn_count[WHITE] - pawn_count[BLACK]) * 25;
 
-        /* Pawn proximity to enemy king — THE key positional factor in Mercenary.
-           Pawns near the enemy king threaten checkmate; reward this directly. */
+        /* Pawn proximity to enemy king — modest bonus to avoid overvaluing
+           pawn pushes toward the king at the expense of material safety. */
         for (int c = 0; c < 2; c++) {
             Bitboard kbb = b->pieces[c ^ 1][KING];
             if (!kbb) continue;
@@ -221,12 +233,51 @@ int evaluate(const Board *b) {
                 int dr = abs(SQ_ROW(sq) - kr);
                 int dc = abs(SQ_COL(sq) - kc);
                 int dist = dr > dc ? dr : dc; /* Chebyshev distance */
-                if (dist <= 4) {
-                    static const int PROX[] = {0, 25, 15, 8, 3};
+                if (dist <= 3) {
+                    static const int PROX[] = {0, 12, 6, 2};
                     prox += PROX[dist];
                 }
             }
             score += (c == WHITE) ? prox : -prox;
+        }
+
+        /* Mercenary pawn connectivity: pawns adjacent to friendly pawns
+           form stronger clusters.  Isolated pawns are vulnerable. */
+        for (int c = 0; c < 2; c++) {
+            Bitboard pawns = b->pieces[c][PAWN];
+            Bitboard tmp = pawns;
+            int connected = 0;
+            int isolated = 0;
+            while (tmp) {
+                Square sq = (Square)bb_pop_lsb(&tmp);
+                Bitboard neighbors = king_attacks[sq] & pawns;
+                if (neighbors) {
+                    connected += bb_popcount(neighbors);
+                } else {
+                    isolated++;
+                }
+            }
+            int bonus = connected * 6 - isolated * 12;
+            score += (c == WHITE) ? bonus : -bonus;
+        }
+
+        /* Space advantage: pawns in opponent's half of the board.
+           White pawns on rank >= 5 (rows 4-6), Black on rank <= 2 (rows 1-3). */
+        {
+            int w_space = 0, b_space = 0;
+            Bitboard wp = b->pieces[WHITE][PAWN];
+            while (wp) {
+                Square sq = (Square)bb_pop_lsb(&wp);
+                int row = SQ_ROW(sq);
+                if (row >= 4) w_space++; /* rank 5+ for White */
+            }
+            Bitboard bp = b->pieces[BLACK][PAWN];
+            while (bp) {
+                Square sq = (Square)bb_pop_lsb(&bp);
+                int row = SQ_ROW(sq);
+                if (row <= 3) b_space++; /* rank 5+ for Black (mirrored) */
+            }
+            score += (w_space - b_space) * 18;
         }
     }
 
@@ -371,6 +422,11 @@ int evaluate(const Board *b) {
             score += (c == WHITE) ? -danger : danger;
         }
     }
+
+    /* Tempo bonus: side to move gets a small bonus (helps the side with
+       initiative, and crucially breaks the "all moves score 0" problem in
+       Mercenary where massive transpositions equalize everything). */
+    if (is_merc) score += (b->side == WHITE) ? 15 : -15;
 
     /* Return from side-to-move's perspective */
     return (b->side == WHITE) ? score : -score;

@@ -183,6 +183,9 @@ EngineMoveResult _searchAndMove(_SearchArgs args) {
       );
       return EngineMoveResult(nativeResult.toSearchResult(), newBoard);
     }
+    // C engine found no legal moves – return immediately, don't fall
+    // through to the Dart engine which may hang on this position.
+    return EngineMoveResult(nativeResult.toSearchResult(), args.board);
   } catch (e) {
     debugPrint('[NativeEngine] unavailable, falling back to Dart: $e');
   }
