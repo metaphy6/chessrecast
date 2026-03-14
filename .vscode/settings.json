@@ -1,4 +1,11 @@
 {
+    // =====================================================
+    // SHARED WORKSPACE SETTINGS (committed to git)
+    // =====================================================
+    // Machine-specific settings (dart.flutterSdkPath, dart.env, emulator paths)
+    // should be configured in your USER settings (Ctrl+Shift+P > "Preferences: Open User Settings (JSON)")
+    // or in a local .vscode/settings.local.json (add to .gitignore)
+    
     "spellright.language": [
         "en"
     ],
@@ -15,14 +22,20 @@
         "**/ios/**": true,
         "**/android/build/**": true
     },
-    "dart.flutterSdkPath": "C:\\code\\libs\\flutter",
+    
+    // Dart extension will auto-detect Flutter SDK from PATH if not specified.
+    // If you need to specify a path, add to your USER settings:
+    //   "dart.flutterSdkPath": "/path/to/flutter"
+    // or
+    //   "dart.flutterSdkPath": "C:\\path\\to\\flutter"
+    
     "dart.flutterSdkPaths": [
+        // Windows paths
         "C:\\code\\libs\\flutter",
-        "/home/serhatakbak/code/lib/flutter"
-    ],
-    "dart.env": {
-        "ANDROID_SDK_ROOT": "C:\\Users\\dev\\AppData\\Local\\Android\\sdk",
-        "ANDROID_HOME": "C:\\Users\\dev\\AppData\\Local\\Android\\sdk"
-    },
-    "emulator.emulatorPath": "C:\\Users\\dev\\AppData\\Local\\Android\\sdk\\emulator"
+        // Linux paths
+        "/home/serhatakbak/code/lib/flutter",
+        "/home/tech/snap/flutter/common/flutter",
+        // macOS paths
+        "/Users/${env:USER}/development/flutter"
+    ]
 }
