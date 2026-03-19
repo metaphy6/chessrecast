@@ -176,9 +176,11 @@ static Bitboard attackers_to(const Board *b, Square sq, Bitboard occ) {
     return att & occ;
 }
 
-/* Get SEE piece value, accounting for Mercenary pawn value */
-static inline int see_pv(PieceType pt, bool is_merc) {
+/* Get SEE piece value, accounting for variant piece values */
+static inline int see_pv(PieceType pt, bool is_merc, bool is_heir) {
     if (pt == PAWN && is_merc) return 180;
+    if (pt == PAWN && is_heir) return 140;
+    if (pt == KING && is_heir) return 250; /* expendable king material */
     return SEE_PIECE_VAL[pt];
 }
 
@@ -195,19 +197,20 @@ static int see_value(const Board *b, Move m) {
     Square from = MOVE_FROM(m);
     Square to   = MOVE_TO(m);
     bool is_merc = (b->mod == MOD_MERCENARY);
+    bool is_heir = (b->mod == MOD_HEIR);
 
     int gain[32];
     int d = 0;
 
     /* Initial gain: value of captured piece */
-    gain[0] = see_pv(MOVE_CAPTURED(m), is_merc);
+    gain[0] = see_pv(MOVE_CAPTURED(m), is_merc, is_heir);
 
     /* The moving piece becomes the target */
     PieceType next_victim = MOVE_PIECE(m);
 
     if (MOVE_IS_PROMO(m)) {
-        gain[0] += see_pv(MOVE_PROMO_TYPE(m), is_merc)
-                 - see_pv(PAWN, is_merc);
+        gain[0] += see_pv(MOVE_PROMO_TYPE(m), is_merc, is_heir)
+                 - see_pv(PAWN, is_merc, is_heir);
         next_victim = MOVE_PROMO_TYPE(m);
     }
 
@@ -223,7 +226,7 @@ static int see_value(const Board *b, Move m) {
 
     while (d < 31) {
         d++;
-        gain[d] = see_pv(next_victim, is_merc) - gain[d - 1];
+        gain[d] = see_pv(next_victim, is_merc, is_heir) - gain[d - 1];
 
         /* If best case for both sides is negative, stop */
         if (maxi(-gain[d - 1], gain[d]) < 0) break;
@@ -432,6 +435,15 @@ static int quiescence(Board *b, int alpha, int beta, int ply, int qply) {
     if (ply >= MAX_PLY + MAX_QPLY) return evaluate(b);
     if (qply >= MAX_QPLY) return evaluate(b);
 
+    /* Heir: terminal state — no king + no recovery */
+    if (b->mod == MOD_HEIR) {
+        Color us = b->side;
+        if (b->pieces[us][KING] == BB_EMPTY) {
+            if (b->heir_promoted[us] || b->pieces[us][PAWN] == BB_EMPTY)
+                return -(MATE_SCORE - ply);
+        }
+    }
+
     bool in_check = board_in_check(b, b->side);
 
     /* In check: search ALL evasions (not just captures) */
@@ -481,6 +493,7 @@ static int quiescence(Board *b, int alpha, int beta, int ply, int qply) {
     order_captures_see(b, &ml);
 
     bool is_merc = (b->mod == MOD_MERCENARY);
+    bool is_heir = (b->mod == MOD_HEIR);
     int best = stand_pat;
 
     for (int i = 0; i < ml.count; i++) {
@@ -498,7 +511,7 @@ static int quiescence(Board *b, int alpha, int beta, int ply, int qply) {
         }
 
         /* Delta pruning: if captured value can't raise alpha */
-        int cap_val = see_pv(MOVE_CAPTURED(m), is_merc);
+        int cap_val = see_pv(MOVE_CAPTURED(m), is_merc, is_heir);
         if (stand_pat + cap_val + 200 < alpha) continue;
 
         board_make_move(b, m);
@@ -526,6 +539,17 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
 
     if (ply >= MAX_PLY) return evaluate(b);
     if (depth <= 0) return quiescence(b, alpha, beta, ply, 0);
+
+    /* Heir: terminal state detection — no king + no hope of recovery */
+    if (b->mod == MOD_HEIR) {
+        Color us = b->side;
+        if (b->pieces[us][KING] == BB_EMPTY) {
+            /* Promoted king was captured → game over */
+            if (b->heir_promoted[us]) return -(MATE_SCORE - ply);
+            /* No king + no pawns → can't promote, game over */
+            if (b->pieces[us][PAWN] == BB_EMPTY) return -(MATE_SCORE - ply);
+        }
+    }
 
     /* is_pv is now passed as parameter (Stockfish approach), NOT inferred
        from window width.  This prevents TT cutoffs in PV nodes — the key
@@ -637,8 +661,13 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
     /* ── Move generation and ordering ─────────────────────────────── */
     MoveList ml;
     generate_moves(b, &ml);
-    if (ml.count == 0)
-        return in_check ? -(MATE_SCORE - ply) : 0;
+    if (ml.count == 0) {
+        if (in_check) return -(MATE_SCORE - ply);
+        /* Heir: no legal moves + no king is a loss, not stalemate */
+        if (b->mod == MOD_HEIR && b->pieces[b->side][KING] == BB_EMPTY)
+            return -(MATE_SCORE - ply);
+        return 0; /* stalemate */
+    }
 
     Move countermove = MOVE_NONE;
     if (b->ply > 0) {
@@ -976,7 +1005,10 @@ done:
 
         /* Opening variety: in early moves, add extra margin for all levels */
         bool is_opening = (b->mod == MOD_MERCENARY)
-                        ? (b->fullmove <= 6) : (b->fullmove <= 4);
+                        ? (b->fullmove <= 6)
+                        : (b->mod == MOD_HEIR)
+                        ? (b->fullmove <= 5)
+                        : (b->fullmove <= 4);
         if (is_opening) s_margin = maxi(s_margin, 10);
 
         if (s_margin > 0) {

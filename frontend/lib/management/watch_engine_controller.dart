@@ -42,11 +42,6 @@ class WatchEngineController extends Controller {
   Timer? _moveTimer;
   bool _thinking = false;
 
-  @override
-  void onInit() {
-    super.onInit();
-    // Don't auto-start — wait for the user to press the play button.
-  }
 
   @override
   void onClose() {

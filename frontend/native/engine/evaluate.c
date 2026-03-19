@@ -1,6 +1,11 @@
 #include "evaluate.h"
 #include <stdlib.h>  /* abs() */
 
+/* Heir: check rules apply when player has promoted a king or has no pawns */
+static inline bool heir_check_applies(const Board *b, Color side) {
+    return b->heir_promoted[side] || b->pieces[side][PAWN] == BB_EMPTY;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  Material values (centipawns)                                             */
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -109,6 +114,19 @@ static const int PST_MERC_PAWN[64] = {
      0,  0,  0,  0,  0,  0,  0,  0,   /* rank 8: back rank */
 };
 
+/* Heir pawns: advancement toward promotion is key (they become kings).
+   Higher ranks get aggressive bonuses — pawns are the lifeblood. */
+static const int PST_HEIR_PAWN[64] = {
+     0,  0,  0,  0,  0,  0,  0,  0,   /* rank 1 */
+     5, 10, 10,  5,  5, 10, 10,  5,   /* rank 2: modest center preference */
+    10, 15, 20, 25, 25, 20, 15, 10,   /* rank 3 */
+    15, 20, 30, 35, 35, 30, 20, 15,   /* rank 4: center control + advance */
+    25, 30, 40, 50, 50, 40, 30, 25,   /* rank 5: deep territory */
+    40, 45, 55, 65, 65, 55, 45, 40,   /* rank 6: near promotion */
+    70, 75, 80, 90, 90, 80, 75, 70,   /* rank 7: promotion imminent */
+     0,  0,  0,  0,  0,  0,  0,  0,   /* rank 8 */
+};
+
 static const int *PST_TABLE[6] = {
     PST_PAWN, PST_KNIGHT, PST_BISHOP, PST_ROOK, PST_QUEEN, PST_KING_MG
 };
@@ -128,6 +146,7 @@ int evaluate(const Board *b) {
     int bishop_count[2] = {0, 0};
 
     bool is_merc = (b->mod == MOD_MERCENARY);
+    bool is_heir = (b->mod == MOD_HEIR);
 
     /* Pre-compute pawn attack bitboards (Stockfish: used for safe mobility
        and threat evaluation — pieces on pawn-attacked squares are vulnerable) */
@@ -141,6 +160,7 @@ int evaluate(const Board *b) {
             }
         }
     } else {
+        /* Standard diagonal pawn attacks (for classic and heir) */
         Bitboard wp = b->pieces[WHITE][PAWN];
         pawn_atk[WHITE] = ((wp & ~((Bitboard)0x0101010101010101ULL)) << 7) |
                            ((wp & ~((Bitboard)0x8080808080808080ULL)) << 9);
@@ -161,6 +181,15 @@ int evaluate(const Board *b) {
                 int mat = MATERIAL[t];
                 /* Mercenary pawns move like kings — worth more */
                 if (t == PAWN && is_merc) mat = 180;
+                /* Heir: pawns are king replacements — worth more */
+                if (t == PAWN && is_heir) mat = 140;
+                /* Heir: expendable king (check rules don't apply) has material value */
+                if (t == KING && is_heir) {
+                    if (!heir_check_applies(b, (Color)c))
+                        mat = 250; /* expendable: valuable but sacrificeable */
+                    else
+                        mat = 0;   /* critical: infinite value (via checkmate) */
+                }
                 material[c] += mat;
                 mg_score[c] += mat;
                 eg_score[c] += mat;
@@ -175,6 +204,18 @@ int evaluate(const Board *b) {
                     int rank = (c == WHITE) ? SQ_ROW(sq) : (7 - SQ_ROW(sq));
                     if (rank >= 1 && rank <= 6) {
                         int adv = rank * rank * 3;
+                        mg_score[c] += adv;
+                        eg_score[c] += adv * 2;
+                    }
+                } else if (t == PAWN && is_heir) {
+                    /* Heir pawns: advancement PST + promotion-potential bonus */
+                    mg_score[c] += PST_HEIR_PAWN[idx];
+                    eg_score[c] += PST_HEIR_PAWN[idx];
+
+                    /* Advancement bonus scaled quadratically: closer to promo = bigger */
+                    int rank = (c == WHITE) ? SQ_ROW(sq) : (7 - SQ_ROW(sq));
+                    if (rank >= 3) {
+                        int adv = (rank - 2) * (rank - 2) * 8;
                         mg_score[c] += adv;
                         eg_score[c] += adv * 2;
                     }
@@ -304,6 +345,43 @@ int evaluate(const Board *b) {
         }
     }
 
+    /* ── Heir-specific strategic evaluation ──────────────────────────────── */
+    if (is_heir) {
+        for (int c = 0; c < 2; c++) {
+            int opp = c ^ 1;
+            bool has_king = b->pieces[c][KING] != BB_EMPTY;
+            int pawns = bb_popcount(b->pieces[c][PAWN]);
+            int bonus = 0;
+
+            /* Pawn count safety net: more pawns = more insurance */
+            bonus += pawns * 30;
+
+            /* No-king penalty: vulnerable state, need to promote ASAP */
+            if (!has_king) {
+                bonus -= 350;
+                if (pawns <= 2) bonus -= 150;
+                if (pawns <= 1) bonus -= 200;
+            }
+
+            /* Opponent has no king: bonus for attacking their pawns */
+            if (b->pieces[opp][KING] == BB_EMPTY) {
+                bonus += 100;
+                int opp_pawns = bb_popcount(b->pieces[opp][PAWN]);
+                if (opp_pawns <= 2) bonus += 150;
+                if (opp_pawns <= 1) bonus += 200;
+            }
+
+            /* Promoted king safety: when check rules apply, king safety
+               is paramount — add extra weight (standard king safety already
+               runs below, but give Heir an extra multiplier) */
+            if (has_king && heir_check_applies(b, (Color)c)) {
+                bonus += 50; /* bonus for having a stable protected king */
+            }
+
+            score += (c == WHITE) ? bonus : -bonus;
+        }
+    }
+
     /* ── 3. Pawn structure (doubled, isolated) — skip for Mercenary ──── */
     if (!is_merc) {
         for (int col = 0; col < 8; col++) {
@@ -376,12 +454,15 @@ int evaluate(const Board *b) {
     }
     }
 
-    /* ── 6. King safety (always active for Mercenary; middlegame for standard) */
+    /* ── 6. King safety (always active for Mercenary; middlegame for standard;
+              Heir: only when check rules apply) ──────────────────────────── */
     if (mg_weight > 64 || is_merc) {
         for (int c = 0; c < 2; c++) {
             Color opp = (Color)(c ^ 1);
             Bitboard kbb = b->pieces[c][KING];
             if (kbb == BB_EMPTY) continue;
+            /* Heir: skip king safety when check rules don't apply (king is expendable) */
+            if (is_heir && !heir_check_applies(b, (Color)c)) continue;
             Square ksq = bb_lsb(kbb);
 
             /* 6a. Pawn shield */
@@ -468,6 +549,7 @@ int evaluate(const Board *b) {
        initiative, and crucially breaks the "all moves score 0" problem in
        Mercenary where massive transpositions equalize everything). */
     if (is_merc) score += (b->side == WHITE) ? 15 : -15;
+    if (is_heir) score += (b->side == WHITE) ? 10 : -10;
 
     /* Return from side-to-move's perspective */
     return (b->side == WHITE) ? score : -score;
