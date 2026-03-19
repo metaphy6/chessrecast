@@ -23,12 +23,15 @@ EXPORT void engine_init(void) {
 EXPORT void engine_find_move(const char *fen, int mod,
                              int time_ms, int max_depth,
                              int skill_level,
+                             int heir_wp, int heir_bp,
                              EngineResult *result) {
     engine_init();
 
     Board board;
     board_set_fen(&board, fen);
     board.mod = (GameMod)mod;
+    board.heir_promoted[WHITE] = (uint8_t)(heir_wp ? 1 : 0);
+    board.heir_promoted[BLACK] = (uint8_t)(heir_bp ? 1 : 0);
 
     SearchResult sr = search_think(&board, time_ms, max_depth, skill_level);
 
@@ -52,6 +55,7 @@ EXPORT void engine_find_move(const char *fen, int mod,
 EXPORT int engine_apply_move(const char *fen, int mod,
                              int time_ms, int max_depth,
                              int skill_level,
+                             int heir_wp, int heir_bp,
                              char *result_fen, int bufsize,
                              EngineResult *result) {
     engine_init();
@@ -59,6 +63,8 @@ EXPORT int engine_apply_move(const char *fen, int mod,
     Board board;
     board_set_fen(&board, fen);
     board.mod = (GameMod)mod;
+    board.heir_promoted[WHITE] = (uint8_t)(heir_wp ? 1 : 0);
+    board.heir_promoted[BLACK] = (uint8_t)(heir_bp ? 1 : 0);
 
     SearchResult sr = search_think(&board, time_ms, max_depth, skill_level);
 

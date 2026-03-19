@@ -26,6 +26,9 @@ typedef struct {
 
     GameMod  mod;            /* game mod */
 
+    /* Heir mod state: whether each side has promoted a pawn to king */
+    uint8_t  heir_promoted[2]; /* [WHITE]=0/1, [BLACK]=0/1 */
+
     /* Zobrist hash */
     uint64_t hash;
 
@@ -38,6 +41,7 @@ typedef struct {
         Square   ep_square;
         int      halfmove;
         uint64_t hash;
+        uint8_t  heir_promoted[2]; /* saved heir state for undo */
     } history[MAX_HISTORY];
     int ply;
 } Board;

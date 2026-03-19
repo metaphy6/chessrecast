@@ -178,7 +178,6 @@ class Orchestrator {
     GameStatus newStatus;
 
     // Check for immediate game end conditions in Heir Mod
-    // If a player has no king AND no pawns, they lose immediately
     for (final color in [PieceColor.white, PieceColor.black]) {
       final kings = board.pieces
           .where((p) => p.type == PieceType.king && p.color == color)
@@ -187,16 +186,40 @@ class Orchestrator {
           .where((p) => p.type == PieceType.pawn && p.color == color)
           .toList();
 
+      // No king AND no pawns → immediate loss
       if (kings.isEmpty && pawns.isEmpty) {
-        // This player has lost - set as checkmate for opponent
+        final winner = color == PieceColor.white ? 'black' : 'white';
+        logCheckmate(winner);
+        return board.copyWith(gameStatus: GameStatus.checkmate);
+      }
+
+      // Promoted king was captured → immediate loss
+      final hasPromotedKing = color == PieceColor.white
+          ? board.whiteHasPromotedKing
+          : board.blackHasPromotedKing;
+      if (kings.isEmpty && hasPromotedKing) {
         final winner = color == PieceColor.white ? 'black' : 'white';
         logCheckmate(winner);
         return board.copyWith(gameStatus: GameStatus.checkmate);
       }
     }
 
-    // In Heir Mod, king is NOT special - no check status
-    // Only check for stalemate/ongoing based on valid moves
+    // Check/checkmate detection when check rules apply for current player
+    if (mods.heir.shouldApplyCheckRules(board.currentPlayer, board)) {
+      final inCheck = board.isKingInCheck(board.currentPlayer);
+      if (inCheck) {
+        if (hasValidMoves) {
+          newStatus = GameStatus.check;
+        } else {
+          logCheckmate(
+            board.currentPlayer == PieceColor.white ? 'black' : 'white',
+          );
+          newStatus = GameStatus.checkmate;
+        }
+        return board.copyWith(gameStatus: newStatus);
+      }
+    }
+
     if (!hasValidMoves) {
       newStatus = GameStatus.stalemate;
     } else {

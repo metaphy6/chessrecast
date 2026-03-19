@@ -57,9 +57,16 @@ uint64_t zobrist_compute(const Board *b) {
 /*  Board helpers                                                            */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
+/* Heir: check rules apply when player has promoted a king or has no pawns */
+static inline bool heir_check_applies(const Board *b, Color side) {
+    return b->heir_promoted[side] || b->pieces[side][PAWN] == BB_EMPTY;
+}
+
 static void board_clear(Board *b) {
     memset(b, 0, sizeof(Board));
     b->ep_square = SQ_NONE;
+    b->heir_promoted[0] = 0;
+    b->heir_promoted[1] = 0;
     for (int sq = 0; sq < 64; sq++) b->mailbox[sq] = PIECE_EMPTY;
 }
 
@@ -359,6 +366,8 @@ bool board_square_attacked(const Board *b, Square sq, Color by) {
 bool board_in_check(const Board *b, Color side) {
     Bitboard kingBB = b->pieces[side][KING];
     if (kingBB == BB_EMPTY) return false;
+    /* Heir: check only matters when check rules apply */
+    if (b->mod == MOD_HEIR && !heir_check_applies(b, side)) return false;
     Square ksq = bb_lsb(kingBB);
     return board_square_attacked(b, ksq, color_opposite(side));
 }
@@ -377,6 +386,8 @@ void board_make_move(Board *b, Move m) {
     b->history[idx].hash       = b->hash;
     b->history[idx].captured   = PIECE_EMPTY;
     b->history[idx].captured_sq = SQ_NONE;
+    b->history[idx].heir_promoted[0] = b->heir_promoted[0];
+    b->history[idx].heir_promoted[1] = b->heir_promoted[1];
 
     Square from = MOVE_FROM(m);
     Square to   = MOVE_TO(m);
@@ -401,7 +412,12 @@ void board_make_move(Board *b, Move m) {
     board_remove(b, from);
 
     if (MOVE_IS_PROMO(m)) {
-        board_place(b, to, us, MOVE_PROMO_TYPE(m));
+        PieceType promo_pt = MOVE_PROMO_TYPE(m);
+        board_place(b, to, us, promo_pt);
+        /* Heir: track pawn-to-king promotion */
+        if (b->mod == MOD_HEIR && promo_pt == KING) {
+            b->heir_promoted[us] = 1;
+        }
     } else {
         board_place(b, to, us, pt);
     }
@@ -516,6 +532,8 @@ void board_unmake_move(Board *b) {
     b->ep_square = b->history[idx].ep_square;
     b->halfmove  = b->history[idx].halfmove;
     b->hash      = b->history[idx].hash;
+    b->heir_promoted[0] = b->history[idx].heir_promoted[0];
+    b->heir_promoted[1] = b->history[idx].heir_promoted[1];
 
     if (us == BLACK) b->fullmove--;
 }

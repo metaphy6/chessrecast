@@ -13,6 +13,11 @@ extern Bitboard pawn_attacks[2][64];
 extern Bitboard bishop_attacks_calc(Square sq, Bitboard occ);
 extern Bitboard rook_attacks_calc(Square sq, Bitboard occ);
 
+/* Heir: check rules apply when player has promoted a king or has no pawns */
+static inline bool heir_check_applies(const Board *b, Color side) {
+    return b->heir_promoted[side] || b->pieces[side][PAWN] == BB_EMPTY;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  Internal: pseudo-legal move generation                                   */
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -54,15 +59,34 @@ static void gen_pawn_moves(const Board *b, MoveList *ml, bool captures_only) {
 
         /* ── Standard pawn logic ────────────────────────────────────────── */
         bool on_promo_rank = (r == rank7);
+        bool is_heir = (b->mod == MOD_HEIR);
 
         /* Single push */
         Square one = SQ(r + dir, c);
         if (!captures_only && SQ_VALID(one) && b->mailbox[one] == PIECE_EMPTY) {
             if (on_promo_rank) {
-                PieceType promos[] = {QUEEN, ROOK, BISHOP, KNIGHT};
-                for (int i = 0; i < 4; i++)
-                    movelist_add(ml, move_encode(sq, one, PAWN, PIECE_NONE,
-                                                 false, false, true, promos[i]));
+                if (is_heir) {
+                    /* Heir: mandatory king promotion when no king and not yet promoted */
+                    bool has_king = b->pieces[us][KING] != BB_EMPTY;
+                    bool can_promo_king = !b->heir_promoted[us];
+                    if (!has_king && can_promo_king) {
+                        movelist_add(ml, move_encode(sq, one, PAWN, PIECE_NONE,
+                                                     false, false, true, KING));
+                    } else {
+                        PieceType promos[] = {QUEEN, ROOK, BISHOP, KNIGHT};
+                        for (int i = 0; i < 4; i++)
+                            movelist_add(ml, move_encode(sq, one, PAWN, PIECE_NONE,
+                                                         false, false, true, promos[i]));
+                        if (can_promo_king)
+                            movelist_add(ml, move_encode(sq, one, PAWN, PIECE_NONE,
+                                                         false, false, true, KING));
+                    }
+                } else {
+                    PieceType promos[] = {QUEEN, ROOK, BISHOP, KNIGHT};
+                    for (int i = 0; i < 4; i++)
+                        movelist_add(ml, move_encode(sq, one, PAWN, PIECE_NONE,
+                                                     false, false, true, promos[i]));
+                }
             } else {
                 movelist_add(ml, move_simple(sq, one, PAWN));
                 /* Double push */
@@ -84,12 +108,30 @@ static void gen_pawn_moves(const Board *b, MoveList *ml, bool captures_only) {
             Piece target = b->mailbox[to];
             if (target != PIECE_EMPTY && PIECE_COLOR(target) == them) {
                 PieceType capt = PIECE_TYPE(target);
-                if (capt == KING) continue;
+                /* In Heir, pawns CAN capture kings; in other mods they can't */
+                if (capt == KING && !is_heir) continue;
                 if (on_promo_rank) {
-                    PieceType promos[] = {QUEEN, ROOK, BISHOP, KNIGHT};
-                    for (int i = 0; i < 4; i++)
-                        movelist_add(ml, move_encode(sq, to, PAWN, capt,
-                                                     false, false, true, promos[i]));
+                    if (is_heir) {
+                        bool has_king = b->pieces[us][KING] != BB_EMPTY;
+                        bool can_promo_king = !b->heir_promoted[us];
+                        if (!has_king && can_promo_king) {
+                            movelist_add(ml, move_encode(sq, to, PAWN, capt,
+                                                         false, false, true, KING));
+                        } else {
+                            PieceType promos[] = {QUEEN, ROOK, BISHOP, KNIGHT};
+                            for (int i = 0; i < 4; i++)
+                                movelist_add(ml, move_encode(sq, to, PAWN, capt,
+                                                             false, false, true, promos[i]));
+                            if (can_promo_king)
+                                movelist_add(ml, move_encode(sq, to, PAWN, capt,
+                                                             false, false, true, KING));
+                        }
+                    } else {
+                        PieceType promos[] = {QUEEN, ROOK, BISHOP, KNIGHT};
+                        for (int i = 0; i < 4; i++)
+                            movelist_add(ml, move_encode(sq, to, PAWN, capt,
+                                                         false, false, true, promos[i]));
+                    }
                 } else {
                     movelist_add(ml, move_capture(sq, to, PAWN, capt));
                 }
@@ -143,6 +185,16 @@ static void gen_piece_moves(const Board *b, MoveList *ml,
         /* Remove friendly pieces */
         targets &= ~b->occupied[us];
 
+        /* Heir: king can't move adjacent to or capture opponent king */
+        if (pt == KING && b->mod == MOD_HEIR) {
+            Bitboard opp_king = b->pieces[them][KING];
+            if (opp_king) {
+                Square opp_ksq = bb_lsb(opp_king);
+                targets &= ~king_attacks[opp_ksq]; /* no adjacent squares */
+                targets &= ~BB_SQ(opp_ksq);        /* can't capture king  */
+            }
+        }
+
         if (captures_only) {
             targets &= b->occupied[them];
         }
@@ -152,7 +204,10 @@ static void gen_piece_moves(const Board *b, MoveList *ml,
             Piece target = b->mailbox[to];
             if (target != PIECE_EMPTY) {
                 PieceType capt = PIECE_TYPE(target);
-                if (capt == KING) continue; /* can't capture king */
+                /* Heir: non-king pieces CAN capture kings; standard: never */
+                if (capt == KING) {
+                    if (b->mod != MOD_HEIR || pt == KING) continue;
+                }
                 movelist_add(ml, move_capture(sq, to, pt, capt));
             } else {
                 movelist_add(ml, move_simple(sq, to, pt));
@@ -167,15 +222,21 @@ static void gen_castling(const Board *b, MoveList *ml) {
     }
 
     Color us = b->side;
-    if (board_in_check(b, us)) return;
+    /* Heir: can castle even while in "check" when check rules don't apply */
+    bool need_check_safe = true;
+    if (b->mod == MOD_HEIR && !heir_check_applies(b, us))
+        need_check_safe = false;
+
+    if (need_check_safe && board_in_check(b, us)) return;
 
     if (us == WHITE) {
         /* Kingside */
         if ((b->castling & CASTLE_WK) &&
             b->mailbox[SQ(0, 5)] == PIECE_EMPTY &&
             b->mailbox[SQ(0, 6)] == PIECE_EMPTY &&
-            !board_square_attacked(b, SQ(0, 5), BLACK) &&
-            !board_square_attacked(b, SQ(0, 6), BLACK)) {
+            (!need_check_safe || (
+                !board_square_attacked(b, SQ(0, 5), BLACK) &&
+                !board_square_attacked(b, SQ(0, 6), BLACK)))) {
             movelist_add(ml, move_encode(SQ(0, 4), SQ(0, 6), KING,
                                          PIECE_NONE, true, false, false, PIECE_NONE));
         }
@@ -184,8 +245,9 @@ static void gen_castling(const Board *b, MoveList *ml) {
             b->mailbox[SQ(0, 1)] == PIECE_EMPTY &&
             b->mailbox[SQ(0, 2)] == PIECE_EMPTY &&
             b->mailbox[SQ(0, 3)] == PIECE_EMPTY &&
-            !board_square_attacked(b, SQ(0, 2), BLACK) &&
-            !board_square_attacked(b, SQ(0, 3), BLACK)) {
+            (!need_check_safe || (
+                !board_square_attacked(b, SQ(0, 2), BLACK) &&
+                !board_square_attacked(b, SQ(0, 3), BLACK)))) {
             movelist_add(ml, move_encode(SQ(0, 4), SQ(0, 2), KING,
                                          PIECE_NONE, true, false, false, PIECE_NONE));
         }
@@ -194,8 +256,9 @@ static void gen_castling(const Board *b, MoveList *ml) {
         if ((b->castling & CASTLE_BK) &&
             b->mailbox[SQ(7, 5)] == PIECE_EMPTY &&
             b->mailbox[SQ(7, 6)] == PIECE_EMPTY &&
-            !board_square_attacked(b, SQ(7, 5), WHITE) &&
-            !board_square_attacked(b, SQ(7, 6), WHITE)) {
+            (!need_check_safe || (
+                !board_square_attacked(b, SQ(7, 5), WHITE) &&
+                !board_square_attacked(b, SQ(7, 6), WHITE)))) {
             movelist_add(ml, move_encode(SQ(7, 4), SQ(7, 6), KING,
                                          PIECE_NONE, true, false, false, PIECE_NONE));
         }
@@ -204,8 +267,9 @@ static void gen_castling(const Board *b, MoveList *ml) {
             b->mailbox[SQ(7, 1)] == PIECE_EMPTY &&
             b->mailbox[SQ(7, 2)] == PIECE_EMPTY &&
             b->mailbox[SQ(7, 3)] == PIECE_EMPTY &&
-            !board_square_attacked(b, SQ(7, 2), WHITE) &&
-            !board_square_attacked(b, SQ(7, 3), WHITE)) {
+            (!need_check_safe || (
+                !board_square_attacked(b, SQ(7, 2), WHITE) &&
+                !board_square_attacked(b, SQ(7, 3), WHITE)))) {
             movelist_add(ml, move_encode(SQ(7, 4), SQ(7, 2), KING,
                                          PIECE_NONE, true, false, false, PIECE_NONE));
         }

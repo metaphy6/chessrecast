@@ -153,7 +153,8 @@ static inline void movelist_add(MoveList *ml, Move m) {
 
 typedef enum {
     MOD_CLASSIC   = 0,
-    MOD_MERCENARY = 1
+    MOD_MERCENARY = 1,
+    MOD_HEIR      = 2
 } GameMod;
 
 #endif /* CHESS_TYPES_H */

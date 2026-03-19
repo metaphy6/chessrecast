@@ -36,14 +36,17 @@ extern "C" {
 EXPORT void engine_init(void);
 
 /* Find the best move for the given FEN position.
-   mod        : 0 = classic, 1 = mercenary
+   mod        : 0 = classic, 1 = mercenary, 2 = heir
    time_ms    : thinking time in milliseconds
    max_depth  : maximum search depth (0 = unlimited)
    skill_level: 0 = easy … 4 = maximum
+   heir_wp    : heir mod: 1 if white has promoted a pawn to king, 0 otherwise
+   heir_bp    : heir mod: 1 if black has promoted a pawn to king, 0 otherwise
    result     : pointer to EngineResult struct — filled by the function */
 EXPORT void engine_find_move(const char *fen, int mod,
                              int time_ms, int max_depth,
                              int skill_level,
+                             int heir_wp, int heir_bp,
                              EngineResult *result);
 
 /* Get the resulting FEN after the engine's best move is applied.
@@ -52,6 +55,7 @@ EXPORT void engine_find_move(const char *fen, int mod,
 EXPORT int engine_apply_move(const char *fen, int mod,
                              int time_ms, int max_depth,
                              int skill_level,
+                             int heir_wp, int heir_bp,
                              char *result_fen, int bufsize,
                              EngineResult *result);
 

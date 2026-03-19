@@ -55,6 +55,8 @@ typedef _EngineFindMoveNative =
       Int32 timeMs,
       Int32 maxDepth,
       Int32 skillLevel,
+      Int32 heirWp,
+      Int32 heirBp,
       Pointer<EngineResultNative> result,
     );
 typedef _EngineFindMoveDart =
@@ -64,6 +66,8 @@ typedef _EngineFindMoveDart =
       int timeMs,
       int maxDepth,
       int skillLevel,
+      int heirWp,
+      int heirBp,
       Pointer<EngineResultNative> result,
     );
 
@@ -116,6 +120,8 @@ class NativeEngine {
     switch (mod) {
       case ModsEnum.mercenary:
         return 1;
+      case ModsEnum.heir:
+        return 2;
       default:
         return 0;
     }
@@ -132,11 +138,22 @@ class NativeEngine {
   }) {
     final fen = board.toFEN();
     final mod = _modToInt(board.gameType);
+    final heirWp = board.whiteHasPromotedKing ? 1 : 0;
+    final heirBp = board.blackHasPromotedKing ? 1 : 0;
     final fenPtr = fen.toNativeUtf8();
     final resultPtr = calloc<EngineResultNative>();
 
     try {
-      _findMove(fenPtr, mod, timeLimitMs, maxDepth, skillLevel, resultPtr);
+      _findMove(
+        fenPtr,
+        mod,
+        timeLimitMs,
+        maxDepth,
+        skillLevel,
+        heirWp,
+        heirBp,
+        resultPtr,
+      );
       return _parseResult(resultPtr.ref, board);
     } finally {
       calloc.free(fenPtr);
