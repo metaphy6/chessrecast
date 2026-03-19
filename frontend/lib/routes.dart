@@ -6,6 +6,7 @@ import 'ui/bot_selection_page.dart';
 import 'ui/online_bot_vs_bot_page.dart';
 import 'ui/watch_engine_page.dart';
 import 'ui/play_engine_page.dart';
+import 'ui/saved_games_page.dart';
 import 'analytics/custom/custom_board_setup.dart';
 import 'bindings.dart';
 
@@ -19,6 +20,7 @@ class AppRoutes {
   static const String onlineBotVsBot = '/online-bot-vs-bot';
   static const String watchEngine = '/watch-engine';
   static const String playEngine = '/play-engine';
+  static const String savedGames = '/saved-games';
 
   static List<GetPage> routes = [
     GetPage(
@@ -64,6 +66,11 @@ class AppRoutes {
     GetPage(
       name: playEngine,
       page: () => const PlayEnginePage(),
+      binding: AppBindings(),
+    ),
+    GetPage(
+      name: savedGames,
+      page: () => const SavedGamesPage(),
       binding: AppBindings(),
     ),
   ];

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'routes.dart';
 import 'constants.dart';
+import 'services/saved_games_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  Get.put(SavedGamesService(), permanent: true);
   runApp(const ChessRecastApp());
 }
 

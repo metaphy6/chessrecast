@@ -403,6 +403,7 @@ static int     s_nodes;
 static bool    s_stopped;
 static int64_t s_deadline_ms;
 static int     s_skill_level;
+static int     s_prev_skill = -1;   /* track skill changes to clear TT */
 
 static int  s_eval_stack[MAX_PLY + MAX_QPLY];
 static Move s_root_moves[MAX_MOVES];
@@ -462,15 +463,16 @@ static int quiescence(Board *b, int alpha, int beta, int ply, int qply) {
             board_unmake_move(b);
             if (s_stopped) return 0;
             if (score > best) best = score;
-            if (score > alpha) alpha = score;
-            if (alpha >= beta) return beta;
+            if (best > alpha) alpha = best;
+            if (alpha >= beta) break;
         }
-        return best > -INFINITY_SCORE ? best : alpha;
+        return best;
     }
 
-    /* Stand pat */
+    /* Stand pat (fail-soft: return actual score, not beta, so PVS
+       null-window searches at root get properly differentiated scores) */
     int stand_pat = evaluate(b);
-    if (stand_pat >= beta) return beta;
+    if (stand_pat >= beta) return stand_pat;
     if (stand_pat > alpha) alpha = stand_pat;
 
     /* Generate captures, order by SEE */
@@ -479,17 +481,21 @@ static int quiescence(Board *b, int alpha, int beta, int ply, int qply) {
     order_captures_see(b, &ml);
 
     bool is_merc = (b->mod == MOD_MERCENARY);
+    int best = stand_pat;
 
     for (int i = 0; i < ml.count; i++) {
         Move m = ml.moves[i];
 
-        /* SEE pruning: skip captures with SEE < 0.
-           In Mercenary, also skip SEE == 0 (equal exchanges) to prevent
-           quiescence explosion from 16 king-like pawns trading endlessly.
-           This is the KEY fix — stops the engine from making
-           losing captures (like QxP when pawn is defended). */
+        /* SEE pruning (Stockfish-inspired graduated approach):
+           Standard: skip losing captures (SEE < 0).
+           Mercenary: at shallow qply, allow slight losers for better
+           tactical accuracy; tighten deeper to prevent explosion. */
         int see = see_value(b, m);
-        if (is_merc ? (see <= 0) : (see < 0)) continue;
+        if (is_merc) {
+            if (qply < 4 ? (see < -50) : (see <= 0)) continue;
+        } else {
+            if (see < 0) continue;
+        }
 
         /* Delta pruning: if captured value can't raise alpha */
         int cap_val = see_pv(MOVE_CAPTURED(m), is_merc);
@@ -500,11 +506,12 @@ static int quiescence(Board *b, int alpha, int beta, int ply, int qply) {
         board_unmake_move(b);
 
         if (s_stopped) return 0;
-        if (score > alpha) alpha = score;
-        if (alpha >= beta) return beta;
+        if (score > best) best = score;
+        if (best > alpha) alpha = best;
+        if (alpha >= beta) break;
     }
 
-    return alpha;
+    return best;
 }
 
 /* ======================================================================== */
@@ -512,7 +519,7 @@ static int quiescence(Board *b, int alpha, int beta, int ply, int qply) {
 /* ======================================================================== */
 
 static int alpha_beta(Board *b, int depth, int alpha, int beta,
-                      int ply, bool do_null) {
+                      int ply, bool do_null, bool is_pv) {
     check_time();
     if (s_stopped) return 0;
     s_nodes++;
@@ -520,7 +527,9 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
     if (ply >= MAX_PLY) return evaluate(b);
     if (depth <= 0) return quiescence(b, alpha, beta, ply, 0);
 
-    bool is_pv   = (beta - alpha > 1);
+    /* is_pv is now passed as parameter (Stockfish approach), NOT inferred
+       from window width.  This prevents TT cutoffs in PV nodes — the key
+       fix for Mercenary where transpositions caused all moves to score equal. */
     bool in_check = board_in_check(b, b->side);
 
     /* ── Mate distance pruning ────────────────────────────────────── */
@@ -544,7 +553,15 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
         tt_score = tte->score;
         tt_hit   = true;
 
-        if (!is_pv && tte->depth >= depth) {
+        /* TT cutoff: at lower skill levels, require deeper entries
+           before allowing a cutoff.  This prevents shallower engines
+           from playing at full strength via accumulated TT entries.
+           Skill 4: depth >= depth (normal)
+           Skill 3: depth >= depth+1
+           Skill 0: depth >= depth+2 */
+        int tt_depth_margin = (s_skill_level >= 4) ? 0
+                            : (s_skill_level >= 2) ? 1 : 2;
+        if (!is_pv && tte->depth >= depth + tt_depth_margin) {
             if (tte->flag == TT_EXACT)                       return tt_score;
             if (tte->flag == TT_LOWER && tt_score >= beta)   return tt_score;
             if (tte->flag == TT_UPPER && tt_score <= alpha)  return tt_score;
@@ -607,13 +624,13 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
             b->hash = zobrist_compute(b); /* CRITICAL: update hash for TT correctness */
 
             int null_s = -alpha_beta(b, depth - R, -beta, -beta + 1,
-                                     ply + 1, false);
+                                     ply + 1, false, false);
             b->side = sv_side;
             b->ep_square = sv_ep;
             b->hash = sv_hash;
 
             if (s_stopped) return 0;
-            if (null_s >= beta && !is_mate(null_s)) return beta;
+            if (null_s >= beta && !is_mate(null_s)) return null_s;
         }
     }
 
@@ -630,6 +647,15 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
             Color ps = color_opposite(b->side);
             countermove = s_countermoves[ps][MOVE_PIECE(prev)][MOVE_TO(prev)];
         }
+    }
+
+    /* IID: when PV node has no TT move, do a shallow search to find one.
+       This is a key Stockfish technique — dramatically improves move ordering
+       at PV nodes, which reduces tree size and prevents random-looking play. */
+    if (is_pv && depth >= 4 && tt_move == MOVE_NONE && !in_check) {
+        alpha_beta(b, depth - 2, alpha, beta, ply, false, true);
+        tte = tt_probe(&s_tt, hash);
+        if (tte) tt_move = tte->best_move;
     }
 
     order_moves(b, &ml, tt_move, ply, b->side, countermove);
@@ -661,6 +687,15 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
         int see_val = 0;
         if (is_cap) see_val = see_value(b, m);
 
+        /* Detect recapture BEFORE making the move */
+        bool is_recapture = false;
+        if (is_cap && b->ply > 0) {
+            Move prev = b->history[b->ply - 1].move;
+            if (prev != MOVE_NONE && MOVE_IS_CAPTURE(prev)
+                && MOVE_TO(prev) == MOVE_TO(m))
+                is_recapture = true;
+        }
+
         board_make_move(b, m);
         bool gives_check = board_in_check(b, b->side);
 
@@ -691,13 +726,16 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
 
         /* ── Extensions ───────────────────────────────────────────── */
         int ext = gives_check ? 1 : 0;
+        /* Recapture extension: search deeper when recapturing on the
+           same square to avoid horizon-effect blunders in exchanges */
+        if (!ext && is_recapture && depth >= 4) ext = 1;
         int new_depth = depth - 1 + ext;
 
         /* ── PVS + LMR ───────────────────────────────────────────── */
         int score;
 
         if (moves_done == 0) {
-            score = -alpha_beta(b, new_depth, -beta, -alpha, ply + 1, true);
+            score = -alpha_beta(b, new_depth, -beta, -alpha, ply + 1, true, is_pv);
         } else {
             int reduction = 0;
 
@@ -709,19 +747,24 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
                 if (moves_done >= 12) reduction++;
                 if (!improving) reduction++;
                 if (is_pv && reduction > 0) reduction--;
+                /* Mercenary pawns are tactical — reduce less (Stockfish
+                   exempts tactical moves from heavy LMR) */
+                if (b->mod == MOD_MERCENARY && MOVE_PIECE(m) == PAWN
+                    && reduction > 0)
+                    reduction--;
                 reduction = mini(reduction, new_depth - 1);
                 if (reduction < 0) reduction = 0;
             }
 
             score = -alpha_beta(b, new_depth - reduction,
-                                -(alpha + 1), -alpha, ply + 1, true);
+                                -(alpha + 1), -alpha, ply + 1, true, false);
 
             if (score > alpha && reduction > 0)
                 score = -alpha_beta(b, new_depth,
-                                    -(alpha + 1), -alpha, ply + 1, true);
+                                    -(alpha + 1), -alpha, ply + 1, true, false);
 
             if (score > alpha && score < beta)
-                score = -alpha_beta(b, new_depth, -beta, -alpha, ply + 1, true);
+                score = -alpha_beta(b, new_depth, -beta, -alpha, ply + 1, true, true);
         }
 
         board_unmake_move(b);
@@ -776,8 +819,18 @@ SearchResult search_think(Board *b, int time_ms, int max_depth, int skill_level)
     s_stopped     = false;
     s_deadline_ms = time_ms_now() + (int64_t)time_ms;
     s_skill_level = (skill_level < 0) ? 0 : (skill_level > 4 ? 4 : skill_level);
-    s_rng         = b->hash ^ (uint64_t)time_ms_now();
+    s_rng         = b->hash ^ (uint64_t)time_ms_now() ^ ((uint64_t)b->fullmove << 32);
     s_root_count  = 0;
+
+    /* Clear TT when skill level changes — prevents a stronger engine's
+       deep entries from leaking to a weaker engine.  Without this, Easy
+       (depth 3) gets free TT cutoffs from Maximum's depth 10+ entries
+       and plays at Maximum strength.  This is THE key bug that made
+       Easy beat Expert. */
+    if (s_skill_level != s_prev_skill) {
+        tt_clear(&s_tt);
+        s_prev_skill = s_skill_level;
+    }
 
     memset(s_killers, 0, sizeof(s_killers));
     memset(s_history, 0, sizeof(s_history));
@@ -820,27 +873,21 @@ SearchResult search_think(Board *b, int time_ms, int max_depth, int skill_level)
 
             best_rs = -INFINITY_SCORE;
             best_rm = MOVE_NONE;
-            int root_alpha = al;
 
             for (int i = 0; i < ml.count; i++) {
                 board_make_move(b, ml.moves[i]);
                 int ext = board_in_check(b, b->side) ? 1 : 0;
                 int score;
 
-                /* For Mercenary: always full-window search at root.
-                   PVS null-window + TT causes all moves to score equal
-                   because 16 king-like pawns create massive transpositions.
-                   Full window ensures each root move gets its true score. */
-                if (b->mod == MOD_MERCENARY || i == 0) {
-                    score = -alpha_beta(b, depth - 1 + ext,
-                                        -be, -root_alpha, 1, true);
-                } else {
-                    score = -alpha_beta(b, depth - 1 + ext,
-                                        -(root_alpha + 1), -root_alpha, 1, true);
-                    if (score > root_alpha && score < be)
-                        score = -alpha_beta(b, depth - 1 + ext,
-                                            -be, -root_alpha, 1, true);
-                }
+                /* Full-window root: search every move with the full
+                   aspiration window so each gets an accurate score.
+                   In Mercenary, PVS null-window + fail-hard pruning
+                   deep in the tree clamps all fail-low scores to
+                   root_alpha, making moves indistinguishable.
+                   Deeper levels still use PVS for efficiency. */
+                score = -alpha_beta(b, depth - 1 + ext,
+                                    -be, -al, 1, true, true);
+
                 board_unmake_move(b);
                 if (s_stopped) goto done;
 
@@ -851,7 +898,6 @@ SearchResult search_think(Board *b, int time_ms, int max_depth, int skill_level)
                     best_rs = score;
                     best_rm = ml.moves[i];
                 }
-                if (score > root_alpha) root_alpha = score;
             }
 
             /* Check aspiration window */
@@ -883,7 +929,6 @@ SearchResult search_think(Board *b, int time_ms, int max_depth, int skill_level)
         result.nodes     = s_nodes;
 
         /* Debug: print iteration summary with top moves (enable for debugging) */
-#if 0
         {
             /* Sort temps by score for display */
             for (int a = 0; a < mini(5, ml.count); a++) {
@@ -896,7 +941,8 @@ SearchResult search_think(Board *b, int time_ms, int max_depth, int skill_level)
                 }
             }
             char dbg[512];
-            int doff = snprintf(dbg, sizeof(dbg), "d=%d best=%c%s%s s=%d n=%d top:",
+            int doff = snprintf(dbg, sizeof(dbg), "sk=%d d=%d best=%c%s%s s=%d n=%d top:",
+                    s_skill_level,
                     depth, pt_char[MOVE_PIECE(best_rm)],
                     sq_name(MOVE_FROM(best_rm)), sq_name(MOVE_TO(best_rm)),
                     best_rs, s_nodes);
@@ -909,87 +955,92 @@ SearchResult search_think(Board *b, int time_ms, int max_depth, int skill_level)
             }
             LOGD("%s", dbg);
         }
-#endif
 
         if (is_mate(best_rs)) break;
     }
 
 done:
-    /* ── Opening variety / Mercenary tiebreaking ──────────────────── */
+    /* ── Skill-based move selection (Stockfish's approach) ─────────── */
+    /*  At full skill (4), return the best move.
+        At lower skill, allow random selection from moves within a margin
+        that scales with skill deficit.  This creates genuine difficulty
+        differentiation without making lower levels play nonsensically. */
     if (s_root_count > 1 && !is_mate(result.score)) {
         int best_root = -INFINITY_SCORE;
         for (int i = 0; i < s_root_count; i++)
             if (s_root_scores[i] > best_root) best_root = s_root_scores[i];
 
-        if (b->mod == MOD_MERCENARY && b->fullmove <= 6) {
-            /* Mercenary opening: when top moves score within margin, use
-               static evaluation of resulting position as tiebreaker.
-               Only applies in the first 6 moves before contact/tactics.
-               IMPORTANT: skip captures — their search scores are already
-               accurate, and static eval after a capture is misleading. */
-            int margin = 5;
+        /* Skill-based margin: skill 0 = 80cp, 1 = 50cp, 2 = 30cp, 3 = 15cp, 4 = 0 */
+        static const int SKILL_MARGIN[] = { 80, 50, 30, 15, 0 };
+        int s_margin = SKILL_MARGIN[s_skill_level];
+
+        /* Opening variety: in early moves, add extra margin for all levels */
+        bool is_opening = (b->mod == MOD_MERCENARY)
+                        ? (b->fullmove <= 6) : (b->fullmove <= 4);
+        if (is_opening) s_margin = maxi(s_margin, 10);
+
+        if (s_margin > 0) {
             Move cands[MAX_MOVES];
-            int  cand_evals[MAX_MOVES];
+            int  cand_scores[MAX_MOVES];
             int  cand_n = 0;
 
             for (int i = 0; i < s_root_count; i++) {
-                if (best_root - s_root_scores[i] <= margin) {
-                    Move m = s_root_moves[i];
-                    PieceType pt = MOVE_PIECE(m);
-                    /* Skip captures and queen moves (tactically sensitive) */
-                    if (MOVE_IS_CAPTURE(m)) continue;
-                    if (pt == QUEEN) continue;
-
-                    board_make_move(b, m);
-                    int ev = -evaluate(b);  /* eval from our perspective */
-                    board_unmake_move(b);
-
-                    cands[cand_n] = m;
-                    cand_evals[cand_n] = ev;
+                if (best_root - s_root_scores[i] <= s_margin) {
+                    cands[cand_n] = s_root_moves[i];
+                    cand_scores[cand_n] = s_root_scores[i];
                     cand_n++;
                 }
             }
 
             if (cand_n > 1) {
-                /* Pick the move with best static eval */
-                int best_ev = -INFINITY_SCORE;
-                int best_idx = 0;
-                for (int i = 0; i < cand_n; i++) {
-                    if (cand_evals[i] > best_ev) {
-                        best_ev = cand_evals[i];
-                        best_idx = i;
+                if (s_skill_level >= 3) {
+                    /* Skill 3-4: pick best, with random tiebreak among
+                       moves within 3cp of best for variety */
+                    int top_score = -INFINITY_SCORE;
+                    for (int i = 0; i < cand_n; i++)
+                        if (cand_scores[i] > top_score) top_score = cand_scores[i];
+                    Move top[MAX_MOVES];
+                    int top_n = 0;
+                    for (int i = 0; i < cand_n; i++)
+                        if (top_score - cand_scores[i] <= 3)
+                            top[top_n++] = cands[i];
+                    if (top_n > 0) {
+                        result.best_move = top[rng_range(top_n)];
+                    }
+                } else {
+                    /* Skill 0-2: weighted random — better moves are more
+                       likely but worse moves can be picked, creating
+                       realistic weaker play (Stockfish approach). */
+                    int weights[MAX_MOVES];
+                    int total_w = 0;
+                    for (int i = 0; i < cand_n; i++) {
+                        /* Weight: higher score = higher weight.
+                           shift so worst candidate gets weight 1 */
+                        int w = cand_scores[i] - (best_root - s_margin) + 1;
+                        if (w < 1) w = 1;
+                        weights[i] = w;
+                        total_w += w;
+                    }
+                    int pick = rng_range(total_w);
+                    int cum = 0;
+                    for (int i = 0; i < cand_n; i++) {
+                        cum += weights[i];
+                        if (pick < cum) {
+                            result.best_move = cands[i];
+                            break;
+                        }
                     }
                 }
-                /* Among moves with equal best eval (within 3cp), add small
-                   random tie-break for variety */
-                Move top_cands[MAX_MOVES];
-                int  top_n = 0;
-                for (int i = 0; i < cand_n; i++) {
-                    if (best_ev - cand_evals[i] <= 3)
-                        top_cands[top_n++] = cands[i];
-                }
-                if (top_n > 0) {
-                    int pick = rng_range(top_n);
-                    result.best_move = top_cands[pick];
-                } else {
-                    result.best_move = cands[best_idx];
-                }
-            }
-        } else if (b->fullmove <= 4) {
-            /* Standard: random pick among equal candidates */
-            int margin = 8;
-            Move cands[MAX_MOVES];
-            int  cand_n = 0;
-            for (int i = 0; i < s_root_count; i++) {
-                if (best_root - s_root_scores[i] <= margin)
-                    cands[cand_n++] = s_root_moves[i];
-            }
-            if (cand_n > 1) {
-                int pick = rng_range(cand_n);
-                result.best_move = cands[pick];
             }
         }
     }
+
+    LOGD("FINAL sk=%d d=%d move=%c%s%s score=%d nodes=%d",
+         s_skill_level, result.depth,
+         pt_char[MOVE_PIECE(result.best_move)],
+         sq_name(MOVE_FROM(result.best_move)),
+         sq_name(MOVE_TO(result.best_move)),
+         result.score, result.nodes);
 
     return result;
 }

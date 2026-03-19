@@ -129,6 +129,26 @@ int evaluate(const Board *b) {
 
     bool is_merc = (b->mod == MOD_MERCENARY);
 
+    /* Pre-compute pawn attack bitboards (Stockfish: used for safe mobility
+       and threat evaluation — pieces on pawn-attacked squares are vulnerable) */
+    Bitboard pawn_atk[2] = {BB_EMPTY, BB_EMPTY};
+    if (is_merc) {
+        for (int c = 0; c < 2; c++) {
+            Bitboard p = b->pieces[c][PAWN];
+            while (p) {
+                Square s = (Square)bb_pop_lsb(&p);
+                pawn_atk[c] |= king_attacks[s];
+            }
+        }
+    } else {
+        Bitboard wp = b->pieces[WHITE][PAWN];
+        pawn_atk[WHITE] = ((wp & ~((Bitboard)0x0101010101010101ULL)) << 7) |
+                           ((wp & ~((Bitboard)0x8080808080808080ULL)) << 9);
+        Bitboard bp = b->pieces[BLACK][PAWN];
+        pawn_atk[BLACK] = ((bp & ~((Bitboard)0x8080808080808080ULL)) >> 7) |
+                           ((bp & ~((Bitboard)0x0101010101010101ULL)) >> 9);
+    }
+
     /* ── 1. Material, PST, Mobility ──────────────────────────────────────── */
 
     for (int c = 0; c < 2; c++) {
@@ -169,19 +189,22 @@ int evaluate(const Board *b) {
                 if (t == PAWN)   pawn_count[c]++;
                 if (t == BISHOP) bishop_count[c]++;
 
-                /* Mobility: count squares attacked not blocked by own pieces */
+                /* Mobility: count safe squares not blocked by own pieces.
+                   Stockfish-inspired: exclude enemy pawn attacks for minor
+                   pieces (knights/bishops/merc pawns) — vulnerable there.
+                   Rooks/queens keep full mobility (they outrange pawns). */
                 Bitboard own_occ = b->occupied[c];
+                Bitboard safe_sq = ~own_occ & ~pawn_atk[c ^ 1];
                 if (t == PAWN && is_merc) {
-                    /* Mercenary pawns move like kings — mobility matters */
-                    int mob = bb_popcount(king_attacks[sq] & ~own_occ);
+                    int mob = bb_popcount(king_attacks[sq] & safe_sq);
                     mg_score[c] += mob * 5;
                     eg_score[c] += mob * 5;
                 } else if (t == KNIGHT) {
-                    int mob = bb_popcount(knight_attacks[sq] & ~own_occ);
+                    int mob = bb_popcount(knight_attacks[sq] & safe_sq);
                     mg_score[c] += mob * 4;
                     eg_score[c] += mob * 4;
                 } else if (t == BISHOP) {
-                    int mob = bb_popcount(bishop_attacks_calc(sq, b->all) & ~own_occ);
+                    int mob = bb_popcount(bishop_attacks_calc(sq, b->all) & safe_sq);
                     mg_score[c] += mob * 5;
                     eg_score[c] += mob * 5;
                 } else if (t == ROOK) {
@@ -421,6 +444,24 @@ int evaluate(const Board *b) {
             int danger = (attack_weight * attack_weight * kw) >> 8;
             score += (c == WHITE) ? -danger : danger;
         }
+    }
+
+    /* ── 7. Threat evaluation (Stockfish-inspired) ───────────────────────── */
+    /*  Bonus for pawns attacking enemy non-pawn pieces.  One of Stockfish's */
+    /*  strongest non-material eval terms — makes the engine target enemy    */
+    /*  pieces with cheap attackers and avoid leaving pieces en prise.       */
+    for (int c = 0; c < 2; c++) {
+        Bitboard threatened = pawn_atk[c] & b->occupied[c ^ 1]
+                            & ~b->pieces[c ^ 1][PAWN];
+        int tb = 0;
+        while (threatened) {
+            Square s = (Square)bb_pop_lsb(&threatened);
+            PieceType pt = PIECE_TYPE(b->mailbox[s]);
+            /* Bonus by victim value: N=30, B=30, R=50, Q=70, K=0 */
+            static const int THREAT_BY_PAWN[] = { 0, 30, 30, 50, 70, 0 };
+            if (pt < 6) tb += THREAT_BY_PAWN[pt];
+        }
+        score += (c == WHITE) ? tb : -tb;
     }
 
     /* Tempo bonus: side to move gets a small bonus (helps the side with
