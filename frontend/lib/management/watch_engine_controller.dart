@@ -7,6 +7,8 @@ import '../board/pieces/piece_color.dart';
 import '../board/game_status.dart';
 import '../engine/engine.dart';
 import '../management/controller.dart';
+import '../services/saved_game.dart';
+import '../services/saved_games_service.dart';
 
 /// Controller for the "Watch Engine" screen.
 ///
@@ -43,10 +45,7 @@ class WatchEngineController extends Controller {
   @override
   void onInit() {
     super.onInit();
-    // Auto-start playing when the page opens
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!isPlaying.value) startPlaying();
-    });
+    // Don't auto-start — wait for the user to press the play button.
   }
 
   @override
@@ -58,7 +57,9 @@ class WatchEngineController extends Controller {
   // ── Playback controls ──────────────────────────────────────────────────
 
   void startPlaying() {
-    debugPrint('[WatchEngine] startPlaying() called - W=${whiteLevel.value.name} B=${blackLevel.value.name}');
+    debugPrint(
+      '[WatchEngine] startPlaying() called - W=${whiteLevel.value.name} B=${blackLevel.value.name}',
+    );
     isPlaying.value = true;
     isPaused.value = false;
     _scheduleNextMove();
@@ -203,31 +204,65 @@ class WatchEngineController extends Controller {
   void _onGameOver() {
     gamesPlayed.value += 1;
     final status = board.gameStatus;
-    debugPrint('[WatchEngine] _onGameOver status=$status isPlaying=${isPlaying.value} autoRestart=${autoRestart.value}');
+    debugPrint(
+      '[WatchEngine] _onGameOver status=$status isPlaying=${isPlaying.value} autoRestart=${autoRestart.value}',
+    );
+
+    String result;
+    String resultReason;
 
     if (status == GameStatus.checkmate) {
       // The side that just moved won (current player is the loser)
       if (board.currentPlayer == PieceColor.black) {
         whiteWins.value += 1;
         moveLog.add('── White wins by checkmate ──');
+        result = 'white';
       } else {
         blackWins.value += 1;
         moveLog.add('── Black wins by checkmate ──');
+        result = 'black';
       }
+      resultReason = 'checkmate';
     } else {
       draws.value += 1;
-      final reason = status == GameStatus.stalemate ? 'stalemate' : 'draw';
-      moveLog.add('── Draw ($reason) ──');
+      resultReason = status == GameStatus.stalemate ? 'stalemate' : 'draw';
+      moveLog.add('── Draw ($resultReason) ──');
+      result = 'draw';
     }
+
+    // Save the game
+    _saveCurrentGame(result, resultReason);
 
     // Auto-restart after a short delay
     if (autoRestart.value && isPlaying.value) {
       Timer(const Duration(seconds: 2), () {
-        debugPrint('[WatchEngine] Auto-restart timer fired: isPlaying=${isPlaying.value} isPaused=${isPaused.value}');
+        debugPrint(
+          '[WatchEngine] Auto-restart timer fired: isPlaying=${isPlaying.value} isPaused=${isPaused.value}',
+        );
         if (isPlaying.value && !isPaused.value) {
           restartGame();
         }
       });
+    }
+  }
+
+  void _saveCurrentGame(String result, String resultReason) {
+    try {
+      final game = SavedGame(
+        id: '${DateTime.now().millisecondsSinceEpoch}',
+        timestamp: DateTime.now(),
+        gameType: gameType.name,
+        whiteLevel: whiteLevel.value.name,
+        blackLevel: blackLevel.value.name,
+        result: result,
+        resultReason: resultReason,
+        moveLog: List<String>.from(moveLog),
+        finalFEN: board.toFEN(),
+        totalMoves: totalMoves.value,
+      );
+      Get.find<SavedGamesService>().saveGame(game);
+    } catch (e) {
+      debugPrint('[WatchEngine] Failed to save game: $e');
     }
   }
 

@@ -119,6 +119,12 @@ class WatchEnginePage extends StatelessWidget {
             },
             tooltip: 'Analyze position',
           ),
+          // Saved games history
+          IconButton(
+            icon: const Icon(Icons.history, color: Colors.white),
+            onPressed: () => Get.toNamed(AppRoutes.savedGames),
+            tooltip: 'Saved games',
+          ),
         ],
       ),
       body: SafeArea(

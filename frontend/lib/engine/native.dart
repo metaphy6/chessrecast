@@ -159,8 +159,12 @@ class NativeEngine {
 
   NativeSearchResult _parseResult(EngineResultNative r, ChessBoard board) {
     // Guard: if the engine returned MOVE_NONE (depth=0, all zeros), return null move
-    if (r.depth == 0 && r.nodes == 0 && r.fromRow == 0 && r.fromCol == 0 &&
-        r.toRow == 0 && r.toCol == 0) {
+    if (r.depth == 0 &&
+        r.nodes == 0 &&
+        r.fromRow == 0 &&
+        r.fromCol == 0 &&
+        r.toRow == 0 &&
+        r.toCol == 0) {
       return NativeSearchResult(
         bestMove: null,
         score: r.score,
