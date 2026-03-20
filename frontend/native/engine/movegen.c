@@ -24,6 +24,9 @@ static void gen_pawn_moves(const Board *b, MoveList *ml, bool captures_only) {
     int   rank2 = (us == WHITE) ? 1 : 6;
     int   rank7 = (us == WHITE) ? 6 : 1;
     Bitboard pawns = b->pieces[us][PAWN];
+    bool truce_no_cap = (b->mod == MOD_TRUCE && b->truce_active);
+    /* Remove pawns that have exhausted their 3-move truce limit */
+    if (truce_no_cap) pawns &= ~b->truce_frozen;
 
     while (pawns) {
         Square sq = (Square)bb_pop_lsb(&pawns);
@@ -41,7 +44,8 @@ static void gen_pawn_moves(const Board *b, MoveList *ml, bool captures_only) {
                     movelist_add(ml, move_simple(sq, to, PAWN));
                 }
             }
-            /* Captures */
+            /* Captures (suppressed during truce) */
+            if (!truce_no_cap) {
             Bitboard caps = targets & b->occupied[them];
             while (caps) {
                 Square to = (Square)bb_pop_lsb(&caps);
@@ -49,6 +53,7 @@ static void gen_pawn_moves(const Board *b, MoveList *ml, bool captures_only) {
                 if (capt == KING) continue; /* can't capture king directly */
                 movelist_add(ml, move_capture(sq, to, PAWN, capt));
             }
+            } /* end truce_no_cap guard */
             continue; /* next pawn */
         }
 
@@ -94,6 +99,8 @@ static void gen_pawn_moves(const Board *b, MoveList *ml, bool captures_only) {
         }
 
         /* Captures */
+        /* Captures (suppressed during truce) */
+        if (!truce_no_cap) {
         for (int dc = -1; dc <= 1; dc += 2) {
             int nc = c + dc;
             if (nc < 0 || nc > 7) continue;
@@ -143,6 +150,7 @@ static void gen_pawn_moves(const Board *b, MoveList *ml, bool captures_only) {
                 }
             }
         }
+        } /* end truce_no_cap guard for pawn captures */
     }
 }
 
@@ -151,6 +159,8 @@ static void gen_piece_moves(const Board *b, MoveList *ml,
     Color us   = b->side;
     Color them = color_opposite(us);
     Bitboard pcs = b->pieces[us][pt];
+    /* Remove pieces that have exhausted their 3-move truce limit */
+    if (b->mod == MOD_TRUCE && b->truce_active) pcs &= ~b->truce_frozen;
 
     while (pcs) {
         Square sq = (Square)bb_pop_lsb(&pcs);
@@ -190,6 +200,11 @@ static void gen_piece_moves(const Board *b, MoveList *ml,
             }
         }
 
+        /* Truce: remove opponent pieces from targets (no captures during truce) */
+        if (b->mod == MOD_TRUCE && b->truce_active) {
+            targets &= ~b->occupied[them];
+        }
+
         if (captures_only) {
             targets &= b->occupied[them];
         }
@@ -217,9 +232,17 @@ static void gen_castling(const Board *b, MoveList *ml) {
     }
 
     Color us = b->side;
+    /* Truce: king frozen = can't castle */
+    if (b->mod == MOD_TRUCE && b->truce_active) {
+        Square ksq = bb_lsb(b->pieces[us][KING]);
+        if (b->truce_frozen & BB_SQ(ksq)) return;
+    }
     /* Heir: can castle even while in "check" when check rules don't apply */
     bool need_check_safe = true;
     if (b->mod == MOD_HEIR && !heir_check_applies(b, us))
+        need_check_safe = false;
+    /* Truce: no check during truce, so castling doesn't need check safety */
+    if (b->mod == MOD_TRUCE && b->truce_active)
         need_check_safe = false;
 
     if (need_check_safe && board_in_check(b, us)) return;
@@ -316,6 +339,8 @@ void generate_moves(const Board *b, MoveList *ml) {
 
 void generate_captures(const Board *b, MoveList *ml) {
     movelist_clear(ml);
+    /* Truce: no captures allowed during active truce */
+    if (b->mod == MOD_TRUCE && b->truce_active) return;
     board_init_attacks();  /* ensure knight/king/pawn tables are ready */
     Board tmp;
     memcpy(&tmp, b, sizeof(Board));

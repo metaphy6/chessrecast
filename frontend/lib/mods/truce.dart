@@ -6,7 +6,8 @@ import 'game_mod.dart';
 ///
 /// Rules:
 /// - Players cannot capture opponent pieces until truce is broken
-/// - Truce breaks when one player has exhausted all unmoved pieces (all moved or blocked)
+/// - Truce breaks when one player has made all legal truce moves:
+///   all pieces have moved at least once, or remaining unmoved pieces are blocked
 /// - During truce, no piece can be moved more than 3 times
 /// - NO check or checkmate during truce - kings move freely
 /// - Once truce is broken, normal chess rules apply including check/checkmate/captures
@@ -51,60 +52,103 @@ class Truce extends GameMod {
     final wasTruceActive = !_isTruceBroken(board);
 
     // Check if truce should end after this move
-    // Truce ends when player has exhausted all unmoved pieces
-    if (wasTruceActive) {
-      // Count pieces that have moved after this move
-      final movedPieces = _getMovedPieces(board, move.piece.color);
-      movedPieces.add(move.from);
-
-      final totalPieces = board.getPiecesOfColor(move.piece.color).length;
-      final isTruceNowBroken =
-          movedPieces.length >= totalPieces && totalPieces > 0;
-
-      if (isTruceNowBroken) {
-        logTruceBroken(
-          move.piece.color == PieceColor.white ? 'white' : 'black',
-        );
-      }
+    // Truce ends when player has exhausted all legal truce moves
+    // (all pieces moved, or remaining unmoved pieces are blocked)
+    if (wasTruceActive && !_isTruceBroken(board)) {
+      // _isTruceBroken checks the post-move state already; if it returns
+      // false here we're still in truce.  Nothing to log.
+    } else if (wasTruceActive) {
+      logTruceBroken(
+        move.piece.color == PieceColor.white ? 'white' : 'black',
+      );
     }
 
     return null;
   }
 
-  /// Check if truce is broken for the board
+  /// Check if truce is broken for the board.
+  /// Truce breaks when one player has exhausted all legal truce moves:
+  /// every piece has either moved at least once OR is blocked (no
+  /// non-capturing moves available).
   bool _isTruceBroken(ChessBoard board) {
-    // Check if either player has exhausted all unmoved pieces
     for (final color in [PieceColor.white, PieceColor.black]) {
       final movedPieces = _getMovedPieces(board, color);
       final currentPieces = board.getPiecesOfColor(color);
+      if (currentPieces.isEmpty) continue;
 
-      // Count how many current pieces have moved
-      int currentPiecesThatHaveMoved = 0;
+      int exhaustedCount = 0;
       for (final piece in currentPieces) {
+        bool hasMoved = false;
         if (movedPieces.contains(piece.position)) {
-          currentPiecesThatHaveMoved++;
+          hasMoved = true;
         } else {
-          // Check if piece moved TO this position
-          bool hasMoved = false;
           for (final move in board.moveHistory) {
             if (move.piece.color == color && move.to == piece.position) {
               hasMoved = true;
               break;
             }
           }
-          if (hasMoved) {
-            currentPiecesThatHaveMoved++;
-          }
+        }
+
+        if (hasMoved) {
+          exhaustedCount++;
+        } else if (!_canPieceMoveWithoutCapture(board, piece)) {
+          // Unmoved AND blocked → counts as exhausted
+          exhaustedCount++;
         }
       }
 
-      if (currentPiecesThatHaveMoved >= currentPieces.length &&
-          currentPieces.isNotEmpty) {
+      if (exhaustedCount >= currentPieces.length) {
         return true;
       }
     }
 
     return false;
+  }
+
+  /// Returns true when [piece] has at least one non-capturing move.
+  /// Uses simple directional checks (no full move-gen) to avoid
+  /// circular dependency with filterMoves → _isTruceBroken.
+  bool _canPieceMoveWithoutCapture(ChessBoard board, ChessPiece piece) {
+    final pos = piece.position;
+    switch (piece.type) {
+      case PieceType.pawn:
+        final dir = piece.color == PieceColor.white ? 1 : -1;
+        final oneStep = pos.offset(dir, 0);
+        return oneStep.isValid && board.getPieceAt(oneStep) == null;
+      case PieceType.knight:
+        const offsets = [
+          [-2, -1], [-2, 1], [-1, -2], [-1, 2],
+          [1, -2], [1, 2], [2, -1], [2, 1],
+        ];
+        for (final o in offsets) {
+          final t = pos.offset(o[0], o[1]);
+          if (t.isValid && board.getPieceAt(t) == null) return true;
+        }
+        return false;
+      case PieceType.bishop:
+        for (final d in [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+          final t = pos.offset(d[0], d[1]);
+          if (t.isValid && board.getPieceAt(t) == null) return true;
+        }
+        return false;
+      case PieceType.rook:
+        for (final d in [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          final t = pos.offset(d[0], d[1]);
+          if (t.isValid && board.getPieceAt(t) == null) return true;
+        }
+        return false;
+      case PieceType.queen:
+      case PieceType.king:
+        for (final d in [
+          [1, 0], [-1, 0], [0, 1], [0, -1],
+          [1, 1], [1, -1], [-1, 1], [-1, -1],
+        ]) {
+          final t = pos.offset(d[0], d[1]);
+          if (t.isValid && board.getPieceAt(t) == null) return true;
+        }
+        return false;
+    }
   }
 
   /// Public method to check if truce is still active
@@ -146,23 +190,33 @@ class Truce extends GameMod {
     return movedPositions;
   }
 
+  /// Returns a bitboard of squares where pieces have exhausted their 3-move truce limit.
+  /// Bit i is set if the piece at square (row=i/8, col=i%8) cannot be moved.
+  int getTruceFrozenBitboard(ChessBoard board) {
+    if (_isTruceBroken(board)) return 0;
+    int frozen = 0;
+    for (final piece in board.pieces) {
+      if (_getPieceMoveCount(board, piece) >= 3) {
+        final sq = piece.position.row * 8 + piece.position.col;
+        frozen |= (1 << sq);
+      }
+    }
+    return frozen;
+  }
+
   /// Get truce status information for display
   Map<String, dynamic> getTruceInfo(ChessBoard board) {
+    final isBroken = _isTruceBroken(board);
     final whiteMovedPieces = _getMovedPieces(board, PieceColor.white);
     final blackMovedPieces = _getMovedPieces(board, PieceColor.black);
 
     final whiteTotalPieces = board.getPiecesOfColor(PieceColor.white).length;
     final blackTotalPieces = board.getPiecesOfColor(PieceColor.black).length;
 
-    final whiteTruceBroken =
-        whiteMovedPieces.length >= whiteTotalPieces && whiteTotalPieces > 0;
-    final blackTruceBroken =
-        blackMovedPieces.length >= blackTotalPieces && blackTotalPieces > 0;
-
     return {
-      'truceActive': !whiteTruceBroken && !blackTruceBroken,
-      'whiteTruceBroken': whiteTruceBroken,
-      'blackTruceBroken': blackTruceBroken,
+      'truceActive': !isBroken,
+      'whiteTruceBroken': isBroken,
+      'blackTruceBroken': isBroken,
       'whiteMovedPieces': whiteMovedPieces.length,
       'blackMovedPieces': blackMovedPieces.length,
       'whiteTotalPieces': whiteTotalPieces,

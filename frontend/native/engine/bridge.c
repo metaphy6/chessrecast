@@ -24,6 +24,7 @@ EXPORT void engine_find_move(const char *fen, int mod,
                              int time_ms, int max_depth,
                              int skill_level,
                              int heir_wp, int heir_bp,
+                             int truce_active, int64_t truce_frozen,
                              EngineResult *result) {
     engine_init();
 
@@ -32,6 +33,8 @@ EXPORT void engine_find_move(const char *fen, int mod,
     board.mod = (GameMod)mod;
     board.heir_promoted[WHITE] = (uint8_t)(heir_wp ? 1 : 0);
     board.heir_promoted[BLACK] = (uint8_t)(heir_bp ? 1 : 0);
+    board.truce_active = (uint8_t)(truce_active ? 1 : 0);
+    board.truce_frozen = (uint64_t)truce_frozen;
 
     SearchResult sr = search_think(&board, time_ms, max_depth, skill_level);
 
@@ -56,6 +59,7 @@ EXPORT int engine_apply_move(const char *fen, int mod,
                              int time_ms, int max_depth,
                              int skill_level,
                              int heir_wp, int heir_bp,
+                             int truce_active, int64_t truce_frozen,
                              char *result_fen, int bufsize,
                              EngineResult *result) {
     engine_init();
@@ -65,6 +69,8 @@ EXPORT int engine_apply_move(const char *fen, int mod,
     board.mod = (GameMod)mod;
     board.heir_promoted[WHITE] = (uint8_t)(heir_wp ? 1 : 0);
     board.heir_promoted[BLACK] = (uint8_t)(heir_bp ? 1 : 0);
+    board.truce_active = (uint8_t)(truce_active ? 1 : 0);
+    board.truce_frozen = (uint64_t)truce_frozen;
 
     SearchResult sr = search_think(&board, time_ms, max_depth, skill_level);
 

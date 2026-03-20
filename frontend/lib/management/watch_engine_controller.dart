@@ -42,7 +42,6 @@ class WatchEngineController extends Controller {
   Timer? _moveTimer;
   bool _thinking = false;
 
-
   @override
   void onClose() {
     _moveTimer?.cancel();
@@ -176,8 +175,8 @@ class WatchEngineController extends Controller {
       final moveNum = (totalMoves.value + 1) ~/ 2;
       final scoreStr = _formatScore(result.score);
       final logEntry =
-        '$moveNum$side. ${_moveNotation(result.bestMove!)} '
-        '(d${result.depth} $scoreStr ${_formatNodes(result.nodesSearched)})';
+          '$moveNum$side. ${_moveNotation(result.bestMove!)} '
+          '(d${result.depth} $scoreStr ${_formatNodes(result.nodesSearched)})';
       moveLog.add(logEntry);
       debugPrint('[WatchEngine] moveLog[${moveLog.length}]: $logEntry');
 

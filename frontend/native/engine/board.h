@@ -29,6 +29,12 @@ typedef struct {
     /* Heir mod state: whether each side has promoted a pawn to king */
     uint8_t  heir_promoted[2]; /* [WHITE]=0/1, [BLACK]=0/1 */
 
+    /* Truce mod state: whether truce is currently active (no captures, no check) */
+    uint8_t  truce_active;
+
+    /* Truce mod: bitboard of squares whose pieces have exhausted the 3-move limit */
+    uint64_t truce_frozen;
+
     /* Zobrist hash */
     uint64_t hash;
 
@@ -42,6 +48,7 @@ typedef struct {
         int      halfmove;
         uint64_t hash;
         uint8_t  heir_promoted[2]; /* saved heir state for undo */
+        uint8_t  truce_active;     /* saved truce state for undo */
     } history[MAX_HISTORY];
     int ply;
 } Board;

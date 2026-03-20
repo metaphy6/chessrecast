@@ -9,6 +9,7 @@ import '../board/moves/move.dart';
 import '../board/moves/position.dart';
 import '../board/piece.dart';
 import '../mods/mods_enum.dart';
+import '../mods/mods_cache.dart';
 import 'search.dart';
 
 // ─── Native Engine FFI Bindings ──────────────────────────────────────────────
@@ -57,6 +58,8 @@ typedef _EngineFindMoveNative =
       Int32 skillLevel,
       Int32 heirWp,
       Int32 heirBp,
+      Int32 truceActive,
+      Int64 truceFrozen,
       Pointer<EngineResultNative> result,
     );
 typedef _EngineFindMoveDart =
@@ -68,6 +71,8 @@ typedef _EngineFindMoveDart =
       int skillLevel,
       int heirWp,
       int heirBp,
+      int truceActive,
+      int truceFrozen,
       Pointer<EngineResultNative> result,
     );
 
@@ -122,6 +127,8 @@ class NativeEngine {
         return 1;
       case ModsEnum.heir:
         return 2;
+      case ModsEnum.truce:
+        return 3;
       default:
         return 0;
     }
@@ -140,6 +147,12 @@ class NativeEngine {
     final mod = _modToInt(board.gameType);
     final heirWp = board.whiteHasPromotedKing ? 1 : 0;
     final heirBp = board.blackHasPromotedKing ? 1 : 0;
+    final truceActive = board.gameType == ModsEnum.truce
+        ? (mods.truce.isTruceActive(board) ? 1 : 0)
+        : 0;
+    final truceFrozen = board.gameType == ModsEnum.truce
+        ? mods.truce.getTruceFrozenBitboard(board)
+        : 0;
     final fenPtr = fen.toNativeUtf8();
     final resultPtr = calloc<EngineResultNative>();
 
@@ -152,6 +165,8 @@ class NativeEngine {
         skillLevel,
         heirWp,
         heirBp,
+        truceActive,
+        truceFrozen,
         resultPtr,
       );
       return _parseResult(resultPtr.ref, board);

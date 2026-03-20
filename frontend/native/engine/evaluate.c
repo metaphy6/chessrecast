@@ -142,6 +142,7 @@ int evaluate(const Board *b) {
 
     bool is_merc = (b->mod == MOD_MERCENARY);
     bool is_heir = (b->mod == MOD_HEIR);
+    bool is_truce_active = (b->mod == MOD_TRUCE && b->truce_active);
 
     /* Pre-compute pawn attack bitboards (Stockfish: used for safe mobility
        and threat evaluation — pieces on pawn-attacked squares are vulnerable) */
@@ -375,6 +376,60 @@ int evaluate(const Board *b) {
 
             score += (c == WHITE) ? bonus : -bonus;
         }
+    }
+
+    /* ── Truce-specific strategic evaluation ─────────────────────────────── */
+    if (is_truce_active) {
+        /* During truce: no captures allowed, so focus on development,
+           center control, and preparation for post-truce combat.
+           Standard PST/mobility already helps; add extra strategic bonuses. */
+        for (int c = 0; c < 2; c++) {
+            int bonus = 0;
+
+            /* Development: pieces off their back rank indicate preparation.
+               Back rank for White = row 0, for Black = row 7. */
+            int back_rank = (c == WHITE) ? 0 : 7;
+            for (int t = KNIGHT; t <= QUEEN; t++) {
+                Bitboard bb = b->pieces[c][t];
+                while (bb) {
+                    Square sq = (Square)bb_pop_lsb(&bb);
+                    if (SQ_ROW(sq) != back_rank) bonus += 8;
+                }
+            }
+
+            /* Center control: pieces on central squares (d4/d5/e4/e5) */
+            static const Bitboard center4 =
+                ((Bitboard)1 << SQ(3,3)) | ((Bitboard)1 << SQ(3,4)) |
+                ((Bitboard)1 << SQ(4,3)) | ((Bitboard)1 << SQ(4,4));
+            int cent = bb_popcount(b->occupied[c] & center4);
+            bonus += cent * 15;
+
+            /* Extended center (c3-f6 region) */
+            static const Bitboard ext_center =
+                ((Bitboard)1 << SQ(2,2)) | ((Bitboard)1 << SQ(2,3)) |
+                ((Bitboard)1 << SQ(2,4)) | ((Bitboard)1 << SQ(2,5)) |
+                ((Bitboard)1 << SQ(3,2)) | ((Bitboard)1 << SQ(3,5)) |
+                ((Bitboard)1 << SQ(4,2)) | ((Bitboard)1 << SQ(4,5)) |
+                ((Bitboard)1 << SQ(5,2)) | ((Bitboard)1 << SQ(5,3)) |
+                ((Bitboard)1 << SQ(5,4)) | ((Bitboard)1 << SQ(5,5));
+            int ext = bb_popcount(b->occupied[c] & ext_center);
+            bonus += ext * 6;
+
+            /* Space: pieces advanced into opponent's half */
+            for (int t = KNIGHT; t <= QUEEN; t++) {
+                Bitboard bb = b->pieces[c][t];
+                while (bb) {
+                    Square sq = (Square)bb_pop_lsb(&bb);
+                    int rank = (c == WHITE) ? SQ_ROW(sq) : (7 - SQ_ROW(sq));
+                    if (rank >= 4) bonus += 10;
+                }
+            }
+
+            score += (c == WHITE) ? bonus : -bonus;
+        }
+
+        /* Tempo bonus during truce (initiative matters for development) */
+        score += (b->side == WHITE) ? 12 : -12;
     }
 
     /* ── 3. Pawn structure (doubled, isolated) — skip for Mercenary ──── */

@@ -207,8 +207,8 @@ class Orchestrator {
     // Check/checkmate detection when check rules apply for current player
     if (mods.heir.shouldApplyCheckRules(board.currentPlayer, board)) {
       final currentKing = board.getKing(board.currentPlayer);
-      final inCheck = currentKing != null &&
-          board.isKingInCheck(board.currentPlayer);
+      final inCheck =
+          currentKing != null && board.isKingInCheck(board.currentPlayer);
       if (inCheck) {
         if (hasValidMoves) {
           newStatus = GameStatus.check;
