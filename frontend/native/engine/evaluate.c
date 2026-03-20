@@ -122,6 +122,46 @@ static const int PST_HEIR_PAWN[64] = {
      0,  0,  0,  0,  0,  0,  0,  0,   /* rank 8 */
 };
 
+/* Truce pawns: center control and space preparation are paramount.
+   Advanced central pawns control key squares for the post-truce fight.
+   Edge pawns are less useful since they control fewer squares. */
+static const int PST_TRUCE_PAWN[64] = {
+     0,  0,  0,  0,  0,  0,  0,  0,   /* rank 1 */
+     2,  5,  8, 12, 12,  8,  5,  2,   /* rank 2: slight center pull */
+     5, 10, 18, 28, 28, 18, 10,  5,   /* rank 3: developing */
+     8, 15, 28, 38, 38, 28, 15,  8,   /* rank 4: strong center */
+    12, 20, 32, 42, 42, 32, 20, 12,   /* rank 5: deep space */
+    18, 25, 35, 45, 45, 35, 25, 18,   /* rank 6: advanced */
+    25, 30, 40, 50, 50, 40, 30, 25,   /* rank 7: threatening */
+     0,  0,  0,  0,  0,  0,  0,  0,   /* rank 8 */
+};
+
+/* Truce knights: outpost-focused.  Central squares and deep positions
+   are very strong since they can't be easily exchanged during truce. */
+static const int PST_TRUCE_KNIGHT[64] = {
+    -50,-35,-25,-25,-25,-25,-35,-50,
+    -35,-15,  5,  8,  8,  5,-15,-35,
+    -20,  8, 18, 25, 25, 18,  8,-20,
+    -15, 10, 25, 35, 35, 25, 10,-15,   /* rank 4: strong outpost zone */
+    -15, 12, 28, 38, 38, 28, 12,-15,   /* rank 5: deep outpost */
+    -20, 10, 22, 30, 30, 22, 10,-20,
+    -35,-15,  5, 10, 10,  5,-15,-35,
+    -50,-35,-25,-25,-25,-25,-35,-50,
+};
+
+/* Truce bishops: long diagonal control is key when captures are banned.
+   Bishops that control the center from afar are very strong. */
+static const int PST_TRUCE_BISHOP[64] = {
+    -20,-10,-15,-10,-10,-15,-10,-20,
+    -10, 10,  5,  8,  8,  5, 10,-10,
+    -10, 12, 15, 18, 18, 15, 12,-10,
+     -5, 10, 18, 22, 22, 18, 10, -5,
+     -5, 12, 18, 22, 22, 18, 12, -5,
+    -10, 12, 15, 18, 18, 15, 12,-10,
+    -10, 15, 10,  8,  8, 10, 15,-10,
+    -20,-10,-15,-10,-10,-15,-10,-20,
+};
+
 static const int *PST_TABLE[6] = {
     PST_PAWN, PST_KNIGHT, PST_BISHOP, PST_ROOK, PST_QUEEN, PST_KING_MG
 };
@@ -215,6 +255,18 @@ int evaluate(const Board *b) {
                         mg_score[c] += adv;
                         eg_score[c] += adv * 2;
                     }
+                } else if (t == PAWN && is_truce_active) {
+                    /* Truce pawns: center control + space for post-truce */
+                    mg_score[c] += PST_TRUCE_PAWN[idx];
+                    eg_score[c] += PST_TRUCE_PAWN[idx];
+                } else if (t == KNIGHT && is_truce_active) {
+                    /* Truce knights: outpost-focused PST */
+                    mg_score[c] += PST_TRUCE_KNIGHT[idx];
+                    eg_score[c] += PST_TRUCE_KNIGHT[idx];
+                } else if (t == BISHOP && is_truce_active) {
+                    /* Truce bishops: diagonal control emphasis */
+                    mg_score[c] += PST_TRUCE_BISHOP[idx];
+                    eg_score[c] += PST_TRUCE_BISHOP[idx];
                 } else if (t == KING) {
                     mg_score[c] += PST_KING_MG[idx];
                     eg_score[c] += PST_KING_EG[idx];
@@ -229,31 +281,36 @@ int evaluate(const Board *b) {
                 /* Mobility: count safe squares not blocked by own pieces.
                    Stockfish-inspired: exclude enemy pawn attacks for minor
                    pieces (knights/bishops/merc pawns) — vulnerable there.
-                   Rooks/queens keep full mobility (they outrange pawns). */
+                   Rooks/queens keep full mobility (they outrange pawns).
+                   Truce: mobility is more valuable since pieces can't be
+                   traded — a well-placed piece stays strong longer. */
                 Bitboard own_occ = b->occupied[c];
                 Bitboard safe_sq = ~own_occ & ~pawn_atk[c ^ 1];
+                /* Truce mobility multiplier: pieces that control more squares
+                   exert more pressure once the truce breaks */
+                int truce_mob_extra = is_truce_active ? 2 : 0;
                 if (t == PAWN && is_merc) {
                     int mob = bb_popcount(king_attacks[sq] & safe_sq);
                     mg_score[c] += mob * 5;
                     eg_score[c] += mob * 5;
                 } else if (t == KNIGHT) {
                     int mob = bb_popcount(knight_attacks[sq] & safe_sq);
-                    mg_score[c] += mob * 4;
-                    eg_score[c] += mob * 4;
+                    mg_score[c] += mob * (4 + truce_mob_extra);
+                    eg_score[c] += mob * (4 + truce_mob_extra);
                 } else if (t == BISHOP) {
                     int mob = bb_popcount(bishop_attacks_calc(sq, b->all) & safe_sq);
-                    mg_score[c] += mob * 5;
-                    eg_score[c] += mob * 5;
+                    mg_score[c] += mob * (5 + truce_mob_extra);
+                    eg_score[c] += mob * (5 + truce_mob_extra);
                 } else if (t == ROOK) {
                     int mob = bb_popcount(rook_attacks_calc(sq, b->all) & ~own_occ);
-                    mg_score[c] += mob * 2;
-                    eg_score[c] += mob * 3;
+                    mg_score[c] += mob * (2 + truce_mob_extra);
+                    eg_score[c] += mob * (3 + truce_mob_extra);
                 } else if (t == QUEEN) {
                     Bitboard q_atk = bishop_attacks_calc(sq, b->all)
                                    | rook_attacks_calc(sq, b->all);
                     int mob = bb_popcount(q_atk & ~own_occ);
-                    mg_score[c] += mob * 1;
-                    eg_score[c] += mob * 2;
+                    mg_score[c] += mob * (1 + (is_truce_active ? 1 : 0));
+                    eg_score[c] += mob * (2 + (is_truce_active ? 1 : 0));
                 }
             }
         }
@@ -380,29 +437,47 @@ int evaluate(const Board *b) {
 
     /* ── Truce-specific strategic evaluation ─────────────────────────────── */
     if (is_truce_active) {
-        /* During truce: no captures allowed, so focus on development,
-           center control, and preparation for post-truce combat.
-           Standard PST/mobility already helps; add extra strategic bonuses. */
+        /* During truce: no captures allowed, so the engine must focus on
+           development, center/space control, piece coordination, outposts,
+           open files, king safety preparation, and pawn structure — all
+           preparing for the post-truce combat phase. */
         for (int c = 0; c < 2; c++) {
+            int opp = c ^ 1;
             int bonus = 0;
 
-            /* Development: pieces off their back rank indicate preparation.
-               Back rank for White = row 0, for Black = row 7. */
+            /* ─ Development: differentiated by piece type ────────────── */
             int back_rank = (c == WHITE) ? 0 : 7;
+            int second_rank = (c == WHITE) ? 1 : 6;
+            int developed_count = 0;
             for (int t = KNIGHT; t <= QUEEN; t++) {
                 Bitboard bb = b->pieces[c][t];
                 while (bb) {
                     Square sq = (Square)bb_pop_lsb(&bb);
-                    if (SQ_ROW(sq) != back_rank) bonus += 8;
+                    int row = SQ_ROW(sq);
+                    if (row != back_rank) {
+                        developed_count++;
+                        /* Knights and bishops: bigger dev bonus (develop first) */
+                        if (t == KNIGHT || t == BISHOP) bonus += 15;
+                        /* Rooks: modest bonus for leaving back rank early */
+                        else if (t == ROOK) bonus += 8;
+                        /* Queen: slight bonus but not too early */
+                        else bonus += 5;
+                    } else {
+                        /* Penalty for undeveloped minor pieces */
+                        if (t == KNIGHT || t == BISHOP) bonus -= 10;
+                    }
                 }
             }
+            /* Synergy bonus: developing multiple pieces is better than one */
+            if (developed_count >= 3) bonus += 12;
+            if (developed_count >= 5) bonus += 8;
 
-            /* Center control: pieces on central squares (d4/d5/e4/e5) */
+            /* ─ Center control: pieces on central squares ────────────── */
             static const Bitboard center4 =
                 ((Bitboard)1 << SQ(3,3)) | ((Bitboard)1 << SQ(3,4)) |
                 ((Bitboard)1 << SQ(4,3)) | ((Bitboard)1 << SQ(4,4));
             int cent = bb_popcount(b->occupied[c] & center4);
-            bonus += cent * 15;
+            bonus += cent * 20;
 
             /* Extended center (c3-f6 region) */
             static const Bitboard ext_center =
@@ -413,41 +488,219 @@ int evaluate(const Board *b) {
                 ((Bitboard)1 << SQ(5,2)) | ((Bitboard)1 << SQ(5,3)) |
                 ((Bitboard)1 << SQ(5,4)) | ((Bitboard)1 << SQ(5,5));
             int ext = bb_popcount(b->occupied[c] & ext_center);
-            bonus += ext * 6;
+            bonus += ext * 8;
 
-            /* Space: pieces advanced into opponent's half */
+            /* ─ Knight outposts: knights on rank 4-5 in center ───────── */
+            /* Outpost = knight on rank 4/5, supported by own pawn,
+               not attackable by enemy pawns on adjacent files */
+            {
+                Bitboard knights = b->pieces[c][KNIGHT];
+                while (knights) {
+                    Square sq = (Square)bb_pop_lsb(&knights);
+                    int rank = (c == WHITE) ? SQ_ROW(sq) : (7 - SQ_ROW(sq));
+                    int col = SQ_COL(sq);
+                    if (rank >= 3 && rank <= 5) {
+                        /* Check if supported by own pawn */
+                        bool supported = false;
+                        int pawn_row = (c == WHITE) ? SQ_ROW(sq) - 1 : SQ_ROW(sq) + 1;
+                        if (pawn_row >= 0 && pawn_row < 8) {
+                            if (col > 0 && BB_HAS(b->pieces[c][PAWN], SQ(pawn_row, col - 1)))
+                                supported = true;
+                            if (col < 7 && BB_HAS(b->pieces[c][PAWN], SQ(pawn_row, col + 1)))
+                                supported = true;
+                        }
+                        /* Check if enemy pawns can attack this square */
+                        bool no_enemy_pawn_attack = true;
+                        Bitboard adj_files = BB_EMPTY;
+                        if (col > 0) adj_files |= (Bitboard)0x0101010101010101ULL << (col - 1);
+                        if (col < 7) adj_files |= (Bitboard)0x0101010101010101ULL << (col + 1);
+                        /* Ahead of the knight (from the perspective of
+                           the opponent whose pawns would advance toward it) */
+                        Bitboard ahead_mask = BB_EMPTY;
+                        if (c == WHITE) {
+                            for (int r = SQ_ROW(sq) + 1; r < 8; r++)
+                                ahead_mask |= (Bitboard)1 << SQ(r, 0);
+                            /* shift to fill rank bits — build row mask */
+                            ahead_mask = BB_EMPTY;
+                            for (int r = SQ_ROW(sq) + 1; r < 8; r++)
+                                for (int fc = 0; fc < 8; fc++)
+                                    ahead_mask |= (Bitboard)1 << SQ(r, fc);
+                        } else {
+                            ahead_mask = BB_EMPTY;
+                            for (int r = 0; r < SQ_ROW(sq); r++)
+                                for (int fc = 0; fc < 8; fc++)
+                                    ahead_mask |= (Bitboard)1 << SQ(r, fc);
+                        }
+                        if (b->pieces[opp][PAWN] & adj_files & ahead_mask)
+                            no_enemy_pawn_attack = false;
+
+                        int outpost_bonus = 15;
+                        if (supported) outpost_bonus += 12;
+                        if (no_enemy_pawn_attack) outpost_bonus += 10;
+                        /* Central outposts are stronger */
+                        if (col >= 2 && col <= 5) outpost_bonus += 8;
+                        bonus += outpost_bonus;
+                    }
+                }
+            }
+
+            /* ─ Bishop pair bonus during truce: very strong since you
+               can't exchange them during the truce phase ─────────────── */
+            if (bishop_count[c] >= 2) bonus += 25;
+
+            /* ─ Bishop long diagonal control ─────────────────────────── */
+            {
+                static const Bitboard long_diag_1 =
+                    ((Bitboard)1 << SQ(0,0)) | ((Bitboard)1 << SQ(1,1)) |
+                    ((Bitboard)1 << SQ(2,2)) | ((Bitboard)1 << SQ(3,3)) |
+                    ((Bitboard)1 << SQ(4,4)) | ((Bitboard)1 << SQ(5,5)) |
+                    ((Bitboard)1 << SQ(6,6)) | ((Bitboard)1 << SQ(7,7));
+                static const Bitboard long_diag_2 =
+                    ((Bitboard)1 << SQ(0,7)) | ((Bitboard)1 << SQ(1,6)) |
+                    ((Bitboard)1 << SQ(2,5)) | ((Bitboard)1 << SQ(3,4)) |
+                    ((Bitboard)1 << SQ(4,3)) | ((Bitboard)1 << SQ(5,2)) |
+                    ((Bitboard)1 << SQ(6,1)) | ((Bitboard)1 << SQ(7,0));
+                Bitboard bishops = b->pieces[c][BISHOP];
+                while (bishops) {
+                    Square sq = (Square)bb_pop_lsb(&bishops);
+                    Bitboard diag_atk = bishop_attacks_calc(sq, b->all);
+                    /* Bonus for controlling central part of long diagonals */
+                    int diag_center = bb_popcount(diag_atk & (center4 | ext_center));
+                    bonus += diag_center * 4;
+                    /* Extra bonus for being on the long diagonals */
+                    if (BB_HAS(long_diag_1, sq) || BB_HAS(long_diag_2, sq))
+                        bonus += 8;
+                }
+            }
+
+            /* ─ Rook: open/semi-open file preparation ────────────────── */
+            {
+                Bitboard rooks = b->pieces[c][ROOK];
+                while (rooks) {
+                    Square sq = (Square)bb_pop_lsb(&rooks);
+                    Bitboard file = (Bitboard)0x0101010101010101ULL << SQ_COL(sq);
+                    bool own_p = (b->pieces[c][PAWN] & file) != 0;
+                    bool opp_p = (b->pieces[opp][PAWN] & file) != 0;
+                    if (!own_p && !opp_p) bonus += 20;      /* open file */
+                    else if (!own_p)       bonus += 12;      /* semi-open */
+                    /* Rook on 7th rank (opponent's 2nd) */
+                    int sev_rank = (c == WHITE) ? 6 : 1;
+                    if (SQ_ROW(sq) == sev_rank) bonus += 15;
+                }
+            }
+
+            /* ─ Rook connectivity: doubled rooks on same file/rank ───── */
+            {
+                Bitboard rooks = b->pieces[c][ROOK];
+                int rook_count = bb_popcount(rooks);
+                if (rook_count >= 2) {
+                    /* Check if two rooks share the same file or rank */
+                    Bitboard rtmp = rooks;
+                    Square r1 = (Square)bb_pop_lsb(&rtmp);
+                    Square r2 = (Square)bb_pop_lsb(&rtmp);
+                    if (SQ_COL(r1) == SQ_COL(r2) || SQ_ROW(r1) == SQ_ROW(r2))
+                        bonus += 15;
+                }
+            }
+
+            /* ─ Space: pieces advanced into opponent's half ──────────── */
             for (int t = KNIGHT; t <= QUEEN; t++) {
                 Bitboard bb = b->pieces[c][t];
                 while (bb) {
                     Square sq = (Square)bb_pop_lsb(&bb);
                     int rank = (c == WHITE) ? SQ_ROW(sq) : (7 - SQ_ROW(sq));
-                    if (rank >= 4) bonus += 10;
+                    if (rank >= 4) bonus += 12;
+                    if (rank >= 5) bonus += 8;  /* deeper = stronger */
                 }
+            }
+
+            /* ─ Pawn connectivity: connected pawns form strong chains ── */
+            {
+                Bitboard pawns = b->pieces[c][PAWN];
+                Bitboard tmp = pawns;
+                int connected = 0;
+                int isolated_cnt = 0;
+                while (tmp) {
+                    Square sq = (Square)bb_pop_lsb(&tmp);
+                    int col = SQ_COL(sq);
+                    Bitboard adj = BB_EMPTY;
+                    if (col > 0) adj |= (Bitboard)0x0101010101010101ULL << (col - 1);
+                    if (col < 7) adj |= (Bitboard)0x0101010101010101ULL << (col + 1);
+                    if (pawns & adj) {
+                        connected++;
+                    } else {
+                        isolated_cnt++;
+                    }
+                }
+                bonus += connected * 5 - isolated_cnt * 10;
+            }
+
+            /* ─ King safety preparation: king should castle early ────── */
+            {
+                Bitboard kbb = b->pieces[c][KING];
+                if (kbb) {
+                    Square ksq = bb_lsb(kbb);
+                    int kc = SQ_COL(ksq);
+                    /* Bonus if king is castled (on the wing) */
+                    if (kc <= 2 || kc >= 6) bonus += 18;
+                    /* Penalty for king stuck in center during truce */
+                    if (kc >= 3 && kc <= 4) bonus -= 12;
+                    /* Pawn shield in front of king */
+                    int fwd = (c == WHITE) ? 1 : -1;
+                    int shield = 0;
+                    for (int dc = -1; dc <= 1; dc++) {
+                        int nc = kc + dc, nr = SQ_ROW(ksq) + fwd;
+                        if (nc < 0 || nc > 7 || nr < 0 || nr > 7) continue;
+                        if (BB_HAS(b->pieces[c][PAWN], SQ(nr, nc))) shield++;
+                    }
+                    bonus += shield * 10;
+                }
+            }
+
+            /* ─ Piece harmony: having a variety of developed pieces ──── */
+            {
+                int piece_types_developed = 0;
+                for (int t = KNIGHT; t <= QUEEN; t++) {
+                    Bitboard bb = b->pieces[c][t];
+                    while (bb) {
+                        Square sq = (Square)bb_pop_lsb(&bb);
+                        if (SQ_ROW(sq) != back_rank) {
+                            piece_types_developed |= (1 << t);
+                            break;
+                        }
+                    }
+                }
+                int variety = bb_popcount((Bitboard)piece_types_developed);
+                bonus += variety * 8;
             }
 
             score += (c == WHITE) ? bonus : -bonus;
         }
 
         /* Tempo bonus during truce (initiative matters for development) */
-        score += (b->side == WHITE) ? 12 : -12;
+        score += (b->side == WHITE) ? 15 : -15;
     }
 
     /* ── 3. Pawn structure (doubled, isolated) — skip for Mercenary ──── */
     if (!is_merc) {
+        /* During truce, pawn structure defects can't be fixed (no captures),
+           so penalties are amplified */
+        int doubled_pen = is_truce_active ? 22 : 15;
+        int isolated_pen = is_truce_active ? 18 : 12;
         for (int col = 0; col < 8; col++) {
             Bitboard file_mask = (Bitboard)0x0101010101010101ULL << col;
             int wp = bb_popcount(b->pieces[WHITE][PAWN] & file_mask);
             int bp = bb_popcount(b->pieces[BLACK][PAWN] & file_mask);
 
-            if (wp > 1) score -= (wp - 1) * 15;
-            if (bp > 1) score += (bp - 1) * 15;
+            if (wp > 1) score -= (wp - 1) * doubled_pen;
+            if (bp > 1) score += (bp - 1) * doubled_pen;
 
             /* Isolated: no own pawns on adjacent files */
             Bitboard adj = BB_EMPTY;
             if (col > 0) adj |= (Bitboard)0x0101010101010101ULL << (col - 1);
             if (col < 7) adj |= (Bitboard)0x0101010101010101ULL << (col + 1);
-            if (wp > 0 && !(b->pieces[WHITE][PAWN] & adj)) score -= 12;
-            if (bp > 0 && !(b->pieces[BLACK][PAWN] & adj)) score += 12;
+            if (wp > 0 && !(b->pieces[WHITE][PAWN] & adj)) score -= isolated_pen;
+            if (bp > 0 && !(b->pieces[BLACK][PAWN] & adj)) score += isolated_pen;
         }
     }
 

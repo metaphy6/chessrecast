@@ -787,6 +787,17 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
                 if (b->mod == MOD_MERCENARY && MOVE_PIECE(m) == PAWN
                     && reduction > 0)
                     reduction--;
+                /* Truce: developing moves (minor piece leaves back rank)
+                   are strategic — reduce less for proper positional play */
+                if (b->mod == MOD_TRUCE && b->truce_active && reduction > 0) {
+                    int piece = MOVE_PIECE(m);
+                    if (piece == KNIGHT || piece == BISHOP) {
+                        Square from_sq = MOVE_FROM(m);
+                        int from_rank = (b->side == WHITE) ? SQ_ROW(from_sq)
+                                                           : (7 - SQ_ROW(from_sq));
+                        if (from_rank <= 1) reduction--;
+                    }
+                }
                 reduction = mini(reduction, new_depth - 1);
                 if (reduction < 0) reduction = 0;
             }
