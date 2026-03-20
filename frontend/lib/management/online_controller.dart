@@ -159,12 +159,12 @@ class OnlineController extends Controller {
     if (_gameId.value.isEmpty) return;
 
     try {
-      print('🔄 DEBUG: Syncing game state for game: ${_gameId.value}');
+      logApi('Syncing game state for game: ${_gameId.value}');
       final gameData = await _apiService.getGame(_gameId.value);
-      print('📥 DEBUG: Received game data from API: $gameData');
+      logApi('Received game data from API');
       _updateBoardFromBackend(gameData);
     } catch (e) {
-      print('❌ DEBUG: Error syncing game state: $e');
+      logError('Error syncing game state', e);
       _showSafeSnackbar('Sync Failed', e.toString());
     }
   }
@@ -217,22 +217,20 @@ class OnlineController extends Controller {
   /// Update board from backend game state
   void _updateBoardFromBackend(Map<String, dynamic> gameData) {
     try {
-      print('🔍 DEBUG: _updateBoardFromBackend called with data: $gameData');
+      logApi('_updateBoardFromBackend called');
 
       // Backend can send 'fen' or 'board' field depending on the endpoint
       final fen = (gameData['fen'] ?? gameData['board']) as String?;
-      print('🔍 DEBUG: FEN extracted: $fen');
+      logApi('FEN extracted: $fen');
 
       if (fen == null) {
-        print('⚠️ DEBUG: FEN is null, returning early');
+        logError('FEN is null in backend response');
         return;
       }
 
       // Parse FEN and update board
       final newBoard = ChessBoard.fromFEN(fen, gameType: board.gameType);
-      print(
-        '✅ DEBUG: Board parsed successfully, pieces count: ${newBoard.pieces.length}',
-      );
+      logApi('Board parsed, pieces: ${newBoard.pieces.length}');
 
       // Detect and log the move that was made (especially for bot moves)
       _logMoveFromBoardChange(board, newBoard);
@@ -240,7 +238,7 @@ class OnlineController extends Controller {
       // Update the board state (this will trigger UI rebuild)
       updateBoardState(newBoard);
     } catch (e) {
-      print('❌ DEBUG: Error in _updateBoardFromBackend: $e');
+      logError('Error in _updateBoardFromBackend', e);
     }
   }
 
@@ -284,7 +282,7 @@ class OnlineController extends Controller {
   Future<void> makeMoveOnline(ChessMove move) async {
     try {
       // Log the move in chess notation with piece icon
-      final moveNotation = _formatMoveNotation(move);
+      final moveNotation = formatMoveNotation(move);
       logMove(moveNotation);
 
       // Convert positions to algebraic notation
@@ -409,12 +407,12 @@ class OnlineController extends Controller {
   }
 
   /// Challenge a bot
-  Future<void> challengeBot(int difficulty, String GameMod) async {
+  Future<void> challengeBot(int difficulty, String gameMode) async {
     try {
       _connectionStatus.value = 'Creating bot game...';
 
       final gameId = await _apiService.challengeBot(
-        mode: GameMod,
+        mode: gameMode,
         difficulty: difficulty,
       );
       _gameId.value = gameId;
@@ -460,41 +458,6 @@ class OnlineController extends Controller {
     } else {
       await pauseOnlineGame();
     }
-  }
-
-  /// Format move notation (replicated from parent private method)
-  String _formatMoveNotation(ChessMove move) {
-    final pieceIcon = _getPieceIcon(move.piece);
-
-    final capture = move.capturedPiece != null ? '×' : '→';
-    final capturedInfo = move.capturedPiece != null
-        ? ' [captured ${_getPieceIcon(move.capturedPiece!)}]'
-        : '';
-
-    return '$pieceIcon ${move.from.algebraic}$capture${move.to.algebraic}$capturedInfo';
-  }
-
-  /// Get emoji icon for a chess piece
-  String _getPieceIcon(ChessPiece piece) {
-    const whiteIcons = {
-      'pawn': '♙',
-      'rook': '♖',
-      'knight': '♘',
-      'bishop': '♗',
-      'queen': '♕',
-      'king': '♔',
-    };
-    const blackIcons = {
-      'pawn': '♟',
-      'rook': '♜',
-      'knight': '♞',
-      'bishop': '♝',
-      'queen': '♛',
-      'king': '♚',
-    };
-
-    final icons = piece.color == PieceColor.white ? whiteIcons : blackIcons;
-    return icons[piece.type.name] ?? '?';
   }
 
   /// Detect and log move from board state change (for bot moves received via backend)
@@ -559,7 +522,7 @@ class OnlineController extends Controller {
           capturedPiece: capturedPiece,
         );
         // Format the move with piece icon
-        final notation = _formatMoveNotation(move);
+        final notation = formatMoveNotation(move);
         logMove(notation);
       }
     } catch (e) {

@@ -9,9 +9,9 @@
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 static uint64_t zob_piece[2][6][64]; /* [color][type][square] */
-static uint64_t zob_side;
+uint64_t zob_side;
 static uint64_t zob_castle[16];
-static uint64_t zob_ep[64];
+uint64_t zob_ep[64];
 static bool     zob_ready = false;
 
 /* Simple xorshift64 PRNG */
@@ -56,11 +56,6 @@ uint64_t zobrist_compute(const Board *b) {
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  Board helpers                                                            */
 /* ═══════════════════════════════════════════════════════════════════════════ */
-
-/* Heir: check rules apply when player has promoted a king or has no pawns */
-static inline bool heir_check_applies(const Board *b, Color side) {
-    return b->heir_promoted[side] || b->pieces[side][PAWN] == BB_EMPTY;
-}
 
 static void board_clear(Board *b) {
     memset(b, 0, sizeof(Board));

@@ -9,11 +9,18 @@ class ApiService {
   // Manual override for testing - set this if auto-detection doesn't work
   static String? manualBaseUrl;
 
+  // Cached base URL (computed once on first access)
+  static String? _cachedBaseUrl;
+
   // Backend URL - automatically detects the correct URL based on platform
   static String get baseUrl {
     // Use manual override if set
     if (manualBaseUrl != null) return manualBaseUrl!;
 
+    return _cachedBaseUrl ??= _detectBaseUrl();
+  }
+
+  static String _detectBaseUrl() {
     // For web or desktop (Windows, macOS, Linux)
     if (kIsWeb || Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
       return 'http://localhost:8080/api/v1';

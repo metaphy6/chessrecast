@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'pieces/piece_color.dart';
 import 'pieces/piece_type.dart';
 import 'moves/position.dart';
+import '../mods/mods_enum.dart';
 
 class ChessPiece extends Equatable {
   final PieceType type;
@@ -60,9 +61,7 @@ class ChessPiece extends Equatable {
 
     // KINGS' BATTLE PHASE 1: Only pawns and kings have effect before First Blood
     // Kings and pawns follow classic chess rules between themselves
-    if (gameType != null &&
-        gameType.toString().contains('kingsBattle') &&
-        !kingsKillUnlocked) {
+    if (gameType == ModsEnum.kingsBattle && !kingsKillUnlocked) {
       if (type != PieceType.pawn && type != PieceType.king) {
         return false; // Other pieces are placeholders
       }
@@ -151,9 +150,7 @@ class ChessPiece extends Equatable {
     final stepY = dy == 0 ? 0 : dy ~/ dy.abs();
 
     final isKingsBattlePhase1 =
-        gameType != null &&
-        gameType.toString().contains('kingsBattle') &&
-        !kingsKillUnlocked;
+        gameType == ModsEnum.kingsBattle && !kingsKillUnlocked;
 
     for (int i = 1; i < distance; i++) {
       final checkPos = Position(
@@ -161,10 +158,13 @@ class ChessPiece extends Equatable {
         position.col + stepX * i,
       );
 
-      final blockingPiece = allPieces.cast<ChessPiece?>().firstWhere(
-        (piece) => piece?.position == checkPos,
-        orElse: () => null,
-      );
+      ChessPiece? blockingPiece;
+      for (final piece in allPieces) {
+        if (piece.position == checkPos) {
+          blockingPiece = piece;
+          break;
+        }
+      }
 
       if (blockingPiece != null) {
         // KINGS' BATTLE PHASE 1: Only pawns and kings block paths (they have effect)

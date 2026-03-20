@@ -134,10 +134,6 @@ extension MoveGeneration on ChessBoard {
     final direction = pawn.color == PieceColor.white ? 1 : -1;
     final startRow = pawn.color == PieceColor.white ? 1 : 6;
 
-    // Debug en passant target - always print
-
-    if (enPassantTarget != null) {}
-
     // Forward move
     final oneStep = pawn.position.offset(direction, 0);
     if (oneStep.isValid && getPieceAt(oneStep) == null) {
