@@ -13,11 +13,6 @@ extern Bitboard pawn_attacks[2][64];
 extern Bitboard bishop_attacks_calc(Square sq, Bitboard occ);
 extern Bitboard rook_attacks_calc(Square sq, Bitboard occ);
 
-/* Heir: check rules apply when player has promoted a king or has no pawns */
-static inline bool heir_check_applies(const Board *b, Color side) {
-    return b->heir_promoted[side] || b->pieces[side][PAWN] == BB_EMPTY;
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  Internal: pseudo-legal move generation                                   */
 /* ═══════════════════════════════════════════════════════════════════════════ */

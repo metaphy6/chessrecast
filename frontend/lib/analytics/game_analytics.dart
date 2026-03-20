@@ -6,7 +6,7 @@ import '../mods/mods_enum.dart';
 class GameAnalytics {
   // Game identification
   final String gameId;
-  final ModsEnum GameMod;
+  final ModsEnum gameMod;
   final DateTime startTime;
   DateTime? endTime;
 
@@ -37,7 +37,7 @@ class GameAnalytics {
 
   GameAnalytics({
     required this.gameId,
-    required this.GameMod,
+    required this.gameMod,
     required this.whitePlayer,
     required this.blackPlayer,
     this.isWhiteBot = false,
@@ -100,7 +100,7 @@ class GameAnalytics {
 
     return {
       'gameId': gameId,
-      'mode': GameMod.displayName,
+      'mode': gameMod.displayName,
       'whitePlayer': whitePlayer,
       'blackPlayer': blackPlayer,
       'isWhiteBot': isWhiteBot,
@@ -119,10 +119,5 @@ class GameAnalytics {
       'avgMoveTimeMs': avgMoveTime.inMilliseconds,
       'moveList': moveList,
     };
-  }
-
-  /// Print summary to console
-  void printSummary() {
-    // Summary printing removed - was using printDebug calls
   }
 }

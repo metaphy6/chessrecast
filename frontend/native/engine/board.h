@@ -79,4 +79,16 @@ extern Bitboard pawn_attacks[2][64];
 Bitboard bishop_attacks_calc(Square sq, Bitboard occ);
 Bitboard rook_attacks_calc(Square sq, Bitboard occ);
 
+/* ── Heir mod helper (shared across board/movegen/evaluate) ────────────── */
+
+/* Heir: check rules apply when a side has promoted a pawn to king or has no pawns */
+static inline bool heir_check_applies(const Board *b, Color side) {
+    return b->heir_promoted[side] || b->pieces[side][PAWN] == BB_EMPTY;
+}
+
+/* ── Zobrist incremental update helpers ───────────────────────────────────── */
+
+extern uint64_t zob_side;
+extern uint64_t zob_ep[64];
+
 #endif /* CHESS_BOARD_H */

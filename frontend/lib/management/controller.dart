@@ -171,7 +171,7 @@ class Controller extends GetxController {
   void _initializeAnalytics() {
     _analytics = GameAnalytics(
       gameId: 'game_${DateTime.now().millisecondsSinceEpoch}',
-      GameMod: gameType,
+      gameMod: gameType,
       whitePlayer: 'Human',
       blackPlayer: 'Human',
       isWhiteBot: false,
@@ -453,48 +453,10 @@ class Controller extends GetxController {
     }
   }
 
-  /// Format move in standard chess notation with piece icons
-  String _formatMoveNotation(ChessMove move) {
-    // Get piece icons based on color and type
-    final pieceIcon = _getPieceIcon(move.piece);
-
-    final capture = move.capturedPiece != null ? '×' : '→';
-
-    // Build captured piece info if applicable
-    final capturedInfo = move.capturedPiece != null
-        ? ' × ${_getPieceIcon(move.capturedPiece!)}'
-        : '';
-
-    return '$pieceIcon ${move.from.algebraic}$capture${move.to.algebraic}$capturedInfo';
-  }
-
-  /// Get emoji icon for a chess piece
-  String _getPieceIcon(ChessPiece piece) {
-    const whiteIcons = {
-      'pawn': '♙',
-      'rook': '♖',
-      'knight': '♘',
-      'bishop': '♗',
-      'queen': '♕',
-      'king': '♔',
-    };
-    const blackIcons = {
-      'pawn': '♟',
-      'rook': '♜',
-      'knight': '♞',
-      'bishop': '♝',
-      'queen': '♛',
-      'king': '♚',
-    };
-
-    final icons = piece.color == PieceColor.white ? whiteIcons : blackIcons;
-    return icons[piece.type.name] ?? '?';
-  }
-
   /// Makes a move and updates the board state
   void makeMove(ChessMove move) {
     // Log the move in chess notation with piece icon
-    final moveNotation = _formatMoveNotation(move);
+    final moveNotation = formatMoveNotation(move);
     logMove(moveNotation);
 
     try {
@@ -587,7 +549,7 @@ class Controller extends GetxController {
     // Log the last move for debug output
     if (newBoard.moveHistory.isNotEmpty) {
       final lastMove = newBoard.moveHistory.last;
-      logMove(_formatMoveNotation(lastMove));
+      logMove(formatMoveNotation(lastMove));
     }
 
     _board.value = newBoard;
@@ -616,7 +578,6 @@ class Controller extends GetxController {
       winnerColor: winner,
       reason: _getEndReason(),
     );
-    _analytics?.printSummary();
   }
 
   /// Get the end game reason

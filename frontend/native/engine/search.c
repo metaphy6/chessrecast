@@ -644,8 +644,9 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
             Square sv_ep  = b->ep_square;
             uint64_t sv_hash = b->hash;
             b->side = color_opposite(b->side);
+            b->hash ^= zob_side; /* O(1) side-toggle */
+            if (sv_ep != SQ_NONE) b->hash ^= zob_ep[sv_ep]; /* remove old EP */
             b->ep_square = SQ_NONE;
-            b->hash = zobrist_compute(b); /* CRITICAL: update hash for TT correctness */
 
             int null_s = -alpha_beta(b, depth - R, -beta, -beta + 1,
                                      ply + 1, false, false);

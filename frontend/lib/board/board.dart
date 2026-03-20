@@ -303,32 +303,25 @@ class ChessBoard extends Equatable {
 
   /// Generates a unique key for the current position (for threefold repetition)
   /// Includes piece positions, current player, castling rights, and en passant
-  /// OPTIMIZED: Avoid expensive string operations on every move
+  /// Uses an 8x8 mailbox scan for O(n) consistent ordering without sorting
   String getPositionKey() {
-    // Use StringBuffer for efficient string building
+    // Build a mailbox for O(1) square lookups
+    final mailbox = List<ChessPiece?>.filled(64, null);
+    for (final piece in pieces) {
+      mailbox[piece.position.row * 8 + piece.position.col] = piece;
+    }
+
     final buffer = StringBuffer();
 
-    // Sort pieces by position for consistent ordering (cached pattern)
-    final sortedPieces = <ChessPiece>[];
-    for (final piece in pieces) {
-      sortedPieces.add(piece);
-    }
-    sortedPieces.sort((a, b) {
-      if (a.position.row != b.position.row) {
-        return a.position.row.compareTo(b.position.row);
+    // Scan in fixed order — deterministic without sorting
+    for (int i = 0; i < 64; i++) {
+      final piece = mailbox[i];
+      if (piece != null) {
+        buffer.write(piece.color == PieceColor.white ? 'W' : 'B');
+        buffer.write(piece.type.name[0].toUpperCase());
+        buffer.write(piece.position.algebraic);
+        buffer.write('|');
       }
-      return a.position.col.compareTo(b.position.col);
-    });
-
-    // Build string efficiently with StringBuffer
-    bool first = true;
-    for (final p in sortedPieces) {
-      if (!first) buffer.write('|');
-      first = false;
-
-      buffer.write(p.color == PieceColor.white ? 'W' : 'B');
-      buffer.write(p.type.name[0].toUpperCase());
-      buffer.write(p.position.algebraic);
     }
 
     buffer.write(':');

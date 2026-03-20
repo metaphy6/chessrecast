@@ -67,48 +67,6 @@ void logKingsBattleUnlock(String playerColor, String position) {
   );
 }
 
-/// King's Battle Mod: King kill
-void logKingsBattleKingKill(String winner, String position) {
-  debugPrint(
-    '⚡ KING\'S BATTLE - King Kill: $winner King killed opponent\'s King at $position! VICTORY!',
-  );
-}
-
-/// Heir Mod: King promoted from pawn
-void logHeirKingPromotion(String playerColor, String position) {
-  debugPrint(
-    '👑 HEIR - King Promotion: $playerColor pawn promoted to King at $position!',
-  );
-}
-
-/// Heir Mod: King captured (but game continues if pawns available)
-void logHeirKingCapture(String capturedBy, String position) {
-  debugPrint(
-    '💀 HEIR - King Capture: King captured by $capturedBy at $position!',
-  );
-}
-
-/// Friendly Fire Mod: Self-capture (intentional move)
-void logFriendlyFireCapture(String playerColor, String position) {
-  debugPrint(
-    '🔥 FRIENDLY FIRE - Capture: $playerColor captured own piece at $position (intentional)!',
-  );
-}
-
-/// Mercenary Mod: Pawn reaches back rank
-void logMercenaryPromotion(String playerColor, String position) {
-  debugPrint(
-    '🐧 MERCENARY - Promotion: $playerColor pawn reached promotion rank at $position!',
-  );
-}
-
-/// Truce Mod: Truce activated
-void logTruceActivated(String playerColor) {
-  debugPrint(
-    '🕊️ TRUCE - Active: $playerColor called a truce! Rules are suspended until next move!',
-  );
-}
-
 /// Truce Mod: Truce broken
 void logTruceBroken(String playerColor) {
   debugPrint(

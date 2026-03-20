@@ -1,11 +1,6 @@
 #include "evaluate.h"
 #include <stdlib.h>  /* abs() */
 
-/* Heir: check rules apply when player has promoted a king or has no pawns */
-static inline bool heir_check_applies(const Board *b, Color side) {
-    return b->heir_promoted[side] || b->pieces[side][PAWN] == BB_EMPTY;
-}
-
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  Material values (centipawns)                                             */
 /* ═══════════════════════════════════════════════════════════════════════════ */
