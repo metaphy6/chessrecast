@@ -12,6 +12,7 @@ static uint64_t zob_piece[2][6][64]; /* [color][type][square] */
 uint64_t zob_side;
 static uint64_t zob_castle[16];
 uint64_t zob_ep[64];
+static uint64_t zob_heir_promoted[2]; /* Heir: key for each side's promoted flag */
 static bool     zob_ready = false;
 
 /* Simple xorshift64 PRNG */
@@ -33,6 +34,8 @@ void zobrist_init(void) {
     zob_side = xor_next();
     for (int i = 0; i < 16; i++) zob_castle[i] = xor_next();
     for (int sq = 0; sq < 64; sq++) zob_ep[sq] = xor_next();
+    zob_heir_promoted[0] = xor_next();
+    zob_heir_promoted[1] = xor_next();
     zob_ready = true;
 }
 
@@ -50,6 +53,9 @@ uint64_t zobrist_compute(const Board *b) {
     if (b->side == BLACK) h ^= zob_side;
     h ^= zob_castle[b->castling];
     if (b->ep_square != SQ_NONE) h ^= zob_ep[b->ep_square];
+    /* Heir: promoted-king flags change check/eval semantics */
+    for (int c = 0; c < 2; c++)
+        if (b->heir_promoted[c]) h ^= zob_heir_promoted[c];
     return h;
 }
 

@@ -206,7 +206,9 @@ class Orchestrator {
 
     // Check/checkmate detection when check rules apply for current player
     if (mods.heir.shouldApplyCheckRules(board.currentPlayer, board)) {
-      final inCheck = board.isKingInCheck(board.currentPlayer);
+      final currentKing = board.getKing(board.currentPlayer);
+      final inCheck = currentKing != null &&
+          board.isKingInCheck(board.currentPlayer);
       if (inCheck) {
         if (hasValidMoves) {
           newStatus = GameStatus.check;
@@ -218,10 +220,28 @@ class Orchestrator {
         }
         return board.copyWith(gameStatus: newStatus);
       }
+
+      // Check rules apply but king is gone (promoted king captured) and
+      // no valid moves → loss, not stalemate.
+      if (currentKing == null && !hasValidMoves) {
+        logCheckmate(
+          board.currentPlayer == PieceColor.white ? 'black' : 'white',
+        );
+        return board.copyWith(gameStatus: GameStatus.checkmate);
+      }
     }
 
+    // No king + no valid moves → can never promote, this is a loss
     if (!hasValidMoves) {
-      newStatus = GameStatus.stalemate;
+      final currentKing = board.getKing(board.currentPlayer);
+      if (currentKing == null) {
+        logCheckmate(
+          board.currentPlayer == PieceColor.white ? 'black' : 'white',
+        );
+        newStatus = GameStatus.checkmate;
+      } else {
+        newStatus = GameStatus.stalemate;
+      }
     } else {
       newStatus = GameStatus.ongoing;
     }
@@ -327,6 +347,16 @@ class Orchestrator {
         return true;
       }
       return false; // Don't apply classic rules for Mercenary
+    }
+
+    // Heir Mod: kings are capturable by non-king pieces, so only K vs K is
+    // truly insufficient (kings can never capture each other).
+    if (board.gameType == ModsEnum.heir) {
+      // Only draw when both sides have nothing but a king
+      return whitePieces.length == 1 &&
+          blackPieces.length == 1 &&
+          whitePieces.first.type == PieceType.king &&
+          blackPieces.first.type == PieceType.king;
     }
 
     // Apply classic chess insufficient material rules for other mods

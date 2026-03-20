@@ -577,14 +577,19 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
         tt_score = tte->score;
         tt_hit   = true;
 
-        /* TT cutoff: at lower skill levels, require deeper entries
+        /* TT cutoff: at lower skill levels, require much deeper entries
            before allowing a cutoff.  This prevents shallower engines
            from playing at full strength via accumulated TT entries.
-           Skill 4: depth >= depth (normal)
-           Skill 3: depth >= depth+1
-           Skill 0: depth >= depth+2 */
+           The margin must be large enough that we do NOT need to clear
+           TT on skill changes (which cripples the stronger engine in
+           Watch Engine alternating-skill mode).
+           Skill 4: depth >= depth     (use everything)
+           Skill 3: depth >= depth+2
+           Skill 2: depth >= depth+3
+           Skill 0-1: depth >= depth+5  (Easy at d3 only uses d8+ entries) */
         int tt_depth_margin = (s_skill_level >= 4) ? 0
-                            : (s_skill_level >= 2) ? 1 : 2;
+                            : (s_skill_level >= 3) ? 2
+                            : (s_skill_level >= 2) ? 3 : 5;
         if (!is_pv && tte->depth >= depth + tt_depth_margin) {
             if (tte->flag == TT_EXACT)                       return tt_score;
             if (tte->flag == TT_LOWER && tt_score >= beta)   return tt_score;
@@ -852,15 +857,9 @@ SearchResult search_think(Board *b, int time_ms, int max_depth, int skill_level)
     s_rng         = b->hash ^ (uint64_t)time_ms_now() ^ ((uint64_t)b->fullmove << 32);
     s_root_count  = 0;
 
-    /* Clear TT when skill level changes — prevents a stronger engine's
-       deep entries from leaking to a weaker engine.  Without this, Easy
-       (depth 3) gets free TT cutoffs from Maximum's depth 10+ entries
-       and plays at Maximum strength.  This is THE key bug that made
-       Easy beat Expert. */
-    if (s_skill_level != s_prev_skill) {
-        tt_clear(&s_tt);
-        s_prev_skill = s_skill_level;
-    }
+    /* Track skill changes (no TT clear — the depth margins in
+       alpha_beta prevent lower skills from getting free cutoffs). */
+    s_prev_skill = s_skill_level;
 
     memset(s_killers, 0, sizeof(s_killers));
     memset(s_history, 0, sizeof(s_history));
