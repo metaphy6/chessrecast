@@ -1008,6 +1008,8 @@ done:
                         ? (b->fullmove <= 6)
                         : (b->mod == MOD_HEIR)
                         ? (b->fullmove <= 5)
+                        : (b->mod == MOD_TRUCE)
+                        ? (b->fullmove <= 8)
                         : (b->fullmove <= 4);
         if (is_opening) s_margin = maxi(s_margin, 10);
 

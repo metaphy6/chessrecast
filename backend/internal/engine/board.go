@@ -381,7 +381,7 @@ func (b *Board) MakeMove(move Move) error {
 		// Check if truce should break (one player has moved all their pieces)
 		if b.checkTruceBreak(piece.Color) {
 			b.TruceActive = false
-			log.Printf("⚔️ TRUCE BROKEN by %s! All pieces have moved at least once. Combat is now allowed!", piece.Color)
+			log.Printf("⚔️ TRUCE BROKEN by %s! All legal truce moves exhausted. Combat is now allowed!", piece.Color)
 		}
 	}
 
@@ -704,34 +704,28 @@ func (b *Board) GetPiecesOfColor(color Color) []*Piece {
 	return pieces
 }
 
-// checkTruceBreak checks if the truce should break for the given color
-// Truce breaks when one player has moved ALL their pieces at least once
+// checkTruceBreak checks if the truce should break for the given color.
+// Truce breaks when a player has exhausted all legal truce moves: every piece
+// has either moved at least once OR is blocked (no non-capturing move exists).
 func (b *Board) checkTruceBreak(color Color) bool {
-	// Count how many unique piece starting positions have moved
 	movedPositions := make(map[Position]bool)
-	
 	for _, move := range b.History.Moves {
 		if move.Piece.Color == color {
 			movedPositions[move.From] = true
 		}
 	}
-	
-	// Count total pieces currently on board for this color
+
 	currentPieces := b.GetPiecesOfColor(color)
-	totalPieces := len(currentPieces)
-	
-	// Check if ALL current pieces have moved at least once
-	// A piece "has moved" if its current position appeared as a 'from' in history
-	// OR if it moved TO its current position (for tracking after captures/promotions)
-	piecesMovedCount := 0
+	if len(currentPieces) == 0 {
+		return false
+	}
+
+	exhaustedCount := 0
 	for _, piece := range currentPieces {
 		hasMoved := false
-		
-		// Check if this piece's current position was a 'from' in history
 		if movedPositions[piece.Position] {
 			hasMoved = true
 		} else {
-			// Check if this piece moved TO its current position
 			for _, move := range b.History.Moves {
 				if move.Piece.Color == color && move.To == piece.Position {
 					hasMoved = true
@@ -739,14 +733,71 @@ func (b *Board) checkTruceBreak(color Color) bool {
 				}
 			}
 		}
-		
+
 		if hasMoved {
-			piecesMovedCount++
+			exhaustedCount++
+		} else if !b.canPieceMoveWithoutCapture(piece) {
+			// Unmoved AND blocked → counts as exhausted
+			exhaustedCount++
 		}
 	}
-	
-	// Truce breaks when all pieces have moved
-	return piecesMovedCount >= totalPieces && totalPieces > 0
+
+	return exhaustedCount >= len(currentPieces)
+}
+
+// canPieceMoveWithoutCapture returns true if the piece has at least one
+// non-capturing move.  Uses simple directional checks (first square only)
+// to avoid a full move-generation call that could recurse into truce logic.
+func (b *Board) canPieceMoveWithoutCapture(piece *Piece) bool {
+	pos := piece.Position
+	switch piece.Type {
+	case Pawn:
+		dir := 1
+		if piece.Color == Black {
+			dir = -1
+		}
+		t := Position{Row: pos.Row + dir, Col: pos.Col}
+		return t.IsValid() && b.GetPieceAt(t) == nil
+	case Knight:
+		offsets := [][2]int{
+			{-2, -1}, {-2, 1}, {-1, -2}, {-1, 2},
+			{1, -2}, {1, 2}, {2, -1}, {2, 1},
+		}
+		for _, o := range offsets {
+			t := Position{Row: pos.Row + o[0], Col: pos.Col + o[1]}
+			if t.IsValid() && b.GetPieceAt(t) == nil {
+				return true
+			}
+		}
+		return false
+	case Bishop:
+		for _, d := range [][2]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}} {
+			t := Position{Row: pos.Row + d[0], Col: pos.Col + d[1]}
+			if t.IsValid() && b.GetPieceAt(t) == nil {
+				return true
+			}
+		}
+		return false
+	case Rook:
+		for _, d := range [][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+			t := Position{Row: pos.Row + d[0], Col: pos.Col + d[1]}
+			if t.IsValid() && b.GetPieceAt(t) == nil {
+				return true
+			}
+		}
+		return false
+	default: // Queen, King
+		for _, d := range [][2]int{
+			{1, 0}, {-1, 0}, {0, 1}, {0, -1},
+			{1, 1}, {1, -1}, {-1, 1}, {-1, -1},
+		} {
+			t := Position{Row: pos.Row + d[0], Col: pos.Col + d[1]}
+			if t.IsValid() && b.GetPieceAt(t) == nil {
+				return true
+			}
+		}
+		return false
+	}
 }
 
 // GetUnmovedPieces returns all pieces that haven't moved yet for a color

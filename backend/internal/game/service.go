@@ -613,7 +613,7 @@ func (sess *Session) updateGameState() {
 	// Truce mod: Check if truce should end
 	if sess.Board.Mod == engine.Truce && sess.Board.TruceActive {
 		if !sess.Board.HasMovableUnmovedPieces(sess.Board.CurrentTurn) {
-			log.Printf("🔓 TRUCE ENDING: %s has exhausted all unmoved pieces", sess.Board.CurrentTurn)
+			log.Printf("🔓 TRUCE ENDING: %s has exhausted all legal truce moves", sess.Board.CurrentTurn)
 			sess.Board.TruceActive = false
 		}
 	}

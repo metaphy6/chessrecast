@@ -13,6 +13,7 @@ uint64_t zob_side;
 static uint64_t zob_castle[16];
 uint64_t zob_ep[64];
 static uint64_t zob_heir_promoted[2]; /* Heir: key for each side's promoted flag */
+static uint64_t zob_truce_active;    /* Truce: key for active-truce state */
 static bool     zob_ready = false;
 
 /* Simple xorshift64 PRNG */
@@ -36,6 +37,7 @@ void zobrist_init(void) {
     for (int sq = 0; sq < 64; sq++) zob_ep[sq] = xor_next();
     zob_heir_promoted[0] = xor_next();
     zob_heir_promoted[1] = xor_next();
+    zob_truce_active = xor_next();
     zob_ready = true;
 }
 
@@ -56,6 +58,8 @@ uint64_t zobrist_compute(const Board *b) {
     /* Heir: promoted-king flags change check/eval semantics */
     for (int c = 0; c < 2; c++)
         if (b->heir_promoted[c]) h ^= zob_heir_promoted[c];
+    /* Truce: active-truce changes legal moves (no captures, no check) */
+    if (b->truce_active) h ^= zob_truce_active;
     return h;
 }
 
@@ -68,6 +72,8 @@ static void board_clear(Board *b) {
     b->ep_square = SQ_NONE;
     b->heir_promoted[0] = 0;
     b->heir_promoted[1] = 0;
+    b->truce_active = 0;
+    b->truce_frozen = 0;
     for (int sq = 0; sq < 64; sq++) b->mailbox[sq] = PIECE_EMPTY;
 }
 
@@ -369,6 +375,8 @@ bool board_in_check(const Board *b, Color side) {
     if (kingBB == BB_EMPTY) return false;
     /* Heir: check only matters when check rules apply */
     if (b->mod == MOD_HEIR && !heir_check_applies(b, side)) return false;
+    /* Truce: no check during active truce */
+    if (b->mod == MOD_TRUCE && b->truce_active) return false;
     Square ksq = bb_lsb(kingBB);
     return board_square_attacked(b, ksq, color_opposite(side));
 }
@@ -389,6 +397,7 @@ void board_make_move(Board *b, Move m) {
     b->history[idx].captured_sq = SQ_NONE;
     b->history[idx].heir_promoted[0] = b->heir_promoted[0];
     b->history[idx].heir_promoted[1] = b->heir_promoted[1];
+    b->history[idx].truce_active = b->truce_active;
 
     Square from = MOVE_FROM(m);
     Square to   = MOVE_TO(m);
@@ -535,6 +544,7 @@ void board_unmake_move(Board *b) {
     b->hash      = b->history[idx].hash;
     b->heir_promoted[0] = b->history[idx].heir_promoted[0];
     b->heir_promoted[1] = b->history[idx].heir_promoted[1];
+    b->truce_active = b->history[idx].truce_active;
 
     if (us == BLACK) b->fullmove--;
 }
