@@ -175,10 +175,11 @@ class WatchEngineController extends Controller {
       // Build move log entry
       final moveNum = (totalMoves.value + 1) ~/ 2;
       final scoreStr = _formatScore(result.score);
-      moveLog.add(
+      final logEntry =
         '$moveNum$side. ${_moveNotation(result.bestMove!)} '
-        '(d${result.depth} $scoreStr ${_formatNodes(result.nodesSearched)})',
-      );
+        '(d${result.depth} $scoreStr ${_formatNodes(result.nodesSearched)})';
+      moveLog.add(logEntry);
+      debugPrint('[WatchEngine] moveLog[${moveLog.length}]: $logEntry');
 
       // Apply the already-computed board (no orchestrator work on UI thread)
       applyComputedMove(moveResult.newBoard);

@@ -345,8 +345,7 @@ class ChessBoard extends Equatable {
   /// Succession Mod: 50 half-moves (25 white + 25 black)
   /// Normal games: 100 half-moves (50 full moves)
   bool canClaimFiftyMoveRule() {
-    if (gameType == ModsEnum.saveTheQueen ||
-        gameType == ModsEnum.succession) {
+    if (gameType == ModsEnum.saveTheQueen || gameType == ModsEnum.succession) {
       return halfMoveClock >= 50; // 50 half-moves total (25 white + 25 black)
     }
     return halfMoveClock >= 100; // 100 half-moves = 50 full moves
