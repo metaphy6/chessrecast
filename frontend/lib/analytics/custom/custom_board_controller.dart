@@ -112,11 +112,7 @@ class CustomBoardController extends GetxController {
     _isInitialized = true;
 
     // Update all UI elements at once
-    update([
-      ...getAllSquareIds(),
-      'bot_difficulty',
-      'control_panel',
-    ]);
+    update([...getAllSquareIds(), 'bot_difficulty', 'control_panel']);
   }
 
   /// Force initialize from FEN notation - most reliable way to transfer positions
@@ -143,11 +139,7 @@ class CustomBoardController extends GetxController {
       _isInitialized = true;
 
       // Update all UI elements at once
-      update([
-        ...getAllSquareIds(),
-        'bot_difficulty',
-        'control_panel',
-      ]);
+      update([...getAllSquareIds(), 'bot_difficulty', 'control_panel']);
     } catch (e) {
       debugPrint('forceInitializeFromFEN: ERROR parsing FEN: $e');
       // If FEN parsing fails, just load standard position
@@ -396,10 +388,7 @@ class CustomBoardController extends GetxController {
       final board = ChessBoard.fromFEN(fen, gameType: _selectedGameType);
       _currentTurnColor = board.currentPlayer;
       _customPieces = List<ChessPiece>.from(board.pieces);
-      update([
-        ...getAllSquareIds(),
-        'control_panel',
-      ]);
+      update([...getAllSquareIds(), 'control_panel']);
     } catch (e) {
       debugPrint('_loadFenAtCurrentIndex: ERROR parsing FEN: $e');
     }

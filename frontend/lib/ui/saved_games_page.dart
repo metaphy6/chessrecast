@@ -259,9 +259,11 @@ class _GameDetailSheet extends StatelessWidget {
                             ? game.fenHistory!.first
                             : game.finalFEN,
                         'gameType': modsEnum,
-                        if (game.fenHistory != null && game.fenHistory!.isNotEmpty)
+                        if (game.fenHistory != null &&
+                            game.fenHistory!.isNotEmpty)
                           'fenHistory': game.fenHistory,
-                        if (game.fenHistory != null && game.fenHistory!.isNotEmpty)
+                        if (game.fenHistory != null &&
+                            game.fenHistory!.isNotEmpty)
                           'fenHistoryIndex': 0,
                       },
                     );
