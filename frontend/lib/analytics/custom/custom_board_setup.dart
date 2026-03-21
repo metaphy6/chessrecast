@@ -37,7 +37,9 @@ class CustomBoardSetupPage extends StatelessWidget {
     final fen = args?['fen'] as String?;
     // Use safe cast: List goes through dynamic in route args, so runtime type may be List<dynamic>
     final rawFenHistory = args?['fenHistory'];
-    final fenHistory = rawFenHistory is List ? List<String>.from(rawFenHistory) : null;
+    final fenHistory = rawFenHistory is List
+        ? List<String>.from(rawFenHistory)
+        : null;
     final fenHistoryIndex = args?['fenHistoryIndex'] as int?;
 
     // Legacy support: check for pieces list
@@ -57,7 +59,8 @@ class CustomBoardSetupPage extends StatelessWidget {
     // (StatelessWidget.build() can re-run on keyboard, orientation, etc.)
     // Use content hash of fenHistory so different games with same move count are distinguished
     final historyHash = fenHistory != null ? Object.hashAll(fenHistory) : 0;
-    final argsKey = '${fen ?? ''}|${pieces?.length ?? 0}|$gameType|$historyHash';
+    final argsKey =
+        '${fen ?? ''}|${pieces?.length ?? 0}|$gameType|$historyHash';
 
     if (controller.lastInitArgsKey != argsKey) {
       controller.lastInitArgsKey = argsKey;
@@ -75,7 +78,10 @@ class CustomBoardSetupPage extends StatelessWidget {
             blackDifficulty: blackDifficulty,
           );
           if (fenHistory != null && fenHistory.length > 1) {
-            controller.setFenHistory(fenHistory, startIndex: fenHistoryIndex ?? fenHistory.length - 1);
+            controller.setFenHistory(
+              fenHistory,
+              startIndex: fenHistoryIndex ?? fenHistory.length - 1,
+            );
           }
         });
       } else if (pieces != null && pieces.isNotEmpty) {
@@ -89,7 +95,10 @@ class CustomBoardSetupPage extends StatelessWidget {
             blackDifficulty: blackDifficulty,
           );
           if (fenHistory != null && fenHistory.length > 1) {
-            controller.setFenHistory(fenHistory, startIndex: fenHistoryIndex ?? fenHistory.length - 1);
+            controller.setFenHistory(
+              fenHistory,
+              startIndex: fenHistoryIndex ?? fenHistory.length - 1,
+            );
           }
         });
       } else if (!controller.isInitialized) {
@@ -1445,7 +1454,9 @@ class _FenNavigationBar extends StatelessWidget {
           children: [
             IconButton(
               icon: const Icon(Icons.skip_previous, size: 28),
-              onPressed: controller.canFenGoBack ? controller.fenGoToStart : null,
+              onPressed: controller.canFenGoBack
+                  ? controller.fenGoToStart
+                  : null,
               tooltip: 'Go to start',
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
@@ -1474,14 +1485,18 @@ class _FenNavigationBar extends StatelessWidget {
             ),
             IconButton(
               icon: const Icon(Icons.chevron_right, size: 32),
-              onPressed: controller.canFenGoForward ? controller.fenGoForward : null,
+              onPressed: controller.canFenGoForward
+                  ? controller.fenGoForward
+                  : null,
               tooltip: 'Next move',
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
             ),
             IconButton(
               icon: const Icon(Icons.skip_next, size: 28),
-              onPressed: controller.canFenGoForward ? controller.fenGoToEnd : null,
+              onPressed: controller.canFenGoForward
+                  ? controller.fenGoToEnd
+                  : null,
               tooltip: 'Go to end',
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
