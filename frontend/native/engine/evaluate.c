@@ -449,6 +449,7 @@ int evaluate(const Board *b) {
             int back_rank = (c == WHITE) ? 0 : 7;
             int second_rank = (c == WHITE) ? 1 : 6;
             int developed_count = 0;
+            bool early_truce = (b->fullmove <= 10);
             for (int t = KNIGHT; t <= QUEEN; t++) {
                 Bitboard bb = b->pieces[c][t];
                 while (bb) {
@@ -460,7 +461,9 @@ int evaluate(const Board *b) {
                         if (t == KNIGHT || t == BISHOP) bonus += 15;
                         /* Rooks: modest bonus for leaving back rank early */
                         else if (t == ROOK) bonus += 8;
-                        /* Queen: slight bonus but not too early */
+                        /* Queen: penalize early development (wastes moves,
+                           becomes target after truce breaks) */
+                        else if (early_truce) bonus -= 15;
                         else bonus += 5;
                     } else {
                         /* Penalty for undeveloped minor pieces */
@@ -604,13 +607,22 @@ int evaluate(const Board *b) {
             }
 
             /* ─ Space: pieces advanced into opponent's half ──────────── */
+            /* Only count space for pieces NOT on enemy-pawn-attacked
+               squares — overextended pieces are liabilities, not assets */
             for (int t = KNIGHT; t <= QUEEN; t++) {
                 Bitboard bb = b->pieces[c][t];
                 while (bb) {
                     Square sq = (Square)bb_pop_lsb(&bb);
                     int rank = (c == WHITE) ? SQ_ROW(sq) : (7 - SQ_ROW(sq));
-                    if (rank >= 4) bonus += 12;
-                    if (rank >= 5) bonus += 8;  /* deeper = stronger */
+                    if (rank >= 4) {
+                        if (BB_HAS(pawn_atk[opp], sq)) {
+                            /* Overextended: on a square attacked by enemy pawn */
+                            bonus -= 5;
+                        } else {
+                            bonus += 12;
+                            if (rank >= 5) bonus += 8;
+                        }
+                    }
                 }
             }
 
@@ -672,6 +684,107 @@ int evaluate(const Board *b) {
                 }
                 int variety = bb_popcount((Bitboard)piece_types_developed);
                 bonus += variety * 8;
+            }
+
+            /* ─ CRITICAL: Piece vulnerability / safety during truce ──── */
+            /* During truce, captures are disabled in the move generator,
+               so the search literally cannot see that pieces on attacked
+               squares WILL be captured once the truce breaks.  The eval
+               must penalize pieces sitting on squares where the opponent
+               can attack them, proportional to the danger level.
+               This prevents the engine from placing a rook on g6 when
+               f7-pawn can capture it the moment truce ends. */
+            {
+                /* Build attack maps for the opponent */
+                Bitboard opp_pawn_atk = pawn_atk[opp];
+                /* Knight attacks */
+                Bitboard opp_knight_atk = BB_EMPTY;
+                {
+                    Bitboard kn = b->pieces[opp][KNIGHT];
+                    while (kn) {
+                        Square s = (Square)bb_pop_lsb(&kn);
+                        opp_knight_atk |= knight_attacks[s];
+                    }
+                }
+                /* Bishop/queen diagonal attacks */
+                Bitboard opp_bishop_atk = BB_EMPTY;
+                {
+                    Bitboard bi = b->pieces[opp][BISHOP] | b->pieces[opp][QUEEN];
+                    while (bi) {
+                        Square s = (Square)bb_pop_lsb(&bi);
+                        opp_bishop_atk |= bishop_attacks_calc(s, b->all);
+                    }
+                }
+                /* Rook/queen straight attacks */
+                Bitboard opp_rook_atk = BB_EMPTY;
+                {
+                    Bitboard ro = b->pieces[opp][ROOK] | b->pieces[opp][QUEEN];
+                    while (ro) {
+                        Square s = (Square)bb_pop_lsb(&ro);
+                        opp_rook_atk |= rook_attacks_calc(s, b->all);
+                    }
+                }
+
+                Bitboard opp_all_atk = opp_pawn_atk | opp_knight_atk
+                                     | opp_bishop_atk | opp_rook_atk;
+
+                /* Build own defense map to detect defended pieces */
+                Bitboard own_pawn_def = pawn_atk[c];
+                Bitboard own_knight_def = BB_EMPTY;
+                {
+                    Bitboard kn = b->pieces[c][KNIGHT];
+                    while (kn) {
+                        Square s = (Square)bb_pop_lsb(&kn);
+                        own_knight_def |= knight_attacks[s];
+                    }
+                }
+                Bitboard own_bishop_def = BB_EMPTY;
+                {
+                    Bitboard bi = b->pieces[c][BISHOP] | b->pieces[c][QUEEN];
+                    while (bi) {
+                        Square s = (Square)bb_pop_lsb(&bi);
+                        own_bishop_def |= bishop_attacks_calc(s, b->all);
+                    }
+                }
+                Bitboard own_rook_def = BB_EMPTY;
+                {
+                    Bitboard ro = b->pieces[c][ROOK] | b->pieces[c][QUEEN];
+                    while (ro) {
+                        Square s = (Square)bb_pop_lsb(&ro);
+                        own_rook_def |= rook_attacks_calc(s, b->all);
+                    }
+                }
+                Bitboard own_all_def = own_pawn_def | own_knight_def
+                                     | own_bishop_def | own_rook_def;
+
+                /* Penalty table: material value fraction for undefended
+                   pieces on attacked squares (losing the exchange). */
+                static const int VULN_PENALTY[6] = {
+                    /* PAWN=15, KNIGHT=55, BISHOP=55, ROOK=85, QUEEN=150, KING=0 */
+                    15, 55, 55, 85, 150, 0
+                };
+                /* Reduced penalty when piece IS defended (still bad: opponent
+                   can force the trade, but at least we get material back) */
+                static const int VULN_DEFENDED[6] = {
+                    5, 20, 20, 30, 50, 0
+                };
+
+                for (int t = PAWN; t <= QUEEN; t++) {
+                    Bitboard bb = b->pieces[c][t];
+                    while (bb) {
+                        Square sq = (Square)bb_pop_lsb(&bb);
+                        if (!BB_HAS(opp_all_atk, sq)) continue;
+
+                        bool defended = BB_HAS(own_all_def, sq);
+                        /* Extra danger: attacked by pawn (cheapest attacker) */
+                        bool pawn_attacked = BB_HAS(opp_pawn_atk, sq);
+                        int pen = defended ? VULN_DEFENDED[t] : VULN_PENALTY[t];
+                        /* Pawn attacks on non-pawn pieces: even worse since
+                           the attacker is worth less than any target */
+                        if (pawn_attacked && t >= KNIGHT) pen += 20;
+                        bonus -= pen;
+                    }
+                }
             }
 
             score += (c == WHITE) ? bonus : -bonus;
