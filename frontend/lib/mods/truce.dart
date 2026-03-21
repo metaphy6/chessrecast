@@ -6,10 +6,11 @@ import 'game_mod.dart';
 ///
 /// Rules:
 /// - Players cannot capture opponent pieces until truce is broken
-/// - Truce breaks when one player has made all legal truce moves:
+/// - Truce breaks when the side to move has exhausted all legal truce moves:
 ///   all pieces have moved at least once, or remaining unmoved pieces are blocked
 /// - During truce, each piece can only be moved once
 /// - NO check or checkmate during truce - kings move freely
+/// - Moves that give check to the opponent king are illegal during truce
 /// - Once truce is broken, normal chess rules apply including check/checkmate/captures
 class Truce extends GameMod {
   const Truce();
@@ -25,12 +26,17 @@ class Truce extends GameMod {
       return moves;
     }
 
-    // During truce, filter out capturing moves
+    // During truce, filter out capturing moves and moves that give check
     final nonCapturingMoves = moves.where((move) {
       return move.capturedPiece == null;
     }).toList();
 
-    return nonCapturingMoves;
+    // Also filter out moves that give check to the opponent king
+    final safeMoves = nonCapturingMoves.where((move) {
+      return !_moveGivesCheck(board, move);
+    }).toList();
+
+    return safeMoves;
   }
 
   /// Validate if a move is allowed during truce
@@ -65,43 +71,38 @@ class Truce extends GameMod {
   }
 
   /// Check if truce is broken for the board.
-  /// Truce breaks when one player has exhausted all legal truce moves:
+  /// Truce breaks when the side to move has exhausted all legal truce moves:
   /// every piece has either moved at least once OR is blocked (no
   /// non-capturing moves available).
   bool _isTruceBroken(ChessBoard board) {
-    for (final color in [PieceColor.white, PieceColor.black]) {
-      final movedPieces = _getMovedPieces(board, color);
-      final currentPieces = board.getPiecesOfColor(color);
-      if (currentPieces.isEmpty) continue;
+    final color = board.currentPlayer;
+    final movedPieces = _getMovedPieces(board, color);
+    final currentPieces = board.getPiecesOfColor(color);
+    if (currentPieces.isEmpty) return true;
 
-      int exhaustedCount = 0;
-      for (final piece in currentPieces) {
-        bool hasMoved = false;
-        if (movedPieces.contains(piece.position)) {
-          hasMoved = true;
-        } else {
-          for (final move in board.moveHistory) {
-            if (move.piece.color == color && move.to == piece.position) {
-              hasMoved = true;
-              break;
-            }
+    int exhaustedCount = 0;
+    for (final piece in currentPieces) {
+      bool hasMoved = false;
+      if (movedPieces.contains(piece.position)) {
+        hasMoved = true;
+      } else {
+        for (final move in board.moveHistory) {
+          if (move.piece.color == color && move.to == piece.position) {
+            hasMoved = true;
+            break;
           }
-        }
-
-        if (hasMoved) {
-          exhaustedCount++;
-        } else if (!_canPieceMoveWithoutCapture(board, piece)) {
-          // Unmoved AND blocked → counts as exhausted
-          exhaustedCount++;
         }
       }
 
-      if (exhaustedCount >= currentPieces.length) {
-        return true;
+      if (hasMoved) {
+        exhaustedCount++;
+      } else if (!_canPieceMoveWithoutCapture(board, piece)) {
+        // Unmoved AND blocked → counts as exhausted
+        exhaustedCount++;
       }
     }
 
-    return false;
+    return exhaustedCount >= currentPieces.length;
   }
 
   /// Returns true when [piece] has at least one non-capturing move.
@@ -174,6 +175,28 @@ class Truce extends GameMod {
   /// Public method to check if truce is still active
   bool isTruceActive(ChessBoard board) {
     return !_isTruceBroken(board);
+  }
+
+  /// Check if a move would give check to the opponent king.
+  /// Creates a simulated board with the piece moved and checks if the
+  /// opponent's king position is under attack.
+  bool _moveGivesCheck(ChessBoard board, ChessMove move) {
+    final opponentColor = move.piece.color.opposite;
+    final king = board.getKing(opponentColor);
+    if (king == null) return false;
+
+    // Build piece list with the moved piece at its target square
+    final pieces = board.pieces.toList();
+    pieces.removeWhere(
+      (p) =>
+          p.position == move.from &&
+          p.type == move.piece.type &&
+          p.color == move.piece.color,
+    );
+    pieces.add(move.piece.copyWith(position: move.to));
+
+    final simBoard = board.copyWith(pieces: pieces);
+    return simBoard.isPositionUnderAttack(king.position, move.piece.color);
   }
 
   /// Truce Mod: King cannot be in check during truce

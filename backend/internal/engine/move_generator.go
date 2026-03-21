@@ -454,15 +454,110 @@ func (mg *MoveGenerator) applyTruceRules(moves []Move, piece *Piece) []Move {
 		return []Move{} // Can't move anymore during truce
 	}
 
-	// During truce: Filter out captures (captures allowed only when truce breaks)
-	nonCaptureMoves := []Move{}
-	for _, move := range moves {
-		if move.CapturedPiece == nil {
-			nonCaptureMoves = append(nonCaptureMoves, move)
+	// During truce: Filter out captures and moves that give check
+	opponentColor := piece.Color.Opposite()
+	var opponentKingPos Position
+	hasKing := false
+	for row := 0; row < 8; row++ {
+		for col := 0; col < 8; col++ {
+			p := mg.board.GetPieceAt(Position{Row: row, Col: col})
+			if p != nil && p.Color == opponentColor && p.Type == King {
+				opponentKingPos = p.Position
+				hasKing = true
+			}
 		}
 	}
 
-	return nonCaptureMoves
+	safeMoves := []Move{}
+	for _, move := range moves {
+		// Filter captures
+		if move.CapturedPiece != nil {
+			continue
+		}
+		// Filter moves that give check to opponent king
+		if hasKing && mg.moveGivesCheck(move, piece, opponentKingPos) {
+			continue
+		}
+		safeMoves = append(safeMoves, move)
+	}
+
+	return safeMoves
+}
+
+// moveGivesCheck returns true if placing the piece on move.To would attack the king.
+func (mg *MoveGenerator) moveGivesCheck(move Move, piece *Piece, kingPos Position) bool {
+	to := move.To
+	switch piece.Type {
+	case Pawn:
+		dir := 1
+		if piece.Color == Black {
+			dir = -1
+		}
+		// Pawn attacks diagonally
+		if to.Row+dir == kingPos.Row && (to.Col-1 == kingPos.Col || to.Col+1 == kingPos.Col) {
+			return true
+		}
+	case Knight:
+		dr := abs(to.Row - kingPos.Row)
+		dc := abs(to.Col - kingPos.Col)
+		if (dr == 2 && dc == 1) || (dr == 1 && dc == 2) {
+			return true
+		}
+	case Bishop:
+		if mg.slidingAttacks(to, kingPos, true, false) {
+			return true
+		}
+	case Rook:
+		if mg.slidingAttacks(to, kingPos, false, true) {
+			return true
+		}
+	case Queen:
+		if mg.slidingAttacks(to, kingPos, true, true) {
+			return true
+		}
+	}
+	return false
+}
+
+// slidingAttacks checks if a sliding piece at 'from' attacks 'target'
+// considering current board occupancy (ignoring the piece's original square).
+func (mg *MoveGenerator) slidingAttacks(from, target Position, diagonal, orthogonal bool) bool {
+	dr := target.Row - from.Row
+	dc := target.Col - from.Col
+	if dr == 0 && dc == 0 {
+		return false
+	}
+
+	// Check if on a valid line
+	isDiag := abs(dr) == abs(dc)
+	isOrtho := dr == 0 || dc == 0
+	if (diagonal && isDiag) || (orthogonal && isOrtho) {
+		// Step along the line from 'from' toward 'target'
+		stepR, stepC := 0, 0
+		if dr > 0 {
+			stepR = 1
+		} else if dr < 0 {
+			stepR = -1
+		}
+		if dc > 0 {
+			stepC = 1
+		} else if dc < 0 {
+			stepC = -1
+		}
+		r, c := from.Row+stepR, from.Col+stepC
+		for r != target.Row || c != target.Col {
+			if r < 0 || r > 7 || c < 0 || c > 7 {
+				return false
+			}
+			if mg.board.GetPieceAt(Position{Row: r, Col: c}) != nil {
+				return false // Blocked
+			}
+			r += stepR
+			c += stepC
+		}
+		return true
+	}
+	return false
 }
 
 // applySaveTheQueenRules handles imprisoned queen movement and capture restrictions

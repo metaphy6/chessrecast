@@ -194,9 +194,10 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 **Description:** No captures allowed until all pieces have moved once.
 **Rules:**
 - Players cannot capture opponent pieces during truce
-- Truce breaks when one player has moved all their pieces at least once
+- Truce breaks when the side to move has exhausted all legal truce moves
 - During truce, each piece can only be moved once
 - NO check or checkmate during truce (kings move freely)
+- Moves that give check to the opponent king are illegal during truce
 - Once truce broken, normal chess rules apply including check and checkmate
 
 ---

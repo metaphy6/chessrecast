@@ -303,6 +303,19 @@ static bool is_legal(Board *b, Move m) {
     /* After making 'm', the side that moved is now the opponent.
        Check if OUR king (the mover's king) is in check. */
     bool legal = !board_in_check(b, color_opposite(b->side));
+
+    /* Truce: moves that give check to the opponent king are illegal.
+       board_in_check returns false during truce, so use direct attack check. */
+    if (legal && b->mod == MOD_TRUCE && b->truce_active) {
+        Bitboard their_king = b->pieces[b->side][KING];
+        if (their_king != BB_EMPTY) {
+            Square ksq = bb_lsb(their_king);
+            if (board_square_attacked(b, ksq, color_opposite(b->side))) {
+                legal = false;
+            }
+        }
+    }
+
     board_unmake_move(b);
     return legal;
 }

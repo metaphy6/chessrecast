@@ -378,10 +378,12 @@ func (b *Board) MakeMove(move Move) error {
 		// Increment move count for this piece
 		b.PieceMoveCounter[move.From]++
 		
-		// Check if truce should break (one player has moved all their pieces)
-		if b.checkTruceBreak(piece.Color) {
+		// Check if truce should break: the NEXT player to move is exhausted
+		// (all their pieces have moved once or are blocked)
+		nextColor := piece.Color.Opposite()
+		if b.checkTruceBreak(nextColor) {
 			b.TruceActive = false
-			log.Printf("⚔️ TRUCE BROKEN by %s! All legal truce moves exhausted. Combat is now allowed!", piece.Color)
+			log.Printf("⚔️ TRUCE BROKEN by %s! %s has no legal truce moves. Combat is now allowed!", piece.Color, nextColor)
 		}
 	}
 
