@@ -347,8 +347,17 @@ void main() {
       );
 
       final moves = [
-        ChessMove(from: whiteKing.position, to: const Position(5, 4), piece: whiteKing),
-        ChessMove(from: whiteKing.position, to: const Position(5, 5), piece: whiteKing, capturedPiece: blackPawn),
+        ChessMove(
+          from: whiteKing.position,
+          to: const Position(5, 4),
+          piece: whiteKing,
+        ),
+        ChessMove(
+          from: whiteKing.position,
+          to: const Position(5, 5),
+          piece: whiteKing,
+          capturedPiece: blackPawn,
+        ),
       ];
 
       final filtered = truce.filterMoves(moves, whiteKing, board);
@@ -392,8 +401,17 @@ void main() {
       );
 
       final moves = [
-        ChessMove(from: whiteKing.position, to: const Position(5, 4), piece: whiteKing),
-        ChessMove(from: whiteKing.position, to: const Position(5, 5), piece: whiteKing, capturedPiece: blackPawn),
+        ChessMove(
+          from: whiteKing.position,
+          to: const Position(5, 4),
+          piece: whiteKing,
+        ),
+        ChessMove(
+          from: whiteKing.position,
+          to: const Position(5, 5),
+          piece: whiteKing,
+          capturedPiece: blackPawn,
+        ),
       ];
 
       final filtered = truce.filterMoves(moves, whiteKing, board);
@@ -405,19 +423,24 @@ void main() {
     test('reports correct truce status with blocked pieces', () {
       // Same setup as "all pieces exhausted" test
       final wKing = ChessPiece(
-        type: PieceType.king, color: PieceColor.white,
-        position: const Position(0, 4), hasMoved: true,
+        type: PieceType.king,
+        color: PieceColor.white,
+        position: const Position(0, 4),
+        hasMoved: true,
       );
       final wPawn = ChessPiece(
-        type: PieceType.pawn, color: PieceColor.white,
+        type: PieceType.pawn,
+        color: PieceColor.white,
         position: const Position(3, 0),
       );
       final bPawn = ChessPiece(
-        type: PieceType.pawn, color: PieceColor.black,
+        type: PieceType.pawn,
+        color: PieceColor.black,
         position: const Position(4, 0),
       );
       final bKing = ChessPiece(
-        type: PieceType.king, color: PieceColor.black,
+        type: PieceType.king,
+        color: PieceColor.black,
         position: const Position(7, 4),
       );
 
@@ -426,9 +449,11 @@ void main() {
         gameType: ModsEnum.truce,
         moveHistory: [
           ChessMove(
-            from: const Position(0, 3), to: const Position(0, 4),
+            from: const Position(0, 3),
+            to: const Position(0, 4),
             piece: ChessPiece(
-              type: PieceType.king, color: PieceColor.white,
+              type: PieceType.king,
+              color: PieceColor.white,
               position: const Position(0, 3),
             ),
           ),
@@ -439,6 +464,129 @@ void main() {
       expect(info['truceActive'], isFalse);
       expect(info['whiteMovedPieces'], 1); // only king moved
       expect(info['whiteTotalPieces'], 2);
+    });
+  });
+
+  group('Truce: validateTruceMove (1-move-per-piece)', () {
+    test('piece that has not moved is allowed', () {
+      final whiteKnight = ChessPiece(
+        type: PieceType.knight,
+        color: PieceColor.white,
+        position: const Position(0, 1),
+      );
+      final blackKing = ChessPiece(
+        type: PieceType.king,
+        color: PieceColor.black,
+        position: const Position(7, 4),
+      );
+      final whiteKing = ChessPiece(
+        type: PieceType.king,
+        color: PieceColor.white,
+        position: const Position(0, 4),
+      );
+
+      final board = ChessBoard(
+        pieces: [whiteKnight, whiteKing, blackKing],
+        gameType: ModsEnum.truce,
+        moveHistory: const [],
+      );
+
+      final move = ChessMove(
+        from: const Position(0, 1),
+        to: const Position(2, 2),
+        piece: whiteKnight,
+      );
+
+      expect(truce.validateTruceMove(board, move), isTrue);
+    });
+
+    test('piece that already moved once is rejected', () {
+      final whiteKnight = ChessPiece(
+        type: PieceType.knight,
+        color: PieceColor.white,
+        position: const Position(2, 2),
+      );
+      final blackKing = ChessPiece(
+        type: PieceType.king,
+        color: PieceColor.black,
+        position: const Position(7, 4),
+      );
+      final whiteKing = ChessPiece(
+        type: PieceType.king,
+        color: PieceColor.white,
+        position: const Position(0, 4),
+      );
+
+      final board = ChessBoard(
+        pieces: [whiteKnight, whiteKing, blackKing],
+        gameType: ModsEnum.truce,
+        moveHistory: [
+          ChessMove(
+            from: const Position(0, 1),
+            to: const Position(2, 2),
+            piece: ChessPiece(
+              type: PieceType.knight,
+              color: PieceColor.white,
+              position: const Position(0, 1),
+            ),
+          ),
+        ],
+      );
+
+      final move = ChessMove(
+        from: const Position(2, 2),
+        to: const Position(4, 3),
+        piece: whiteKnight,
+      );
+
+      expect(truce.validateTruceMove(board, move), isFalse);
+    });
+  });
+
+  group('Truce: getTruceFrozenBitboard', () {
+    test('pieces that moved once are frozen', () {
+      final whiteKnight = ChessPiece(
+        type: PieceType.knight,
+        color: PieceColor.white,
+        position: const Position(2, 2),
+      );
+      final whiteBishop = ChessPiece(
+        type: PieceType.bishop,
+        color: PieceColor.white,
+        position: const Position(0, 2), // unmoved
+      );
+      final blackKing = ChessPiece(
+        type: PieceType.king,
+        color: PieceColor.black,
+        position: const Position(7, 4),
+      );
+      final whiteKing = ChessPiece(
+        type: PieceType.king,
+        color: PieceColor.white,
+        position: const Position(0, 4),
+      );
+
+      final board = ChessBoard(
+        pieces: [whiteKnight, whiteBishop, whiteKing, blackKing],
+        gameType: ModsEnum.truce,
+        moveHistory: [
+          ChessMove(
+            from: const Position(0, 1),
+            to: const Position(2, 2),
+            piece: ChessPiece(
+              type: PieceType.knight,
+              color: PieceColor.white,
+              position: const Position(0, 1),
+            ),
+          ),
+        ],
+      );
+
+      final frozen = truce.getTruceFrozenBitboard(board);
+      // Knight at (2,2) = square 2*8+2 = 18 → bit 18 should be set
+      expect(frozen & (1 << 18), isNonZero);
+      // Bishop at (0,2) = square 2 → should NOT be frozen
+      expect(frozen & (1 << 2), isZero);
     });
   });
 }

@@ -8,7 +8,7 @@ import 'game_mod.dart';
 /// - Players cannot capture opponent pieces until truce is broken
 /// - Truce breaks when one player has made all legal truce moves:
 ///   all pieces have moved at least once, or remaining unmoved pieces are blocked
-/// - During truce, no piece can be moved more than 3 times
+/// - During truce, each piece can only be moved once
 /// - NO check or checkmate during truce - kings move freely
 /// - Once truce is broken, normal chess rules apply including check/checkmate/captures
 class Truce extends GameMod {
@@ -35,10 +35,10 @@ class Truce extends GameMod {
 
   /// Validate if a move is allowed during truce
   bool validateTruceMove(ChessBoard board, ChessMove move) {
-    // Check if moving the same piece too many times during truce
+    // Each piece can only move once during truce
     if (!_isTruceBroken(board)) {
       final moveCount = _getPieceMoveCount(board, move.piece);
-      if (moveCount >= 3) {
+      if (moveCount >= 1) {
         return false;
       }
     }
@@ -58,9 +58,7 @@ class Truce extends GameMod {
       // _isTruceBroken checks the post-move state already; if it returns
       // false here we're still in truce.  Nothing to log.
     } else if (wasTruceActive) {
-      logTruceBroken(
-        move.piece.color == PieceColor.white ? 'white' : 'black',
-      );
+      logTruceBroken(move.piece.color == PieceColor.white ? 'white' : 'black');
     }
 
     return null;
@@ -118,8 +116,14 @@ class Truce extends GameMod {
         return oneStep.isValid && board.getPieceAt(oneStep) == null;
       case PieceType.knight:
         const offsets = [
-          [-2, -1], [-2, 1], [-1, -2], [-1, 2],
-          [1, -2], [1, 2], [2, -1], [2, 1],
+          [-2, -1],
+          [-2, 1],
+          [-1, -2],
+          [-1, 2],
+          [1, -2],
+          [1, 2],
+          [2, -1],
+          [2, 1],
         ];
         for (final o in offsets) {
           final t = pos.offset(o[0], o[1]);
@@ -127,13 +131,23 @@ class Truce extends GameMod {
         }
         return false;
       case PieceType.bishop:
-        for (final d in [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+        for (final d in [
+          [1, 1],
+          [1, -1],
+          [-1, 1],
+          [-1, -1],
+        ]) {
           final t = pos.offset(d[0], d[1]);
           if (t.isValid && board.getPieceAt(t) == null) return true;
         }
         return false;
       case PieceType.rook:
-        for (final d in [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        for (final d in [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ]) {
           final t = pos.offset(d[0], d[1]);
           if (t.isValid && board.getPieceAt(t) == null) return true;
         }
@@ -141,8 +155,14 @@ class Truce extends GameMod {
       case PieceType.queen:
       case PieceType.king:
         for (final d in [
-          [1, 0], [-1, 0], [0, 1], [0, -1],
-          [1, 1], [1, -1], [-1, 1], [-1, -1],
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+          [1, 1],
+          [1, -1],
+          [-1, 1],
+          [-1, -1],
         ]) {
           final t = pos.offset(d[0], d[1]);
           if (t.isValid && board.getPieceAt(t) == null) return true;
@@ -168,11 +188,14 @@ class Truce extends GameMod {
     return board.isPositionUnderAttack(king.position, kingColor.opposite);
   }
 
-  /// Get how many times a specific piece has moved
+  /// Get how many times a specific piece has moved during truce.
+  /// Identifies the piece by its current position — checks both
+  /// move.from and move.to to track pieces across position changes.
   int _getPieceMoveCount(ChessBoard board, ChessPiece piece) {
     int count = 0;
     for (final move in board.moveHistory) {
-      if (move.piece.color == piece.color && move.from == piece.position) {
+      if (move.piece.color == piece.color &&
+          (move.from == piece.position || move.to == piece.position)) {
         count++;
       }
     }
@@ -190,13 +213,13 @@ class Truce extends GameMod {
     return movedPositions;
   }
 
-  /// Returns a bitboard of squares where pieces have exhausted their 3-move truce limit.
+  /// Returns a bitboard of squares where pieces have already moved during truce.
   /// Bit i is set if the piece at square (row=i/8, col=i%8) cannot be moved.
   int getTruceFrozenBitboard(ChessBoard board) {
     if (_isTruceBroken(board)) return 0;
     int frozen = 0;
     for (final piece in board.pieces) {
-      if (_getPieceMoveCount(board, piece) >= 3) {
+      if (_getPieceMoveCount(board, piece) >= 1) {
         final sq = piece.position.row * 8 + piece.position.col;
         frozen |= (1 << sq);
       }

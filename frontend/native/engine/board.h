@@ -32,7 +32,7 @@ typedef struct {
     /* Truce mod state: whether truce is currently active (no captures, no check) */
     uint8_t  truce_active;
 
-    /* Truce mod: bitboard of squares whose pieces have exhausted the 3-move limit */
+    /* Truce mod: bitboard of squares whose pieces have already moved (1 move each) */
     uint64_t truce_frozen;
 
     /* Zobrist hash */
