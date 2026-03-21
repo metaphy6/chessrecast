@@ -15,17 +15,16 @@ class ChessGamePage extends StatelessWidget {
     final args = Get.arguments as Map<String, dynamic>?;
     final isOnline = args?['isOnline'] ?? false;
 
-    // Initialize the appropriate controller
+    // Always start with a fresh controller so route arguments (customBoard etc.) are applied
+    // This matches the pattern in WatchEnginePage and PlayEnginePage
+    if (Get.isRegistered<Controller>()) {
+      Get.delete<Controller>(force: true);
+    }
     Controller controller;
-    try {
-      controller = Get.find<Controller>();
-    } catch (e) {
-      // Controller not found, create one
-      if (isOnline) {
-        controller = Get.put<Controller>(OnlineController());
-      } else {
-        controller = Get.put<Controller>(Controller());
-      }
+    if (isOnline) {
+      controller = Get.put<Controller>(OnlineController());
+    } else {
+      controller = Get.put<Controller>(Controller());
     }
 
     // Set the BuildContext for safe snackbar display
@@ -151,6 +150,7 @@ class ChessGamePage extends StatelessWidget {
                   arguments: {
                     'gameType': controller.gameType,
                     'fen': controller.board.toFEN(),
+                    'fenHistory': controller.boardFenHistory,
                   },
                 );
               }

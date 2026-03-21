@@ -54,6 +54,10 @@ class Controller extends GetxController {
   bool get isGameOver => _gameOrchestrator.isGameOver(board);
   PieceColor? get winner => _gameOrchestrator.getWinner(board);
 
+  /// Returns the FEN string for each board state in history (for FEN navigation)
+  List<String> get boardFenHistory =>
+      _boardHistory.map((b) => b.toFEN()).toList();
+
   @override
   void onInit() {
     super.onInit();
@@ -806,6 +810,7 @@ class Controller extends GetxController {
           'currentPlayer': _devBoardOriginalPlayer,
           'whiteDifficulty': _devBoardWhiteDifficulty,
           'blackDifficulty': _devBoardBlackDifficulty,
+          'fenHistory': boardFenHistory,
         },
       );
     } else {

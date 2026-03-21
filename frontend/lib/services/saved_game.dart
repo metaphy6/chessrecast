@@ -11,6 +11,7 @@ class SavedGame {
   final List<String> moveLog;
   final String? startingFEN;
   final String? finalFEN;
+  final List<String>? fenHistory;
   final int totalMoves;
 
   SavedGame({
@@ -24,6 +25,7 @@ class SavedGame {
     required this.moveLog,
     this.startingFEN,
     this.finalFEN,
+    this.fenHistory,
     required this.totalMoves,
   });
 
@@ -52,6 +54,7 @@ class SavedGame {
     'moveLog': moveLog,
     'startingFEN': startingFEN,
     'finalFEN': finalFEN,
+    'fenHistory': fenHistory,
     'totalMoves': totalMoves,
   };
 
@@ -66,6 +69,9 @@ class SavedGame {
     moveLog: List<String>.from(json['moveLog'] as List),
     startingFEN: json['startingFEN'] as String?,
     finalFEN: json['finalFEN'] as String?,
+    fenHistory: json['fenHistory'] != null
+        ? List<String>.from(json['fenHistory'] as List)
+        : null,
     totalMoves: json['totalMoves'] as int,
   );
 

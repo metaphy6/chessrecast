@@ -11,6 +11,9 @@ class CustomBoardController extends GetxController {
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
 
+  // Track last initialization args to prevent duplicate init on StatelessWidget rebuilds
+  String? lastInitArgsKey;
+
   // Game configuration - initialized with defaults
   ModsEnum _selectedGameType = ModsEnum.classic;
   ModsEnum get selectedGameType => _selectedGameType;
@@ -112,8 +115,7 @@ class CustomBoardController extends GetxController {
     update([
       ...getAllSquareIds(),
       'bot_difficulty',
-      'game_mod',
-      'turn_selector',
+      'control_panel',
     ]);
   }
 
@@ -125,13 +127,9 @@ class CustomBoardController extends GetxController {
     int? whiteDifficulty,
     int? blackDifficulty,
   }) {
-    debugPrint('forceInitializeFromFEN: parsing FEN: $fen');
     try {
       // Parse FEN to get board state
       final board = ChessBoard.fromFEN(fen, gameType: gameType);
-      debugPrint(
-        'forceInitializeFromFEN: parsed ${board.pieces.length} pieces',
-      );
 
       _selectedGameType = gameType;
       _currentTurnColor = board.currentPlayer;
@@ -144,15 +142,11 @@ class CustomBoardController extends GetxController {
 
       _isInitialized = true;
 
-      debugPrint(
-        'forceInitializeFromFEN: updating UI with ${_customPieces.length} pieces',
-      );
       // Update all UI elements at once
       update([
         ...getAllSquareIds(),
         'bot_difficulty',
-        'game_mod',
-        'turn_selector',
+        'control_panel',
       ]);
     } catch (e) {
       debugPrint('forceInitializeFromFEN: ERROR parsing FEN: $e');
@@ -283,8 +277,8 @@ class CustomBoardController extends GetxController {
 
   void setBoardTheme(BoardTheme theme) {
     _boardTheme = theme;
-    // Update entire board for theme change
-    update(getAllSquareIds());
+    // Update board background image and theme selector checkmark
+    update(['board_theme']);
   }
 
   /// Validates the board for the selected game type
@@ -348,4 +342,66 @@ class CustomBoardController extends GetxController {
   }
 
   // Note: We now use getAllSquareIds() from management/utils.dart directly
+
+  // ── FEN History Navigation (reactive for reliable UI updates) ──────────
+
+  final RxList<String> _fenHistory = <String>[].obs;
+  final RxInt _fenHistoryIndex = 0.obs;
+
+  List<String> get fenHistory => _fenHistory;
+  int get fenHistoryIndex => _fenHistoryIndex.value;
+  bool get hasFenHistory => _fenHistory.length > 1;
+  bool get canFenGoBack => _fenHistoryIndex.value > 0;
+  bool get canFenGoForward => _fenHistoryIndex.value < _fenHistory.length - 1;
+
+  void setFenHistory(List<String> history, {int startIndex = 0}) {
+    _fenHistory.value = List<String>.from(history);
+    _fenHistoryIndex.value = startIndex.clamp(0, _fenHistory.length - 1);
+    _loadFenAtCurrentIndex();
+  }
+
+  void clearFenHistory() {
+    _fenHistory.clear();
+    _fenHistoryIndex.value = 0;
+  }
+
+  void fenGoBack() {
+    if (!canFenGoBack) return;
+    _fenHistoryIndex.value--;
+    _loadFenAtCurrentIndex();
+  }
+
+  void fenGoForward() {
+    if (!canFenGoForward) return;
+    _fenHistoryIndex.value++;
+    _loadFenAtCurrentIndex();
+  }
+
+  void fenGoToStart() {
+    if (_fenHistoryIndex.value == 0) return;
+    _fenHistoryIndex.value = 0;
+    _loadFenAtCurrentIndex();
+  }
+
+  void fenGoToEnd() {
+    if (_fenHistoryIndex.value == _fenHistory.length - 1) return;
+    _fenHistoryIndex.value = _fenHistory.length - 1;
+    _loadFenAtCurrentIndex();
+  }
+
+  void _loadFenAtCurrentIndex() {
+    if (_fenHistory.isEmpty) return;
+    final fen = _fenHistory[_fenHistoryIndex.value];
+    try {
+      final board = ChessBoard.fromFEN(fen, gameType: _selectedGameType);
+      _currentTurnColor = board.currentPlayer;
+      _customPieces = List<ChessPiece>.from(board.pieces);
+      update([
+        ...getAllSquareIds(),
+        'control_panel',
+      ]);
+    } catch (e) {
+      debugPrint('_loadFenAtCurrentIndex: ERROR parsing FEN: $e');
+    }
+  }
 }

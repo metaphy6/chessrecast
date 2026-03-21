@@ -253,6 +253,7 @@ class WatchEngineController extends Controller {
         resultReason: resultReason,
         moveLog: List<String>.from(moveLog),
         finalFEN: board.toFEN(),
+        fenHistory: boardFenHistory,
         totalMoves: totalMoves.value,
       );
       Get.find<SavedGamesService>().saveGame(game);

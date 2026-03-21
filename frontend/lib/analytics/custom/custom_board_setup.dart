@@ -35,17 +35,16 @@ class CustomBoardSetupPage extends StatelessWidget {
 
     // Check for FEN string (preferred - simple string serialization)
     final fen = args?['fen'] as String?;
+    // Use safe cast: List goes through dynamic in route args, so runtime type may be List<dynamic>
+    final rawFenHistory = args?['fenHistory'];
+    final fenHistory = rawFenHistory is List ? List<String>.from(rawFenHistory) : null;
+    final fenHistoryIndex = args?['fenHistoryIndex'] as int?;
 
     // Legacy support: check for pieces list
     final pieces = args?['pieces'] as List<ChessPiece>?;
     final currentPlayer = args?['currentPlayer'] as PieceColor?;
     final whiteDifficulty = args?['whiteDifficulty'] as int?;
     final blackDifficulty = args?['blackDifficulty'] as int?;
-
-    // DEBUG: Print what we received
-    debugPrint(
-      'CustomBoardSetupPage: fen=$fen, pieces=${pieces?.length}, gameType=$gameType',
-    );
 
     // Check if controller exists and get or create it
     final controller = Get.put(
@@ -54,40 +53,58 @@ class CustomBoardSetupPage extends StatelessWidget {
       permanent: true,
     );
 
-    // IMMEDIATE initialization if we have FEN or pieces from arguments
-    // This runs synchronously during build, before any UI is shown
-    if (fen != null && fen.isNotEmpty) {
-      debugPrint('CustomBoardSetupPage: Initializing from FEN: $fen');
-      // Use microtask to avoid setState during build but run immediately after
-      Future.microtask(() {
-        controller.forceInitializeFromFEN(
-          gameType: gameType,
-          fen: fen,
-          whiteDifficulty: whiteDifficulty,
-          blackDifficulty: blackDifficulty,
-        );
-      });
-    } else if (pieces != null && pieces.isNotEmpty) {
-      debugPrint('CustomBoardSetupPage: Initializing from pieces list');
-      Future.microtask(() {
-        controller.forceInitialize(
-          gameType: gameType,
-          pieces: pieces,
-          currentPlayer: currentPlayer,
-          whiteDifficulty: whiteDifficulty,
-          blackDifficulty: blackDifficulty,
-        );
-      });
-    } else if (!controller.isInitialized) {
-      debugPrint('CustomBoardSetupPage: First time init');
-      Future.microtask(() {
-        controller.initialize(gameType: gameType);
-      });
-    } else {
-      // Update game type even when keeping existing state
-      debugPrint('CustomBoardSetupPage: Updating game type to $gameType');
-      // Update internal state immediately AND trigger UI update
-      controller.setGameType(gameType);
+    // Build a key from the current arguments to prevent duplicate init on widget rebuilds
+    // (StatelessWidget.build() can re-run on keyboard, orientation, etc.)
+    // Use content hash of fenHistory so different games with same move count are distinguished
+    final historyHash = fenHistory != null ? Object.hashAll(fenHistory) : 0;
+    final argsKey = '${fen ?? ''}|${pieces?.length ?? 0}|$gameType|$historyHash';
+
+    if (controller.lastInitArgsKey != argsKey) {
+      controller.lastInitArgsKey = argsKey;
+
+      // IMMEDIATE initialization if we have FEN or pieces from arguments
+      // This runs synchronously during build, before any UI is shown
+      if (fen != null && fen.isNotEmpty) {
+        // Use microtask to avoid setState during build but run immediately after
+        Future.microtask(() {
+          controller.clearFenHistory();
+          controller.forceInitializeFromFEN(
+            gameType: gameType,
+            fen: fen,
+            whiteDifficulty: whiteDifficulty,
+            blackDifficulty: blackDifficulty,
+          );
+          if (fenHistory != null && fenHistory.length > 1) {
+            controller.setFenHistory(fenHistory, startIndex: fenHistoryIndex ?? fenHistory.length - 1);
+          }
+        });
+      } else if (pieces != null && pieces.isNotEmpty) {
+        Future.microtask(() {
+          controller.clearFenHistory();
+          controller.forceInitialize(
+            gameType: gameType,
+            pieces: pieces,
+            currentPlayer: currentPlayer,
+            whiteDifficulty: whiteDifficulty,
+            blackDifficulty: blackDifficulty,
+          );
+          if (fenHistory != null && fenHistory.length > 1) {
+            controller.setFenHistory(fenHistory, startIndex: fenHistoryIndex ?? fenHistory.length - 1);
+          }
+        });
+      } else if (!controller.isInitialized) {
+        Future.microtask(() {
+          controller.clearFenHistory();
+          controller.initialize(gameType: gameType);
+        });
+      } else {
+        // Update game type even when keeping existing state
+        Future.microtask(() {
+          controller.clearFenHistory();
+        });
+        // Update internal state immediately AND trigger UI update
+        controller.setGameType(gameType);
+      }
     }
 
     return _CustomBoardScaffold(controller: controller);
@@ -134,6 +151,9 @@ class _CustomBoardScaffold extends StatelessWidget {
                       child: _CustomBoard(controller: controller),
                     ),
                   ),
+
+                  // FEN History Navigation Bar
+                  _FenNavigationBar(controller: controller),
 
                   // Piece Selector - compact
                   _CustomPieceSelector(controller: controller),
@@ -1388,7 +1408,7 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
       '/game',
       arguments: {
         'gameType': controller.selectedGameType,
-        'customBoard': controller.customPieces,
+        'customBoard': List<ChessPiece>.from(controller.customPieces),
         'currentPlayer': controller.currentTurnColor,
         'isDevBoard': true,
         // Store original pieces and player for back navigation
@@ -1401,6 +1421,75 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
         'blackDifficulty': controller.blackDifficulty,
       },
     );
+  }
+}
+
+/// FEN history navigation bar — allows stepping through imported move history
+class _FenNavigationBar extends StatelessWidget {
+  final CustomBoardController controller;
+  const _FenNavigationBar({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    // Use Obx with reactive _fenHistory / _fenHistoryIndex for reliable updates
+    return Obx(() {
+      if (!controller.hasFenHistory) return const SizedBox.shrink();
+
+      final index = controller.fenHistoryIndex;
+      final total = controller.fenHistory.length;
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.skip_previous, size: 28),
+              onPressed: controller.canFenGoBack ? controller.fenGoToStart : null,
+              tooltip: 'Go to start',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_left, size: 32),
+              onPressed: controller.canFenGoBack ? controller.fenGoBack : null,
+              tooltip: 'Previous move',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.purple.shade50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${index + 1} / $total',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Colors.purple.shade700,
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right, size: 32),
+              onPressed: controller.canFenGoForward ? controller.fenGoForward : null,
+              tooltip: 'Next move',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            ),
+            IconButton(
+              icon: const Icon(Icons.skip_next, size: 28),
+              onPressed: controller.canFenGoForward ? controller.fenGoToEnd : null,
+              tooltip: 'Go to end',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+            ),
+          ],
+        ),
+      );
+    });
   }
 }
 

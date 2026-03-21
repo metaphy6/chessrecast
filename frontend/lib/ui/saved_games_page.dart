@@ -255,8 +255,14 @@ class _GameDetailSheet extends StatelessWidget {
                     Get.toNamed(
                       AppRoutes.customBoard,
                       arguments: {
-                        'fen': game.finalFEN,
+                        'fen': game.fenHistory?.isNotEmpty == true
+                            ? game.fenHistory!.first
+                            : game.finalFEN,
                         'gameType': modsEnum,
+                        if (game.fenHistory != null && game.fenHistory!.isNotEmpty)
+                          'fenHistory': game.fenHistory,
+                        if (game.fenHistory != null && game.fenHistory!.isNotEmpty)
+                          'fenHistoryIndex': 0,
                       },
                     );
                   },
