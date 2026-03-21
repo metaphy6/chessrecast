@@ -109,11 +109,13 @@ class WatchEnginePage extends StatelessWidget {
             icon: const Icon(Icons.open_in_new, color: Colors.white),
             onPressed: () {
               controller.stopPlaying();
+              final history = controller.boardFenHistory;
               Get.toNamed(
                 AppRoutes.customBoard,
                 arguments: {
                   'fen': controller.board.toFEN(),
                   'gameType': controller.gameType,
+                  'fenHistory': history,
                 },
               );
             },
