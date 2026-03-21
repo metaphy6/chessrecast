@@ -449,7 +449,7 @@ int evaluate(const Board *b) {
             int back_rank = (c == WHITE) ? 0 : 7;
             int second_rank = (c == WHITE) ? 1 : 6;
             int developed_count = 0;
-            bool early_truce = (b->fullmove <= 10);
+            bool early_truce = (b->fullmove <= 6);
             for (int t = KNIGHT; t <= QUEEN; t++) {
                 Bitboard bb = b->pieces[c][t];
                 while (bb) {
@@ -461,9 +461,9 @@ int evaluate(const Board *b) {
                         if (t == KNIGHT || t == BISHOP) bonus += 15;
                         /* Rooks: modest bonus for leaving back rank early */
                         else if (t == ROOK) bonus += 8;
-                        /* Queen: penalize early development (wastes moves,
-                           becomes target after truce breaks) */
-                        else if (early_truce) bonus -= 15;
+                        /* Queen: penalize early development (develop minors first;
+                           queen must move eventually but shouldn't move first) */
+                        else if (early_truce) bonus -= 10;
                         else bonus += 5;
                     } else {
                         /* Penalty for undeveloped minor pieces */

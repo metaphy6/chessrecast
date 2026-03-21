@@ -25,7 +25,7 @@ static void gen_pawn_moves(const Board *b, MoveList *ml, bool captures_only) {
     int   rank7 = (us == WHITE) ? 6 : 1;
     Bitboard pawns = b->pieces[us][PAWN];
     bool truce_no_cap = (b->mod == MOD_TRUCE && b->truce_active);
-    /* Remove pawns that have exhausted their 3-move truce limit */
+    /* Remove pawns that have already moved during truce (1 move each) */
     if (truce_no_cap) pawns &= ~b->truce_frozen;
 
     while (pawns) {
@@ -159,7 +159,7 @@ static void gen_piece_moves(const Board *b, MoveList *ml,
     Color us   = b->side;
     Color them = color_opposite(us);
     Bitboard pcs = b->pieces[us][pt];
-    /* Remove pieces that have exhausted their 3-move truce limit */
+    /* Remove pieces that have already moved during truce (1 move each) */
     if (b->mod == MOD_TRUCE && b->truce_active) pcs &= ~b->truce_frozen;
 
     while (pcs) {

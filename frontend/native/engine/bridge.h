@@ -43,7 +43,7 @@ EXPORT void engine_init(void);
    heir_wp      : heir mod: 1 if white has promoted a pawn to king, 0 otherwise
    heir_bp      : heir mod: 1 if black has promoted a pawn to king, 0 otherwise
    truce_active : truce mod: 1 if truce phase is still active, 0 otherwise
-   truce_frozen : bitboard of squares whose pieces have exhausted the 3-move limit
+   truce_frozen : bitboard of squares whose pieces have already moved (1 move each)
    result       : pointer to EngineResult struct — filled by the function */
 EXPORT void engine_find_move(const char *fen, int mod,
                              int time_ms, int max_depth,
