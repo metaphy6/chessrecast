@@ -10,7 +10,7 @@ enum ModsEnum {
   ),
   truce(
     'Truce',
-    'Players cannot attack until one player moves all pieces. Each piece can only move once during truce. No check or checkmate during truce. Once broken, normal chess rules apply.',
+    'Players cannot attack until all pieces are moved. Each piece can only move once. No check allowed during truce. Once broken, normal chess rules apply.',
   ),
   friendlyFire(
     'Friendly Fire',

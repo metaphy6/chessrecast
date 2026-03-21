@@ -589,4 +589,205 @@ void main() {
       expect(frozen & (1 << 2), isZero);
     });
   });
+
+  group('Truce: side-to-move truce break', () {
+    test('truce stays active when opponent is exhausted but current side is not',
+        () {
+      // White (current player) has 2 pieces: king (moved) + rook (unmoved, can move)
+      // Black has only king (moved) → black is exhausted
+      // But current player is white → check only white → white NOT exhausted → truce active
+      final wKing = ChessPiece(
+        type: PieceType.king,
+        color: PieceColor.white,
+        position: const Position(0, 4),
+        hasMoved: true,
+      );
+      final wRook = ChessPiece(
+        type: PieceType.rook,
+        color: PieceColor.white,
+        position: const Position(0, 0),
+      );
+      final bKing = ChessPiece(
+        type: PieceType.king,
+        color: PieceColor.black,
+        position: const Position(7, 3),
+        hasMoved: true,
+      );
+
+      final board = ChessBoard(
+        pieces: [wKing, wRook, bKing],
+        currentPlayer: PieceColor.white,
+        gameType: ModsEnum.truce,
+        moveHistory: [
+          ChessMove(
+            from: const Position(0, 3),
+            to: const Position(0, 4),
+            piece: ChessPiece(
+              type: PieceType.king,
+              color: PieceColor.white,
+              position: const Position(0, 3),
+            ),
+          ),
+          ChessMove(
+            from: const Position(7, 4),
+            to: const Position(7, 3),
+            piece: ChessPiece(
+              type: PieceType.king,
+              color: PieceColor.black,
+              position: const Position(7, 4),
+            ),
+          ),
+        ],
+      );
+
+      // Black is fully exhausted (only king, which moved). But it's white's turn
+      // and white still has an unmoved rook → truce stays active.
+      expect(truce.isTruceActive(board), isTrue);
+    });
+
+    test('truce breaks when current side to move is exhausted', () {
+      // Same scenario but currentPlayer is black
+      final wKing = ChessPiece(
+        type: PieceType.king,
+        color: PieceColor.white,
+        position: const Position(0, 4),
+        hasMoved: true,
+      );
+      final wRook = ChessPiece(
+        type: PieceType.rook,
+        color: PieceColor.white,
+        position: const Position(0, 0),
+      );
+      final bKing = ChessPiece(
+        type: PieceType.king,
+        color: PieceColor.black,
+        position: const Position(7, 3),
+        hasMoved: true,
+      );
+
+      final board = ChessBoard(
+        pieces: [wKing, wRook, bKing],
+        currentPlayer: PieceColor.black,
+        gameType: ModsEnum.truce,
+        moveHistory: [
+          ChessMove(
+            from: const Position(0, 3),
+            to: const Position(0, 4),
+            piece: ChessPiece(
+              type: PieceType.king,
+              color: PieceColor.white,
+              position: const Position(0, 3),
+            ),
+          ),
+          ChessMove(
+            from: const Position(7, 4),
+            to: const Position(7, 3),
+            piece: ChessPiece(
+              type: PieceType.king,
+              color: PieceColor.black,
+              position: const Position(7, 4),
+            ),
+          ),
+        ],
+      );
+
+      // It's black's turn and black is exhausted → truce breaks
+      expect(truce.isTruceActive(board), isFalse);
+    });
+  });
+
+  group('Truce: no-check filter', () {
+    test('move that gives direct check is filtered during truce', () {
+      // White bishop on (0,2) can move to (2,4) or (1,3).
+      // Black king at (4,2): bishop at (2,4) gives check via (3,3)→(4,2).
+      // Bishop at (1,3) does NOT give check (not on diagonal to (4,2)).
+      final wBishop = ChessPiece(
+        type: PieceType.bishop,
+        color: PieceColor.white,
+        position: const Position(0, 2),
+      );
+      final wKing = ChessPiece(
+        type: PieceType.king,
+        color: PieceColor.white,
+        position: const Position(0, 4),
+      );
+      final bKing = ChessPiece(
+        type: PieceType.king,
+        color: PieceColor.black,
+        position: const Position(4, 2),
+      );
+
+      final board = ChessBoard(
+        pieces: [wBishop, wKing, bKing],
+        currentPlayer: PieceColor.white,
+        gameType: ModsEnum.truce,
+        moveHistory: const [],
+      );
+
+      final checkMove = ChessMove(
+        from: const Position(0, 2),
+        to: const Position(2, 4),
+        piece: wBishop,
+      );
+      final safeMove = ChessMove(
+        from: const Position(0, 2),
+        to: const Position(1, 3),
+        piece: wBishop,
+      );
+
+      final filtered = truce.filterMoves([checkMove, safeMove], wBishop, board);
+      expect(filtered.length, 1);
+      expect(filtered.first.to, const Position(1, 3));
+    });
+
+    test('knight move giving check is filtered during truce', () {
+      final wKnight = ChessPiece(
+        type: PieceType.knight,
+        color: PieceColor.white,
+        position: const Position(0, 1),
+      );
+      final wKing = ChessPiece(
+        type: PieceType.king,
+        color: PieceColor.white,
+        position: const Position(0, 4),
+      );
+      // Black king at (3,1): knight going to (2,3) — is that check?
+      // Knight at (2,3) attacks: (0,2),(0,4),(1,1),(1,5),(3,1),(3,5),(4,2),(4,4)
+      // (3,1) is in that list! So knight at (2,3) checks king at (3,1).
+      final bKing = ChessPiece(
+        type: PieceType.king,
+        color: PieceColor.black,
+        position: const Position(3, 1),
+      );
+
+      final board = ChessBoard(
+        pieces: [wKnight, wKing, bKing],
+        currentPlayer: PieceColor.white,
+        gameType: ModsEnum.truce,
+        moveHistory: const [],
+      );
+
+      final checkMove = ChessMove(
+        from: const Position(0, 1),
+        to: const Position(2, 3), // Knight → (2,3) checks king at (3,1) ??? 
+        piece: wKnight,
+      );
+      // Nope: knight at (2,3): L-moves are (0,2),(0,4),(1,1),(1,5),(3,1),(3,5),(4,2),(4,4)
+      // Wait, that's wrong. Knight at (2,3): ±2,±1 and ±1,±2:
+      // (2+2,3+1)=(4,4), (2+2,3-1)=(4,2), (2-2,3+1)=(0,4), (2-2,3-1)=(0,2)
+      // (2+1,3+2)=(3,5), (2+1,3-2)=(3,1), (2-1,3+2)=(1,5), (2-1,3-2)=(1,1)
+      // Yes, (3,1) is attacked! ✓
+
+      final safeMove = ChessMove(
+        from: const Position(0, 1),
+        to: const Position(2, 0),
+        piece: wKnight,
+      );
+
+      final filtered =
+          truce.filterMoves([checkMove, safeMove], wKnight, board);
+      expect(filtered.length, 1);
+      expect(filtered.first.to, const Position(2, 0));
+    });
+  });
 }
