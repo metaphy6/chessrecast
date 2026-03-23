@@ -129,9 +129,24 @@ class NativeEngine {
         return 2;
       case ModsEnum.truce:
         return 3;
+      case ModsEnum.friendlyFire:
+        return 4;
+      case ModsEnum.kingsBattle:
+        return 5;
       default:
         return 0;
     }
+  }
+
+  /// Compute a bitboard of squares with pieces that have moved (for Friendly Fire).
+  static int _getHasMovedBitboard(ChessBoard board) {
+    int bb = 0;
+    for (final p in board.pieces) {
+      if (p.hasMoved) {
+        bb |= 1 << (p.position.row * 8 + p.position.col);
+      }
+    }
+    return bb;
   }
 
   /// Find the best move synchronously.
@@ -149,9 +164,13 @@ class NativeEngine {
     final heirBp = board.blackHasPromotedKing ? 1 : 0;
     final truceActive = board.gameType == ModsEnum.truce
         ? (mods.truce.isTruceActive(board) ? 1 : 0)
+        : board.gameType == ModsEnum.kingsBattle
+        ? (mods.kingsBattle.isUnlocked(board) ? 1 : 0)
         : 0;
     final truceFrozen = board.gameType == ModsEnum.truce
         ? mods.truce.getTruceFrozenBitboard(board)
+        : board.gameType == ModsEnum.friendlyFire
+        ? _getHasMovedBitboard(board)
         : 0;
     final fenPtr = fen.toNativeUtf8();
     final resultPtr = calloc<EngineResultNative>();
@@ -233,6 +252,17 @@ class NativeEngine {
         if (p.position == to && p.color != board.currentPlayer) {
           captured = p;
           break;
+        }
+      }
+      // Friendly Fire: captured piece may be same color
+      if (captured == null && board.gameType == ModsEnum.friendlyFire) {
+        for (final p in board.pieces) {
+          if (p.position == to &&
+              p.color == board.currentPlayer &&
+              p != piece) {
+            captured = p;
+            break;
+          }
         }
       }
     }

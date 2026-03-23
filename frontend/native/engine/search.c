@@ -205,6 +205,12 @@ static int see_value(const Board *b, Move m) {
     /* Initial gain: value of captured piece */
     gain[0] = see_pv(MOVE_CAPTURED(m), is_merc, is_heir);
 
+    /* Friendly Fire: capturing own piece is a material loss, not gain */
+    if (b->mod == MOD_FRIENDLY_FIRE && !MOVE_IS_EP(m) &&
+        PIECE_COLOR(b->mailbox[from]) == PIECE_COLOR(b->mailbox[to])) {
+        gain[0] = -gain[0];
+    }
+
     /* The moving piece becomes the target */
     PieceType next_victim = MOVE_PIECE(m);
 
@@ -798,6 +804,11 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
                         if (from_rank <= 1) reduction--;
                     }
                 }
+                /* King's Battle Phase 1: king moves are tactical (hunting
+                   pawns) — reduce less to see captures deeper */
+                if (b->mod == MOD_KINGS_BATTLE && !b->kb_unlocked
+                    && MOVE_PIECE(m) == KING && reduction > 0)
+                    reduction--;
                 reduction = mini(reduction, new_depth - 1);
                 if (reduction < 0) reduction = 0;
             }
@@ -1021,6 +1032,8 @@ done:
                         ? (b->fullmove <= 5)
                         : (b->mod == MOD_TRUCE)
                         ? (b->fullmove <= 8)
+                        : (b->mod == MOD_KINGS_BATTLE)
+                        ? (b->fullmove <= 6)
                         : (b->fullmove <= 4);
         if (is_opening) s_margin = maxi(s_margin, 10);
 
