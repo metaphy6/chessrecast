@@ -35,6 +35,12 @@ typedef struct {
     /* Truce mod: bitboard of squares whose pieces have already moved (1 move each) */
     uint64_t truce_frozen;
 
+    /* Friendly Fire mod: bitboard of squares whose pieces have moved (capturable by own side) */
+    uint64_t ff_moved;
+
+    /* King's Battle mod: whether pieces are unlocked (0=Phase 1: kings+pawns only, 1=Phase 2: all) */
+    uint8_t  kb_unlocked;
+
     /* Zobrist hash */
     uint64_t hash;
 
@@ -49,6 +55,9 @@ typedef struct {
         uint64_t hash;
         uint8_t  heir_promoted[2]; /* saved heir state for undo */
         uint8_t  truce_active;     /* saved truce state for undo */
+        uint64_t ff_moved;         /* saved friendly fire state for undo */
+        uint8_t  kb_unlocked;      /* saved king's battle state for undo */
+        uint8_t  kb_bonus;         /* did this move grant a bonus (no side switch)? */
     } history[MAX_HISTORY];
     int ply;
 } Board;

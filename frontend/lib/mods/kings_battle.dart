@@ -121,6 +121,9 @@ class KingsBattle implements GameMod {
 
   /// Helper methods
 
+  /// Checks if King's Kill has happened (public for engine FFI bridge)
+  bool isUnlocked(ChessBoard board) => _hasKingsKillHappened(board);
+
   /// Checks if King's Kill has happened by looking at move history
   bool _hasKingsKillHappened(ChessBoard board) {
     // Check if any move in history was a king capturing a pawn

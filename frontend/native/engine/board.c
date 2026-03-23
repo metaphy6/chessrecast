@@ -14,6 +14,7 @@ static uint64_t zob_castle[16];
 uint64_t zob_ep[64];
 static uint64_t zob_heir_promoted[2]; /* Heir: key for each side's promoted flag */
 static uint64_t zob_truce_active;    /* Truce: key for active-truce state */
+static uint64_t zob_kb_unlocked;     /* King's Battle: key for unlocked state */
 static bool     zob_ready = false;
 
 /* Simple xorshift64 PRNG */
@@ -38,6 +39,7 @@ void zobrist_init(void) {
     zob_heir_promoted[0] = xor_next();
     zob_heir_promoted[1] = xor_next();
     zob_truce_active = xor_next();
+    zob_kb_unlocked = xor_next();
     zob_ready = true;
 }
 
@@ -60,6 +62,8 @@ uint64_t zobrist_compute(const Board *b) {
         if (b->heir_promoted[c]) h ^= zob_heir_promoted[c];
     /* Truce: active-truce changes legal moves (no captures, no check) */
     if (b->truce_active) h ^= zob_truce_active;
+    /* King's Battle: unlocked state changes legal moves */
+    if (b->kb_unlocked) h ^= zob_kb_unlocked;
     return h;
 }
 
@@ -74,6 +78,7 @@ static void board_clear(Board *b) {
     b->heir_promoted[1] = 0;
     b->truce_active = 0;
     b->truce_frozen = 0;
+    b->kb_unlocked = 0;
     for (int sq = 0; sq < 64; sq++) b->mailbox[sq] = PIECE_EMPTY;
 }
 
@@ -398,6 +403,9 @@ void board_make_move(Board *b, Move m) {
     b->history[idx].heir_promoted[0] = b->heir_promoted[0];
     b->history[idx].heir_promoted[1] = b->heir_promoted[1];
     b->history[idx].truce_active = b->truce_active;
+    b->history[idx].ff_moved = b->ff_moved;
+    b->history[idx].kb_unlocked = b->kb_unlocked;
+    b->history[idx].kb_bonus = 0;
 
     Square from = MOVE_FROM(m);
     Square to   = MOVE_TO(m);
@@ -449,6 +457,23 @@ void board_make_move(Board *b, Move m) {
         }
     }
 
+    /* Friendly Fire: track which squares have pieces that moved */
+    if (b->mod == MOD_FRIENDLY_FIRE) {
+        b->ff_moved &= ~BB_SQ(from);       /* source square now empty */
+        b->ff_moved |= BB_SQ(to);          /* piece at dest has moved */
+        if (MOVE_IS_EP(m)) {
+            Square cap_sq = SQ(SQ_ROW(from), SQ_COL(to));
+            b->ff_moved &= ~BB_SQ(cap_sq); /* captured pawn gone */
+        }
+        if (MOVE_IS_CASTLE(m)) {
+            /* Also mark rook as moved */
+            if (to == SQ(0, 6))      { b->ff_moved &= ~BB_SQ(SQ(0,7)); b->ff_moved |= BB_SQ(SQ(0,5)); }
+            else if (to == SQ(0, 2)) { b->ff_moved &= ~BB_SQ(SQ(0,0)); b->ff_moved |= BB_SQ(SQ(0,3)); }
+            else if (to == SQ(7, 6)) { b->ff_moved &= ~BB_SQ(SQ(7,7)); b->ff_moved |= BB_SQ(SQ(7,5)); }
+            else if (to == SQ(7, 2)) { b->ff_moved &= ~BB_SQ(SQ(7,0)); b->ff_moved |= BB_SQ(SQ(7,3)); }
+        }
+    }
+
     /* Update castling rights */
     if (pt == KING) {
         if (us == WHITE) b->castling &= ~(CASTLE_WK | CASTLE_WQ);
@@ -484,6 +509,19 @@ void board_make_move(Board *b, Move m) {
 
     /* Full move number */
     if (us == BLACK) b->fullmove++;
+
+    /* King's Battle: detect unlock trigger (King's Kill or promotion in Phase 1) */
+    if (b->mod == MOD_KINGS_BATTLE && !b->kb_unlocked) {
+        /* King captures a pawn = King's Kill */
+        if (pt == KING && MOVE_IS_CAPTURE(m) &&
+            PIECE_TYPE(b->history[idx].captured) == PAWN) {
+            b->kb_unlocked = 1;
+        }
+        /* Pawn promotion also unlocks all pieces */
+        if (MOVE_IS_PROMO(m)) {
+            b->kb_unlocked = 1;
+        }
+    }
 
     /* Switch side */
     b->side = them;
@@ -545,6 +583,8 @@ void board_unmake_move(Board *b) {
     b->heir_promoted[0] = b->history[idx].heir_promoted[0];
     b->heir_promoted[1] = b->history[idx].heir_promoted[1];
     b->truce_active = b->history[idx].truce_active;
+    b->ff_moved = b->history[idx].ff_moved;
+    b->kb_unlocked = b->history[idx].kb_unlocked;
 
     if (us == BLACK) b->fullmove--;
 }

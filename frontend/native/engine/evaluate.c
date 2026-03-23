@@ -162,6 +162,35 @@ static const int PST_TRUCE_BISHOP[64] = {
     -20,-10,-15,-10,-10,-15,-10,-20,
 };
 
+/* King's Battle Phase 1: King must be active and advance FORWARD to hunt
+   enemy pawns.  Forward bias is critical — the king must cross the board.
+   Row 0 = rank 1 (white start), row 7 = rank 8 (black start).  Black
+   uses mirror(), so the forward bias flips correctly. */
+static const int PST_KB_KING_P1[64] = {
+    -40,-25,-15,  0,  0,-15,-25,-40,   /* rank 1: start, strongly discouraged */
+    -20,  0, 12, 22, 22, 12,  0,-20,   /* rank 2 */
+     -5, 15, 35, 48, 48, 35, 15, -5,   /* rank 3: approaching center */
+      5, 25, 50, 65, 65, 50, 25,  5,   /* rank 4: strong center */
+     15, 35, 58, 75, 75, 58, 35, 15,   /* rank 5: enemy territory — best */
+     20, 38, 55, 68, 68, 55, 38, 20,   /* rank 6: deep in enemy territory */
+     10, 20, 35, 45, 45, 35, 20, 10,   /* rank 7: very deep, some risk */
+     -5,  5, 15, 25, 25, 15,  5, -5,   /* rank 8: back rank of opponent */
+};
+
+/* King's Battle Phase 1: Pawns — advancement toward promotion is critical
+   because promotion triggers the unlock. Central pawns also aid king
+   maneuverability. */
+static const int PST_KB_PAWN_P1[64] = {
+     0,  0,  0,  0,  0,  0,  0,  0,   /* rank 1 */
+     5,  8, 10, 15, 15, 10,  8,  5,   /* rank 2: slight center */
+    10, 15, 22, 30, 30, 22, 15, 10,   /* rank 3 */
+    15, 22, 35, 45, 45, 35, 22, 15,   /* rank 4: strong center */
+    25, 32, 45, 55, 55, 45, 32, 25,   /* rank 5: deep */
+    40, 48, 58, 70, 70, 58, 48, 40,   /* rank 6: near promotion */
+    65, 72, 80, 90, 90, 80, 72, 65,   /* rank 7: promotion imminent */
+     0,  0,  0,  0,  0,  0,  0,  0,   /* rank 8 */
+};
+
 static const int *PST_TABLE[6] = {
     PST_PAWN, PST_KNIGHT, PST_BISHOP, PST_ROOK, PST_QUEEN, PST_KING_MG
 };
@@ -267,6 +296,21 @@ int evaluate(const Board *b) {
                     /* Truce bishops: diagonal control emphasis */
                     mg_score[c] += PST_TRUCE_BISHOP[idx];
                     eg_score[c] += PST_TRUCE_BISHOP[idx];
+                } else if (t == PAWN && b->mod == MOD_KINGS_BATTLE && !b->kb_unlocked) {
+                    /* KB Phase 1 pawns: advancement toward promotion */
+                    mg_score[c] += PST_KB_PAWN_P1[idx];
+                    eg_score[c] += PST_KB_PAWN_P1[idx];
+                    /* Extra quadratic advancement bonus: promotion is the key */
+                    int rank = (c == WHITE) ? SQ_ROW(sq) : (7 - SQ_ROW(sq));
+                    if (rank >= 3) {
+                        int adv = (rank - 2) * (rank - 2) * 10;
+                        mg_score[c] += adv;
+                        eg_score[c] += adv * 2;
+                    }
+                } else if (t == KING && b->mod == MOD_KINGS_BATTLE && !b->kb_unlocked) {
+                    /* KB Phase 1 king: active centralized king */
+                    mg_score[c] += PST_KB_KING_P1[idx];
+                    eg_score[c] += PST_KB_KING_P1[idx];
                 } else if (t == KING) {
                     mg_score[c] += PST_KING_MG[idx];
                     eg_score[c] += PST_KING_EG[idx];
@@ -285,6 +329,11 @@ int evaluate(const Board *b) {
                    Truce: mobility is more valuable since pieces can't be
                    traded — a well-placed piece stays strong longer. */
                 Bitboard own_occ = b->occupied[c];
+                /* Friendly Fire: own capturable pieces don't block mobility */
+                if (b->mod == MOD_FRIENDLY_FIRE) {
+                    Bitboard ff_cap = own_occ & b->ff_moved & ~b->pieces[c][KING];
+                    own_occ &= ~ff_cap;
+                }
                 Bitboard safe_sq = ~own_occ & ~pawn_atk[c ^ 1];
                 /* Truce mobility multiplier: pieces that control more squares
                    exert more pressure once the truce breaks */
@@ -433,6 +482,93 @@ int evaluate(const Board *b) {
 
             score += (c == WHITE) ? bonus : -bonus;
         }
+    }
+
+    /* ── Friendly Fire strategic evaluation ───────────────────────────────── */
+    if (b->mod == MOD_FRIENDLY_FIRE) {
+        for (int c = 0; c < 2; c++) {
+            int opp = c ^ 1;
+            int bonus = 0;
+
+            /* ─ Piece count preservation: losing pieces to self-capture
+               means fewer attackers/defenders overall ──────────────── */
+            int piece_count = 0;
+            for (int t = KNIGHT; t <= QUEEN; t++)
+                piece_count += bb_popcount(b->pieces[c][t]);
+            bonus += piece_count * 8;
+
+            /* ─ Piece cohesion: defended pieces are safer since they can't
+               be cheaply removed by discovered attacks.  Pieces that
+               defend each other form resilient structures. ──────────── */
+            Bitboard own_def = pawn_atk[c];
+            {
+                Bitboard kn = b->pieces[c][KNIGHT];
+                while (kn) {
+                    Square s = (Square)bb_pop_lsb(&kn);
+                    own_def |= knight_attacks[s];
+                }
+                Bitboard bi = b->pieces[c][BISHOP] | b->pieces[c][QUEEN];
+                while (bi) {
+                    Square s = (Square)bb_pop_lsb(&bi);
+                    own_def |= bishop_attacks_calc(s, b->all);
+                }
+                Bitboard ro = b->pieces[c][ROOK] | b->pieces[c][QUEEN];
+                while (ro) {
+                    Square s = (Square)bb_pop_lsb(&ro);
+                    own_def |= rook_attacks_calc(s, b->all);
+                }
+            }
+
+            /* Bonus for defended non-pawn pieces */
+            for (int t = KNIGHT; t <= QUEEN; t++) {
+                Bitboard bb = b->pieces[c][t];
+                while (bb) {
+                    Square sq = (Square)bb_pop_lsb(&bb);
+                    if (BB_HAS(own_def, sq)) bonus += 6;
+                }
+            }
+
+            /* ─ Open line potential: pieces that could open lines by
+               self-capturing blockers get a small positional bonus.
+               Rooks/queens on files with own pawns that have moved: the
+               pawn could be self-captured to open the file. ─────────── */
+            {
+                Bitboard rq = b->pieces[c][ROOK] | b->pieces[c][QUEEN];
+                while (rq) {
+                    Square sq = (Square)bb_pop_lsb(&rq);
+                    Bitboard file = (Bitboard)0x0101010101010101ULL << SQ_COL(sq);
+                    /* Own pawns on this file that have moved = potential openers */
+                    Bitboard blockers = b->pieces[c][PAWN] & file & b->ff_moved;
+                    if (blockers) bonus += 5;
+                }
+            }
+
+            /* ─ King safety emphasis: in FF the king is more vulnerable
+               because enemy pieces can also remove defenders via self-capture
+               tactics.  Amplify pawn shield value. ──────────────────── */
+            {
+                Bitboard kbb = b->pieces[c][KING];
+                if (kbb) {
+                    Square ksq = bb_lsb(kbb);
+                    int kc = SQ_COL(ksq);
+                    int fwd = (c == WHITE) ? 1 : -1;
+                    int shield = 0;
+                    for (int dc = -1; dc <= 1; dc++) {
+                        int nc = kc + dc, nr = SQ_ROW(ksq) + fwd;
+                        if (nc < 0 || nc > 7 || nr < 0 || nr > 7) continue;
+                        if (BB_HAS(b->pieces[c][PAWN], SQ(nr, nc))) shield++;
+                    }
+                    bonus += shield * 8;
+                    /* Penalty for king in center */
+                    if (kc >= 3 && kc <= 4) bonus -= 10;
+                }
+            }
+
+            score += (c == WHITE) ? bonus : -bonus;
+        }
+
+        /* Tempo bonus */
+        score += (b->side == WHITE) ? 10 : -10;
     }
 
     /* ── Truce-specific strategic evaluation ─────────────────────────────── */
@@ -792,6 +928,201 @@ int evaluate(const Board *b) {
 
         /* Tempo bonus during truce (initiative matters for development) */
         score += (b->side == WHITE) ? 15 : -15;
+    }
+
+    /* ── 2f. King's Battle strategic evaluation ──────────────────────────── */
+    if (b->mod == MOD_KINGS_BATTLE) {
+        bool kb_phase1 = !b->kb_unlocked;
+
+        for (int c = 0; c < 2; c++) {
+            Color opp = (Color)(c ^ 1);
+            int bonus = 0;
+
+            if (kb_phase1) {
+                /* ── Phase 1: King must aggressively hunt enemy pawns ─────── */
+                /* The ONLY way to unlock pieces is King's Kill (king captures
+                   an enemy pawn) or pawn promotion.  The evaluation must
+                   STRONGLY incentivize the king to approach and capture
+                   enemy pawns, lest the game stall into repetition draws. */
+
+                Bitboard kbb = b->pieces[c][KING];
+                if (kbb != BB_EMPTY) {
+                    Square ksq = bb_lsb(kbb);
+                    int kr = SQ_ROW(ksq), kcol = SQ_COL(ksq);
+
+                    /* ─ King proximity to enemy pawns (Chebyshev distance) ── */
+                    /* Chebyshev = max(|dr|,|dc|) matches king movement — a
+                       diagonal step is distance 1, not 2 like Manhattan.     */
+                    Bitboard ep = b->pieces[opp][PAWN];
+                    int min_dist = 15;
+                    int total_prox = 0;
+                    int capturable = 0;   /* pawns at Chebyshev distance 1 */
+                    while (ep) {
+                        Square ps = (Square)bb_pop_lsb(&ep);
+                        int dr = abs(SQ_ROW(ps) - kr);
+                        int dc = abs(SQ_COL(ps) - kcol);
+                        int dist = dr > dc ? dr : dc;  /* Chebyshev */
+                        if (dist < min_dist) min_dist = dist;
+                        if (dist <= 7) total_prox += (7 - dist);
+                        if (dist == 1) capturable++;
+                    }
+                    /* Strong approach bonus: each step closer is worth ~25cp */
+                    if (min_dist < 15) bonus += (7 - min_dist) * 25;
+                    bonus += total_prox * 5;
+
+                    /* CRITICAL: "Imminent King's Kill" — king is 1 step from
+                       enemy pawns.  King's Kill unlocks ALL pieces (worth ~15
+                       pawns of latent material) plus a bonus move.  Give a
+                       huge incentive so the engine actually captures. */
+                    bonus += capturable * 350;
+
+                    /* Graduated approach bonus for dist 2–3: king is closing in */
+                    {
+                        Bitboard ep2 = b->pieces[opp][PAWN];
+                        while (ep2) {
+                            Square ps = (Square)bb_pop_lsb(&ep2);
+                            int dr = abs(SQ_ROW(ps) - kr);
+                            int dc = abs(SQ_COL(ps) - kcol);
+                            int dist = dr > dc ? dr : dc;
+                            if (dist == 2) bonus += 50;
+                            else if (dist == 3) bonus += 15;
+                        }
+                    }
+
+                    /* ─ King mobility ────────────────────────────────────────── */
+                    Bitboard k_moves = king_attacks[ksq] & ~b->occupied[c];
+                    Bitboard opp_kbb = b->pieces[opp][KING];
+                    if (opp_kbb != BB_EMPTY) {
+                        k_moves &= ~king_attacks[bb_lsb(opp_kbb)];
+                    }
+                    bonus += bb_popcount(k_moves) * 6;
+                }
+
+                /* ─ Vulnerable enemy pawns: isolated / undefended targets ── */
+                /* Pawns not defended by other pawns or by the enemy king are
+                   easy King's Kill targets — give our side a bonus for each. */
+                {
+                    Bitboard ep = b->pieces[opp][PAWN];
+                    Bitboard opp_kbb = b->pieces[opp][KING];
+                    Square oksq = (opp_kbb != BB_EMPTY) ? bb_lsb(opp_kbb) : (Square)64;
+                    Bitboard own_kbb = b->pieces[c][KING];
+                    Square own_ksq = (own_kbb != BB_EMPTY) ? bb_lsb(own_kbb) : (Square)64;
+
+                    while (ep) {
+                        Square ps = (Square)bb_pop_lsb(&ep);
+                        int pcol = SQ_COL(ps);
+
+                        /* Is this pawn defended by an adjacent friendly pawn? */
+                        bool pawn_defended = false;
+                        int def_row = (opp == WHITE) ? SQ_ROW(ps) - 1 : SQ_ROW(ps) + 1;
+                        if (def_row >= 0 && def_row < 8) {
+                            if (pcol > 0 && BB_HAS(b->pieces[opp][PAWN], SQ(def_row, pcol - 1)))
+                                pawn_defended = true;
+                            if (pcol < 7 && BB_HAS(b->pieces[opp][PAWN], SQ(def_row, pcol + 1)))
+                                pawn_defended = true;
+                        }
+
+                        /* Is this pawn defended by enemy king (Chebyshev 1)? */
+                        bool king_defended = false;
+                        if (oksq < 64) {
+                            int kdr = abs(SQ_ROW(ps) - SQ_ROW(oksq));
+                            int kdc = abs(SQ_COL(ps) - SQ_COL(oksq));
+                            king_defended = ((kdr > kdc ? kdr : kdc) <= 1);
+                        }
+
+                        if (!pawn_defended && !king_defended) {
+                            /* Fully undefended pawn: prime target */
+                            bonus += 40;
+                            /* Extra bonus if our king is close to this weak pawn */
+                            if (own_ksq < 64) {
+                                int dr = abs(SQ_ROW(ps) - SQ_ROW(own_ksq));
+                                int dc = abs(SQ_COL(ps) - SQ_COL(own_ksq));
+                                int d = dr > dc ? dr : dc;
+                                bonus += (7 - d) * 12;
+                            }
+                        } else if (!pawn_defended) {
+                            /* Only king-defended: can still be outmaneuvered */
+                            bonus += 15;
+                        }
+                    }
+                }
+
+                /* ─ Own pawn preservation ────────────────────────────────── */
+                bonus += pawn_count[c] * 15;
+
+                /* ─ Passed pawns: promotion triggers unlock ─────────────── */
+                {
+                    Bitboard pawns = b->pieces[c][PAWN];
+                    while (pawns) {
+                        Square sq = (Square)bb_pop_lsb(&pawns);
+                        int row = SQ_ROW(sq), col = SQ_COL(sq);
+                        int rank = (c == WHITE) ? row : (7 - row);
+
+                        bool passed = true;
+                        int r_start = (c == WHITE) ? row + 1 : 0;
+                        int r_end   = (c == WHITE) ? 8 : row;
+                        for (int r = r_start; r < r_end && passed; r++) {
+                            for (int dc = -1; dc <= 1; dc++) {
+                                int nc = col + dc;
+                                if (nc < 0 || nc > 7) continue;
+                                if (BB_HAS(b->pieces[opp][PAWN], SQ(r, nc))) {
+                                    passed = false;
+                                    break;
+                                }
+                            }
+                        }
+                        if (passed) {
+                            static const int KB_PASSED[8] = { 0, 10, 22, 40, 70, 110, 165, 0 };
+                            bonus += KB_PASSED[rank];
+
+                            /* Escort bonus: own king near passed pawn */
+                            if (b->pieces[c][KING] != BB_EMPTY) {
+                                Square ksq = bb_lsb(b->pieces[c][KING]);
+                                int dr = abs(SQ_ROW(ksq) - row);
+                                int dc_esc = abs(SQ_COL(ksq) - col);
+                                int d = dr > dc_esc ? dr : dc_esc;
+                                if (d <= 2) bonus += 30;
+                                else if (d <= 3) bonus += 12;
+                            }
+                        }
+
+                        /* Penalty if enemy king threatens our pawn */
+                        if (b->pieces[opp][KING] != BB_EMPTY) {
+                            Square oksq = bb_lsb(b->pieces[opp][KING]);
+                            int dr = abs(SQ_ROW(oksq) - row);
+                            int dc_thr = abs(SQ_COL(oksq) - col);
+                            int d = dr > dc_thr ? dr : dc_thr;
+                            if (d <= 1) bonus -= 40;
+                            else if (d == 2) bonus -= 15;
+                        }
+                    }
+                }
+            } else {
+                /* ── Phase 2: All pieces unlocked ────────────────────────── */
+                /* Just-unlocked pieces have enormous latent value — don't
+                   penalize them harshly for being on the back rank since
+                   they literally just became available. */
+                for (int t = KNIGHT; t <= QUEEN; t++) {
+                    bonus += bb_popcount(b->pieces[c][t]) * 18;
+                }
+
+                /* Mild development incentive (not harsh back-rank penalty) */
+                int back = (c == WHITE) ? 0 : 7;
+                for (int t = KNIGHT; t <= QUEEN; t++) {
+                    Bitboard bb = b->pieces[c][t];
+                    while (bb) {
+                        Square sq = (Square)bb_pop_lsb(&bb);
+                        if (SQ_ROW(sq) == back) bonus -= 2;
+                        else bonus += 8;
+                    }
+                }
+            }
+
+            score += (c == WHITE) ? bonus : -bonus;
+        }
+
+        /* Tempo bonus */
+        score += (b->side == WHITE) ? 12 : -12;
     }
 
     /* ── 3. Pawn structure (doubled, isolated) — skip for Mercenary ──── */

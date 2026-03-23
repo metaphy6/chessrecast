@@ -3,6 +3,14 @@
 #include "search.h"
 #include "movegen.h"
 #include <string.h>
+#include <stdio.h>
+
+#ifdef __ANDROID__
+#include <android/log.h>
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "CHESS_ENGINE", __VA_ARGS__)
+#else
+#define LOGD(...) fprintf(stderr, __VA_ARGS__)
+#endif
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  Engine lifecycle                                                         */
@@ -35,8 +43,19 @@ EXPORT void engine_find_move(const char *fen, int mod,
     board.heir_promoted[BLACK] = (uint8_t)(heir_bp ? 1 : 0);
     board.truce_active = (uint8_t)(truce_active ? 1 : 0);
     board.truce_frozen = (uint64_t)truce_frozen;
+    /* Friendly Fire: reuse truce_frozen param to carry ff_moved bitboard */
+    board.ff_moved = (board.mod == MOD_FRIENDLY_FIRE) ? (uint64_t)truce_frozen : 0;
+    if (board.mod == MOD_FRIENDLY_FIRE) board.truce_frozen = 0;
+    /* King's Battle: reuse truce_active param to carry kb_unlocked state */
+    board.kb_unlocked = (board.mod == MOD_KINGS_BATTLE) ? (uint8_t)(truce_active ? 1 : 0) : 0;
+    if (board.mod == MOD_KINGS_BATTLE) board.truce_active = 0;
 
     SearchResult sr = search_think(&board, time_ms, max_depth, skill_level);
+
+    LOGD("KB find_move: mod=%d kb_unlocked=%d skill=%d depth=%d score=%d nodes=%d move=%d->%d",
+         board.mod, board.kb_unlocked, skill_level,
+         sr.depth, sr.score, sr.nodes,
+         MOVE_FROM(sr.best_move), MOVE_TO(sr.best_move));
 
     result->from_row     = SQ_ROW(MOVE_FROM(sr.best_move));
     result->from_col     = SQ_COL(MOVE_FROM(sr.best_move));
@@ -71,6 +90,11 @@ EXPORT int engine_apply_move(const char *fen, int mod,
     board.heir_promoted[BLACK] = (uint8_t)(heir_bp ? 1 : 0);
     board.truce_active = (uint8_t)(truce_active ? 1 : 0);
     board.truce_frozen = (uint64_t)truce_frozen;
+    board.ff_moved = (board.mod == MOD_FRIENDLY_FIRE) ? (uint64_t)truce_frozen : 0;
+    if (board.mod == MOD_FRIENDLY_FIRE) board.truce_frozen = 0;
+    /* King's Battle: reuse truce_active param to carry kb_unlocked state */
+    board.kb_unlocked = (board.mod == MOD_KINGS_BATTLE) ? (uint8_t)(truce_active ? 1 : 0) : 0;
+    if (board.mod == MOD_KINGS_BATTLE) board.truce_active = 0;
 
     SearchResult sr = search_think(&board, time_ms, max_depth, skill_level);
 

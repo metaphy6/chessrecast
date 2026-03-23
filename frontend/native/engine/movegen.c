@@ -139,6 +139,21 @@ static void gen_pawn_moves(const Board *b, MoveList *ml, bool captures_only) {
                 }
             }
 
+            /* Friendly Fire: pawn can capture own moved pieces (except king) diagonally */
+            if (b->mod == MOD_FRIENDLY_FIRE &&
+                target != PIECE_EMPTY && PIECE_COLOR(target) == us &&
+                PIECE_TYPE(target) != KING && BB_HAS(b->ff_moved, to)) {
+                PieceType capt = PIECE_TYPE(target);
+                if (on_promo_rank) {
+                    PieceType promos[] = {QUEEN, ROOK, BISHOP, KNIGHT};
+                    for (int i = 0; i < 4; i++)
+                        movelist_add(ml, move_encode(sq, to, PAWN, capt,
+                                                     false, false, true, promos[i]));
+                } else {
+                    movelist_add(ml, move_capture(sq, to, PAWN, capt));
+                }
+            }
+
             /* En passant */
             if (to == b->ep_square && b->ep_square != SQ_NONE) {
                 Square cap_sq = SQ(r, nc);
@@ -158,6 +173,11 @@ static void gen_piece_moves(const Board *b, MoveList *ml,
                             PieceType pt, bool captures_only) {
     Color us   = b->side;
     Color them = color_opposite(us);
+
+    /* King's Battle Phase 1: only kings can move (not N/B/R/Q) */
+    if (b->mod == MOD_KINGS_BATTLE && !b->kb_unlocked && pt != KING)
+        return;
+
     Bitboard pcs = b->pieces[us][pt];
     /* Remove pieces that have already moved during truce (1 move each) */
     if (b->mod == MOD_TRUCE && b->truce_active) pcs &= ~b->truce_frozen;
@@ -187,8 +207,13 @@ static void gen_piece_moves(const Board *b, MoveList *ml,
                 break;
         }
 
-        /* Remove friendly pieces */
-        targets &= ~b->occupied[us];
+        /* Remove friendly pieces (Friendly Fire: allow capturing own moved pieces except king) */
+        if (b->mod == MOD_FRIENDLY_FIRE) {
+            Bitboard uncapturable = (b->occupied[us] & ~b->ff_moved) | b->pieces[us][KING];
+            targets &= ~uncapturable;
+        } else {
+            targets &= ~b->occupied[us];
+        }
 
         /* Heir: king can't move adjacent to or capture opponent king */
         if (pt == KING && b->mod == MOD_HEIR) {
@@ -200,13 +225,24 @@ static void gen_piece_moves(const Board *b, MoveList *ml,
             }
         }
 
+        /* King's Battle Phase 1: king can't capture the opponent king */
+        if (pt == KING && b->mod == MOD_KINGS_BATTLE && !b->kb_unlocked) {
+            targets &= ~b->pieces[them][KING];
+        }
+
         /* Truce: remove opponent pieces from targets (no captures during truce) */
         if (b->mod == MOD_TRUCE && b->truce_active) {
             targets &= ~b->occupied[them];
         }
 
         if (captures_only) {
-            targets &= b->occupied[them];
+            if (b->mod == MOD_FRIENDLY_FIRE) {
+                /* Include both enemy captures and friendly captures */
+                Bitboard ff_cap = b->occupied[us] & b->ff_moved & ~b->pieces[us][KING];
+                targets &= (b->occupied[them] | ff_cap);
+            } else {
+                targets &= b->occupied[them];
+            }
         }
 
         while (targets) {
@@ -230,6 +266,9 @@ static void gen_castling(const Board *b, MoveList *ml) {
     if (b->mod == MOD_MERCENARY) {
         /* Castling is still allowed in Mercenary mod */
     }
+
+    /* King's Battle Phase 1: no castling (rooks are locked) */
+    if (b->mod == MOD_KINGS_BATTLE && !b->kb_unlocked) return;
 
     Color us = b->side;
     /* Truce: king frozen = can't castle */
