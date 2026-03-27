@@ -567,15 +567,15 @@ func (sess *Session) updateGameState() {
 		return
 	}
 
-	// Save the Queen: Check for repeated queen capture draw (6 times)
+	// Save the Queen: Check for repeated queen capture draw (3 times)
 	if sess.Board.Mod == engine.SaveTheQueen {
 		for captureKey, count := range sess.Board.QueenCaptureCounter {
-			if count >= 6 {
-				log.Printf("🏳️ Draw: Save the Queen - same queen captured 6 times (%s)", captureKey)
+			if count >= 3 {
+				log.Printf("🏳️ Draw: Save the Queen - same queen captured 3 times (%s)", captureKey)
 				sess.State = engine.Draw
 				sess.Result = &engine.GameResult{
 					State:  engine.Draw,
-					Reason: "Draw - queen captured 6 times by same piece",
+					Reason: "Draw - queen captured 3 times by same piece",
 				}
 				return
 			}

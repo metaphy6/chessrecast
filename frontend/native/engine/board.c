@@ -364,13 +364,24 @@ bool board_square_attacked(const Board *b, Square sq, Color by) {
         if (pawn_attacks[def][sq] & b->pieces[by][PAWN]) return true;
     }
 
+    /* ── Save the Queen: prisoner queens cannot attack (no captures) ── */
+    Bitboard effective_queens = b->pieces[by][QUEEN];
+    if (b->mod == MOD_SAVE_QUEEN) {
+        Bitboard qq = effective_queens;
+        while (qq) {
+            Square qsq = (Square)bb_pop_lsb(&qq);
+            if (!stq_is_own_half(qsq, by))      /* prisoner */
+                effective_queens &= ~BB_SQ(qsq);
+        }
+    }
+
     /* Bishops / Queens (diagonal) */
     Bitboard diag = bishop_attacks_calc(sq, b->all);
-    if (diag & (b->pieces[by][BISHOP] | b->pieces[by][QUEEN])) return true;
+    if (diag & (b->pieces[by][BISHOP] | effective_queens)) return true;
 
     /* Rooks / Queens (orthogonal) */
     Bitboard orth = rook_attacks_calc(sq, b->all);
-    if (orth & (b->pieces[by][ROOK] | b->pieces[by][QUEEN])) return true;
+    if (orth & (b->pieces[by][ROOK] | effective_queens)) return true;
 
     return false;
 }
@@ -434,6 +445,10 @@ void board_make_move(Board *b, Move m) {
         board_place(b, to, us, promo_pt);
         /* Heir: track pawn-to-king promotion */
         if (b->mod == MOD_HEIR && promo_pt == KING) {
+            b->heir_promoted[us] = 1;
+        }
+        /* Succession: track pawn-to-king promotion (reuse heir_promoted) */
+        if (b->mod == MOD_SUCCESSION && promo_pt == KING) {
             b->heir_promoted[us] = 1;
         }
     } else {

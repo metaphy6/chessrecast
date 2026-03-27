@@ -13,6 +13,43 @@ extern Bitboard pawn_attacks[2][64];
 extern Bitboard bishop_attacks_calc(Square sq, Bitboard occ);
 extern Bitboard rook_attacks_calc(Square sq, Bitboard occ);
 
+/* Forward declaration (defined in board.c) */
+extern bool board_square_attacked(const Board *b, Square sq, Color by);
+
+/* ── Succession: add promotion moves for a pawn push/capture ────────────── */
+static void succ_add_promos(const Board *b, MoveList *ml,
+                            Square from, Square to, PieceType capt,
+                            Color us) {
+    Color them = color_opposite(us);
+    bool has_king = (b->pieces[us][KING] != BB_EMPTY);
+    /* Count pawns: cost is O(popcount) but only called on promo rank */
+    int pawn_count = bb_popcount(b->pieces[us][PAWN]);
+    bool is_last_pawn = (pawn_count <= 1);
+    bool sq_safe = !board_square_attacked(b, to, them);
+
+    if (is_last_pawn && !has_king) {
+        /* Last pawn MUST promote to King (only if square safe) */
+        if (sq_safe) {
+            movelist_add(ml, move_encode(from, to, PAWN, capt,
+                                         false, false, true, KING));
+        }
+        /* If not safe, no legal promotion → this pawn cannot move here */
+        return;
+    }
+
+    /* Standard Succession promotions: R, B, N (no Queen — already have 2) */
+    PieceType promos[] = {ROOK, BISHOP, KNIGHT};
+    for (int i = 0; i < 3; i++)
+        movelist_add(ml, move_encode(from, to, PAWN, capt,
+                                     false, false, true, promos[i]));
+
+    /* Can also promote to King if no king yet and square is safe */
+    if (!has_king && sq_safe) {
+        movelist_add(ml, move_encode(from, to, PAWN, capt,
+                                     false, false, true, KING));
+    }
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  Internal: pseudo-legal move generation                                   */
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -25,6 +62,8 @@ static void gen_pawn_moves(const Board *b, MoveList *ml, bool captures_only) {
     int   rank7 = (us == WHITE) ? 6 : 1;
     Bitboard pawns = b->pieces[us][PAWN];
     bool truce_no_cap = (b->mod == MOD_TRUCE && b->truce_active);
+    bool is_stq = (b->mod == MOD_SAVE_QUEEN);
+    bool is_succ = (b->mod == MOD_SUCCESSION);
     /* Remove pawns that have already moved during truce (1 move each) */
     if (truce_no_cap) pawns &= ~b->truce_frozen;
 
@@ -81,9 +120,11 @@ static void gen_pawn_moves(const Board *b, MoveList *ml, bool captures_only) {
                             movelist_add(ml, move_encode(sq, one, PAWN, PIECE_NONE,
                                                          false, false, true, KING));
                     }
+                } else if (is_succ) {
+                    succ_add_promos(b, ml, sq, one, PIECE_NONE, us);
                 } else {
                     PieceType promos[] = {QUEEN, ROOK, BISHOP, KNIGHT};
-                    for (int i = 0; i < 4; i++)
+                    for (int i = (is_stq ? 1 : 0); i < 4; i++)
                         movelist_add(ml, move_encode(sq, one, PAWN, PIECE_NONE,
                                                      false, false, true, promos[i]));
                 }
@@ -112,6 +153,9 @@ static void gen_pawn_moves(const Board *b, MoveList *ml, bool captures_only) {
                 PieceType capt = PIECE_TYPE(target);
                 /* In Heir, pawns CAN capture kings; in other mods they can't */
                 if (capt == KING && !is_heir) continue;
+                /* Save the Queen: pawns can't capture prisoner queens */
+                if (is_stq && capt == QUEEN && !stq_is_own_half(to, them))
+                    continue;
                 if (on_promo_rank) {
                     if (is_heir) {
                         bool has_king = b->pieces[us][KING] != BB_EMPTY;
@@ -128,9 +172,11 @@ static void gen_pawn_moves(const Board *b, MoveList *ml, bool captures_only) {
                                 movelist_add(ml, move_encode(sq, to, PAWN, capt,
                                                              false, false, true, KING));
                         }
+                    } else if (is_succ) {
+                        succ_add_promos(b, ml, sq, to, capt, us);
                     } else {
                         PieceType promos[] = {QUEEN, ROOK, BISHOP, KNIGHT};
-                        for (int i = 0; i < 4; i++)
+                        for (int i = (is_stq ? 1 : 0); i < 4; i++)
                             movelist_add(ml, move_encode(sq, to, PAWN, capt,
                                                          false, false, true, promos[i]));
                     }
@@ -207,6 +253,71 @@ static void gen_piece_moves(const Board *b, MoveList *ml,
                 break;
         }
 
+        /* ── Save the Queen: special queen movement rules ──────────────── */
+        if (b->mod == MOD_SAVE_QUEEN && pt == QUEEN) {
+            bool own_half = stq_is_own_half(sq, us);
+
+            if (!own_half) {
+                /* PRISONER: king-like moves to empty squares only */
+                if (!captures_only) {
+                    Bitboard quiet = king_attacks[sq] & ~b->all;
+                    while (quiet) {
+                        Square to = (Square)bb_pop_lsb(&quiet);
+                        movelist_add(ml, move_simple(sq, to, QUEEN));
+                    }
+                }
+                continue;   /* prisoners never capture */
+            }
+
+            /* ESCAPED: full sliding within own half; king-like (quiet) to
+               cross back into opponent's half.  Queen-on-queen capture only
+               allowed from an adjacent square onto the opponent's prison square. */
+            Bitboard half = (us == WHITE) ? 0x00000000FFFFFFFFULL
+                                          : 0xFFFFFFFF00000000ULL;
+            Bitboard sliding = (bishop_attacks_calc(sq, b->all) |
+                                rook_attacks_calc(sq, b->all));
+            sliding &= ~b->occupied[us];         /* no self-captures          */
+            sliding &= ~b->pieces[them][QUEEN];  /* exclude opp queen via sliding */
+            Bitboard own_targets = sliding & half;
+
+            if (captures_only)
+                own_targets &= b->occupied[them];
+
+            /* Special: capture opponent's prison queen only if adjacent */
+            {
+                Bitboard them_pq = b->pieces[them][QUEEN] & half;
+                if (them_pq) {
+                    Square psq = bb_lsb(them_pq);
+                    if (stq_on_prison(psq, them) && (king_attacks[sq] & BB_SQ(psq)))
+                        own_targets |= BB_SQ(psq);
+                }
+            }
+
+            while (own_targets) {
+                Square to = (Square)bb_pop_lsb(&own_targets);
+                Piece target = b->mailbox[to];
+                if (target != PIECE_EMPTY) {
+                    PieceType capt = PIECE_TYPE(target);
+                    if (capt == KING) continue;
+                    movelist_add(ml, move_capture(sq, to, QUEEN, capt));
+                } else {
+                    movelist_add(ml, move_simple(sq, to, QUEEN));
+                }
+            }
+
+            /* King-like quiet moves into opponent's half (no captures) */
+            if (!captures_only) {
+                Bitboard opp_half = ~half;
+                Bitboard cross = king_attacks[sq] & ~b->all & opp_half;
+                while (cross) {
+                    Square to = (Square)bb_pop_lsb(&cross);
+                    movelist_add(ml, move_simple(sq, to, QUEEN));
+                }
+            }
+
+            continue;   /* skip normal target handling */
+        }
+
         /* Remove friendly pieces (Friendly Fire: allow capturing own moved pieces except king) */
         if (b->mod == MOD_FRIENDLY_FIRE) {
             Bitboard uncapturable = (b->occupied[us] & ~b->ff_moved) | b->pieces[us][KING];
@@ -254,6 +365,10 @@ static void gen_piece_moves(const Board *b, MoveList *ml,
                 if (capt == KING) {
                     if (b->mod != MOD_HEIR || pt == KING) continue;
                 }
+                /* Save the Queen: non-queen can't capture prisoner queens */
+                if (b->mod == MOD_SAVE_QUEEN && capt == QUEEN &&
+                    !stq_is_own_half(to, them))
+                    continue;
                 movelist_add(ml, move_capture(sq, to, pt, capt));
             } else {
                 movelist_add(ml, move_simple(sq, to, pt));

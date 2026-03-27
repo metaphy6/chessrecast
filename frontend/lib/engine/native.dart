@@ -133,6 +133,10 @@ class NativeEngine {
         return 4;
       case ModsEnum.kingsBattle:
         return 5;
+      case ModsEnum.saveTheQueen:
+        return 6;
+      case ModsEnum.succession:
+        return 7;
       default:
         return 0;
     }

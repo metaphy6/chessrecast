@@ -601,6 +601,23 @@ func (mg *MoveGenerator) applySaveTheQueenRules(moves []Move, piece *Piece) []Mo
 
 			if targetInOwnHalf {
 				// Target is in own half - allow full queen power
+				// Exception: queen-on-queen only if target is on prison square AND adjacent
+				if move.CapturedPiece != nil && move.CapturedPiece.Type == Queen {
+					whitePrison := Position{Row: 7, Col: 3} // d8
+					blackPrison := Position{Row: 0, Col: 3} // d1
+					prisonPos := blackPrison
+					if move.CapturedPiece.Color == White {
+						prisonPos = whitePrison
+					}
+					if move.To != prisonPos {
+						continue
+					}
+					rowDiff := abs(move.To.Row - move.From.Row)
+					colDiff := abs(move.To.Col - move.From.Col)
+					if rowDiff > 1 || colDiff > 1 {
+						continue
+					}
+				}
 				filteredMoves = append(filteredMoves, move)
 			} else {
 				// Target is in opponent's half - only allow king-like moves (becoming prisoner again)
