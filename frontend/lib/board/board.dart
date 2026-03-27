@@ -51,10 +51,6 @@ class ChessBoard extends Equatable {
 
   /// Creates the initial chess board setup
   factory ChessBoard.initial({ModsEnum gameType = ModsEnum.classic}) {
-    // Special handling for Save the Queen Mod
-    if (gameType == ModsEnum.saveTheQueen) {
-      return SaveTheQueen.getInitialBoard();
-    }
     // Special handling for Succession Mod - uses custom initial setup
     if (gameType == ModsEnum.succession) {
       return Succession.getInitialBoard();
@@ -380,10 +376,10 @@ class ChessBoard extends Equatable {
       return true;
     }
 
-    // Save the Queen: Check for repeated queen capture (6 times)
+    // Save the Queen: Check for repeated queen capture (3 times)
     if (gameType == ModsEnum.saveTheQueen) {
       for (final count in queenCaptureCounter.values) {
-        if (count >= 6) {
+        if (count >= 3) {
           return true;
         }
       }

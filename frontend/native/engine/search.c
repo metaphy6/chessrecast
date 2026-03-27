@@ -177,10 +177,14 @@ static Bitboard attackers_to(const Board *b, Square sq, Bitboard occ) {
 }
 
 /* Get SEE piece value, accounting for variant piece values */
-static inline int see_pv(PieceType pt, bool is_merc, bool is_heir) {
+static inline int see_pv(PieceType pt, bool is_merc, bool is_heir, bool is_stq, bool is_succ) {
     if (pt == PAWN && is_merc) return 180;
     if (pt == PAWN && is_heir) return 140;
     if (pt == KING && is_heir) return 250; /* expendable king material */
+    if (pt == QUEEN && is_stq)  return 1200; /* escaped queen capture is decisive */
+    if (pt == QUEEN && is_succ) return 1300; /* losing a queen is near-fatal */
+    if (pt == PAWN  && is_succ) return 160;  /* pawns = promotion path */
+    if (pt == KING  && is_succ) return 700;  /* promoted king */
     return SEE_PIECE_VAL[pt];
 }
 
@@ -198,12 +202,14 @@ static int see_value(const Board *b, Move m) {
     Square to   = MOVE_TO(m);
     bool is_merc = (b->mod == MOD_MERCENARY);
     bool is_heir = (b->mod == MOD_HEIR);
+    bool is_stq  = (b->mod == MOD_SAVE_QUEEN);
+    bool is_succ = (b->mod == MOD_SUCCESSION);
 
     int gain[32];
     int d = 0;
 
     /* Initial gain: value of captured piece */
-    gain[0] = see_pv(MOVE_CAPTURED(m), is_merc, is_heir);
+    gain[0] = see_pv(MOVE_CAPTURED(m), is_merc, is_heir, is_stq, is_succ);
 
     /* Friendly Fire: capturing own piece is a material loss, not gain */
     if (b->mod == MOD_FRIENDLY_FIRE && !MOVE_IS_EP(m) &&
@@ -215,8 +221,8 @@ static int see_value(const Board *b, Move m) {
     PieceType next_victim = MOVE_PIECE(m);
 
     if (MOVE_IS_PROMO(m)) {
-        gain[0] += see_pv(MOVE_PROMO_TYPE(m), is_merc, is_heir)
-                 - see_pv(PAWN, is_merc, is_heir);
+        gain[0] += see_pv(MOVE_PROMO_TYPE(m), is_merc, is_heir, is_stq, is_succ)
+                 - see_pv(PAWN, is_merc, is_heir, is_stq, is_succ);
         next_victim = MOVE_PROMO_TYPE(m);
     }
 
@@ -232,7 +238,7 @@ static int see_value(const Board *b, Move m) {
 
     while (d < 31) {
         d++;
-        gain[d] = see_pv(next_victim, is_merc, is_heir) - gain[d - 1];
+        gain[d] = see_pv(next_victim, is_merc, is_heir, is_stq, is_succ) - gain[d - 1];
 
         /* If best case for both sides is negative, stop */
         if (maxi(-gain[d - 1], gain[d]) < 0) break;
@@ -450,6 +456,28 @@ static int quiescence(Board *b, int alpha, int beta, int ply, int qply) {
         }
     }
 
+    /* Succession: terminal states — queen lost or no pawns left */
+    if (b->mod == MOD_SUCCESSION) {
+        Color us = b->side;
+        Color them = color_opposite(us);
+        /* If we promoted to King, we already won (handled by caller) */
+        /* Opponent promoted to King → we lost */
+        if (b->heir_promoted[them]) return -(MATE_SCORE - ply);
+        /* Lost a queen? (started with 2 — if fewer, instant loss) */
+        int our_queens = bb_popcount(b->pieces[us][QUEEN]);
+        if (our_queens < 2 && !b->heir_promoted[us])
+            return -(MATE_SCORE - ply);
+        /* No pawns → can't promote to King → loss */
+        if (b->pieces[us][PAWN] == BB_EMPTY && !b->heir_promoted[us])
+            return -(MATE_SCORE - ply);
+        /* Check opponent too (they may have lost on their turn) */
+        int opp_queens = bb_popcount(b->pieces[them][QUEEN]);
+        if (opp_queens < 2 && !b->heir_promoted[them])
+            return (MATE_SCORE - ply);
+        if (b->pieces[them][PAWN] == BB_EMPTY && !b->heir_promoted[them])
+            return (MATE_SCORE - ply);
+    }
+
     bool in_check = board_in_check(b, b->side);
 
     /* In check: search ALL evasions (not just captures) */
@@ -500,6 +528,8 @@ static int quiescence(Board *b, int alpha, int beta, int ply, int qply) {
 
     bool is_merc = (b->mod == MOD_MERCENARY);
     bool is_heir = (b->mod == MOD_HEIR);
+    bool is_stq  = (b->mod == MOD_SAVE_QUEEN);
+    bool is_succ = (b->mod == MOD_SUCCESSION);
     int best = stand_pat;
 
     for (int i = 0; i < ml.count; i++) {
@@ -517,7 +547,7 @@ static int quiescence(Board *b, int alpha, int beta, int ply, int qply) {
         }
 
         /* Delta pruning: if captured value can't raise alpha */
-        int cap_val = see_pv(MOVE_CAPTURED(m), is_merc, is_heir);
+        int cap_val = see_pv(MOVE_CAPTURED(m), is_merc, is_heir, is_stq, is_succ);
         if (stand_pat + cap_val + 200 < alpha) continue;
 
         board_make_move(b, m);
@@ -555,6 +585,23 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
             /* No king + no pawns → can't promote, game over */
             if (b->pieces[us][PAWN] == BB_EMPTY) return -(MATE_SCORE - ply);
         }
+    }
+
+    /* Succession: terminal states */
+    if (b->mod == MOD_SUCCESSION) {
+        Color us = b->side;
+        Color them = color_opposite(us);
+        if (b->heir_promoted[them]) return -(MATE_SCORE - ply);
+        int our_queens = bb_popcount(b->pieces[us][QUEEN]);
+        if (our_queens < 2 && !b->heir_promoted[us])
+            return -(MATE_SCORE - ply);
+        if (b->pieces[us][PAWN] == BB_EMPTY && !b->heir_promoted[us])
+            return -(MATE_SCORE - ply);
+        int opp_queens = bb_popcount(b->pieces[them][QUEEN]);
+        if (opp_queens < 2 && !b->heir_promoted[them])
+            return (MATE_SCORE - ply);
+        if (b->pieces[them][PAWN] == BB_EMPTY && !b->heir_promoted[them])
+            return (MATE_SCORE - ply);
     }
 
     /* is_pv is now passed as parameter (Stockfish approach), NOT inferred
@@ -1034,6 +1081,10 @@ done:
                         ? (b->fullmove <= 8)
                         : (b->mod == MOD_KINGS_BATTLE)
                         ? (b->fullmove <= 6)
+                        : (b->mod == MOD_SAVE_QUEEN)
+                        ? (b->fullmove <= 5)
+                        : (b->mod == MOD_SUCCESSION)
+                        ? (b->fullmove <= 5)
                         : (b->fullmove <= 4);
         if (is_opening) s_margin = maxi(s_margin, 10);
 

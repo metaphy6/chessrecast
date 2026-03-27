@@ -157,7 +157,24 @@ typedef enum {
     MOD_HEIR          = 2,
     MOD_TRUCE         = 3,
     MOD_FRIENDLY_FIRE = 4,
-    MOD_KINGS_BATTLE  = 5
+    MOD_KINGS_BATTLE  = 5,
+    MOD_SAVE_QUEEN    = 6,
+    MOD_SUCCESSION    = 7
 } GameMod;
+
+/* ── Save the Queen helpers ───────────────────────────────────────────────── */
+
+#define STQ_WHITE_PRISON   SQ(7, 3)  /* d8 – white queen starts here */
+#define STQ_BLACK_PRISON   SQ(0, 3)  /* d1 – black queen starts here */
+
+/* White's own half: rows 0-3 (ranks 1-4).  Black's own half: rows 4-7. */
+static inline bool stq_is_own_half(Square sq, Color c) {
+    return (c == WHITE) ? (SQ_ROW(sq) <= 3) : (SQ_ROW(sq) >= 4);
+}
+
+/* Is the queen at its designated prison square? */
+static inline bool stq_on_prison(Square sq, Color c) {
+    return (c == WHITE) ? (sq == STQ_WHITE_PRISON) : (sq == STQ_BLACK_PRISON);
+}
 
 #endif /* CHESS_TYPES_H */

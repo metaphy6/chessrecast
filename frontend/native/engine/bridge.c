@@ -52,7 +52,7 @@ EXPORT void engine_find_move(const char *fen, int mod,
 
     SearchResult sr = search_think(&board, time_ms, max_depth, skill_level);
 
-    LOGD("KB find_move: mod=%d kb_unlocked=%d skill=%d depth=%d score=%d nodes=%d move=%d->%d",
+    LOGD("Engine find_move: mod=%d kb_unlocked=%d skill=%d depth=%d score=%d nodes=%d move=%d->%d",
          board.mod, board.kb_unlocked, skill_level,
          sr.depth, sr.score, sr.nodes,
          MOVE_FROM(sr.best_move), MOVE_TO(sr.best_move));

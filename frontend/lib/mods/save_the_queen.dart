@@ -48,12 +48,19 @@ class SaveTheQueen implements GameMod {
     ChessBoard board,
   ) {
     if (piece.type == PieceType.queen) {
-      // QUEENS CANNOT CAPTURE OTHER QUEENS in Save the Queen Mod
+      // Queen-on-queen capture only allowed if target is on its prison square AND adjacent
       final filteredMoves = moves.where((move) {
         final targetPiece = board.getPieceAt(move.to);
-        // Block any attempt to capture another queen
         if (targetPiece != null && targetPiece.type == PieceType.queen) {
-          return false;
+          // Must be capturing the opponent queen at its exact prison square
+          final prisonPos = targetPiece.color == PieceColor.white
+              ? whiteQueenPrison
+              : blackQueenPrison;
+          if (move.to != prisonPos) return false;
+          // Must be adjacent (king-like, 1 square)
+          final rowDiff = (move.to.row - piece.position.row).abs();
+          final colDiff = (move.to.col - piece.position.col).abs();
+          return rowDiff <= 1 && colDiff <= 1;
         }
         return true;
       }).toList();
