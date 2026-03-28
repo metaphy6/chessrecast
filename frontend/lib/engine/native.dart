@@ -1,5 +1,5 @@
 import 'dart:ffi';
-import 'dart:io' show Platform;
+import 'dart:io' show Directory, File, Platform;
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
@@ -84,8 +84,36 @@ DynamicLibrary _loadLibrary() {
   if (Platform.isAndroid) return DynamicLibrary.open('libchess_engine.so');
   if (Platform.isIOS || Platform.isMacOS) return DynamicLibrary.process();
   if (Platform.isWindows) return DynamicLibrary.open('chess_engine.dll');
-  if (Platform.isLinux) return DynamicLibrary.open('libchess_engine.so');
+  if (Platform.isLinux) return _loadLinuxLibrary();
   throw UnsupportedError('Unsupported platform for native engine');
+}
+
+DynamicLibrary _loadLinuxLibrary() {
+  final overridePath = Platform.environment['CHESSRECAST_NATIVE_ENGINE_LIB'];
+  final executableDir = File(Platform.resolvedExecutable).parent.path;
+  final cwd = Directory.current.path;
+  final candidates = <String>[
+    if (overridePath != null && overridePath.isNotEmpty) overridePath,
+    '$executableDir/lib/libchess_engine.so',
+    '$cwd/build/native/linux/libchess_engine.so',
+    '$cwd/build/linux/x64/debug/bundle/lib/libchess_engine.so',
+    '$cwd/build/linux/x64/profile/bundle/lib/libchess_engine.so',
+    '$cwd/build/linux/x64/release/bundle/lib/libchess_engine.so',
+    '$cwd/libchess_engine.so',
+  ];
+  final seen = <String>{};
+
+  for (final path in candidates) {
+    if (!seen.add(path)) continue;
+    if (File(path).existsSync()) {
+      return DynamicLibrary.open(path);
+    }
+  }
+
+  throw UnsupportedError(
+    'Linux native engine library not found. Build the Linux bundle or set '
+    'CHESSRECAST_NATIVE_ENGINE_LIB to a locally built libchess_engine.so.',
+  );
 }
 
 /* ── Public API ───────────────────────────────────────────────────────────── */

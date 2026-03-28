@@ -165,6 +165,8 @@ int evaluate(ChessBoard board) {
 
   Position? whiteKingPos;
   Position? blackKingPos;
+  Position? whiteQueenPos;
+  Position? blackQueenPos;
 
   for (final p in board.pieces) {
     final row = p.position.row;
@@ -214,8 +216,10 @@ int evaluate(ChessBoard board) {
         pstBonus = _queenPST[pstRow][col];
         if (isWhite) {
           whiteQueens++;
+          whiteQueenPos = p.position;
         } else {
           blackQueens++;
+          blackQueenPos = p.position;
         }
         break;
       case PieceType.king:
@@ -275,6 +279,7 @@ int evaluate(ChessBoard board) {
         whiteKingPos,
         PieceColor.white,
         mgWeight,
+        isMerc,
       );
     }
     if (blackKingPos != null) {
@@ -283,6 +288,7 @@ int evaluate(ChessBoard board) {
         blackKingPos,
         PieceColor.black,
         mgWeight,
+        isMerc,
       );
     }
   }
@@ -292,6 +298,28 @@ int evaluate(ChessBoard board) {
     // In Mercenary, pawns are very strong (king-like movement). Value them more.
     whiteScore += whitePawns * 30;
     blackScore += blackPawns * 30;
+
+    // Heavy and minor pieces that sit next to enemy pawns are far less stable
+    // in Mercenary because those pawns move and capture like kings.
+    whiteScore -= _evaluateMercenaryPieceExposure(board, PieceColor.white);
+    blackScore -= _evaluateMercenaryPieceExposure(board, PieceColor.black);
+
+    whiteScore += _evaluateMercenaryConversion(
+      board,
+      PieceColor.white,
+      whiteKingPos,
+      whiteQueenPos,
+      blackKingPos,
+      egWeight,
+    );
+    blackScore += _evaluateMercenaryConversion(
+      board,
+      PieceColor.black,
+      blackKingPos,
+      blackQueenPos,
+      whiteKingPos,
+      egWeight,
+    );
   }
 
   if (isSuccession) {
@@ -384,8 +412,27 @@ int _kingShield(
   Position kingPos,
   PieceColor color,
   int mgWeight,
+  bool isMerc,
 ) {
   final pawnCode = color == PieceColor.white ? 1 : 2;
+
+  if (isMerc) {
+    var shield = 0;
+    for (var dr = -1; dr <= 1; dr++) {
+      for (var dc = -1; dc <= 1; dc++) {
+        if (dr == 0 && dc == 0) continue;
+        final row = kingPos.row + dr;
+        final col = kingPos.col + dc;
+        if (row < 0 || row > 7 || col < 0 || col > 7) continue;
+        if (pawnGrid[row][col] == pawnCode) {
+          shield += 13;
+        }
+      }
+    }
+    final weight = mgWeight > 140 ? mgWeight : 140;
+    return (shield * weight) ~/ 256;
+  }
+
   final shieldRow = color == PieceColor.white
       ? kingPos.row + 1
       : kingPos.row - 1;
@@ -402,4 +449,165 @@ int _kingShield(
 
   // Scale by middlegame weight
   return (shield * mgWeight) ~/ 256;
+}
+
+int _evaluateMercenaryPieceExposure(ChessBoard board, PieceColor color) {
+  final enemyPawns = board.pieces.where(
+    (piece) => piece.color != color && piece.type == PieceType.pawn,
+  );
+  var penalty = 0;
+
+  for (final piece in board.pieces) {
+    if (piece.color != color) continue;
+    if (piece.type == PieceType.pawn || piece.type == PieceType.king) continue;
+
+    final isExposed = enemyPawns.any((enemyPawn) {
+      final rowDelta = (enemyPawn.position.row - piece.position.row).abs();
+      final colDelta = (enemyPawn.position.col - piece.position.col).abs();
+      return rowDelta <= 1 && colDelta <= 1;
+    });
+
+    if (!isExposed) continue;
+
+    switch (piece.type) {
+      case PieceType.knight:
+      case PieceType.bishop:
+        penalty += 35;
+        break;
+      case PieceType.rook:
+        penalty += 60;
+        break;
+      case PieceType.queen:
+        penalty += 110;
+        break;
+      case PieceType.pawn:
+      case PieceType.king:
+        break;
+    }
+  }
+
+  return penalty;
+}
+
+int _evaluateMercenaryConversion(
+  ChessBoard board,
+  PieceColor color,
+  Position? ownKingPos,
+  Position? ownQueenPos,
+  Position? enemyKingPos,
+  int egWeight,
+) {
+  if (ownKingPos == null || enemyKingPos == null || egWeight < 80) {
+    return 0;
+  }
+
+  var ownMaterial = 0;
+  var enemyMaterial = 0;
+  var enemyNonPawnMaterial = 0;
+
+  for (final piece in board.pieces) {
+    final value = _mercenaryMaterialValue(piece.type);
+    if (piece.color == color) {
+      ownMaterial += value;
+    } else {
+      enemyMaterial += value;
+      if (piece.type != PieceType.pawn && piece.type != PieceType.king) {
+        enemyNonPawnMaterial += value;
+      }
+    }
+  }
+
+  final lead = ownMaterial - enemyMaterial;
+  var bonus = _evaluateMercenaryKingRoute(
+    ownKingPos,
+    enemyKingPos,
+    egWeight,
+    lead,
+  );
+  if (ownQueenPos != null) {
+    bonus += _evaluateMercenaryQueenInfiltration(
+      ownQueenPos,
+      enemyKingPos,
+      egWeight,
+      lead,
+    );
+  }
+
+  if (lead <= 0) return bonus;
+
+  final cappedLead = lead > 700 ? 700 : lead;
+  final simplifyBudget = 2200 - enemyNonPawnMaterial;
+  final simplifyPressure =
+      ((simplifyBudget > 0 ? simplifyBudget : 0) * cappedLead * egWeight) ~/
+      1638400;
+  final kingDistance = _chebyshevDistance(ownKingPos, enemyKingPos);
+  final kingApproach = ((8 - kingDistance) * cappedLead * egWeight) ~/ 30720;
+  final kingDrive =
+      (_distanceFromCenter(enemyKingPos) * cappedLead * egWeight) ~/ 51200;
+
+  return bonus + simplifyPressure + kingApproach + kingDrive;
+}
+
+int _evaluateMercenaryKingRoute(
+  Position ownKingPos,
+  Position enemyKingPos,
+  int egWeight,
+  int lead,
+) {
+  final fileGap = (ownKingPos.col - enemyKingPos.col).abs();
+  final fileAlignment = (4 - fileGap).clamp(0, 4);
+  final kingCenter = (6 - _distanceFromCenter(ownKingPos)).clamp(0, 6);
+  final pressure = lead <= 0 ? 0 : (lead > 700 ? 700 : lead);
+
+  return fileAlignment * (10 + egWeight ~/ 6) +
+      kingCenter * (4 + egWeight ~/ 24) +
+      (fileAlignment * pressure) ~/ 80;
+}
+
+int _evaluateMercenaryQueenInfiltration(
+  Position ownQueenPos,
+  Position enemyKingPos,
+  int egWeight,
+  int lead,
+) {
+  final queenDistance = _chebyshevDistance(ownQueenPos, enemyKingPos);
+  final queenApproach = (7 - queenDistance).clamp(0, 7);
+  final fileGap = (ownQueenPos.col - enemyKingPos.col).abs();
+  final rankGap = (ownQueenPos.row - enemyKingPos.row).abs();
+  final lanePressure =
+      (fileGap <= 2 ? 3 - fileGap : 0) + (rankGap <= 2 ? 3 - rankGap : 0);
+  final pressure = lead <= 0 ? 0 : (lead > 700 ? 700 : lead);
+
+  return queenApproach * (8 + egWeight ~/ 16) +
+      lanePressure * (10 + egWeight ~/ 24) +
+      (queenApproach * pressure) ~/ 60;
+}
+
+int _mercenaryMaterialValue(PieceType type) {
+  switch (type) {
+    case PieceType.pawn:
+      return 180;
+    case PieceType.knight:
+      return 320;
+    case PieceType.bishop:
+      return 330;
+    case PieceType.rook:
+      return 500;
+    case PieceType.queen:
+      return 900;
+    case PieceType.king:
+      return 0;
+  }
+}
+
+int _chebyshevDistance(Position a, Position b) {
+  final rowDistance = (a.row - b.row).abs();
+  final colDistance = (a.col - b.col).abs();
+  return rowDistance > colDistance ? rowDistance : colDistance;
+}
+
+int _distanceFromCenter(Position position) {
+  final rowDistance = position.row < 4 ? 3 - position.row : position.row - 4;
+  final colDistance = position.col < 4 ? 3 - position.col : position.col - 4;
+  return rowDistance + colDistance;
 }

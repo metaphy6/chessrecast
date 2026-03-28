@@ -353,9 +353,10 @@ class ChessBoard extends Equatable {
     if (positionHistory.isEmpty) return false;
 
     final currentPosition = getPositionKey();
-    int count = 1; // Start at 1 to count the current position
+    int count = 0;
 
-    // Early exit optimization - stop counting after we reach 3
+    // positionHistory already includes the current position, so count direct
+    // matches and only draw once the same position has occurred three times.
     for (int i = 0; i < positionHistory.length; i++) {
       if (positionHistory[i] == currentPosition) {
         count++;

@@ -576,6 +576,8 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
     if (ply >= MAX_PLY) return evaluate(b);
     if (depth <= 0) return quiescence(b, alpha, beta, ply, 0);
 
+    bool is_merc = (b->mod == MOD_MERCENARY);
+
     /* Heir: terminal state detection — no king + no hope of recovery */
     if (b->mod == MOD_HEIR) {
         Color us = b->side;
@@ -673,7 +675,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
                      s_eval_stack[ply] > s_eval_stack[ply - 2];
 
     /* ── Razoring ─────────────────────────────────────────────────── */
-    if (!is_pv && !in_check && depth <= 2 && !is_mate(alpha)) {
+    if (!is_merc && !is_pv && !in_check && depth <= 2 && !is_mate(alpha)) {
         int razor_margin = (depth == 1) ? 300 : 500;
         if (static_eval + razor_margin < alpha) {
             int razor = quiescence(b, alpha, beta, ply, 0);
@@ -682,7 +684,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
     }
 
     /* ── Reverse futility pruning ─────────────────────────────────── */
-    if (!is_pv && !in_check && depth <= 6 &&
+    if (!is_merc && !is_pv && !in_check && depth <= 6 &&
         !is_mate(alpha) && !is_mate(beta)) {
         int rfp_margin = depth * (improving ? 70 : 100);
         if (static_eval - rfp_margin >= beta)
@@ -690,7 +692,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
     }
 
     /* ── Null-move pruning ────────────────────────────────────────── */
-    if (do_null && !in_check && !is_pv && depth >= 3 && ply > 0 &&
+    if (!is_merc && do_null && !in_check && !is_pv && depth >= 3 && ply > 0 &&
         static_eval >= beta) {
         Color us = b->side;
         bool has_pieces = b->pieces[us][KNIGHT] || b->pieces[us][BISHOP] ||
@@ -750,7 +752,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
 
     /* Futility flag */
     bool do_futility = false;
-    if (!is_pv && !in_check && depth <= 3 && !is_mate(alpha)) {
+    if (!is_merc && !is_pv && !in_check && depth <= 3 && !is_mate(alpha)) {
         int fut_margin = depth * (improving ? 120 : 180);
         do_futility = (static_eval + fut_margin <= alpha);
     }
@@ -791,14 +793,14 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
         if (!is_pv && !in_check && moves_done > 0) {
 
             /* LMP: skip late quiet moves at shallow depths */
-            if (!is_cap && !is_promo && !gives_check &&
+            if (!is_merc && !is_cap && !is_promo && !gives_check &&
                 depth <= 5 && moves_done >= LMP_LIMIT[depth]) {
                 board_unmake_move(b);
                 continue;
             }
 
             /* Futility: skip late quiets when eval+margin < alpha */
-            if (do_futility && !is_cap && !is_promo && !gives_check) {
+            if (!is_merc && do_futility && !is_cap && !is_promo && !gives_check) {
                 board_unmake_move(b);
                 continue;
             }
@@ -813,10 +815,12 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
         }
 
         /* ── Extensions ───────────────────────────────────────────── */
+        bool merc_endgame = is_merc && bb_popcount(b->all) <= 16;
         int ext = gives_check ? 1 : 0;
         /* Recapture extension: search deeper when recapturing on the
            same square to avoid horizon-effect blunders in exchanges */
         if (!ext && is_recapture && depth >= 4) ext = 1;
+          if (!ext && merc_endgame && is_cap && depth >= 4) ext = 1;
         int new_depth = depth - 1 + ext;
 
         /* ── PVS + LMR ───────────────────────────────────────────── */
@@ -826,20 +830,16 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
             score = -alpha_beta(b, new_depth, -beta, -alpha, ply + 1, true, is_pv);
         } else {
             int reduction = 0;
+            bool merc_quiet = is_merc && !is_cap && !is_promo;
 
             /* LMR */
-            if (moves_done >= 3 && depth >= 3 && ext == 0 &&
+            if (!merc_quiet && moves_done >= 3 && depth >= 3 && ext == 0 &&
                 !is_cap && !is_promo) {
                 reduction = 1;
                 if (moves_done >= 6)  reduction++;
                 if (moves_done >= 12) reduction++;
                 if (!improving) reduction++;
                 if (is_pv && reduction > 0) reduction--;
-                /* Mercenary pawns are tactical — reduce less (Stockfish
-                   exempts tactical moves from heavy LMR) */
-                if (b->mod == MOD_MERCENARY && MOVE_PIECE(m) == PAWN
-                    && reduction > 0)
-                    reduction--;
                 /* Truce: developing moves (minor piece leaves back rank)
                    are strategic — reduce less for proper positional play */
                 if (b->mod == MOD_TRUCE && b->truce_active && reduction > 0) {

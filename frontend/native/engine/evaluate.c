@@ -198,6 +198,140 @@ static const int *PST_TABLE[6] = {
 /* Mirror square for black: row 0↔7, 1↔6, etc. */
 static inline int mirror(int sq) { return sq ^ 56; }
 
+static inline int chebyshev_distance_sq(int a, int b) {
+    int dr = abs(SQ_ROW(a) - SQ_ROW(b));
+    int dc = abs(SQ_COL(a) - SQ_COL(b));
+    return dr > dc ? dr : dc;
+}
+
+static inline int distance_from_center_sq(int sq) {
+    int row = SQ_ROW(sq);
+    int col = SQ_COL(sq);
+    int row_dist = (row < 4) ? (3 - row) : (row - 4);
+    int col_dist = (col < 4) ? (3 - col) : (col - 4);
+    return row_dist + col_dist;
+}
+
+static inline int merc_lane_pressure_sq(int a, int b) {
+    int file_gap = abs(SQ_COL(a) - SQ_COL(b));
+    int rank_gap = abs(SQ_ROW(a) - SQ_ROW(b));
+    int pressure = 0;
+
+    if (file_gap == 0) pressure += 4;
+    if (rank_gap == 0) pressure += 4;
+    if (file_gap == rank_gap) pressure += 3;
+    if (file_gap <= 2) pressure += 2 - file_gap;
+    if (rank_gap <= 2) pressure += 2 - rank_gap;
+
+    return pressure;
+}
+
+static inline int merc_adjacent_pawn_shield(const Board *b, Color side,
+                                            Square king) {
+    return bb_popcount(b->pieces[side][PAWN] & king_attacks[king]);
+}
+
+static inline int merc_king_route_bonus(Square king, Square enemy_king,
+                                        int eg_weight, int lead) {
+    int file_gap = abs(SQ_COL(king) - SQ_COL(enemy_king));
+    int file_alignment = 4 - file_gap;
+    if (file_alignment < 0) file_alignment = 0;
+
+    int lane_pressure = merc_lane_pressure_sq(king, enemy_king);
+
+    int king_center = 6 - distance_from_center_sq(king);
+    if (king_center < 0) king_center = 0;
+
+    int pressure = lead > 0 ? lead : 0;
+    if (pressure > 700) pressure = 700;
+
+    int bonus = file_alignment * (10 + eg_weight / 6);
+    bonus += king_center * (4 + eg_weight / 24);
+    bonus += lane_pressure * (5 + eg_weight / 24);
+    bonus += (file_alignment * pressure) / 80;
+    return bonus;
+}
+
+static inline int merc_queen_infiltration_bonus(const Board *b, Color side,
+                                                Square queen, Square enemy_king,
+                                                int eg_weight, int lead) {
+    (void)side;
+
+    int queen_dist = chebyshev_distance_sq(queen, enemy_king);
+    int queen_approach = 7 - queen_dist;
+    if (queen_approach < 0) queen_approach = 0;
+
+    int lane_pressure = merc_lane_pressure_sq(queen, enemy_king);
+
+    Bitboard attack_ring = king_attacks[enemy_king] | BB_SQ(enemy_king);
+    Bitboard q_attacks = bishop_attacks_calc(queen, b->all)
+                       | rook_attacks_calc(queen, b->all);
+    int ring_hits = bb_popcount(q_attacks & attack_ring);
+
+    int pressure = lead > 0 ? lead : 0;
+    if (pressure > 700) pressure = 700;
+
+    int bonus = queen_approach * (8 + eg_weight / 16);
+    bonus += lane_pressure * (10 + eg_weight / 24);
+    bonus += ring_hits * (16 + eg_weight / 32);
+    bonus += (queen_approach * pressure) / 60;
+    return bonus;
+}
+
+static inline int merc_king_queen_coordination_bonus(Square king, Square queen,
+                                                     Square enemy_king,
+                                                     int eg_weight, int lead) {
+    int king_to_queen = chebyshev_distance_sq(king, queen);
+    int king_to_enemy = chebyshev_distance_sq(king, enemy_king);
+    int queen_to_enemy = chebyshev_distance_sq(queen, enemy_king);
+    int escort = 0;
+    int pressure = lead > 0 ? lead : 0;
+    if (pressure > 700) pressure = 700;
+
+    if (king_to_queen <= 4) {
+        escort += (5 - king_to_queen) * (6 + eg_weight / 32);
+    }
+
+    if (king_to_enemy <= 4 && queen_to_enemy <= 4) {
+        escort += (9 - king_to_enemy - queen_to_enemy) * (6 + eg_weight / 28);
+    }
+
+    if (king_to_queen <= 4 || king_to_enemy <= 4) {
+        escort += merc_lane_pressure_sq(queen, enemy_king) * (4 + eg_weight / 32);
+    }
+
+    if (pressure > 0 && escort > 0) {
+        escort += (escort * pressure) / 320;
+    }
+
+    return escort;
+}
+
+static inline int merc_enemy_queen_infiltration_penalty(const Board *b,
+                                                        Square king,
+                                                        Square enemy_queen,
+                                                        int eg_weight,
+                                                        int shield) {
+    int queen_dist = chebyshev_distance_sq(enemy_queen, king);
+    int queen_approach = 7 - queen_dist;
+    if (queen_approach < 0) queen_approach = 0;
+
+    int lane_pressure = merc_lane_pressure_sq(enemy_queen, king);
+    Bitboard attack_ring = king_attacks[king] | BB_SQ(king);
+    Bitboard q_attacks = bishop_attacks_calc(enemy_queen, b->all)
+                       | rook_attacks_calc(enemy_queen, b->all);
+    int ring_hits = bb_popcount(q_attacks & attack_ring);
+
+    int shelter_crack = 3 - shield;
+    if (shelter_crack < 0) shelter_crack = 0;
+
+    int penalty = queen_approach * (8 + eg_weight / 20);
+    penalty += lane_pressure * (10 + eg_weight / 24);
+    penalty += ring_hits * (18 + eg_weight / 24);
+    penalty += shelter_crack * (12 + eg_weight / 20);
+    return penalty;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  Evaluation                                                               */
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -206,8 +340,11 @@ int evaluate(const Board *b) {
     int mg_score[2] = {0, 0};
     int eg_score[2] = {0, 0};
     int material[2] = {0, 0};
+    int non_pawn_material[2] = {0, 0};
     int pawn_count[2] = {0, 0};
     int bishop_count[2] = {0, 0};
+    int king_sq[2] = {-1, -1};
+    int queen_sq[2] = {-1, -1};
 
     bool is_merc = (b->mod == MOD_MERCENARY);
     bool is_heir = (b->mod == MOD_HEIR);
@@ -266,8 +403,11 @@ int evaluate(const Board *b) {
                     if (t == KING) mat =  700;  /* promoted King: big but not infinite */
                 }
                 material[c] += mat;
+                if (t != PAWN && t != KING) non_pawn_material[c] += mat;
                 mg_score[c] += mat;
                 eg_score[c] += mat;
+                if (t == KING) king_sq[c] = sq;
+                if (t == QUEEN) queen_sq[c] = sq;
 
                 if (t == PAWN && is_merc) {
                     /* Mercenary pawns use their own PST for positional play */
@@ -361,13 +501,17 @@ int evaluate(const Board *b) {
                     mg_score[c] += mob * (5 + truce_mob_extra);
                     eg_score[c] += mob * (5 + truce_mob_extra);
                 } else if (t == ROOK) {
-                    int mob = bb_popcount(rook_attacks_calc(sq, b->all) & ~own_occ);
+                    Bitboard rook_targets = rook_attacks_calc(sq, b->all) & ~own_occ;
+                    if (is_merc) rook_targets &= ~pawn_atk[c ^ 1];
+                    int mob = bb_popcount(rook_targets);
                     mg_score[c] += mob * (2 + truce_mob_extra);
                     eg_score[c] += mob * (3 + truce_mob_extra);
                 } else if (t == QUEEN) {
                     Bitboard q_atk = bishop_attacks_calc(sq, b->all)
                                    | rook_attacks_calc(sq, b->all);
-                    int mob = bb_popcount(q_atk & ~own_occ);
+                    Bitboard queen_targets = q_atk & ~own_occ;
+                    if (is_merc) queen_targets &= ~pawn_atk[c ^ 1];
+                    int mob = bb_popcount(queen_targets);
                     mg_score[c] += mob * (1 + (is_truce_active ? 1 : 0));
                     eg_score[c] += mob * (2 + (is_truce_active ? 1 : 0));
                 }
@@ -454,6 +598,52 @@ int evaluate(const Board *b) {
                 if (row <= 3) b_space++; /* rank 5+ for Black (mirrored) */
             }
             score += (w_space - b_space) * 18;
+        }
+
+        if (eg_weight >= 72) {
+            for (int c = 0; c < 2; c++) {
+                int opp = c ^ 1;
+                if (king_sq[c] < 0 || king_sq[opp] < 0) continue;
+
+                int lead = material[c] - material[opp];
+                int bonus = merc_king_route_bonus(king_sq[c], king_sq[opp],
+                                                  eg_weight, lead);
+
+                if (queen_sq[c] >= 0) {
+                    bonus += merc_queen_infiltration_bonus(
+                        b, (Color)c, queen_sq[c], king_sq[opp], eg_weight, lead);
+                    bonus += merc_king_queen_coordination_bonus(
+                        king_sq[c], queen_sq[c], king_sq[opp], eg_weight, lead);
+                }
+
+                if (queen_sq[opp] >= 0) {
+                    int shield = merc_adjacent_pawn_shield(
+                        b, (Color)c, king_sq[c]);
+                    bonus -= merc_enemy_queen_infiltration_penalty(
+                        b, king_sq[c], queen_sq[opp], eg_weight, shield);
+                }
+
+                if (lead > 0) {
+                    if (lead > 700) lead = 700;
+
+                    int simplify_budget = 2400 - non_pawn_material[opp];
+                    if (simplify_budget < 0) simplify_budget = 0;
+
+                    int cleanup_window = 1600 - non_pawn_material[opp];
+                    if (cleanup_window < 0) cleanup_window = 0;
+
+                    int king_dist = chebyshev_distance_sq(king_sq[c], king_sq[opp]);
+                    int edge_dist = distance_from_center_sq(king_sq[opp]);
+
+                    int simplify = (simplify_budget * lead * eg_weight) / 1310720;
+                    int cleanup = (cleanup_window * lead * eg_weight) / 983040;
+                    int king_approach = ((8 - king_dist) * lead * eg_weight) / 30720;
+                    int king_drive = (edge_dist * lead * eg_weight) / 51200;
+                    bonus += simplify + cleanup + king_approach + king_drive;
+                }
+
+                score += (c == WHITE) ? bonus : -bonus;
+            }
         }
     }
 
@@ -1491,9 +1681,10 @@ int evaluate(const Board *b) {
                     if (BB_HAS(b->pieces[c][PAWN], SQ(nr, nc))) shield++;
                 }
             }
-            int shield_weight = is_merc ? 20 : 10;
-            /* Mercenary: use min 100/256 phase weight so safety never fully disappears */
-            int kw = is_merc ? (mg_weight > 100 ? mg_weight : 100) : mg_weight;
+                int shield_weight = is_merc ? 26 : 10;
+                /* Mercenary: keep king safety highly relevant even in simplified
+                    positions because king-like pawns create persistent mating nets. */
+                int kw = is_merc ? (mg_weight > 140 ? mg_weight : 140) : mg_weight;
             int s_bonus = shield * shield_weight * kw / 256;
             score += (c == WHITE) ? s_bonus : -s_bonus;
 
@@ -1528,7 +1719,7 @@ int evaluate(const Board *b) {
                 Bitboard op = b->pieces[opp][PAWN];
                 while (op) {
                     Square s = (Square)bb_pop_lsb(&op);
-                    if (king_attacks[s] & king_zone) attack_weight += 4;
+                    if (king_attacks[s] & king_zone) attack_weight += 5;
                 }
             }
 
@@ -1543,6 +1734,24 @@ int evaluate(const Board *b) {
     /*  Bonus for pawns attacking enemy non-pawn pieces.  One of Stockfish's */
     /*  strongest non-material eval terms — makes the engine target enemy    */
     /*  pieces with cheap attackers and avoid leaving pieces en prise.       */
+    if (is_merc) {
+        /* In Mercenary, pieces sitting next to enemy pawns are much less
+           stable than in classic chess because those pawns move and capture
+           like kings. Penalize exposed heavy/minor pieces directly. */
+        static const int MERC_EXPOSED_BY_PAWN[] = { 0, 35, 35, 60, 110, 0 };
+        for (int c = 0; c < 2; c++) {
+            Bitboard exposed = pawn_atk[c ^ 1] & b->occupied[c]
+                             & ~(b->pieces[c][PAWN] | b->pieces[c][KING]);
+            int penalty = 0;
+            while (exposed) {
+                Square s = (Square)bb_pop_lsb(&exposed);
+                PieceType pt = PIECE_TYPE(b->mailbox[s]);
+                if (pt < 6) penalty += MERC_EXPOSED_BY_PAWN[pt];
+            }
+            score += (c == WHITE) ? -penalty : penalty;
+        }
+    }
+
     for (int c = 0; c < 2; c++) {
         Bitboard threatened = pawn_atk[c] & b->occupied[c ^ 1]
                             & ~b->pieces[c ^ 1][PAWN];
@@ -1551,8 +1760,10 @@ int evaluate(const Board *b) {
             Square s = (Square)bb_pop_lsb(&threatened);
             PieceType pt = PIECE_TYPE(b->mailbox[s]);
             /* Bonus by victim value: N=30, B=30, R=50, Q=70, K=0 */
-            static const int THREAT_BY_PAWN[] = { 0, 30, 30, 50, 70, 0 };
-            if (pt < 6) tb += THREAT_BY_PAWN[pt];
+            static const int THREAT_BY_PAWN[]      = { 0, 30, 30, 50,  70, 0 };
+            static const int THREAT_BY_MERC_PAWN[] = { 0, 45, 45, 75, 130, 0 };
+            const int *threat_table = is_merc ? THREAT_BY_MERC_PAWN : THREAT_BY_PAWN;
+            if (pt < 6) tb += threat_table[pt];
         }
         score += (c == WHITE) ? tb : -tb;
     }

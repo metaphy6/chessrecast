@@ -37,6 +37,9 @@ migrate_working_dir/
 # Use a rooted pattern so it applies to the repo-relative `frontend/build` directory.
 /frontend/build/
 
+# Local native-engine build artifacts should never be committed.
+/frontend/libchess_engine.so
+
 # Symbolication related
 app.*.symbols
 
