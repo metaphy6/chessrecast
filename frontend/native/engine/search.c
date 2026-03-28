@@ -188,6 +188,62 @@ static inline int see_pv(PieceType pt, bool is_merc, bool is_heir, bool is_stq, 
     return SEE_PIECE_VAL[pt];
 }
 
+static inline int heir_pawn_advance(Color side, Square sq) {
+    int advance = (side == WHITE) ? (SQ_ROW(sq) - 1) : (6 - SQ_ROW(sq));
+    if (advance < 0) return 0;
+    if (advance > 5) return 5;
+    return advance;
+}
+
+static bool heir_position_volatile(const Board *b) {
+    for (int c = 0; c < 2; c++) {
+        if (b->pieces[c][KING] == BB_EMPTY) return true;
+        if (bb_popcount(b->pieces[c][PAWN]) <= 2) return true;
+
+        Bitboard pawns = b->pieces[c][PAWN];
+        while (pawns) {
+            Square sq = (Square)bb_pop_lsb(&pawns);
+            if (heir_pawn_advance((Color)c, sq) >= 4) return true;
+        }
+    }
+
+    return false;
+}
+
+static bool heir_critical_move(const Board *b, Move m) {
+    if (b->mod != MOD_HEIR) return false;
+    if (MOVE_IS_PROMO(m) || MOVE_CAPTURED(m) == KING) return true;
+    if (MOVE_PIECE(m) == KING) return true;
+
+    if (MOVE_PIECE(m) == PAWN) {
+        if (heir_pawn_advance(b->side, MOVE_TO(m)) >= 4) return true;
+    }
+
+    return false;
+}
+
+static bool heir_king_under_direct_fire(const Board *b) {
+    if (b->mod != MOD_HEIR) return false;
+    if (b->pieces[b->side][KING] == BB_EMPTY) return false;
+    return board_square_attacked(b, bb_lsb(b->pieces[b->side][KING]),
+                                 color_opposite(b->side));
+}
+
+static bool heir_tactical_capture(const Board *b, Move m, int see) {
+    if (b->mod != MOD_HEIR) return false;
+    if (!(MOVE_IS_CAPTURE(m) || MOVE_IS_EP(m))) return false;
+    if (see < 0) return false;
+
+    PieceType captured = MOVE_CAPTURED(m);
+    Square to = MOVE_TO(m);
+    bool central = SQ_ROW(to) >= 2 && SQ_ROW(to) <= 5 &&
+                   SQ_COL(to) >= 2 && SQ_COL(to) <= 5;
+
+    if (captured >= KNIGHT) return true;
+    if (captured == PAWN && central) return true;
+    return false;
+}
+
 /*
  * Compute SEE for capture move m.
  * Returns expected material gain (positive = winning exchange).
@@ -354,11 +410,24 @@ static int move_score(const Board *b, Move m, Move tt_move,
 
     if (MOVE_IS_CAPTURE(m) || MOVE_IS_EP(m)) {
         int see = see_value(b, m);
+        int score;
         if (see >= 0) {
-            return 5000000 + MVV_LVA[MOVE_PIECE(m)][MOVE_CAPTURED(m)];
+            score = 5000000 + MVV_LVA[MOVE_PIECE(m)][MOVE_CAPTURED(m)];
         } else {
-            return -1000000 + see;
+            score = -1000000 + see;
         }
+
+        if (b->mod == MOD_HEIR && see >= 0) {
+            PieceType captured = MOVE_CAPTURED(m);
+            Square to = MOVE_TO(m);
+            bool central = SQ_ROW(to) >= 2 && SQ_ROW(to) <= 5 &&
+                           SQ_COL(to) >= 2 && SQ_COL(to) <= 5;
+
+            if (captured >= KNIGHT) score += 240;
+            if (captured == PAWN && central) score += 140;
+        }
+
+        return score;
     }
 
     if (ply < MAX_PLY) {
@@ -367,7 +436,19 @@ static int move_score(const Board *b, Move m, Move tt_move,
     }
     if (m == countermove && countermove != MOVE_NONE) return 800000;
 
-    return s_history[side][MOVE_FROM(m)][MOVE_TO(m)];
+    int score = s_history[side][MOVE_FROM(m)][MOVE_TO(m)];
+    if (b->mod == MOD_HEIR) {
+        int back_rank = (side == WHITE) ? 0 : 7;
+        if ((MOVE_PIECE(m) == KNIGHT || MOVE_PIECE(m) == BISHOP) &&
+            SQ_ROW(MOVE_FROM(m)) == back_rank && SQ_ROW(MOVE_TO(m)) != back_rank) {
+            score += 120;
+        }
+        if (MOVE_PIECE(m) == KING && heir_king_under_direct_fire(b)) {
+            score += 220;
+        }
+    }
+
+    return score;
 }
 
 static void order_moves(const Board *b, MoveList *ml, Move tt_move,
@@ -577,9 +658,11 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
     if (depth <= 0) return quiescence(b, alpha, beta, ply, 0);
 
     bool is_merc = (b->mod == MOD_MERCENARY);
+    bool is_heir = (b->mod == MOD_HEIR);
+    bool heir_volatile = is_heir && heir_position_volatile(b);
 
     /* Heir: terminal state detection — no king + no hope of recovery */
-    if (b->mod == MOD_HEIR) {
+    if (is_heir) {
         Color us = b->side;
         if (b->pieces[us][KING] == BB_EMPTY) {
             /* Promoted king was captured → game over */
@@ -675,7 +758,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
                      s_eval_stack[ply] > s_eval_stack[ply - 2];
 
     /* ── Razoring ─────────────────────────────────────────────────── */
-    if (!is_merc && !is_pv && !in_check && depth <= 2 && !is_mate(alpha)) {
+    if (!is_merc && !heir_volatile && !is_pv && !in_check && depth <= 2 && !is_mate(alpha)) {
         int razor_margin = (depth == 1) ? 300 : 500;
         if (static_eval + razor_margin < alpha) {
             int razor = quiescence(b, alpha, beta, ply, 0);
@@ -684,7 +767,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
     }
 
     /* ── Reverse futility pruning ─────────────────────────────────── */
-    if (!is_merc && !is_pv && !in_check && depth <= 6 &&
+    if (!is_merc && !heir_volatile && !is_pv && !in_check && depth <= 6 &&
         !is_mate(alpha) && !is_mate(beta)) {
         int rfp_margin = depth * (improving ? 70 : 100);
         if (static_eval - rfp_margin >= beta)
@@ -692,7 +775,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
     }
 
     /* ── Null-move pruning ────────────────────────────────────────── */
-    if (!is_merc && do_null && !in_check && !is_pv && depth >= 3 && ply > 0 &&
+    if (!is_merc && !heir_volatile && do_null && !in_check && !is_pv && depth >= 3 && ply > 0 &&
         static_eval >= beta) {
         Color us = b->side;
         bool has_pieces = b->pieces[us][KNIGHT] || b->pieces[us][BISHOP] ||
@@ -752,7 +835,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
 
     /* Futility flag */
     bool do_futility = false;
-    if (!is_merc && !is_pv && !in_check && depth <= 3 && !is_mate(alpha)) {
+    if (!is_merc && !heir_volatile && !is_pv && !in_check && depth <= 3 && !is_mate(alpha)) {
         int fut_margin = depth * (improving ? 120 : 180);
         do_futility = (static_eval + fut_margin <= alpha);
     }
@@ -772,10 +855,12 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
         Move m = ml.moves[i];
         bool is_cap   = MOVE_IS_CAPTURE(m) || MOVE_IS_EP(m);
         bool is_promo = MOVE_IS_PROMO(m);
+        bool heir_critical = is_heir && heir_critical_move(b, m);
 
         /* Compute SEE BEFORE making the move (SEE reads board state) */
         int see_val = 0;
         if (is_cap) see_val = see_value(b, m);
+        bool heir_tactical = is_heir && heir_tactical_capture(b, m, see_val);
 
         /* Detect recapture BEFORE making the move */
         bool is_recapture = false;
@@ -793,21 +878,21 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
         if (!is_pv && !in_check && moves_done > 0) {
 
             /* LMP: skip late quiet moves at shallow depths */
-            if (!is_merc && !is_cap && !is_promo && !gives_check &&
+            if (!is_merc && !heir_volatile && !is_cap && !is_promo && !gives_check &&
                 depth <= 5 && moves_done >= LMP_LIMIT[depth]) {
                 board_unmake_move(b);
                 continue;
             }
 
             /* Futility: skip late quiets when eval+margin < alpha */
-            if (!is_merc && do_futility && !is_cap && !is_promo && !gives_check) {
+            if (!is_merc && !heir_volatile && do_futility && !is_cap && !is_promo && !gives_check) {
                 board_unmake_move(b);
                 continue;
             }
 
             /* SEE pruning for captures at low depth */
             if (is_cap && depth <= 3 && !gives_check) {
-                if (see_val < -80 * depth) {
+                if (!heir_critical && see_val < -80 * depth) {
                     board_unmake_move(b);
                     continue;
                 }
@@ -820,7 +905,9 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
         /* Recapture extension: search deeper when recapturing on the
            same square to avoid horizon-effect blunders in exchanges */
         if (!ext && is_recapture && depth >= 4) ext = 1;
-          if (!ext && merc_endgame && is_cap && depth >= 4) ext = 1;
+                if (!ext && merc_endgame && is_cap && depth >= 4) ext = 1;
+          if (!ext && heir_tactical && depth >= 4) ext = 1;
+                if (!ext && is_heir && depth >= 4 && heir_critical) ext = 1;
         int new_depth = depth - 1 + ext;
 
         /* ── PVS + LMR ───────────────────────────────────────────── */
@@ -831,15 +918,17 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
         } else {
             int reduction = 0;
             bool merc_quiet = is_merc && !is_cap && !is_promo;
+            bool heir_quiet = is_heir && heir_volatile && heir_critical && !is_cap && !is_promo;
 
             /* LMR */
-            if (!merc_quiet && moves_done >= 3 && depth >= 3 && ext == 0 &&
+            if (!merc_quiet && !heir_quiet && moves_done >= 3 && depth >= 3 && ext == 0 &&
                 !is_cap && !is_promo) {
                 reduction = 1;
                 if (moves_done >= 6)  reduction++;
                 if (moves_done >= 12) reduction++;
                 if (!improving) reduction++;
                 if (is_pv && reduction > 0) reduction--;
+                if (is_heir && heir_critical && reduction > 0) reduction--;
                 /* Truce: developing moves (minor piece leaves back rank)
                    are strategic — reduce less for proper positional play */
                 if (b->mod == MOD_TRUCE && b->truce_active && reduction > 0) {
@@ -1072,7 +1161,9 @@ done:
         static const int SKILL_MARGIN[] = { 80, 50, 30, 15, 0 };
         int s_margin = SKILL_MARGIN[s_skill_level];
 
-        /* Opening variety: in early moves, add extra margin for all levels */
+          /* Opening variety is only for sub-max skills. At full skill, keep
+              move selection deterministic so engine strength and audits are
+              measuring the actual best line rather than random opening drift. */
         bool is_opening = (b->mod == MOD_MERCENARY)
                         ? (b->fullmove <= 6)
                         : (b->mod == MOD_HEIR)
@@ -1086,7 +1177,7 @@ done:
                         : (b->mod == MOD_SUCCESSION)
                         ? (b->fullmove <= 5)
                         : (b->fullmove <= 4);
-        if (is_opening) s_margin = maxi(s_margin, 10);
+                if (is_opening && s_skill_level < 4) s_margin = maxi(s_margin, 10);
 
         if (s_margin > 0) {
             Move cands[MAX_MOVES];

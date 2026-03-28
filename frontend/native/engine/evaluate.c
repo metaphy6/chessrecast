@@ -332,6 +332,66 @@ static inline int merc_enemy_queen_infiltration_penalty(const Board *b,
     return penalty;
 }
 
+static inline int heir_pawn_advance_sq(Color side, Square sq) {
+    int advance = (side == WHITE) ? (SQ_ROW(sq) - 1) : (6 - SQ_ROW(sq));
+    if (advance < 0) return 0;
+    if (advance > 5) return 5;
+    return advance;
+}
+
+static inline int heir_pawn_steps_to_promo(Color side, Square sq) {
+    int steps = (side == WHITE) ? (7 - SQ_ROW(sq)) : SQ_ROW(sq);
+    if (steps < 0) return 0;
+    if (steps > 6) return 6;
+    return steps;
+}
+
+static bool heir_is_passed_pawn(const Board *b, Color side, Square sq) {
+    Color opp = color_opposite(side);
+    int row = SQ_ROW(sq);
+    int col = SQ_COL(sq);
+    Bitboard pawns = b->pieces[opp][PAWN];
+
+    while (pawns) {
+        Square opsq = (Square)bb_pop_lsb(&pawns);
+        int ocol = SQ_COL(opsq);
+        int orow = SQ_ROW(opsq);
+
+        if (abs(ocol - col) > 1) continue;
+        if (side == WHITE ? (orow > row) : (orow < row)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+static bool heir_promotion_square_safe(const Board *b, Color side, Square sq) {
+    Square promo_sq = SQ(side == WHITE ? 7 : 0, SQ_COL(sq));
+    return !board_square_attacked(b, promo_sq, color_opposite(side));
+}
+
+static int heir_king_hot_squares(const Board *b, Color by, Square king) {
+    Bitboard ring = king_attacks[king] | BB_SQ(king);
+    int hot = 0;
+
+    while (ring) {
+        Square sq = (Square)bb_pop_lsb(&ring);
+        if (board_square_attacked(b, sq, by)) hot++;
+    }
+
+    return hot;
+}
+
+static inline int heir_file_centrality(Square sq) {
+    int col = SQ_COL(sq);
+    int left = abs(col - 3);
+    int right = abs(col - 4);
+    int dist = left < right ? left : right;
+    int bonus = 3 - dist;
+    return bonus > 0 ? bonus : 0;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  Evaluation                                                               */
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -649,35 +709,191 @@ int evaluate(const Board *b) {
 
     /* ── Heir-specific strategic evaluation ──────────────────────────────── */
     if (is_heir) {
+        static const int HEIR_ADV_BONUS[] = {0, 6, 16, 34, 72, 150};
+        static const int HEIR_PASS_BONUS[] = {0, 12, 28, 56, 118, 220};
+        static const int HEIR_RECOVERY_BONUS[] = {0, 0, 18, 52, 130, 280};
+        static const int HEIR_RACE_THREAT[] = {0, 0, 16, 42, 96, 220};
+
         for (int c = 0; c < 2; c++) {
-            int opp = c ^ 1;
-            bool has_king = b->pieces[c][KING] != BB_EMPTY;
-            int pawns = bb_popcount(b->pieces[c][PAWN]);
+            Color side = (Color)c;
+            Color opp = color_opposite(side);
+            bool has_king = b->pieces[side][KING] != BB_EMPTY;
+            bool promoted = b->heir_promoted[side] != 0;
+            bool check_mode = heir_check_applies(b, side);
             int bonus = 0;
+            int best_advance = 0;
+            int best_passed = -1;
+            int safe_recovery = 0;
+            int strategic_scale = (!has_king || promoted ||
+                                   pawn_count[side] <= 3 || pawn_count[opp] <= 3)
+                                ? 256 : (112 + eg_weight);
+            int soft_king_scale = (!check_mode && !promoted && pawn_count[side] >= 4)
+                                ? (144 + eg_weight / 2) : 256;
 
-            /* Pawn count safety net: more pawns = more insurance */
-            bonus += pawns * 30;
+            if (strategic_scale > 256) strategic_scale = 256;
+            if (soft_king_scale > 256) soft_king_scale = 256;
 
-            /* No-king penalty: vulnerable state, need to promote ASAP */
+            Bitboard pawns = b->pieces[side][PAWN];
+            while (pawns) {
+                Square sq = (Square)bb_pop_lsb(&pawns);
+                int advance = heir_pawn_advance_sq(side, sq);
+                int steps = heir_pawn_steps_to_promo(side, sq);
+                bool passed = heir_is_passed_pawn(b, side, sq);
+                bool promo_safe = heir_promotion_square_safe(b, side, sq);
+                bool attacked = board_square_attacked(b, sq, opp);
+                int escorts = bb_popcount(b->pieces[side][PAWN] & king_attacks[sq]);
+
+                if (advance > best_advance) best_advance = advance;
+
+                bonus += (HEIR_ADV_BONUS[advance] * strategic_scale) / 256;
+                bonus += (heir_file_centrality(sq) * (advance >= 2 ? 5 : 2) * strategic_scale) / 256;
+                bonus += (escorts * 8 * strategic_scale) / 256;
+
+                if (passed) {
+                    bonus += (HEIR_PASS_BONUS[advance] * strategic_scale) / 256;
+                    if (advance > best_passed) best_passed = advance;
+                    if (!attacked) bonus += ((10 + advance * 4) * strategic_scale) / 256;
+                }
+
+                if (advance >= 4) {
+                    if (promo_safe) {
+                        bonus += ((30 + (5 - steps) * 12) * strategic_scale) / 256;
+                    } else {
+                        bonus -= 12;
+                    }
+                }
+                if (attacked && advance >= 4) bonus -= 12;
+
+                if (!has_king && promo_safe) {
+                    safe_recovery += 10 + advance * 18 + (passed ? 24 : 0);
+                }
+            }
+
+            bonus += pawn_count[side] * 18;
+            if (pawn_count[side] <= 2) bonus -= (3 - pawn_count[side]) * 35;
+            if (pawn_count[side] == 1) bonus -= 40;
+            if (best_advance >= 4) bonus += (20 * strategic_scale) / 256;
+            if (best_passed >= 4) bonus += (40 * strategic_scale) / 256;
+
             if (!has_king) {
-                bonus -= 350;
-                if (pawns <= 2) bonus -= 150;
-                if (pawns <= 1) bonus -= 200;
+                if (promoted) {
+                    bonus -= 1400;
+                } else {
+                    bonus -= 180;
+                    bonus += safe_recovery;
+                    bonus += HEIR_RECOVERY_BONUS[best_advance];
+                    if (best_passed >= 0)
+                        bonus += HEIR_RECOVERY_BONUS[best_passed] / 2;
+                    if (pawn_count[side] == 0) bonus -= 1200;
+                    if (best_advance <= 1) bonus -= 80;
+                }
+            } else {
+                Square ksq = king_sq[side];
+                int support = bb_popcount(king_attacks[ksq] & b->occupied[side]);
+                int shield = bb_popcount(king_attacks[ksq] & b->pieces[side][PAWN]);
+                int hot = heir_king_hot_squares(b, opp, ksq);
+                int scarcity = pawn_count[side] <= 2 ? (3 - pawn_count[side]) : 0;
+
+                if (promoted) bonus += 720;
+
+                if (check_mode) {
+                    bonus += support * 18;
+                    bonus += shield * 14;
+                    if (board_square_attacked(b, ksq, opp)) bonus -= 240;
+                    bonus -= hot * (18 + scarcity * 6);
+                } else {
+                    bonus += support * 10;
+                    bonus += shield * 8;
+                    if (board_square_attacked(b, ksq, opp))
+                        bonus -= ((100 + scarcity * 45) * soft_king_scale) / 256;
+                    bonus -= (hot * (8 + scarcity * 4) * soft_king_scale) / 256;
+                }
             }
 
-            /* Opponent has no king: bonus for attacking their pawns */
-            if (b->pieces[opp][KING] == BB_EMPTY) {
-                bonus += 100;
-                int opp_pawns = bb_popcount(b->pieces[opp][PAWN]);
-                if (opp_pawns <= 2) bonus += 150;
-                if (opp_pawns <= 1) bonus += 200;
+            if (king_sq[opp] >= 0) {
+                int opp_hot = heir_king_hot_squares(b, side, king_sq[opp]);
+                bonus += opp_hot * (check_mode ? 10 : 8);
+                if (board_square_attacked(b, king_sq[opp], side)) bonus += 35;
+            } else {
+                bonus += 140;
+                if (pawn_count[opp] <= 2) bonus += 70;
+
+                Bitboard opp_pawns = b->pieces[opp][PAWN];
+                while (opp_pawns) {
+                    Square sq = (Square)bb_pop_lsb(&opp_pawns);
+                    if (!heir_promotion_square_safe(b, opp, sq)) bonus += 18;
+                }
             }
 
-            /* Promoted king safety: when check rules apply, king safety
-               is paramount — add extra weight (standard king safety already
-               runs below, but give Heir an extra multiplier) */
-            if (has_king && heir_check_applies(b, (Color)c)) {
-                bonus += 50; /* bonus for having a stable protected king */
+            {
+                int opp_best_advance = 0;
+                int opp_best_passed = -1;
+                Bitboard opp_pawns = b->pieces[opp][PAWN];
+
+                while (opp_pawns) {
+                    Square sq = (Square)bb_pop_lsb(&opp_pawns);
+                    int advance = heir_pawn_advance_sq(opp, sq);
+
+                    if (advance > opp_best_advance) opp_best_advance = advance;
+                    if (heir_is_passed_pawn(b, opp, sq) && advance > opp_best_passed) {
+                        opp_best_passed = advance;
+                    }
+                }
+
+                bonus -= (HEIR_RACE_THREAT[opp_best_advance] * strategic_scale) / 256;
+                if (opp_best_passed >= 3)
+                    bonus -= (HEIR_RACE_THREAT[opp_best_passed] * strategic_scale) / 512;
+                if (!has_king) {
+                    bonus -= HEIR_RACE_THREAT[opp_best_advance] / 2;
+                    if (opp_best_passed >= 4) bonus -= 80;
+                }
+            }
+
+            {
+                int developed = 0;
+                int back_rank = (side == WHITE) ? 0 : 7;
+                Bitboard target_pawns = b->pieces[opp][PAWN];
+
+                for (int t = KNIGHT; t <= QUEEN; t++) {
+                    Bitboard pieces = b->pieces[side][t];
+                    while (pieces) {
+                        Square sq = (Square)bb_pop_lsb(&pieces);
+                        Bitboard attacks = BB_EMPTY;
+
+                        if (SQ_ROW(sq) != back_rank) developed++;
+
+                        if (t == KNIGHT) {
+                            attacks = knight_attacks[sq];
+                        } else if (t == BISHOP) {
+                            attacks = bishop_attacks_calc(sq, b->all);
+                        } else if (t == ROOK) {
+                            attacks = rook_attacks_calc(sq, b->all);
+                        } else if (t == QUEEN) {
+                            attacks = bishop_attacks_calc(sq, b->all)
+                                    | rook_attacks_calc(sq, b->all);
+                        }
+
+                        if (board_square_attacked(b, sq, opp) &&
+                            !board_square_attacked(b, sq, side)) {
+                            int pen = (t == KNIGHT || t == BISHOP) ? 22
+                                    : (t == ROOK) ? 34 : 56;
+                            if (SQ_COL(sq) == 0 || SQ_COL(sq) == 7) pen += 8;
+                            bonus -= pen;
+                        }
+
+                        if (king_sq[opp] >= 0) {
+                            Bitboard ring = king_attacks[king_sq[opp]] | BB_SQ(king_sq[opp]);
+                            if (attacks & ring) {
+                                bonus += (t == QUEEN) ? 18 : 10;
+                            }
+                        } else if (attacks & target_pawns) {
+                            bonus += 8;
+                        }
+                    }
+                }
+
+                if (developed > 6) developed = 6;
+                bonus += developed * 6;
             }
 
             score += (c == WHITE) ? bonus : -bonus;
