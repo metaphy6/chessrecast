@@ -13,7 +13,7 @@ void main() {
 class ChessRecastApp extends StatelessWidget {
   const ChessRecastApp({super.key});
 
-  @override
+  @override   
   Widget build(BuildContext context) {
     return GetMaterialApp(
       title: AppConstants.appName,
