@@ -52,6 +52,12 @@ for i in $(seq 1 60); do
   sleep 2
   if "$ADB_BIN" devices | grep -q "emulator-"; then
     echo "Emulator detected via adb. Boot may continue in the background."
+    # Wait for boot to complete, then apply dev settings
+    "$ADB_BIN" -s emulator-5554 wait-for-device shell 'while [ "$(getprop sys.boot_completed)" != "1" ]; do sleep 1; done' 2>/dev/null
+    # Suppress ANR dialogs for system processes during development
+    "$ADB_BIN" -s emulator-5554 shell settings put secure anr_show_background 0 2>/dev/null
+    "$ADB_BIN" -s emulator-5554 shell settings put global hidden_api_policy 1 2>/dev/null
+    echo "Boot complete. Dev settings applied."
     exit 0
   fi
 done
