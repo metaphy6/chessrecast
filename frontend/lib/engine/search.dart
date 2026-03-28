@@ -5,6 +5,7 @@ import '../board/moves/execution.dart';
 import '../board/moves/generation.dart';
 import '../board/moves/special_cases.dart';
 import '../board/game_status.dart';
+import '../mods/mods_enum.dart';
 
 import 'evaluation.dart';
 import 'transposition.dart';
@@ -159,6 +160,8 @@ class Search {
       return 0; // stalemate or draw
     }
 
+    final isMerc = board.gameType == ModsEnum.mercenary;
+
     // Transposition table probe
     final hash = Zobrist.hash(board);
     final ttEntry = _tt.probe(hash);
@@ -187,7 +190,7 @@ class Search {
     }
 
     // Null-move pruning (skip when in check or few pieces left)
-    if (depth >= 3 && !_isInCheck(board) && _hasMajorPieces(board)) {
+    if (!isMerc && depth >= 3 && !_isInCheck(board) && _hasMajorPieces(board)) {
       // Make a "null move" — pass the turn
       final nullBoard = _makeNullMove(board);
       final nullScore = -_alphaBeta(
@@ -215,7 +218,8 @@ class Search {
       int score;
 
       // Late Move Reductions (LMR)
-      if (moveIndex >= 4 &&
+      if (!isMerc &&
+          moveIndex >= 4 &&
           depth >= 3 &&
           !move.isCapture &&
           !move.isPromotion &&
