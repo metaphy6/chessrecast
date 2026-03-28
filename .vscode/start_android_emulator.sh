@@ -27,7 +27,7 @@ fi
 AVD_NAME="$1"
 
 # Check if an emulator process already exists for this AVD (ps/pgrep check)
-if pgrep -af "emulator" | grep -q "-avd\s\+$AVD_NAME"; then
+if pgrep -af "emulator" | grep -qE -- "-avd\s+$AVD_NAME"; then
   echo "Emulator for AVD $AVD_NAME already running. Skipping start."
   exit 0
 fi
