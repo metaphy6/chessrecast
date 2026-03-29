@@ -143,7 +143,7 @@ String runMercenaryAudit(List<String> args) {
     return lines.join('\n');
   }
 
-  lines.add('Worst ${limit} misses:');
+  lines.add('Worst $limit misses:');
   for (var index = 0; index < limit; index++) {
     final item = worst[index];
     lines.add(

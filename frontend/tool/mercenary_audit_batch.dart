@@ -75,8 +75,8 @@ String runMercenaryAuditBatch(List<String> args) {
   lines.add(
     'Aggregate: avg worst miss ${avgDelta.toStringAsFixed(2)} '
     'max ${maxDelta.toStringAsFixed(2)} '
-    '>=2.00 ${overTwo}/${deltas.length} '
-    '>=3.00 ${overThree}/${deltas.length}',
+    '>=2.00 $overTwo/${deltas.length} '
+    '>=3.00 $overThree/${deltas.length}',
   );
 
   final worst = [...summaries]..sort((a, b) => b.delta.compareTo(a.delta));
