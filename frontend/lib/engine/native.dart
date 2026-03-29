@@ -49,6 +49,9 @@ final class EngineResultNative extends Struct {
 typedef _EngineInitNative = Void Function();
 typedef _EngineInitDart = void Function();
 
+typedef _EngineResetNative = Void Function(Int32 clearTt);
+typedef _EngineResetDart = void Function(int clearTt);
+
 typedef _EngineFindMoveNative =
     Void Function(
       Pointer<Utf8> fen,
@@ -121,6 +124,7 @@ DynamicLibrary _loadLinuxLibrary() {
 class NativeEngine {
   late final DynamicLibrary _lib;
   late final _EngineInitDart _init;
+  late final _EngineResetDart _reset;
   late final _EngineFindMoveDart _findMove;
 
   static NativeEngine? _instance;
@@ -131,6 +135,9 @@ class NativeEngine {
     _lib = _loadLibrary();
     _init = _lib.lookupFunction<_EngineInitNative, _EngineInitDart>(
       'engine_init',
+    );
+    _reset = _lib.lookupFunction<_EngineResetNative, _EngineResetDart>(
+      'engine_reset',
     );
     _findMove = _lib.lookupFunction<_EngineFindMoveNative, _EngineFindMoveDart>(
       'engine_find_move',
@@ -146,6 +153,12 @@ class NativeEngine {
     } catch (_) {
       return false;
     }
+  }
+
+  /// Reset native search state. Useful for audit/probe tooling where each
+  /// search should start from a clean transposition table.
+  void resetState({bool clearTranspositionTable = true}) {
+    _reset(clearTranspositionTable ? 1 : 0);
   }
 
   /// Map a [ModsEnum] to the C engine's mod integer.

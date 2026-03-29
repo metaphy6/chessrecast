@@ -55,6 +55,7 @@ typedef struct {
         uint64_t hash;
         uint8_t  heir_promoted[2]; /* saved heir state for undo */
         uint8_t  truce_active;     /* saved truce state for undo */
+        uint64_t truce_frozen;     /* saved truce frozen bitboard for undo */
         uint64_t ff_moved;         /* saved friendly fire state for undo */
         uint8_t  kb_unlocked;      /* saved king's battle state for undo */
         uint8_t  kb_bonus;         /* did this move grant a bonus (no side switch)? */

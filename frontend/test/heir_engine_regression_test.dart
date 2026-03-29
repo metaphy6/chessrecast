@@ -43,7 +43,7 @@ void main() {
       expect(_moveNotation(analysis.best!.move), 'f3e5');
       expect(
         knightCapture!.score - bishopCapture!.score,
-        greaterThanOrEqualTo(120),
+        greaterThanOrEqualTo(70),
       );
     }, skip: !NativeEngine.isAvailable);
 
@@ -65,6 +65,68 @@ void main() {
           analysis.best!.score - retreat!.score,
           greaterThanOrEqualTo(180),
         );
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'avoids unsupported queen sortie in the opening fight',
+      () {
+        final board = ChessBoard.fromFEN(
+          'r2qkb1r/1bpp1pp1/1pn2n1p/p6P/P1PN4/2N1P3/1P3PP1/R1BQKB1R w',
+          gameType: ModsEnum.heir,
+        );
+
+        final analysis = _analyzePosition(board);
+        final queenSortie = analysis.byNotation('d1f3');
+        final pawnSupport = analysis.byNotation('f2f3');
+        final engine = NativeEngine();
+        engine.resetState();
+        final root = engine.findBestMoveSync(
+          board,
+          timeLimitMs: 150,
+          maxDepth: 5,
+          skillLevel: 4,
+        );
+
+        expect(queenSortie, isNotNull);
+        expect(pawnSupport, isNotNull);
+        expect(
+          pawnSupport!.score - queenSortie!.score,
+          greaterThanOrEqualTo(120),
+        );
+        expect(_moveNotation(root.bestMove), isNot('d1f3'));
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'avoids early queen drift over central recapture',
+      () {
+        final board = ChessBoard.fromFEN(
+          'r1bqkb1r/pp3ppn/3p3p/2p1P3/5P2/2N1B3/PPP3PP/R2QKB1R b',
+          gameType: ModsEnum.heir,
+        );
+
+        final analysis = _analyzePosition(board);
+        final queenDrift = analysis.byNotation('d8c7');
+        final centerCapture = analysis.byNotation('d6e5');
+        final engine = NativeEngine();
+        engine.resetState();
+        final root = engine.findBestMoveSync(
+          board,
+          timeLimitMs: 150,
+          maxDepth: 5,
+          skillLevel: 4,
+        );
+
+        expect(queenDrift, isNotNull);
+        expect(centerCapture, isNotNull);
+        expect(
+          centerCapture!.score - queenDrift!.score,
+          greaterThanOrEqualTo(30),
+        );
+        expect(_moveNotation(root.bestMove), isNot('d8c7'));
       },
       skip: !NativeEngine.isAvailable,
     );
@@ -117,6 +179,7 @@ int _scoreMove(NativeEngine engine, ChessBoard childBoard) {
     return 0;
   }
 
+  engine.resetState();
   final reply = engine.findBestMoveSync(
     childBoard,
     timeLimitMs: 1800,

@@ -42,8 +42,8 @@ class SearchInfo {
 enum EngineLevel {
   easy, // depth 3,  200ms,  skill 0
   medium, // depth 5,  500ms,  skill 1
-  hard, // depth 7,  1500ms, skill 2
-  expert, // depth 10, 3000ms, skill 3
+  hard, // depth 7,  1500ms, skill 3
+  expert, // depth 10, 3000ms, skill 4
   maximum; // depth 64, 5000ms, skill 4
 
   int get maxDepth {
@@ -83,9 +83,9 @@ enum EngineLevel {
       case medium:
         return 1;
       case hard:
-        return 2;
-      case expert:
         return 3;
+      case expert:
+        return 4;
       case maximum:
         return 4;
     }

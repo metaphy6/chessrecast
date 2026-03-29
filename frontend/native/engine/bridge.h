@@ -35,6 +35,11 @@ extern "C" {
 /* Initialize the engine (call once at app startup). */
 EXPORT void engine_init(void);
 
+/* Reset engine search state. When clear_tt is non-zero, also clears the
+  transposition table. Useful for audit and probe tooling so unrelated
+  positions do not influence each other via cached search state. */
+EXPORT void engine_reset(int clear_tt);
+
 /* Find the best move for the given FEN position.
    mod          : 0 = classic, 1 = mercenary, 2 = heir, 3 = truce
    time_ms      : thinking time in milliseconds

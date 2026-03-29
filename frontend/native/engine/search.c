@@ -195,6 +195,41 @@ static inline int heir_pawn_advance(Color side, Square sq) {
     return advance;
 }
 
+static int heir_developed_minor_count(const Board *b, Color side) {
+    int back_rank = (side == WHITE) ? 0 : 7;
+    int developed = 0;
+    Bitboard minors = b->pieces[side][KNIGHT] | b->pieces[side][BISHOP];
+
+    while (minors) {
+        Square sq = (Square)bb_pop_lsb(&minors);
+        if (SQ_ROW(sq) != back_rank) developed++;
+    }
+
+    return developed;
+}
+
+static int heir_f_pawn_block_move_penalty(const Board *b, Move m) {
+    if (b->mod != MOD_HEIR || MOVE_PIECE(m) != KNIGHT) return 0;
+
+    Color side = b->side;
+    Square from = MOVE_FROM(m);
+    Square to = MOVE_TO(m);
+    Square home_from = (side == WHITE) ? SQ(0, 6) : SQ(7, 6);
+    Square block_sq = (side == WHITE) ? SQ(2, 5) : SQ(5, 5);
+    Square home_f = (side == WHITE) ? SQ(1, 5) : SQ(6, 5);
+    Square spear_sq = (side == WHITE) ? SQ(4, 4) : SQ(3, 4);
+    Square anchor_sq = (side == WHITE) ? SQ(3, 3) : SQ(4, 3);
+
+    if (b->fullmove > 12) return 0;
+    if (from != home_from || to != block_sq) return 0;
+    if (!BB_HAS(b->pieces[side][PAWN], home_f)) return 0;
+    if (!BB_HAS(b->pieces[side][PAWN], spear_sq)) return 0;
+
+    int penalty = 70;
+    if (BB_HAS(b->pieces[side][PAWN], anchor_sq)) penalty += 30;
+    return penalty;
+}
+
 static bool heir_position_volatile(const Board *b) {
     for (int c = 0; c < 2; c++) {
         if (b->pieces[c][KING] == BB_EMPTY) return true;
@@ -242,6 +277,27 @@ static bool heir_tactical_capture(const Board *b, Move m, int see) {
     if (captured >= KNIGHT) return true;
     if (captured == PAWN && central) return true;
     return false;
+}
+
+static int heir_early_queen_sortie_penalty(const Board *b, Move m) {
+    if (b->mod != MOD_HEIR || MOVE_PIECE(m) != QUEEN) return 0;
+
+    Color side = b->side;
+    Color opp = color_opposite(side);
+    int back_rank = (side == WHITE) ? 0 : 7;
+    int minor_total = bb_popcount(b->pieces[side][KNIGHT] | b->pieces[side][BISHOP]);
+    int minor_developed = heir_developed_minor_count(b, side);
+    int undeveloped = minor_total - minor_developed;
+
+    if (b->fullmove > 12) return 0;
+    if (SQ_ROW(MOVE_FROM(m)) != back_rank || SQ_ROW(MOVE_TO(m)) == back_rank) return 0;
+    if (bb_popcount(b->pieces[side][PAWN]) < 4 || bb_popcount(b->pieces[opp][PAWN]) < 4) return 0;
+    if (undeveloped <= 0) return 0;
+
+    int penalty = 120 + undeveloped * 30;
+    if (minor_developed == 0) penalty += 40;
+    else if (minor_developed == 1) penalty += 20;
+    return penalty;
 }
 
 /*
@@ -399,6 +455,99 @@ static void penalize_quiets(Color side, Move *quiets, int count, int depth) {
     }
 }
 
+static int truce_undeveloped_minor_count(const Board *b, Color side) {
+    if (b->mod != MOD_TRUCE || !b->truce_active) return 0;
+
+    int back_rank = (side == WHITE) ? 0 : 7;
+    int undeveloped = 0;
+    Bitboard minors = b->pieces[side][KNIGHT] | b->pieces[side][BISHOP];
+
+    while (minors) {
+        Square sq = (Square)bb_pop_lsb(&minors);
+        if (SQ_ROW(sq) == back_rank) undeveloped++;
+    }
+
+    return undeveloped;
+}
+
+static int truce_minor_development_score(const Board *b, Move m, Color side) {
+    if (b->mod != MOD_TRUCE || !b->truce_active || MOVE_IS_CAPTURE(m) ||
+        MOVE_IS_EP(m) || MOVE_IS_PROMO(m)) {
+        return 0;
+    }
+
+    PieceType piece = MOVE_PIECE(m);
+    if (piece != KNIGHT && piece != BISHOP) return 0;
+
+    int back_rank = (side == WHITE) ? 0 : 7;
+    Square from_sq = MOVE_FROM(m);
+    Square to_sq = MOVE_TO(m);
+    int to_rank = (side == WHITE) ? SQ_ROW(to_sq) : (7 - SQ_ROW(to_sq));
+    int undeveloped = truce_undeveloped_minor_count(b, side);
+    int score = 0;
+
+    if (SQ_ROW(from_sq) != back_rank || SQ_ROW(to_sq) == back_rank) return 0;
+
+    score += (piece == KNIGHT) ? 54 : 38;
+    if (undeveloped >= 2) score += 14;
+    if (undeveloped >= 3) score += 8;
+    if (SQ_COL(to_sq) >= 2 && SQ_COL(to_sq) <= 5) score += 8;
+    if (to_rank >= 2) score += 4;
+
+    if (piece == BISHOP) {
+        if (to_rank >= 2) score += 16;
+        else score -= 20;
+    }
+
+    return score;
+}
+
+static int truce_early_queen_sortie_penalty(const Board *b, Move m, Color side) {
+    if (b->mod != MOD_TRUCE || !b->truce_active || MOVE_PIECE(m) != QUEEN ||
+        MOVE_IS_CAPTURE(m) || MOVE_IS_EP(m) || MOVE_IS_PROMO(m)) {
+        return 0;
+    }
+
+    int back_rank = (side == WHITE) ? 0 : 7;
+    int undeveloped = truce_undeveloped_minor_count(b, side);
+
+    if (b->fullmove > 8) return 0;
+    if (SQ_ROW(MOVE_FROM(m)) != back_rank || SQ_ROW(MOVE_TO(m)) == back_rank) return 0;
+    if (undeveloped <= 1) return 0;
+
+    return 90 + undeveloped * 22;
+}
+
+static int truce_quiet_pawn_score(const Board *b, Move m, Color side) {
+    if (b->mod != MOD_TRUCE || !b->truce_active || MOVE_PIECE(m) != PAWN ||
+        MOVE_IS_CAPTURE(m) || MOVE_IS_EP(m) || MOVE_IS_PROMO(m)) {
+        return 0;
+    }
+
+    Square from_sq = MOVE_FROM(m);
+    Square to_sq = MOVE_TO(m);
+    int from_rank = (side == WHITE) ? SQ_ROW(from_sq) : (7 - SQ_ROW(from_sq));
+    int to_rank = (side == WHITE) ? SQ_ROW(to_sq) : (7 - SQ_ROW(to_sq));
+    int file = SQ_COL(to_sq);
+    int score = 0;
+    int attack_row = SQ_ROW(to_sq) + ((side == WHITE) ? 1 : -1);
+
+    if (from_rank != 1) return 0;
+
+    score += 28;
+    score += (to_rank >= 3) ? 18 : 8;
+    if (file >= 2 && file <= 5) score += 12;
+
+    if (attack_row >= 0 && attack_row < 8) {
+        if (file > 0 && BB_HAS(b->pieces[side ^ 1][BISHOP], SQ(attack_row, file - 1)))
+            score += 36;
+        if (file < 7 && BB_HAS(b->pieces[side ^ 1][BISHOP], SQ(attack_row, file + 1)))
+            score += 36;
+    }
+
+    return score;
+}
+
 static int move_score(const Board *b, Move m, Move tt_move,
                       int ply, Color side, Move countermove) {
     if (m == tt_move && tt_move != MOVE_NONE) return 10000000;
@@ -446,7 +595,19 @@ static int move_score(const Board *b, Move m, Move tt_move,
         if (MOVE_PIECE(m) == KING && heir_king_under_direct_fire(b)) {
             score += 220;
         }
+        {
+            int queen_sortie_penalty = heir_early_queen_sortie_penalty(b, m);
+            if (queen_sortie_penalty > 0) score -= queen_sortie_penalty;
+        }
+        {
+            int f_pawn_block_penalty = heir_f_pawn_block_move_penalty(b, m);
+            if (f_pawn_block_penalty > 0) score -= f_pawn_block_penalty;
+        }
     }
+
+    score += truce_minor_development_score(b, m, side);
+    score -= truce_early_queen_sortie_penalty(b, m, side);
+    score += truce_quiet_pawn_score(b, m, side);
 
     return score;
 }
@@ -511,6 +672,22 @@ static void check_time(void) {
         if (s_nodes > MAX_NODES || time_ms_now() >= s_deadline_ms)
             s_stopped = true;
     }
+}
+
+void search_reset(int clear_tt) {
+    if (clear_tt && s_tt.entries != NULL) tt_clear(&s_tt);
+
+    s_nodes = 0;
+    s_stopped = false;
+    s_deadline_ms = 0;
+    s_root_count = 0;
+
+    memset(s_killers, 0, sizeof(s_killers));
+    memset(s_history, 0, sizeof(s_history));
+    memset(s_countermoves, 0, sizeof(s_countermoves));
+    memset(s_eval_stack, 0, sizeof(s_eval_stack));
+    memset(s_root_moves, 0, sizeof(s_root_moves));
+    memset(s_root_scores, 0, sizeof(s_root_scores));
 }
 
 /* ======================================================================== */
@@ -938,6 +1115,34 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
                         int from_rank = (b->side == WHITE) ? SQ_ROW(from_sq)
                                                            : (7 - SQ_ROW(from_sq));
                         if (from_rank <= 1) reduction--;
+                        if (piece == KNIGHT && truce_undeveloped_minor_count(b, b->side) >= 2 && reduction > 0)
+                            reduction--;
+                    } else if (piece == PAWN) {
+                        Square from_sq = MOVE_FROM(m);
+                        Square to_sq = MOVE_TO(m);
+                        int from_rank = (b->side == WHITE) ? SQ_ROW(from_sq)
+                                                           : (7 - SQ_ROW(from_sq));
+                        int to_rank = (b->side == WHITE) ? SQ_ROW(to_sq)
+                                                         : (7 - SQ_ROW(to_sq));
+                        int file = SQ_COL(to_sq);
+                        int attack_row = SQ_ROW(to_sq) + ((b->side == WHITE) ? 1 : -1);
+                        bool harasses_bishop = false;
+
+                        if (attack_row >= 0 && attack_row < 8) {
+                            if (file > 0 && BB_HAS(b->pieces[b->side ^ 1][BISHOP], SQ(attack_row, file - 1)))
+                                harasses_bishop = true;
+                            if (file < 7 && BB_HAS(b->pieces[b->side ^ 1][BISHOP], SQ(attack_row, file + 1)))
+                                harasses_bishop = true;
+                        }
+
+                        /* Truce: fresh pawn nudges are often structurally critical
+                           because they either build lasting space or chase bishops
+                           that cannot justify an immediate pin/capture. */
+                        if (from_rank == 1) {
+                            reduction--;
+                            if ((to_rank >= 3 || harasses_bishop) && reduction > 0)
+                                reduction--;
+                        }
                     }
                 }
                 /* King's Battle Phase 1: king moves are tactical (hunting
@@ -1008,21 +1213,14 @@ SearchResult search_think(Board *b, int time_ms, int max_depth, int skill_level)
     zobrist_init();
     if (s_tt.entries == NULL) tt_alloc(&s_tt, 16);
 
-    s_nodes       = 0;
-    s_stopped     = false;
+    search_reset(0);
     s_deadline_ms = time_ms_now() + (int64_t)time_ms;
     s_skill_level = (skill_level < 0) ? 0 : (skill_level > 4 ? 4 : skill_level);
     s_rng         = b->hash ^ (uint64_t)time_ms_now() ^ ((uint64_t)b->fullmove << 32);
-    s_root_count  = 0;
 
     /* Track skill changes (no TT clear — the depth margins in
        alpha_beta prevent lower skills from getting free cutoffs). */
     s_prev_skill = s_skill_level;
-
-    memset(s_killers, 0, sizeof(s_killers));
-    memset(s_history, 0, sizeof(s_history));
-    memset(s_countermoves, 0, sizeof(s_countermoves));
-    memset(s_eval_stack, 0, sizeof(s_eval_stack));
 
     int depth_limit = (max_depth > 0 && max_depth < MAX_PLY) ? max_depth : MAX_PLY;
 

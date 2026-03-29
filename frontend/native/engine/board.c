@@ -414,6 +414,7 @@ void board_make_move(Board *b, Move m) {
     b->history[idx].heir_promoted[0] = b->heir_promoted[0];
     b->history[idx].heir_promoted[1] = b->heir_promoted[1];
     b->history[idx].truce_active = b->truce_active;
+    b->history[idx].truce_frozen = b->truce_frozen;
     b->history[idx].ff_moved = b->ff_moved;
     b->history[idx].kb_unlocked = b->kb_unlocked;
     b->history[idx].kb_bonus = 0;
@@ -469,6 +470,25 @@ void board_make_move(Board *b, Move m) {
         } else if (to == SQ(7, 2)) {   /* Black queenside */
             board_remove(b, SQ(7, 0));
             board_place(b, SQ(7, 3), BLACK, ROOK);
+        }
+    }
+
+    /* Truce: track which current squares now hold pieces that have moved. */
+    if (b->mod == MOD_TRUCE && b->truce_active) {
+        b->truce_frozen &= ~BB_SQ(from);
+        b->truce_frozen |= BB_SQ(to);
+        if (MOVE_IS_EP(m)) {
+            Square cap_sq = SQ(SQ_ROW(from), SQ_COL(to));
+            b->truce_frozen &= ~BB_SQ(cap_sq);
+        } else if (MOVE_IS_CAPTURE(m)) {
+            b->truce_frozen &= ~BB_SQ(to);
+            b->truce_frozen |= BB_SQ(to);
+        }
+        if (MOVE_IS_CASTLE(m)) {
+            if (to == SQ(0, 6))      { b->truce_frozen &= ~BB_SQ(SQ(0,7)); b->truce_frozen |= BB_SQ(SQ(0,5)); }
+            else if (to == SQ(0, 2)) { b->truce_frozen &= ~BB_SQ(SQ(0,0)); b->truce_frozen |= BB_SQ(SQ(0,3)); }
+            else if (to == SQ(7, 6)) { b->truce_frozen &= ~BB_SQ(SQ(7,7)); b->truce_frozen |= BB_SQ(SQ(7,5)); }
+            else if (to == SQ(7, 2)) { b->truce_frozen &= ~BB_SQ(SQ(7,0)); b->truce_frozen |= BB_SQ(SQ(7,3)); }
         }
     }
 
@@ -598,6 +618,7 @@ void board_unmake_move(Board *b) {
     b->heir_promoted[0] = b->history[idx].heir_promoted[0];
     b->heir_promoted[1] = b->history[idx].heir_promoted[1];
     b->truce_active = b->history[idx].truce_active;
+    b->truce_frozen = b->history[idx].truce_frozen;
     b->ff_moved = b->history[idx].ff_moved;
     b->kb_unlocked = b->history[idx].kb_unlocked;
 

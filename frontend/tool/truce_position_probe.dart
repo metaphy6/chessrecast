@@ -7,13 +7,17 @@ import 'package:chessrecast/management/orchestrator.dart';
 import 'package:chessrecast/mods/mods_enum.dart';
 
 void main(List<String> args) {
-  print(runHeirPositionProbe(args));
+  print(runTrucePositionProbe(args));
 }
 
-String runHeirPositionProbe(List<String> args) {
+String runTrucePositionProbe(List<String> args) {
   final fen = _readArg(args, 'fen');
-  if (fen == null || fen.isEmpty) {
-    throw ArgumentError('Provide --fen=<fen>');
+  final movesArg = _readArg(args, 'moves') ?? '';
+  final replayMoves = movesArg.isEmpty
+      ? const <String>[]
+      : movesArg.split(',').where((s) => s.isNotEmpty).toList();
+  if ((fen == null || fen.isEmpty) && replayMoves.isEmpty) {
+    throw ArgumentError('Provide --fen=<fen> and/or --moves=<uci,uci,...>');
   }
 
   final depth = _readIntArg(args, 'depth', 6);
@@ -24,13 +28,19 @@ String runHeirPositionProbe(List<String> args) {
       ? const <String>[]
       : candidateArg.split(',').where((s) => s.isNotEmpty).toList();
 
-  final board = ChessBoard.fromFEN(fen, gameType: ModsEnum.heir);
   final engine = NativeEngine();
   final orchestrator = Orchestrator();
+  final board = _buildBoard(orchestrator, fen, replayMoves);
   final lines = <String>[];
 
-  lines.add('Heir probe: d$depth/${timeMs}ms');
-  lines.add('FEN: $fen');
+  lines.add('Truce probe: d$depth/${timeMs}ms');
+  if (fen != null && fen.isNotEmpty) {
+    lines.add('Starting FEN: $fen');
+  }
+  if (replayMoves.isNotEmpty) {
+    lines.add('Replay prefix: ${replayMoves.join(', ')}');
+  }
+  lines.add('Position FEN: ${board.toFEN()}');
   lines.add('Side to move: ${board.currentPlayer.name}');
   lines.add('');
 
@@ -162,4 +172,60 @@ String? _readArg(List<String> args, String name) {
 int _readIntArg(List<String> args, String name, int fallback) {
   final value = _readArg(args, name);
   return value == null ? fallback : int.tryParse(value) ?? fallback;
+}
+
+ChessBoard _buildBoard(
+  Orchestrator orchestrator,
+  String? fen,
+  List<String> replayMoves,
+) {
+  var board = (fen == null || fen.isEmpty)
+      ? ChessBoard.initial(gameType: ModsEnum.truce)
+      : ChessBoard.fromFEN(fen, gameType: ModsEnum.truce);
+
+  for (final notation in replayMoves) {
+    final move = _parseCoordinateMove(orchestrator, board, notation);
+    if (move == null) {
+      throw ArgumentError('Illegal Truce replay move: $notation');
+    }
+    board = orchestrator.executeMove(board, move);
+  }
+
+  return board;
+}
+
+ChessMove? _parseCoordinateMove(
+  Orchestrator orchestrator,
+  ChessBoard board,
+  String notation,
+) {
+  final moves = orchestrator.getAllValidMoves(board);
+  if (notation.length < 4) {
+    return null;
+  }
+
+  try {
+    final from = Position.fromAlgebraic(notation.substring(0, 2));
+    final to = Position.fromAlgebraic(notation.substring(2, 4));
+    final promotion = notation.length >= 5
+        ? notation.substring(4, 5).toUpperCase()
+        : null;
+
+    for (final move in moves) {
+      if (move.from != from || move.to != to) {
+        continue;
+      }
+      if (promotion != null && move.promotionPiece != promotion) {
+        continue;
+      }
+      if (promotion == null && move.isPromotion) {
+        continue;
+      }
+      return move;
+    }
+  } catch (_) {
+    return null;
+  }
+
+  return null;
 }

@@ -1,4 +1,6 @@
 import '../board/utils/exporter.dart';
+import '../board/moves/helpers.dart';
+import '../board/moves/validation.dart';
 import '../debug.dart';
 import 'game_mod.dart';
 
@@ -26,6 +28,10 @@ class Truce extends GameMod {
       return moves;
     }
 
+    if (_pieceHasMoved(board, piece)) {
+      return const <ChessMove>[];
+    }
+
     // During truce, filter out capturing moves and moves that give check
     final nonCapturingMoves = moves.where((move) {
       return move.capturedPiece == null;
@@ -42,11 +48,8 @@ class Truce extends GameMod {
   /// Validate if a move is allowed during truce
   bool validateTruceMove(ChessBoard board, ChessMove move) {
     // Each piece can only move once during truce
-    if (!_isTruceBroken(board)) {
-      final moveCount = _getPieceMoveCount(board, move.piece);
-      if (moveCount >= 1) {
-        return false;
-      }
+    if (!_isTruceBroken(board) && _pieceHasMoved(board, move.piece)) {
+      return false;
     }
 
     return true;
@@ -56,11 +59,12 @@ class Truce extends GameMod {
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
     // Check if this move breaks the truce
     final wasTruceActive = !_isTruceBroken(board);
+    final postMoveBoard = board.makeMove(move);
 
     // Check if truce should end after this move
     // Truce ends when player has exhausted all legal truce moves
     // (all pieces moved, or remaining unmoved pieces are blocked)
-    if (wasTruceActive && !_isTruceBroken(board)) {
+    if (wasTruceActive && !_isTruceBroken(postMoveBoard)) {
       // _isTruceBroken checks the post-move state already; if it returns
       // false here we're still in truce.  Nothing to log.
     } else if (wasTruceActive) {
@@ -76,28 +80,15 @@ class Truce extends GameMod {
   /// non-capturing moves available).
   bool _isTruceBroken(ChessBoard board) {
     final color = board.currentPlayer;
-    final movedPieces = _getMovedPieces(board, color);
     final currentPieces = board.getPiecesOfColor(color);
     if (currentPieces.isEmpty) return true;
 
     int exhaustedCount = 0;
     for (final piece in currentPieces) {
-      bool hasMoved = false;
-      if (movedPieces.contains(piece.position)) {
-        hasMoved = true;
-      } else {
-        for (final move in board.moveHistory) {
-          if (move.piece.color == color && move.to == piece.position) {
-            hasMoved = true;
-            break;
-          }
-        }
-      }
-
-      if (hasMoved) {
+      if (_pieceHasMoved(board, piece)) {
         exhaustedCount++;
-      } else if (!_canPieceMoveWithoutCapture(board, piece)) {
-        // Unmoved AND blocked → counts as exhausted
+      } else if (!_hasLegalTruceMove(board, piece)) {
+        // Unmoved with no legal truce move → counts as exhausted
         exhaustedCount++;
       }
     }
@@ -105,71 +96,146 @@ class Truce extends GameMod {
     return exhaustedCount >= currentPieces.length;
   }
 
-  /// Returns true when [piece] has at least one non-capturing move.
-  /// Uses simple directional checks (no full move-gen) to avoid
-  /// circular dependency with filterMoves → _isTruceBroken.
-  bool _canPieceMoveWithoutCapture(ChessBoard board, ChessPiece piece) {
-    final pos = piece.position;
+  bool _hasLegalTruceMove(ChessBoard board, ChessPiece piece) {
+    final candidates = _candidateTruceMoves(board, piece);
+    for (final move in candidates) {
+      if (!_moveGivesCheck(board, move)) return true;
+    }
+    return false;
+  }
+
+  bool _pieceHasMoved(ChessBoard board, ChessPiece piece) {
+    if (piece.hasMoved) return true;
+
+    for (final move in board.moveHistory) {
+      if (move.piece.color == piece.color && move.to == piece.position) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  List<ChessMove> _candidateTruceMoves(ChessBoard board, ChessPiece piece) {
     switch (piece.type) {
       case PieceType.pawn:
-        final dir = piece.color == PieceColor.white ? 1 : -1;
-        final oneStep = pos.offset(dir, 0);
-        return oneStep.isValid && board.getPieceAt(oneStep) == null;
-      case PieceType.knight:
-        const offsets = [
-          [-2, -1],
-          [-2, 1],
-          [-1, -2],
-          [-1, 2],
-          [1, -2],
-          [1, 2],
-          [2, -1],
-          [2, 1],
-        ];
-        for (final o in offsets) {
-          final t = pos.offset(o[0], o[1]);
-          if (t.isValid && board.getPieceAt(t) == null) return true;
-        }
-        return false;
-      case PieceType.bishop:
-        for (final d in [
-          [1, 1],
-          [1, -1],
-          [-1, 1],
-          [-1, -1],
-        ]) {
-          final t = pos.offset(d[0], d[1]);
-          if (t.isValid && board.getPieceAt(t) == null) return true;
-        }
-        return false;
+        return _pawnTruceMoves(board, piece);
       case PieceType.rook:
-        for (final d in [
-          [1, 0],
-          [-1, 0],
-          [0, 1],
-          [0, -1],
-        ]) {
-          final t = pos.offset(d[0], d[1]);
-          if (t.isValid && board.getPieceAt(t) == null) return true;
-        }
-        return false;
+        return board
+            .generateSlidingMoves(piece, const [
+              [1, 0],
+              [-1, 0],
+              [0, 1],
+              [0, -1],
+            ])
+            .where((move) => !move.isCapture)
+            .toList();
+      case PieceType.knight:
+        return board
+            .generateStepMoves(piece, const [
+              [-2, -1],
+              [-2, 1],
+              [-1, -2],
+              [-1, 2],
+              [1, -2],
+              [1, 2],
+              [2, -1],
+              [2, 1],
+            ])
+            .where((move) => !move.isCapture)
+            .toList();
+      case PieceType.bishop:
+        return board
+            .generateSlidingMoves(piece, const [
+              [1, 1],
+              [1, -1],
+              [-1, 1],
+              [-1, -1],
+            ])
+            .where((move) => !move.isCapture)
+            .toList();
       case PieceType.queen:
+        return board
+            .generateSlidingMoves(piece, const [
+              [1, 0],
+              [-1, 0],
+              [0, 1],
+              [0, -1],
+              [1, 1],
+              [1, -1],
+              [-1, 1],
+              [-1, -1],
+            ])
+            .where((move) => !move.isCapture)
+            .toList();
       case PieceType.king:
-        for (final d in [
-          [1, 0],
-          [-1, 0],
-          [0, 1],
-          [0, -1],
-          [1, 1],
-          [1, -1],
-          [-1, 1],
-          [-1, -1],
-        ]) {
-          final t = pos.offset(d[0], d[1]);
-          if (t.isValid && board.getPieceAt(t) == null) return true;
+        final moves = board
+            .generateStepMoves(piece, const [
+              [1, 0],
+              [-1, 0],
+              [0, 1],
+              [0, -1],
+              [1, 1],
+              [1, -1],
+              [-1, 1],
+              [-1, -1],
+            ])
+            .where((move) => !move.isCapture)
+            .toList();
+        final kingRow = piece.color == PieceColor.white ? 0 : 7;
+        if (piece.position == Position(kingRow, 4)) {
+          if (board.canCastleKingside(piece.color)) {
+            moves.add(
+              ChessMove.castling(
+                from: piece.position,
+                to: Position(kingRow, 6),
+                piece: piece,
+              ),
+            );
+          }
+          if (board.canCastleQueenside(piece.color)) {
+            moves.add(
+              ChessMove.castling(
+                from: piece.position,
+                to: Position(kingRow, 2),
+                piece: piece,
+              ),
+            );
+          }
         }
-        return false;
+        return moves;
     }
+  }
+
+  List<ChessMove> _pawnTruceMoves(ChessBoard board, ChessPiece piece) {
+    final moves = <ChessMove>[];
+    final direction = piece.color == PieceColor.white ? 1 : -1;
+    final startRow = piece.color == PieceColor.white ? 1 : 6;
+    final oneStep = piece.position.offset(direction, 0);
+
+    if (oneStep.isValid && board.getPieceAt(oneStep) == null) {
+      moves.addAll(
+        board.createMovesWithPromotionCheck(
+          piece,
+          oneStep,
+          promotionOptions: board.getPromotionPieces(
+            piece.color,
+            promotionPosition: oneStep,
+          ),
+        ),
+      );
+
+      if (piece.position.row == startRow) {
+        final twoStep = piece.position.offset(direction * 2, 0);
+        if (twoStep.isValid && board.getPieceAt(twoStep) == null) {
+          moves.add(
+            ChessMove.simple(from: piece.position, to: twoStep, piece: piece),
+          );
+        }
+      }
+    }
+
+    return moves;
   }
 
   /// Public method to check if truce is still active
@@ -185,18 +251,13 @@ class Truce extends GameMod {
     final king = board.getKing(opponentColor);
     if (king == null) return false;
 
-    // Build piece list with the moved piece at its target square
-    final pieces = board.pieces.toList();
-    pieces.removeWhere(
-      (p) =>
-          p.position == move.from &&
-          p.type == move.piece.type &&
-          p.color == move.piece.color,
+    final simBoard = board.makeMoveForValidation(move);
+    final opponentKing = simBoard.getKing(opponentColor);
+    if (opponentKing == null) return false;
+    return simBoard.isPositionUnderAttack(
+      opponentKing.position,
+      move.piece.color,
     );
-    pieces.add(move.piece.copyWith(position: move.to));
-
-    final simBoard = board.copyWith(pieces: pieces);
-    return simBoard.isPositionUnderAttack(king.position, move.piece.color);
   }
 
   /// Truce Mod: King cannot be in check during truce
@@ -211,38 +272,13 @@ class Truce extends GameMod {
     return board.isPositionUnderAttack(king.position, kingColor.opposite);
   }
 
-  /// Get how many times a specific piece has moved during truce.
-  /// Identifies the piece by its current position — checks both
-  /// move.from and move.to to track pieces across position changes.
-  int _getPieceMoveCount(ChessBoard board, ChessPiece piece) {
-    int count = 0;
-    for (final move in board.moveHistory) {
-      if (move.piece.color == piece.color &&
-          (move.from == piece.position || move.to == piece.position)) {
-        count++;
-      }
-    }
-    return count;
-  }
-
-  /// Get set of unique piece starting positions that have moved
-  Set<Position> _getMovedPieces(ChessBoard board, PieceColor color) {
-    final movedPositions = <Position>{};
-    for (final move in board.moveHistory) {
-      if (move.piece.color == color) {
-        movedPositions.add(move.from);
-      }
-    }
-    return movedPositions;
-  }
-
   /// Returns a bitboard of squares where pieces have already moved during truce.
   /// Bit i is set if the piece at square (row=i/8, col=i%8) cannot be moved.
   int getTruceFrozenBitboard(ChessBoard board) {
     if (_isTruceBroken(board)) return 0;
     int frozen = 0;
     for (final piece in board.pieces) {
-      if (_getPieceMoveCount(board, piece) >= 1) {
+      if (_pieceHasMoved(board, piece)) {
         final sq = piece.position.row * 8 + piece.position.col;
         frozen |= (1 << sq);
       }
@@ -253,8 +289,14 @@ class Truce extends GameMod {
   /// Get truce status information for display
   Map<String, dynamic> getTruceInfo(ChessBoard board) {
     final isBroken = _isTruceBroken(board);
-    final whiteMovedPieces = _getMovedPieces(board, PieceColor.white);
-    final blackMovedPieces = _getMovedPieces(board, PieceColor.black);
+    final whiteMovedCount = board
+        .getPiecesOfColor(PieceColor.white)
+        .where((piece) => _pieceHasMoved(board, piece))
+        .length;
+    final blackMovedCount = board
+        .getPiecesOfColor(PieceColor.black)
+        .where((piece) => _pieceHasMoved(board, piece))
+        .length;
 
     final whiteTotalPieces = board.getPiecesOfColor(PieceColor.white).length;
     final blackTotalPieces = board.getPiecesOfColor(PieceColor.black).length;
@@ -263,8 +305,8 @@ class Truce extends GameMod {
       'truceActive': !isBroken,
       'whiteTruceBroken': isBroken,
       'blackTruceBroken': isBroken,
-      'whiteMovedPieces': whiteMovedPieces.length,
-      'blackMovedPieces': blackMovedPieces.length,
+      'whiteMovedPieces': whiteMovedCount,
+      'blackMovedPieces': blackMovedCount,
       'whiteTotalPieces': whiteTotalPieces,
       'blackTotalPieces': blackTotalPieces,
     };
