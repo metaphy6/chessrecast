@@ -738,8 +738,8 @@ func (b *Board) checkTruceBreak(color Color) bool {
 
 		if hasMoved {
 			exhaustedCount++
-		} else if !b.canPieceMoveWithoutCapture(piece) {
-			// Unmoved AND blocked → counts as exhausted
+		} else if !b.hasLegalTruceMove(piece) {
+			// Unmoved with no legal truce move → counts as exhausted
 			exhaustedCount++
 		}
 	}
@@ -747,59 +747,42 @@ func (b *Board) checkTruceBreak(color Color) bool {
 	return exhaustedCount >= len(currentPieces)
 }
 
-// canPieceMoveWithoutCapture returns true if the piece has at least one
-// non-capturing move.  Uses simple directional checks (first square only)
-// to avoid a full move-generation call that could recurse into truce logic.
-func (b *Board) canPieceMoveWithoutCapture(piece *Piece) bool {
-	pos := piece.Position
+func (b *Board) pieceHasMoved(piece *Piece) bool {
+	for _, move := range b.History.Moves {
+		if move.Piece.Color != piece.Color {
+			continue
+		}
+		if move.From.Equals(piece.Position) || move.To.Equals(piece.Position) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasLegalTruceMove returns true if the piece has at least one legal move
+// during active truce after applying the one-move rule, no-capture rule,
+// and no-check rule.
+func (b *Board) hasLegalTruceMove(piece *Piece) bool {
+	mg := NewMoveGenerator(b)
+	var moves []Move
+
 	switch piece.Type {
 	case Pawn:
-		dir := 1
-		if piece.Color == Black {
-			dir = -1
-		}
-		t := Position{Row: pos.Row + dir, Col: pos.Col}
-		return t.IsValid() && b.GetPieceAt(t) == nil
-	case Knight:
-		offsets := [][2]int{
-			{-2, -1}, {-2, 1}, {-1, -2}, {-1, 2},
-			{1, -2}, {1, 2}, {2, -1}, {2, 1},
-		}
-		for _, o := range offsets {
-			t := Position{Row: pos.Row + o[0], Col: pos.Col + o[1]}
-			if t.IsValid() && b.GetPieceAt(t) == nil {
-				return true
-			}
-		}
-		return false
-	case Bishop:
-		for _, d := range [][2]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}} {
-			t := Position{Row: pos.Row + d[0], Col: pos.Col + d[1]}
-			if t.IsValid() && b.GetPieceAt(t) == nil {
-				return true
-			}
-		}
-		return false
+		moves = mg.getPawnMoves(piece)
 	case Rook:
-		for _, d := range [][2]int{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
-			t := Position{Row: pos.Row + d[0], Col: pos.Col + d[1]}
-			if t.IsValid() && b.GetPieceAt(t) == nil {
-				return true
-			}
-		}
-		return false
-	default: // Queen, King
-		for _, d := range [][2]int{
-			{1, 0}, {-1, 0}, {0, 1}, {0, -1},
-			{1, 1}, {1, -1}, {-1, 1}, {-1, -1},
-		} {
-			t := Position{Row: pos.Row + d[0], Col: pos.Col + d[1]}
-			if t.IsValid() && b.GetPieceAt(t) == nil {
-				return true
-			}
-		}
-		return false
+		moves = mg.getRookMoves(piece)
+	case Knight:
+		moves = mg.getKnightMoves(piece)
+	case Bishop:
+		moves = mg.getBishopMoves(piece)
+	case Queen:
+		moves = mg.getQueenMoves(piece)
+	case King:
+		moves = mg.getKingMoves(piece)
 	}
+
+	moves = mg.applyTruceRules(moves, piece)
+	return len(moves) > 0
 }
 
 // GetUnmovedPieces returns all pieces that haven't moved yet for a color
@@ -820,18 +803,8 @@ func (b *Board) GetUnmovedPieces(color Color) []*Piece {
 			piece := b.squares[row][col]
 			if piece != nil && piece.Color == color {
 				// Check if this piece has moved
-				if !movedPositions[piece.Position] {
-					// Also check if it moved TO this position
-					hasMoved := false
-					for _, move := range b.History.Moves {
-						if move.Piece.Color == color && move.To == piece.Position {
-							hasMoved = true
-							break
-						}
-					}
-					if !hasMoved {
-						unmovedPieces = append(unmovedPieces, piece)
-					}
+				if !movedPositions[piece.Position] && !b.pieceHasMoved(piece) {
+					unmovedPieces = append(unmovedPieces, piece)
 				}
 			}
 		}
@@ -848,10 +821,8 @@ func (b *Board) HasMovableUnmovedPieces(color Color) bool {
 	}
 	
 	// Check if any unmoved piece has valid moves
-	mg := NewMoveGenerator(b)
 	for _, piece := range unmovedPieces {
-		moves := mg.GetValidMoves(piece.Position)
-		if len(moves) > 0 {
+		if b.hasLegalTruceMove(piece) {
 			return true
 		}
 	}

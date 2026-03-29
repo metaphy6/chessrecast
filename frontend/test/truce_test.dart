@@ -5,11 +5,14 @@ import 'package:chessrecast/board/pieces/piece_color.dart';
 import 'package:chessrecast/board/pieces/piece_type.dart';
 import 'package:chessrecast/board/moves/position.dart';
 import 'package:chessrecast/board/moves/move.dart';
+import 'package:chessrecast/board/moves/generation.dart';
+import 'package:chessrecast/management/orchestrator.dart';
 import 'package:chessrecast/mods/truce.dart';
 import 'package:chessrecast/mods/mods_enum.dart';
 
 void main() {
   const truce = Truce();
+  final orchestrator = Orchestrator();
 
   group('Truce: isTruceActive', () {
     test('initial board has truce active', () {
@@ -320,6 +323,57 @@ void main() {
       // All 3 white pieces exhausted → truce breaks.
       expect(truce.isTruceActive(board), isFalse);
     });
+
+    test('truce breaks when remaining unmoved move would only give check', () {
+      final wKnight = ChessPiece(
+        type: PieceType.knight,
+        color: PieceColor.white,
+        position: const Position(0, 1),
+      );
+      final wKing = ChessPiece(
+        type: PieceType.king,
+        color: PieceColor.white,
+        position: const Position(0, 7),
+        hasMoved: true,
+      );
+      final bKing = ChessPiece(
+        type: PieceType.king,
+        color: PieceColor.black,
+        position: const Position(0, 5),
+      );
+      final blockerA = ChessPiece(
+        type: PieceType.pawn,
+        color: PieceColor.black,
+        position: const Position(2, 0),
+      );
+      final blockerC = ChessPiece(
+        type: PieceType.pawn,
+        color: PieceColor.black,
+        position: const Position(2, 2),
+      );
+
+      final board = ChessBoard(
+        pieces: [wKnight, wKing, bKing, blockerA, blockerC],
+        currentPlayer: PieceColor.white,
+        gameType: ModsEnum.truce,
+        moveHistory: [
+          ChessMove(
+            from: const Position(0, 4),
+            to: const Position(0, 7),
+            piece: ChessPiece(
+              type: PieceType.king,
+              color: PieceColor.white,
+              position: const Position(0, 4),
+            ),
+          ),
+        ],
+      );
+
+      // White knight on b1 has only d2 available; a3 and c3 are occupied.
+      // Nb1-d2 would check the black king on f1, so it is illegal during truce.
+      // White king has already moved, so all legal truce moves are exhausted.
+      expect(truce.isTruceActive(board), isFalse);
+    });
   });
 
   group('Truce: filterMoves', () {
@@ -416,6 +470,42 @@ void main() {
 
       final filtered = truce.filterMoves(moves, whiteKing, board);
       expect(filtered.length, 2); // Both moves allowed
+    });
+
+    test('moved piece has no generated truce moves', () {
+      var board = ChessBoard.initial(gameType: ModsEnum.truce);
+
+      ChessMove move(String notation) {
+        final parsed = orchestrator.parseAlgebraicNotation(board, notation);
+        expect(parsed, isNotNull, reason: 'expected legal move $notation');
+        return parsed!;
+      }
+
+      board = orchestrator.executeMove(board, move('g1f3'));
+      board = orchestrator.executeMove(board, move('g8f6'));
+
+      final knightMoves = board.getValidMovesFor(const Position(2, 5));
+      expect(knightMoves, isEmpty);
+      expect(
+        orchestrator
+            .getAllValidMoves(board)
+            .where((candidate) => candidate.from == const Position(2, 5)),
+        isEmpty,
+      );
+    });
+
+    test('castling also freezes the rook during truce', () {
+      final board = ChessBoard.fromFEN(
+        '4k3/8/8/8/8/8/8/4K2R w K - 0 1',
+        gameType: ModsEnum.truce,
+      );
+      final castle = board
+          .getValidMovesFor(const Position(0, 4))
+          .firstWhere((move) => move.isCastling);
+
+      final afterCastle = orchestrator.executeMove(board, castle);
+
+      expect(afterCastle.getValidMovesFor(const Position(0, 5)), isEmpty);
     });
   });
 
@@ -591,8 +681,7 @@ void main() {
   });
 
   group('Truce: side-to-move truce break', () {
-    test('truce stays active when opponent is exhausted but current side is not',
-        () {
+    test('truce stays active when opponent is exhausted but current side is not', () {
       // White (current player) has 2 pieces: king (moved) + rook (unmoved, can move)
       // Black has only king (moved) → black is exhausted
       // But current player is white → check only white → white NOT exhausted → truce active
@@ -769,7 +858,7 @@ void main() {
 
       final checkMove = ChessMove(
         from: const Position(0, 1),
-        to: const Position(2, 3), // Knight → (2,3) checks king at (3,1) ??? 
+        to: const Position(2, 3), // Knight → (2,3) checks king at (3,1) ???
         piece: wKnight,
       );
       // Nope: knight at (2,3): L-moves are (0,2),(0,4),(1,1),(1,5),(3,1),(3,5),(4,2),(4,4)
@@ -784,8 +873,7 @@ void main() {
         piece: wKnight,
       );
 
-      final filtered =
-          truce.filterMoves([checkMove, safeMove], wKnight, board);
+      final filtered = truce.filterMoves([checkMove, safeMove], wKnight, board);
       expect(filtered.length, 1);
       expect(filtered.first.to, const Position(2, 0));
     });

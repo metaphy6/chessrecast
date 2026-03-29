@@ -116,8 +116,20 @@ extension MoveValidation on ChessBoard {
       }
     }
 
-    // Add the piece to its new position
-    newPieces.add(move.piece.movedTo(move.to));
+    // Add the piece to its new position, including promotion state.
+    var movedPiece = move.piece.movedTo(move.to);
+    if (move.isPromotion && move.promotionPiece != null) {
+      final promotedType = switch (move.promotionPiece!.toUpperCase()) {
+        'Q' => PieceType.queen,
+        'R' => PieceType.rook,
+        'B' => PieceType.bishop,
+        'N' => PieceType.knight,
+        'K' => PieceType.king,
+        _ => move.piece.type,
+      };
+      movedPiece = movedPiece.copyWith(type: promotedType);
+    }
+    newPieces.add(movedPiece);
 
     // Handle castling in validation - move the rook as well using helper
     if (move.isCastling) {

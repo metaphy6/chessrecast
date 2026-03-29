@@ -9,6 +9,7 @@ import 'package:chessrecast/mods/mods_enum.dart';
 class _AnalyzedPly {
   final int ply;
   final String fen;
+  final List<String> replayPrefix;
   final PieceColor sideToMove;
   final ChessMove playedMove;
   final ChessMove? referenceMove;
@@ -21,6 +22,7 @@ class _AnalyzedPly {
   const _AnalyzedPly({
     required this.ply,
     required this.fen,
+    required this.replayPrefix,
     required this.sideToMove,
     required this.playedMove,
     required this.referenceMove,
@@ -33,23 +35,25 @@ class _AnalyzedPly {
 }
 
 void main(List<String> args) {
-  print(runHeirAudit(args));
+  print(runTruceAudit(args));
 }
 
-String runHeirAudit(List<String> args) {
+String runTruceAudit(List<String> args) {
   final options = _Options.fromArgs(args);
   final engine = NativeEngine();
   final orchestrator = Orchestrator();
 
   var board = options.startingFen == null
-      ? ChessBoard.initial(gameType: ModsEnum.heir)
-      : ChessBoard.fromFEN(options.startingFen!, gameType: ModsEnum.heir);
+      ? ChessBoard.initial(gameType: ModsEnum.truce)
+      : ChessBoard.fromFEN(options.startingFen!, gameType: ModsEnum.truce);
   final analyzed = <_AnalyzedPly>[];
   final lines = <String>[];
 
   lines.add(
-    'Heir audit: baseline d${options.baselineDepth}/${options.baselineMs}ms '
-    'vs reference d${options.referenceDepth}/${options.referenceMs}ms, '
+    'Truce audit: baseline d${options.baselineDepth}/${options.baselineMs}ms '
+    's${options.baselineSkill} vs reference '
+    'd${options.referenceDepth}/${options.referenceMs}ms '
+    's${options.referenceSkill}, '
     'max plies ${options.maxPlies}',
   );
 
@@ -61,11 +65,14 @@ String runHeirAudit(List<String> args) {
     for (final notation in options.openingMoves) {
       final move = orchestrator.parseAlgebraicNotation(board, notation);
       if (move == null) {
-        throw ArgumentError('Illegal Heir opening move: $notation');
+        throw ArgumentError('Illegal Truce opening move: $notation');
       }
       board = orchestrator.executeMove(board, move);
     }
   }
+  lines.add('Exact Truce reproduction requires replay history, not just FEN.');
+
+  final replayPrefix = <String>[...options.openingMoves];
 
   for (var ply = 1; ply <= options.maxPlies; ply++) {
     if (board.gameStatus.isGameOver) {
@@ -80,7 +87,7 @@ String runHeirAudit(List<String> args) {
       board,
       timeLimitMs: options.baselineMs,
       maxDepth: options.baselineDepth,
-      skillLevel: 4,
+      skillLevel: options.baselineSkill,
     );
 
     final playedMove = baseline.bestMove;
@@ -94,7 +101,7 @@ String runHeirAudit(List<String> args) {
       board,
       timeLimitMs: options.referenceMs,
       maxDepth: options.referenceDepth,
-      skillLevel: 4,
+      skillLevel: options.referenceSkill,
     );
 
     final nextBoard = orchestrator.executeMove(board, playedMove);
@@ -103,6 +110,7 @@ String runHeirAudit(List<String> args) {
       nextBoard,
       options.referenceMs,
       options.referenceDepth,
+      options.referenceSkill,
     );
 
     final referenceMove = reference.bestMove;
@@ -115,12 +123,14 @@ String runHeirAudit(List<String> args) {
             orchestrator.executeMove(board, referenceMove),
             options.referenceMs,
             options.referenceDepth,
+            options.referenceSkill,
           );
 
     final delta = referenceMoveScore - playedScore;
     final analyzedPly = _AnalyzedPly(
       ply: ply,
       fen: fen,
+      replayPrefix: List<String>.unmodifiable(replayPrefix),
       sideToMove: side,
       playedMove: playedMove,
       referenceMove: referenceMove,
@@ -145,6 +155,7 @@ String runHeirAudit(List<String> args) {
     );
 
     board = nextBoard;
+    replayPrefix.add(_coordinateLabel(playedMove));
   }
 
   lines.add('');
@@ -172,6 +183,10 @@ String runHeirAudit(List<String> args) {
     );
     lines.add('   FEN: ${item.fen}');
     lines.add(
+      '   Replay: '
+      '${item.replayPrefix.isEmpty ? '(starting position)' : item.replayPrefix.join(',')}',
+    );
+    lines.add(
       '   baseline=${_cp(item.baselineScore)} '
       'reference=${_cp(item.referenceScore)} '
       'reference-move=${_cp(item.referenceMoveScore)} '
@@ -187,6 +202,7 @@ int _scorePlayedMove(
   ChessBoard childBoard,
   int referenceMs,
   int referenceDepth,
+  int referenceSkill,
 ) {
   if (childBoard.gameStatus == GameStatus.checkmate) {
     return mateScore;
@@ -201,7 +217,7 @@ int _scorePlayedMove(
     childBoard,
     timeLimitMs: referenceMs,
     maxDepth: math.max(1, referenceDepth - 1),
-    skillLevel: 4,
+    skillLevel: referenceSkill,
   );
   return -reply.score;
 }
@@ -221,6 +237,13 @@ String _moveLabel(ChessMove? move) {
   return '$piece${move.from.algebraic}$capture${move.to.algebraic}$promotion';
 }
 
+String _coordinateLabel(ChessMove move) {
+  final promotion = move.isPromotion
+      ? move.promotionPiece?.toLowerCase() ?? ''
+      : '';
+  return '${move.from.algebraic}${move.to.algebraic}$promotion';
+}
+
 String _cp(int score) {
   if (isMateScore(score)) {
     final mateIn = (mateScore - score.abs() + 1) ~/ 2;
@@ -233,8 +256,10 @@ String _cp(int score) {
 class _Options {
   final int baselineDepth;
   final int baselineMs;
+  final int baselineSkill;
   final int referenceDepth;
   final int referenceMs;
+  final int referenceSkill;
   final int maxPlies;
   final int topCount;
   final String? startingFen;
@@ -243,8 +268,10 @@ class _Options {
   const _Options({
     required this.baselineDepth,
     required this.baselineMs,
+    required this.baselineSkill,
     required this.referenceDepth,
     required this.referenceMs,
+    required this.referenceSkill,
     required this.maxPlies,
     required this.topCount,
     required this.startingFen,
@@ -273,21 +300,22 @@ class _Options {
       return null;
     }
 
-    final moves = (readString('moves') ?? '')
-        .split(',')
-        .map((move) => move.trim())
-        .where((move) => move.isNotEmpty)
-        .toList(growable: false);
+    final openingArg = readString('moves') ?? '';
+    final openingMoves = openingArg.isEmpty
+        ? const <String>[]
+        : openingArg.split(',').where((s) => s.isNotEmpty).toList();
 
     return _Options(
       baselineDepth: readInt('baseline-depth', 4),
-      baselineMs: readInt('baseline-ms', 150),
+      baselineMs: readInt('baseline-ms', 120),
+      baselineSkill: readInt('baseline-skill', 4),
       referenceDepth: readInt('reference-depth', 6),
-      referenceMs: readInt('reference-ms', 600),
-      maxPlies: readInt('max-plies', 40),
+      referenceMs: readInt('reference-ms', 500),
+      referenceSkill: readInt('reference-skill', 4),
+      maxPlies: readInt('max-plies', 24),
       topCount: readInt('top-count', 8),
       startingFen: readString('fen'),
-      openingMoves: moves,
+      openingMoves: openingMoves,
     );
   }
 }

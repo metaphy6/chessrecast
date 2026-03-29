@@ -14,6 +14,21 @@ static const int MATERIAL[6] = {
     0      /* KING   */
 };
 
+static int truce_start_pawn_harassers(const Board *b, Color bishop_side, Square sq) {
+    Color opp = (Color)(bishop_side ^ 1);
+    int target_rank = (opp == WHITE) ? 3 : 4;
+    int start_rank = (opp == WHITE) ? 1 : 6;
+    int count = 0;
+    int file = SQ_COL(sq);
+
+    if (SQ_ROW(sq) != target_rank) return 0;
+
+    if (file > 0 && BB_HAS(b->pieces[opp][PAWN], SQ(start_rank, file - 1))) count++;
+    if (file < 7 && BB_HAS(b->pieces[opp][PAWN], SQ(start_rank, file + 1))) count++;
+
+    return count;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  Piece-Square Tables (from white's perspective, row 0 = rank 1)           */
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -390,6 +405,42 @@ static inline int heir_file_centrality(Square sq) {
     int dist = left < right ? left : right;
     int bonus = 3 - dist;
     return bonus > 0 ? bonus : 0;
+}
+
+static int heir_developed_minor_count(const Board *b, Color side) {
+    int back_rank = (side == WHITE) ? 0 : 7;
+    int developed = 0;
+    Bitboard minors = b->pieces[side][KNIGHT] | b->pieces[side][BISHOP];
+
+    while (minors) {
+        Square sq = (Square)bb_pop_lsb(&minors);
+        if (SQ_ROW(sq) != back_rank) developed++;
+    }
+
+    return developed;
+}
+
+static int heir_f_pawn_block_penalty(const Board *b, Color side) {
+    Square block_sq = (side == WHITE) ? SQ(2, 5) : SQ(5, 5);
+    Square home_f = (side == WHITE) ? SQ(1, 5) : SQ(6, 5);
+    Square spear_sq = (side == WHITE) ? SQ(4, 4) : SQ(3, 4);
+    Square anchor_sq = (side == WHITE) ? SQ(3, 3) : SQ(4, 3);
+    Color opp = color_opposite(side);
+    int penalty = 0;
+
+    if (!BB_HAS(b->pieces[side][KNIGHT], block_sq)) return 0;
+    if (!BB_HAS(b->pieces[side][PAWN], home_f)) return 0;
+    if (!BB_HAS(b->pieces[side][PAWN], spear_sq)) return 0;
+
+    penalty += 14;
+    if (BB_HAS(b->pieces[side][PAWN], anchor_sq)) penalty += 18;
+    if (b->fullmove <= 10) penalty += 6;
+    if (board_square_attacked(b, spear_sq, opp) &&
+        !board_square_attacked(b, spear_sq, side)) {
+        penalty += 10;
+    }
+
+    return penalty;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -851,6 +902,7 @@ int evaluate(const Board *b) {
 
             {
                 int developed = 0;
+                int minor_developed = 0;
                 int back_rank = (side == WHITE) ? 0 : 7;
                 Bitboard target_pawns = b->pieces[opp][PAWN];
 
@@ -860,7 +912,10 @@ int evaluate(const Board *b) {
                         Square sq = (Square)bb_pop_lsb(&pieces);
                         Bitboard attacks = BB_EMPTY;
 
-                        if (SQ_ROW(sq) != back_rank) developed++;
+                        if (SQ_ROW(sq) != back_rank) {
+                            developed++;
+                            if (t == KNIGHT || t == BISHOP) minor_developed++;
+                        }
 
                         if (t == KNIGHT) {
                             attacks = knight_attacks[sq];
@@ -894,6 +949,37 @@ int evaluate(const Board *b) {
 
                 if (developed > 6) developed = 6;
                 bonus += developed * 6;
+
+                if (!promoted && b->fullmove <= 12 && pawn_count[side] >= 4 &&
+                    pawn_count[opp] >= 4) {
+                    bonus -= heir_f_pawn_block_penalty(b, side);
+                }
+
+                if (queen_sq[side] >= 0 && king_sq[side] >= 0 && !promoted &&
+                    b->fullmove <= 12 && pawn_count[side] >= 4 && pawn_count[opp] >= 4) {
+                    Square qsq = queen_sq[side];
+
+                    if (SQ_ROW(qsq) != back_rank) {
+                        int minor_total = bb_popcount(
+                            b->pieces[side][KNIGHT] | b->pieces[side][BISHOP]);
+                        int undeveloped_minors = minor_total - minor_developed;
+
+                        if (undeveloped_minors > 0) {
+                            int advance = (side == WHITE) ? SQ_ROW(qsq) : (7 - SQ_ROW(qsq));
+                            int king_gap = chebyshev_distance_sq(qsq, king_sq[side]);
+                            int pen = 10 + undeveloped_minors * 14;
+
+                            if (minor_developed == 0) pen += 16;
+                            else if (minor_developed == 1) pen += 8;
+                            if (advance >= 1) pen += 4 + advance * 4;
+                            if (king_gap > 1) pen += (king_gap - 1) * 6;
+                            if (!board_square_attacked(b, qsq, side)) pen += 16;
+                            if (board_square_attacked(b, qsq, opp)) pen += 14;
+
+                            bonus -= pen;
+                        }
+                    }
+                }
             }
 
             score += (c == WHITE) ? bonus : -bonus;
@@ -1125,6 +1211,16 @@ int evaluate(const Board *b) {
                     /* Extra bonus for being on the long diagonals */
                     if (BB_HAS(long_diag_1, sq) || BB_HAS(long_diag_2, sq))
                         bonus += 8;
+
+                    /* A bishop that can be chased immediately by a fresh pawn
+                       push is less durable in Truce than its raw mobility suggests. */
+                    {
+                        int harassers = truce_start_pawn_harassers(b, (Color)c, sq);
+                        if (harassers > 0) {
+                            bonus -= harassers * 10;
+                            if (harassers >= 2) bonus -= 4;
+                        }
+                    }
                 }
             }
 
@@ -1197,6 +1293,38 @@ int evaluate(const Board *b) {
                     }
                 }
                 bonus += connected * 5 - isolated_cnt * 10;
+            }
+
+            /* ─ Pawn space: fourth-rank pawns claim durable territory ─ */
+            /* A pawn that reaches the 4th rank (or beyond) during truce
+               secures space that cannot be challenged immediately by
+               captures, so the eval should prefer the more ambitious push
+               over a passive one-step shuffle when it is safe enough. */
+            {
+                Bitboard pawns = b->pieces[c][PAWN];
+                bool advanced_file[8] = {false};
+                while (pawns) {
+                    Square sq = (Square)bb_pop_lsb(&pawns);
+                    int rank = (c == WHITE) ? SQ_ROW(sq) : (7 - SQ_ROW(sq));
+                    int file = SQ_COL(sq);
+                    if (rank >= 3) {
+                        int pawn_space = 8;
+                        if (!BB_HAS(pawn_atk[opp], sq)) pawn_space += 4;
+                        if (rank >= 4) pawn_space += 4;
+                        bonus += pawn_space;
+                        if (file >= 2 && file <= 5) advanced_file[file] = true;
+                    }
+                }
+
+                /* Central pawn fronts are especially strong in Truce because
+                   captures are suppressed, so the opponent cannot immediately
+                   challenge a d/e duo or a broad d/e/f wedge. */
+                if (advanced_file[3] && advanced_file[4]) bonus += 22;
+                if (advanced_file[2] && advanced_file[3]) bonus += 10;
+                if (advanced_file[4] && advanced_file[5]) bonus += 10;
+                if (advanced_file[3] && advanced_file[4] &&
+                    (advanced_file[2] || advanced_file[5]))
+                    bonus += 10;
             }
 
             /* ─ King safety preparation: king should castle early ────── */

@@ -450,7 +450,7 @@ func (mg *MoveGenerator) applyTruceRules(moves []Move, piece *Piece) []Move {
 	}
 
 	// During truce: Each piece can only move once
-	if mg.board.PieceMoveCounter[piece.Position] >= 1 {
+	if mg.board.pieceHasMoved(piece) {
 		return []Move{} // Can't move anymore during truce
 	}
 

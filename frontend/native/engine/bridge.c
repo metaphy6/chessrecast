@@ -24,6 +24,11 @@ EXPORT void engine_init(void) {
     s_initialized = 1;
 }
 
+EXPORT void engine_reset(int clear_tt) {
+    engine_init();
+    search_reset(clear_tt);
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  Find best move                                                             */
 /* ═══════════════════════════════════════════════════════════════════════════ */

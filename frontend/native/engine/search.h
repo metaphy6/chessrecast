@@ -24,6 +24,7 @@ typedef struct {
 void  tt_alloc(TTable *tt, int size_mb);
 void  tt_free(TTable *tt);
 void  tt_clear(TTable *tt);
+void  search_reset(int clear_tt);
 
 /* ── Search result ────────────────────────────────────────────────────────── */
 
