@@ -443,6 +443,54 @@ static int heir_f_pawn_block_penalty(const Board *b, Color side) {
     return penalty;
 }
 
+static int kb_phase1_forward_rank(Color side, Square sq) {
+    return (side == WHITE) ? SQ_ROW(sq) : (7 - SQ_ROW(sq));
+}
+
+static int kb_phase1_promotion_distance(Color side, Square sq) {
+    return 7 - kb_phase1_forward_rank(side, sq);
+}
+
+static bool kb_phase1_passed_pawn(const Board *b, Color side, Square sq) {
+    Color opp = color_opposite(side);
+    int row = SQ_ROW(sq);
+    int col = SQ_COL(sq);
+    int start = (side == WHITE) ? row + 1 : 0;
+    int end = (side == WHITE) ? 8 : row;
+
+    for (int r = start; r < end; r++) {
+        for (int dc = -1; dc <= 1; dc++) {
+            int nc = col + dc;
+            if (nc < 0 || nc > 7) continue;
+            if (BB_HAS(b->pieces[opp][PAWN], SQ(r, nc))) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+static int kb_phase1_clear_promotion_lane(const Board *b, Color side, Square sq) {
+    int row = SQ_ROW(sq);
+    int col = SQ_COL(sq);
+    int clear = 0;
+
+    if (side == WHITE) {
+        for (int r = row + 1; r < 8; r++) {
+            if (b->mailbox[SQ(r, col)] != PIECE_EMPTY) break;
+            clear++;
+        }
+    } else {
+        for (int r = row - 1; r >= 0; r--) {
+            if (b->mailbox[SQ(r, col)] != PIECE_EMPTY) break;
+            clear++;
+        }
+    }
+
+    return clear;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  Evaluation                                                               */
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -1493,6 +1541,21 @@ int evaluate(const Board *b) {
                 if (kbb != BB_EMPTY) {
                     Square ksq = bb_lsb(kbb);
                     int kr = SQ_ROW(ksq), kcol = SQ_COL(ksq);
+                    int king_rank = kb_phase1_forward_rank((Color)c, ksq);
+                    int corridor_open = 0;
+
+                    if (!BB_HAS(b->pieces[c][PAWN], (c == WHITE) ? SQ(1, 3) : SQ(6, 3))) corridor_open++;
+                    if (!BB_HAS(b->pieces[c][PAWN], (c == WHITE) ? SQ(1, 4) : SQ(6, 4))) corridor_open++;
+                    if (!BB_HAS(b->pieces[c][PAWN], (c == WHITE) ? SQ(1, 5) : SQ(6, 5))) corridor_open++;
+
+                    if (king_rank == 0) {
+                        bonus -= (b->fullmove <= 4) ? 80 : 120;
+                        bonus -= corridor_open * 30;
+                    } else {
+                        bonus += king_rank * 24;
+                        bonus += corridor_open * 10;
+                        if (kcol >= 2 && kcol <= 5) bonus += 18;
+                    }
 
                     /* ─ King proximity to enemy pawns (Chebyshev distance) ── */
                     /* Chebyshev = max(|dr|,|dc|) matches king movement — a
@@ -1601,23 +1664,26 @@ int evaluate(const Board *b) {
                         Square sq = (Square)bb_pop_lsb(&pawns);
                         int row = SQ_ROW(sq), col = SQ_COL(sq);
                         int rank = (c == WHITE) ? row : (7 - row);
+                        int enemy_king_dist = 8;
+                        int promo_dist = kb_phase1_promotion_distance((Color)c, sq);
+                        int clear_lane = kb_phase1_clear_promotion_lane(b, (Color)c, sq);
 
-                        bool passed = true;
-                        int r_start = (c == WHITE) ? row + 1 : 0;
-                        int r_end   = (c == WHITE) ? 8 : row;
-                        for (int r = r_start; r < r_end && passed; r++) {
-                            for (int dc = -1; dc <= 1; dc++) {
-                                int nc = col + dc;
-                                if (nc < 0 || nc > 7) continue;
-                                if (BB_HAS(b->pieces[opp][PAWN], SQ(r, nc))) {
-                                    passed = false;
-                                    break;
-                                }
-                            }
+                        if (b->pieces[opp][KING] != BB_EMPTY) {
+                            enemy_king_dist = chebyshev_distance_sq(
+                                sq,
+                                bb_lsb(b->pieces[opp][KING])
+                            );
                         }
+
+                        bool passed = kb_phase1_passed_pawn(b, (Color)c, sq);
                         if (passed) {
                             static const int KB_PASSED[8] = { 0, 10, 22, 40, 70, 110, 165, 0 };
                             bonus += KB_PASSED[rank];
+                            bonus += clear_lane * 14;
+                            if (clear_lane >= promo_dist) bonus += 50;
+                            if (enemy_king_dist > promo_dist + 1) {
+                                bonus += 40 + (enemy_king_dist - promo_dist) * 12;
+                            }
 
                             /* Escort bonus: own king near passed pawn */
                             if (b->pieces[c][KING] != BB_EMPTY) {
@@ -1652,12 +1718,31 @@ int evaluate(const Board *b) {
 
                 /* Mild development incentive (not harsh back-rank penalty) */
                 int back = (c == WHITE) ? 0 : 7;
+
                 for (int t = KNIGHT; t <= QUEEN; t++) {
                     Bitboard bb = b->pieces[c][t];
                     while (bb) {
                         Square sq = (Square)bb_pop_lsb(&bb);
                         if (SQ_ROW(sq) == back) bonus -= 2;
                         else bonus += 8;
+                    }
+                }
+
+                if (b->pieces[c][KING] != BB_EMPTY) {
+                    Square ksq = bb_lsb(b->pieces[c][KING]);
+                    int shield = bb_popcount(b->pieces[c][PAWN] & king_attacks[ksq]);
+
+                    bonus += shield * 18;
+
+                    if (b->pieces[opp][QUEEN] != BB_EMPTY) {
+                        Square qsq = bb_lsb(b->pieces[opp][QUEEN]);
+                        int queen_dist = chebyshev_distance_sq(ksq, qsq);
+
+                        if (queen_dist <= 4) bonus -= (5 - queen_dist) * 36;
+                        if (shield == 0) bonus -= 42;
+                        else if (shield == 1) bonus -= 16;
+
+                        if (abs(SQ_COL(ksq) - SQ_COL(qsq)) <= 2) bonus -= 18;
                     }
                 }
             }
