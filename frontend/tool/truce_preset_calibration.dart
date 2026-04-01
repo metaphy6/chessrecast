@@ -310,7 +310,7 @@ String runTrucePresetCalibration(List<String> args) {
       continue;
     }
 
-    lines.add('Worst ${worstCount}:');
+    lines.add('Worst $worstCount:');
     for (var index = 0; index < worstCount; index++) {
       final item = worst[index];
       lines.add(

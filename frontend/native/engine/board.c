@@ -551,15 +551,17 @@ void board_make_move(Board *b, Move m) {
         if (pt == KING && MOVE_IS_CAPTURE(m) &&
             PIECE_TYPE(b->history[idx].captured) == PAWN) {
             b->kb_unlocked = 1;
+            b->history[idx].kb_bonus = 1;
         }
         /* Pawn promotion also unlocks all pieces */
         if (MOVE_IS_PROMO(m)) {
             b->kb_unlocked = 1;
+            b->history[idx].kb_bonus = 1;
         }
     }
 
     /* Switch side */
-    b->side = them;
+    b->side = b->history[idx].kb_bonus ? us : them;
     b->ply++;
 
     /* Recompute hash */
@@ -573,8 +575,7 @@ void board_unmake_move(Board *b) {
 
     Square from = MOVE_FROM(m);
     Square to   = MOVE_TO(m);
-    Color  them = b->side; /* current side was the opponent */
-    Color  us   = color_opposite(them);
+    Color  us   = b->history[idx].kb_bonus ? b->side : color_opposite(b->side);
     PieceType pt = MOVE_PIECE(m);
 
     /* Switch side back */

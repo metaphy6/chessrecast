@@ -5,11 +5,16 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 
 import '../board/board.dart';
+import '../board/game_status.dart';
 import '../board/moves/move.dart';
 import '../board/moves/position.dart';
 import '../board/piece.dart';
+import '../board/pieces/piece_color.dart';
+import '../board/pieces/piece_type.dart';
+import '../management/orchestrator.dart';
 import '../mods/mods_enum.dart';
 import '../mods/mods_cache.dart';
+import 'evaluation.dart';
 import 'search.dart';
 
 // ─── Native Engine FFI Bindings ──────────────────────────────────────────────
@@ -122,6 +127,7 @@ DynamicLibrary _loadLinuxLibrary() {
 /* ── Public API ───────────────────────────────────────────────────────────── */
 
 class NativeEngine {
+  static const bool _enableKingsBattleVerification = true;
   late final DynamicLibrary _lib;
   late final _EngineInitDart _init;
   late final _EngineResetDart _reset;
@@ -203,6 +209,38 @@ class NativeEngine {
     int maxDepth = 0,
     int skillLevel = 4,
   }) {
+    final rawResult = _findBestMoveRawSync(
+      board,
+      timeLimitMs: timeLimitMs,
+      maxDepth: maxDepth,
+      skillLevel: skillLevel,
+    );
+
+    if (!_shouldVerifyKingsBattleResult(
+      board,
+      rawResult,
+      timeLimitMs: timeLimitMs,
+      maxDepth: maxDepth,
+      skillLevel: skillLevel,
+    )) {
+      return rawResult;
+    }
+
+    return _maybeVerifyKingsBattleResult(
+      board,
+      rawResult,
+      timeLimitMs: timeLimitMs,
+      maxDepth: maxDepth,
+      skillLevel: skillLevel,
+    );
+  }
+
+  NativeSearchResult _findBestMoveRawSync(
+    ChessBoard board, {
+    required int timeLimitMs,
+    required int maxDepth,
+    required int skillLevel,
+  }) {
     final fen = board.toFEN();
     final mod = _modToInt(board.gameType);
     final heirWp = board.whiteHasPromotedKing ? 1 : 0;
@@ -238,6 +276,182 @@ class NativeEngine {
       calloc.free(fenPtr);
       calloc.free(resultPtr);
     }
+  }
+
+  NativeSearchResult _maybeVerifyKingsBattleResult(
+    ChessBoard board,
+    NativeSearchResult rawResult, {
+    required int timeLimitMs,
+    required int maxDepth,
+    required int skillLevel,
+  }) {
+    final candidates = _kingsBattleVerificationCandidates(
+      board,
+      rawResult.bestMove,
+    );
+    if (candidates.length <= 1) {
+      return rawResult;
+    }
+
+    final verifyDepth = maxDepth <= 4 ? 6 : maxDepth;
+    final verifyMs = timeLimitMs <= 0 ? 200 : (timeLimitMs * 3).clamp(180, 360);
+    final orchestrator = Orchestrator();
+    ChessMove? bestMove;
+    int? bestScore;
+    int? rawBestScore;
+
+    for (final move in candidates) {
+      final childBoard = orchestrator.executeMove(board, move);
+      final score = _scoreKingsBattleCandidate(
+        board,
+        childBoard,
+        timeLimitMs: verifyMs,
+        maxDepth: verifyDepth,
+        skillLevel: skillLevel,
+      );
+
+      if (bestScore == null || score > bestScore) {
+        bestMove = move;
+        bestScore = score;
+      }
+      if (move == rawResult.bestMove) {
+        rawBestScore = score;
+      }
+    }
+
+    if (bestMove == null ||
+        bestScore == null ||
+        rawBestScore == null ||
+        bestMove == rawResult.bestMove ||
+        bestScore < rawBestScore + 80) {
+      return rawResult;
+    }
+
+    return NativeSearchResult(
+      bestMove: bestMove,
+      score: bestScore,
+      depth: rawResult.depth,
+      nodesSearched: rawResult.nodesSearched,
+    );
+  }
+
+  bool _shouldVerifyKingsBattleResult(
+    ChessBoard board,
+    NativeSearchResult rawResult, {
+    required int timeLimitMs,
+    required int maxDepth,
+    required int skillLevel,
+  }) {
+    if (!_enableKingsBattleVerification ||
+        board.gameType != ModsEnum.kingsBattle ||
+        skillLevel < 4 ||
+        maxDepth <= 1 ||
+        rawResult.bestMove == null) {
+      return false;
+    }
+
+    if (mods.kingsBattle.isUnlocked(board)) {
+      return false;
+    }
+
+    return maxDepth <= 4 || timeLimitMs <= 200;
+  }
+
+  List<ChessMove> _kingsBattleVerificationCandidates(
+    ChessBoard board,
+    ChessMove? rawBestMove,
+  ) {
+    final orchestrator = Orchestrator();
+    final legalMoves = orchestrator.getAllValidMoves(board);
+    final candidates = <ChessMove>[];
+    final seen = <String>{};
+
+    void add(ChessMove? move) {
+      if (move == null) return;
+      final key = _verificationMoveKey(move);
+      if (seen.add(key)) {
+        candidates.add(move);
+      }
+    }
+
+    add(rawBestMove);
+
+    for (final move in legalMoves) {
+      if (move.isPromotion) {
+        add(move);
+        continue;
+      }
+
+      if (move.piece.type == PieceType.king &&
+          move.capturedPiece?.type == PieceType.pawn) {
+        add(move);
+        continue;
+      }
+
+      if (_isKingsBattlePhase1PawnCapture(move)) {
+        add(move);
+        continue;
+      }
+
+      if (_isKingsBattleCentralPhase1BreakMove(move)) {
+        add(move);
+      }
+    }
+
+    return candidates;
+  }
+
+  bool _isKingsBattlePhase1PawnCapture(ChessMove move) {
+    return move.piece.type == PieceType.pawn &&
+        move.isCapture &&
+        !move.isEnPassant &&
+        !move.isPromotion;
+  }
+
+  bool _isKingsBattleCentralPhase1BreakMove(ChessMove move) {
+    if (move.piece.type != PieceType.pawn ||
+        move.isCapture ||
+        move.isEnPassant ||
+        move.isPromotion) {
+      return false;
+    }
+
+    final homeRow = move.piece.color == PieceColor.white ? 1 : 6;
+    return move.from.row == homeRow &&
+        move.to.row != move.from.row &&
+        (move.from.col == 3 || move.from.col == 4);
+  }
+
+  int _scoreKingsBattleCandidate(
+    ChessBoard rootBoard,
+    ChessBoard childBoard, {
+    required int timeLimitMs,
+    required int maxDepth,
+    required int skillLevel,
+  }) {
+    if (childBoard.gameStatus == GameStatus.checkmate) {
+      return mateScore;
+    }
+    if (childBoard.gameStatus == GameStatus.draw ||
+        childBoard.gameStatus == GameStatus.stalemate) {
+      return 0;
+    }
+
+    resetState();
+    final reply = _findBestMoveRawSync(
+      childBoard,
+      timeLimitMs: timeLimitMs,
+      maxDepth: maxDepth,
+      skillLevel: skillLevel,
+    );
+    return childBoard.currentPlayer == rootBoard.currentPlayer
+        ? reply.score
+        : -reply.score;
+  }
+
+  static String _verificationMoveKey(ChessMove move) {
+    final promotion = move.isPromotion ? move.promotionPiece ?? '' : '';
+    return '${move.from.algebraic}${move.to.algebraic}$promotion';
   }
 
   /// Async wrapper — runs the synchronous search on a background isolate.

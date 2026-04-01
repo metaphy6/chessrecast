@@ -453,18 +453,19 @@ static void gen_castling(const Board *b, MoveList *ml) {
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 static bool is_legal(Board *b, Move m) {
+    Color mover = b->side;
     board_make_move(b, m);
-    /* After making 'm', the side that moved is now the opponent.
-       Check if OUR king (the mover's king) is in check. */
-    bool legal = !board_in_check(b, color_opposite(b->side));
+    /* The mover's king must remain safe even when a Kings Battle move
+       grants a bonus turn and the side to move does not change. */
+    bool legal = !board_in_check(b, mover);
 
     /* Truce: moves that give check to the opponent king are illegal.
        board_in_check returns false during truce, so use direct attack check. */
     if (legal && b->mod == MOD_TRUCE && b->truce_active) {
-        Bitboard their_king = b->pieces[b->side][KING];
+        Bitboard their_king = b->pieces[color_opposite(mover)][KING];
         if (their_king != BB_EMPTY) {
             Square ksq = bb_lsb(their_king);
-            if (board_square_attacked(b, ksq, color_opposite(b->side))) {
+            if (board_square_attacked(b, ksq, mover)) {
                 legal = false;
             }
         }

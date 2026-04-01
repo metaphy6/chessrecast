@@ -77,6 +77,183 @@
         "panel": "dedicated",
         "focus": true
       }
+    },
+    {
+      "label": "Frontend: Rebuild Native Engine",
+      "type": "shell",
+      "command": "cc",
+      "args": [
+        "-shared",
+        "-fPIC",
+        "-O3",
+        "-std=c11",
+        "-D_POSIX_C_SOURCE=200809L",
+        "-fvisibility=hidden",
+        "native/engine/board.c",
+        "native/engine/movegen.c",
+        "native/engine/evaluate.c",
+        "native/engine/search.c",
+        "native/engine/bridge.c",
+        "-o",
+        "build/native/linux/libchess_engine.so"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      }
+    },
+    {
+      "label": "Frontend: Kings Battle Regression",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "test",
+        "test/kings_battle_engine_regression_test.dart",
+        "-r",
+        "compact"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "LD_LIBRARY_PATH": "${workspaceFolder}/frontend/build/native/linux:${workspaceFolder}/frontend"
+        }
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      }
+    },
+    {
+      "label": "Frontend: Kings Battle Probe Bundle",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "test",
+        "test/manual_kings_battle_probe_cases_test.dart",
+        "--run-skipped",
+        "-r",
+        "compact"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "LD_LIBRARY_PATH": "${workspaceFolder}/frontend/build/native/linux:${workspaceFolder}/frontend"
+        }
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      }
+    },
+    {
+      "label": "Frontend: Kings Battle Batch Audit",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "test",
+        "test/manual_kings_battle_audit_batch_test.dart",
+        "--run-skipped",
+        "-r",
+        "compact"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "KB_BATCH_REPORT_PATH": "/tmp/kings_battle_audit_batch_report.txt",
+          "LD_LIBRARY_PATH": "${workspaceFolder}/frontend/build/native/linux:${workspaceFolder}/frontend"
+        }
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      }
+    },
+    {
+      "label": "Frontend: Kings Battle Position Probe",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "test",
+        "test/manual_kings_battle_position_probe_test.dart",
+        "--run-skipped",
+        "-r",
+        "compact"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend",
+        "env": {
+          "KB_PROBE_FEN": "${input:kbProbeFen}",
+          "KB_PROBE_MOVES": "${input:kbProbeMoves}",
+          "KB_PROBE_CANDIDATES": "${input:kbProbeCandidates}",
+          "KB_PROBE_DEPTH": "${input:kbProbeDepth}",
+          "KB_PROBE_TIME_MS": "${input:kbProbeTimeMs}",
+          "KB_PROBE_SKILL": "${input:kbProbeSkill}",
+          "KB_PROBE_TOP_COUNT": "${input:kbProbeTopCount}",
+          "KB_PROBE_REPORT_PATH": "/tmp/kings_battle_position_probe_report.txt",
+          "LD_LIBRARY_PATH": "${workspaceFolder}/frontend/build/native/linux:${workspaceFolder}/frontend"
+        }
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": true
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "kbProbeFen",
+      "type": "promptString",
+      "description": "Kings Battle probe starting FEN (leave blank to start from the initial position)",
+      "default": ""
+    },
+    {
+      "id": "kbProbeMoves",
+      "type": "promptString",
+      "description": "Kings Battle replay moves as comma-separated coordinate moves",
+      "default": ""
+    },
+    {
+      "id": "kbProbeCandidates",
+      "type": "promptString",
+      "description": "Optional candidate moves to compare, comma-separated",
+      "default": ""
+    },
+    {
+      "id": "kbProbeDepth",
+      "type": "promptString",
+      "description": "Probe search depth",
+      "default": "6"
+    },
+    {
+      "id": "kbProbeTimeMs",
+      "type": "promptString",
+      "description": "Probe time limit in milliseconds",
+      "default": "1200"
+    },
+    {
+      "id": "kbProbeSkill",
+      "type": "promptString",
+      "description": "Probe skill level",
+      "default": "4"
+    },
+    {
+      "id": "kbProbeTopCount",
+      "type": "promptString",
+      "description": "How many top moves to print",
+      "default": "8"
     }
   ]
 }

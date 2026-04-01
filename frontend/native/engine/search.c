@@ -57,6 +57,11 @@
 
 static inline int maxi(int a, int b) { return a > b ? a : b; }
 static inline int mini(int a, int b) { return a < b ? a : b; }
+static inline int chebyshev_distance_sq(int a, int b) {
+    int dr = abs(SQ_ROW(a) - SQ_ROW(b));
+    int dc = abs(SQ_COL(a) - SQ_COL(b));
+    return dr > dc ? dr : dc;
+}
 static inline bool is_mate(int s) {
     return s > MATE_SCORE - 500 || s < -MATE_SCORE + 500;
 }
@@ -548,6 +553,254 @@ static int truce_quiet_pawn_score(const Board *b, Move m, Color side) {
     return score;
 }
 
+static int kb_phase1_forward_rank(Color side, Square sq) {
+    return (side == WHITE) ? SQ_ROW(sq) : (7 - SQ_ROW(sq));
+}
+
+static int kb_phase1_promotion_distance(Color side, Square sq) {
+    return 7 - kb_phase1_forward_rank(side, sq);
+}
+
+static int kb_phase1_min_enemy_pawn_distance(const Board *b, Color side, Square sq) {
+    Color opp = color_opposite(side);
+    Bitboard pawns = b->pieces[opp][PAWN];
+    int min_dist = 15;
+
+    while (pawns) {
+        Square ps = (Square)bb_pop_lsb(&pawns);
+        int dr = abs(SQ_ROW(ps) - SQ_ROW(sq));
+        int dc = abs(SQ_COL(ps) - SQ_COL(sq));
+        int dist = dr > dc ? dr : dc;
+        if (dist < min_dist) min_dist = dist;
+    }
+
+    return min_dist == 15 ? 0 : min_dist;
+}
+
+static int kb_phase1_enemy_king_distance(const Board *b, Color side, Square sq) {
+    Bitboard opp_king = b->pieces[color_opposite(side)][KING];
+    if (opp_king == BB_EMPTY) return 8;
+    return chebyshev_distance_sq(sq, bb_lsb(opp_king));
+}
+
+static int kb_phase1_pawn_king_pressure(const Board *b, Color side, Square sq) {
+    Bitboard opp_king = b->pieces[color_opposite(side)][KING];
+    if (opp_king == BB_EMPTY) return 0;
+
+    Square king_sq = bb_lsb(opp_king);
+    int score = 0;
+    int attack_row = SQ_ROW(sq) + ((side == WHITE) ? 1 : -1);
+    int dist = chebyshev_distance_sq(sq, king_sq);
+
+    if (attack_row >= 0 && attack_row < 8 && SQ_ROW(king_sq) == attack_row &&
+        abs(SQ_COL(king_sq) - SQ_COL(sq)) == 1) {
+        score += 170;
+    }
+
+    if (dist <= 1) score += 70;
+    else if (dist == 2) score += 28;
+
+    return score;
+}
+
+static int kb_unlocked_development_score(const Board *b, Move m, Color side) {
+    if (b->mod != MOD_KINGS_BATTLE || !b->kb_unlocked || MOVE_IS_CAPTURE(m) ||
+        MOVE_IS_EP(m) || MOVE_IS_PROMO(m)) {
+        return 0;
+    }
+
+    PieceType piece = MOVE_PIECE(m);
+    if (piece != KNIGHT && piece != BISHOP) return 0;
+
+    Square from_sq = MOVE_FROM(m);
+    Square to_sq = MOVE_TO(m);
+    int back_rank = (side == WHITE) ? 0 : 7;
+    int to_rank = (side == WHITE) ? SQ_ROW(to_sq) : (7 - SQ_ROW(to_sq));
+    int score = 0;
+
+    if (SQ_ROW(from_sq) != back_rank || SQ_ROW(to_sq) == back_rank) return 0;
+
+    score += (piece == KNIGHT) ? 58 : 52;
+    if (SQ_COL(to_sq) >= 2 && SQ_COL(to_sq) <= 5) score += 10;
+    if (to_rank >= 2) score += 8;
+    return score;
+}
+
+static int kb_unlocked_king_shelter_score(const Board *b, Move m, Color side) {
+    if (b->mod != MOD_KINGS_BATTLE || !b->kb_unlocked || MOVE_PIECE(m) != PAWN ||
+        MOVE_IS_CAPTURE(m) || MOVE_IS_EP(m) || MOVE_IS_PROMO(m)) {
+        return 0;
+    }
+
+    Bitboard king_bb = b->pieces[side][KING];
+    Bitboard queen_bb = b->pieces[color_opposite(side)][QUEEN];
+    if (king_bb == BB_EMPTY || queen_bb == BB_EMPTY) return 0;
+
+    Square king_sq = bb_lsb(king_bb);
+    Square from_sq = MOVE_FROM(m);
+    Square to_sq = MOVE_TO(m);
+    Square queen_sq = bb_lsb(queen_bb);
+    int from_dist = chebyshev_distance_sq(from_sq, king_sq);
+    int to_dist = chebyshev_distance_sq(to_sq, king_sq);
+    int queen_dist = chebyshev_distance_sq(queen_sq, king_sq);
+    int score = 0;
+
+    if (queen_dist > 4 && from_dist > 2 && to_dist > 1) return 0;
+
+    if (to_dist <= 1) score += 120;
+    else if (to_dist == 2 && from_dist > 2) score += 50;
+    if (from_dist <= 1) score += 35;
+
+    if (queen_dist <= 2) score += 60;
+    else if (queen_dist <= 4) score += 30;
+
+    {
+        Bitboard queen_ray = bishop_attacks_calc(queen_sq, b->all) |
+                             rook_attacks_calc(queen_sq, b->all);
+        if (BB_HAS(queen_ray, king_sq)) score += 70;
+    }
+
+    if (abs(SQ_COL(to_sq) - SQ_COL(king_sq)) <= 1) score += 18;
+    if ((side == WHITE && SQ_ROW(to_sq) <= SQ_ROW(king_sq)) ||
+        (side == BLACK && SQ_ROW(to_sq) >= SQ_ROW(king_sq))) {
+        score += 12;
+    }
+
+    return score;
+}
+
+static bool kb_phase1_passed_destination(const Board *b, Color side, Square sq) {
+    Color opp = color_opposite(side);
+    int row = SQ_ROW(sq);
+    int col = SQ_COL(sq);
+    int start = (side == WHITE) ? row + 1 : 0;
+    int end = (side == WHITE) ? 8 : row;
+
+    for (int r = start; r < end; r++) {
+        for (int dc = -1; dc <= 1; dc++) {
+            int nc = col + dc;
+            if (nc < 0 || nc > 7) continue;
+            if (BB_HAS(b->pieces[opp][PAWN], SQ(r, nc))) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+static int kb_phase1_clear_promotion_lane(const Board *b, Color side, Square sq) {
+    int row = SQ_ROW(sq);
+    int col = SQ_COL(sq);
+    int clear = 0;
+
+    if (side == WHITE) {
+        for (int r = row + 1; r < 8; r++) {
+            if (b->mailbox[SQ(r, col)] != PIECE_EMPTY) break;
+            clear++;
+        }
+    } else {
+        for (int r = row - 1; r >= 0; r--) {
+            if (b->mailbox[SQ(r, col)] != PIECE_EMPTY) break;
+            clear++;
+        }
+    }
+
+    return clear;
+}
+
+static int kb_phase1_king_activation_score(const Board *b, Move m, Color side) {
+    if (b->mod != MOD_KINGS_BATTLE || b->kb_unlocked || MOVE_PIECE(m) != KING ||
+        MOVE_IS_PROMO(m) || MOVE_IS_EP(m)) {
+        return 0;
+    }
+
+    Square from_sq = MOVE_FROM(m);
+    Square to_sq = MOVE_TO(m);
+    int from_rank = kb_phase1_forward_rank(side, from_sq);
+    int to_rank = kb_phase1_forward_rank(side, to_sq);
+    int from_dist = kb_phase1_min_enemy_pawn_distance(b, side, from_sq);
+    int to_dist = kb_phase1_min_enemy_pawn_distance(b, side, to_sq);
+    int score = 0;
+
+    if (to_rank > from_rank) score += (to_rank - from_rank) * 140;
+    if (from_rank == 0 && to_rank > 0) score += 120;
+    if (SQ_COL(to_sq) >= 2 && SQ_COL(to_sq) <= 5) score += 40;
+    if (to_dist > 0 && from_dist > 0 && to_dist < from_dist) {
+        score += (from_dist - to_dist) * 60;
+    }
+
+    {
+        Bitboard opp_pawns = b->pieces[color_opposite(side)][PAWN];
+        int capturable = 0;
+        while (opp_pawns) {
+            Square ps = (Square)bb_pop_lsb(&opp_pawns);
+            if (chebyshev_distance_sq(ps, to_sq) == 1) capturable++;
+        }
+        score += capturable * 80;
+    }
+
+    if (MOVE_IS_CAPTURE(m) && MOVE_CAPTURED(m) == PAWN) score += 800;
+    return score;
+}
+
+static int kb_phase1_pawn_race_score(const Board *b, Move m, Color side) {
+    if (b->mod != MOD_KINGS_BATTLE || b->kb_unlocked || MOVE_PIECE(m) != PAWN ||
+        MOVE_IS_PROMO(m) || MOVE_IS_EP(m)) {
+        return 0;
+    }
+
+    Square from_sq = MOVE_FROM(m);
+    Square to_sq = MOVE_TO(m);
+    int from_rank = kb_phase1_forward_rank(side, from_sq);
+    int to_rank = kb_phase1_forward_rank(side, to_sq);
+    int score = 0;
+    bool passed = kb_phase1_passed_destination(b, side, to_sq);
+    int clear_lane = kb_phase1_clear_promotion_lane(b, side, to_sq);
+    int promo_dist = kb_phase1_promotion_distance(side, to_sq);
+    int enemy_king_dist = kb_phase1_enemy_king_distance(b, side, to_sq);
+    int king_pressure = kb_phase1_pawn_king_pressure(b, side, to_sq);
+
+    score += (to_rank - from_rank) * 32;
+    if (to_rank >= 3) score += (to_rank - 2) * 26;
+    if (SQ_COL(to_sq) >= 2 && SQ_COL(to_sq) <= 5) score += 18;
+    score += king_pressure;
+
+    if (!MOVE_IS_CAPTURE(m) && from_rank == 1 && SQ_COL(from_sq) >= 2 && SQ_COL(from_sq) <= 5) {
+        score += 18;
+        if (SQ_COL(from_sq) == 3 || SQ_COL(from_sq) == 4) {
+            score += 34;
+        }
+    }
+
+    if (MOVE_IS_CAPTURE(m)) {
+        score += 80 + to_rank * 22;
+        if (MOVE_CAPTURED(m) == PAWN) {
+            int enemy_progress = kb_phase1_forward_rank(color_opposite(side), to_sq);
+            score += 70;
+            if (enemy_progress >= 3) score += 70 + (enemy_progress - 2) * 20;
+        } else {
+            score += 40;
+        }
+        if (from_rank >= 3 && to_rank > from_rank) score += 60;
+    }
+
+    if (passed) {
+        score += 90 + to_rank * 28;
+        score += clear_lane * 20;
+        if (clear_lane >= promo_dist) score += 90;
+        if (enemy_king_dist > promo_dist + 1) {
+            score += 70 + (enemy_king_dist - promo_dist) * 18;
+        } else if (enemy_king_dist <= 1) {
+            score -= 70;
+        } else if (enemy_king_dist == 2) {
+            score -= 30;
+        }
+    }
+
+    return score;
+}
+
 static int move_score(const Board *b, Move m, Move tt_move,
                       int ply, Color side, Move countermove) {
     if (m == tt_move && tt_move != MOVE_NONE) return 10000000;
@@ -576,7 +829,21 @@ static int move_score(const Board *b, Move m, Move tt_move,
             if (captured == PAWN && central) score += 140;
         }
 
+        if (b->mod == MOD_KINGS_BATTLE && !b->kb_unlocked) {
+            if (MOVE_PIECE(m) == KING && MOVE_CAPTURED(m) == PAWN) {
+                score += 1600;
+            }
+            if (MOVE_PIECE(m) == PAWN) {
+                score += kb_phase1_pawn_race_score(b, m, side);
+            }
+        }
+
         return score;
+    }
+
+    if (b->mod == MOD_KINGS_BATTLE && !b->kb_unlocked && MOVE_PIECE(m) == PAWN) {
+        int kb_pawn_score = kb_phase1_pawn_race_score(b, m, side);
+        if (kb_pawn_score >= 260) return 5200000 + kb_pawn_score;
     }
 
     if (ply < MAX_PLY) {
@@ -608,6 +875,10 @@ static int move_score(const Board *b, Move m, Move tt_move,
     score += truce_minor_development_score(b, m, side);
     score -= truce_early_queen_sortie_penalty(b, m, side);
     score += truce_quiet_pawn_score(b, m, side);
+    score += kb_phase1_king_activation_score(b, m, side);
+    score += kb_phase1_pawn_race_score(b, m, side);
+    score += kb_unlocked_development_score(b, m, side);
+    score += kb_unlocked_king_shelter_score(b, m, side);
 
     return score;
 }
@@ -762,8 +1033,11 @@ static int quiescence(Board *b, int alpha, int beta, int ply, int qply) {
 
         int best = -INFINITY_SCORE;
         for (int i = 0; i < ml.count; i++) {
+            Color mover = b->side;
             board_make_move(b, ml.moves[i]);
-            int score = -quiescence(b, -beta, -alpha, ply + 1, qply + 1);
+            int score = (b->side == mover)
+                ? quiescence(b, alpha, beta, ply + 1, qply + 1)
+                : -quiescence(b, -beta, -alpha, ply + 1, qply + 1);
             board_unmake_move(b);
             if (s_stopped) return 0;
             if (score > best) best = score;
@@ -808,8 +1082,11 @@ static int quiescence(Board *b, int alpha, int beta, int ply, int qply) {
         int cap_val = see_pv(MOVE_CAPTURED(m), is_merc, is_heir, is_stq, is_succ);
         if (stand_pat + cap_val + 200 < alpha) continue;
 
+        Color mover = b->side;
         board_make_move(b, m);
-        int score = -quiescence(b, -beta, -alpha, ply + 1, qply + 1);
+        int score = (b->side == mover)
+            ? quiescence(b, alpha, beta, ply + 1, qply + 1)
+            : -quiescence(b, -beta, -alpha, ply + 1, qply + 1);
         board_unmake_move(b);
 
         if (s_stopped) return 0;
@@ -837,6 +1114,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
     bool is_merc = (b->mod == MOD_MERCENARY);
     bool is_heir = (b->mod == MOD_HEIR);
     bool heir_volatile = is_heir && heir_position_volatile(b);
+    bool kb_phase1 = (b->mod == MOD_KINGS_BATTLE && !b->kb_unlocked);
 
     /* Heir: terminal state detection — no king + no hope of recovery */
     if (is_heir) {
@@ -935,7 +1213,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
                      s_eval_stack[ply] > s_eval_stack[ply - 2];
 
     /* ── Razoring ─────────────────────────────────────────────────── */
-    if (!is_merc && !heir_volatile && !is_pv && !in_check && depth <= 2 && !is_mate(alpha)) {
+    if (!is_merc && !heir_volatile && !kb_phase1 && !is_pv && !in_check && depth <= 2 && !is_mate(alpha)) {
         int razor_margin = (depth == 1) ? 300 : 500;
         if (static_eval + razor_margin < alpha) {
             int razor = quiescence(b, alpha, beta, ply, 0);
@@ -944,7 +1222,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
     }
 
     /* ── Reverse futility pruning ─────────────────────────────────── */
-    if (!is_merc && !heir_volatile && !is_pv && !in_check && depth <= 6 &&
+    if (!is_merc && !heir_volatile && !kb_phase1 && !is_pv && !in_check && depth <= 6 &&
         !is_mate(alpha) && !is_mate(beta)) {
         int rfp_margin = depth * (improving ? 70 : 100);
         if (static_eval - rfp_margin >= beta)
@@ -952,7 +1230,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
     }
 
     /* ── Null-move pruning ────────────────────────────────────────── */
-    if (!is_merc && !heir_volatile && do_null && !in_check && !is_pv && depth >= 3 && ply > 0 &&
+    if (!is_merc && !heir_volatile && !kb_phase1 && do_null && !in_check && !is_pv && depth >= 3 && ply > 0 &&
         static_eval >= beta) {
         Color us = b->side;
         bool has_pieces = b->pieces[us][KNIGHT] || b->pieces[us][BISHOP] ||
@@ -1012,7 +1290,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
 
     /* Futility flag */
     bool do_futility = false;
-    if (!is_merc && !heir_volatile && !is_pv && !in_check && depth <= 3 && !is_mate(alpha)) {
+    if (!is_merc && !heir_volatile && !kb_phase1 && !is_pv && !in_check && depth <= 3 && !is_mate(alpha)) {
         int fut_margin = depth * (improving ? 120 : 180);
         do_futility = (static_eval + fut_margin <= alpha);
     }
@@ -1033,6 +1311,10 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
         bool is_cap   = MOVE_IS_CAPTURE(m) || MOVE_IS_EP(m);
         bool is_promo = MOVE_IS_PROMO(m);
         bool heir_critical = is_heir && heir_critical_move(b, m);
+        Color mover = b->side;
+        int kb_pawn_score = (kb_phase1 && MOVE_PIECE(m) == PAWN)
+            ? kb_phase1_pawn_race_score(b, m, mover)
+            : 0;
 
         /* Compute SEE BEFORE making the move (SEE reads board state) */
         int see_val = 0;
@@ -1049,20 +1331,24 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
         }
 
         board_make_move(b, m);
-        bool gives_check = board_in_check(b, b->side);
+        bool same_turn = (b->side == mover);
+        bool gives_check = board_in_check(
+            b,
+            same_turn ? color_opposite(mover) : b->side
+        );
 
         /* ── Pre-search pruning (non-PV, non-root, not first move) ─ */
         if (!is_pv && !in_check && moves_done > 0) {
 
             /* LMP: skip late quiet moves at shallow depths */
-            if (!is_merc && !heir_volatile && !is_cap && !is_promo && !gives_check &&
+            if (!kb_phase1 && !is_merc && !heir_volatile && !is_cap && !is_promo && !gives_check &&
                 depth <= 5 && moves_done >= LMP_LIMIT[depth]) {
                 board_unmake_move(b);
                 continue;
             }
 
             /* Futility: skip late quiets when eval+margin < alpha */
-            if (!is_merc && !heir_volatile && do_futility && !is_cap && !is_promo && !gives_check) {
+            if (!kb_phase1 && !is_merc && !heir_volatile && do_futility && !is_cap && !is_promo && !gives_check) {
                 board_unmake_move(b);
                 continue;
             }
@@ -1079,6 +1365,16 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
         /* ── Extensions ───────────────────────────────────────────── */
         bool merc_endgame = is_merc && bb_popcount(b->all) <= 16;
         int ext = gives_check ? 1 : 0;
+        if (kb_phase1 && depth >= 3 && (is_cap || is_promo)) {
+            ext = maxi(ext, 1);
+        }
+        if (kb_phase1 && depth >= 4 && MOVE_PIECE(m) == PAWN &&
+            kb_pawn_score >= 320) {
+            ext = maxi(ext, 2);
+        } else if (kb_phase1 && depth >= 3 && MOVE_PIECE(m) == PAWN &&
+                   !is_cap && !is_promo && kb_pawn_score >= 220) {
+            ext = maxi(ext, 1);
+        }
         /* Recapture extension: search deeper when recapturing on the
            same square to avoid horizon-effect blunders in exchanges */
         if (!ext && is_recapture && depth >= 4) ext = 1;
@@ -1089,9 +1385,14 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
 
         /* ── PVS + LMR ───────────────────────────────────────────── */
         int score;
+        bool kb_force_full_window = (b->mod == MOD_KINGS_BATTLE && is_pv && depth <= 4);
 
-        if (moves_done == 0) {
-            score = -alpha_beta(b, new_depth, -beta, -alpha, ply + 1, true, is_pv);
+        if (moves_done == 0 || kb_force_full_window) {
+            if (same_turn) {
+                score = alpha_beta(b, new_depth, alpha, beta, ply + 1, true, is_pv);
+            } else {
+                score = -alpha_beta(b, new_depth, -beta, -alpha, ply + 1, true, is_pv);
+            }
         } else {
             int reduction = 0;
             bool merc_quiet = is_merc && !is_cap && !is_promo;
@@ -1112,26 +1413,26 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
                     int piece = MOVE_PIECE(m);
                     if (piece == KNIGHT || piece == BISHOP) {
                         Square from_sq = MOVE_FROM(m);
-                        int from_rank = (b->side == WHITE) ? SQ_ROW(from_sq)
-                                                           : (7 - SQ_ROW(from_sq));
+                        int from_rank = (mover == WHITE) ? SQ_ROW(from_sq)
+                                                         : (7 - SQ_ROW(from_sq));
                         if (from_rank <= 1) reduction--;
-                        if (piece == KNIGHT && truce_undeveloped_minor_count(b, b->side) >= 2 && reduction > 0)
+                        if (piece == KNIGHT && truce_undeveloped_minor_count(b, mover) >= 2 && reduction > 0)
                             reduction--;
                     } else if (piece == PAWN) {
                         Square from_sq = MOVE_FROM(m);
                         Square to_sq = MOVE_TO(m);
-                        int from_rank = (b->side == WHITE) ? SQ_ROW(from_sq)
-                                                           : (7 - SQ_ROW(from_sq));
-                        int to_rank = (b->side == WHITE) ? SQ_ROW(to_sq)
-                                                         : (7 - SQ_ROW(to_sq));
+                        int from_rank = (mover == WHITE) ? SQ_ROW(from_sq)
+                                                         : (7 - SQ_ROW(from_sq));
+                        int to_rank = (mover == WHITE) ? SQ_ROW(to_sq)
+                                                       : (7 - SQ_ROW(to_sq));
                         int file = SQ_COL(to_sq);
-                        int attack_row = SQ_ROW(to_sq) + ((b->side == WHITE) ? 1 : -1);
+                        int attack_row = SQ_ROW(to_sq) + ((mover == WHITE) ? 1 : -1);
                         bool harasses_bishop = false;
 
                         if (attack_row >= 0 && attack_row < 8) {
-                            if (file > 0 && BB_HAS(b->pieces[b->side ^ 1][BISHOP], SQ(attack_row, file - 1)))
+                            if (file > 0 && BB_HAS(b->pieces[color_opposite(mover)][BISHOP], SQ(attack_row, file - 1)))
                                 harasses_bishop = true;
-                            if (file < 7 && BB_HAS(b->pieces[b->side ^ 1][BISHOP], SQ(attack_row, file + 1)))
+                            if (file < 7 && BB_HAS(b->pieces[color_opposite(mover)][BISHOP], SQ(attack_row, file + 1)))
                                 harasses_bishop = true;
                         }
 
@@ -1148,21 +1449,51 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
                 /* King's Battle Phase 1: king moves are tactical (hunting
                    pawns) — reduce less to see captures deeper */
                 if (b->mod == MOD_KINGS_BATTLE && !b->kb_unlocked
-                    && MOVE_PIECE(m) == KING && reduction > 0)
+                    && MOVE_PIECE(m) == KING && reduction > 0) {
                     reduction--;
+                    if (kb_phase1_king_activation_score(b, m, mover) >= 220 && reduction > 0)
+                        reduction--;
+                }
+                if (kb_phase1 && MOVE_PIECE(m) == PAWN) {
+                    if (kb_pawn_score >= 120 && reduction > 0)
+                        reduction--;
+                    if (kb_pawn_score >= 220 && reduction > 0)
+                        reduction--;
+                }
+                if (b->mod == MOD_KINGS_BATTLE && b->kb_unlocked && reduction > 0) {
+                    int kb_dev_score = kb_unlocked_development_score(b, m, mover);
+                    int kb_shelter_score = kb_unlocked_king_shelter_score(b, m, mover);
+                    if (kb_dev_score >= 50 || kb_shelter_score >= 80) reduction--;
+                }
                 reduction = mini(reduction, new_depth - 1);
                 if (reduction < 0) reduction = 0;
             }
 
-            score = -alpha_beta(b, new_depth - reduction,
-                                -(alpha + 1), -alpha, ply + 1, true, false);
-
-            if (score > alpha && reduction > 0)
-                score = -alpha_beta(b, new_depth,
+            if (same_turn) {
+                score = alpha_beta(b, new_depth - reduction,
+                                   alpha, alpha + 1, ply + 1, true, false);
+            } else {
+                score = -alpha_beta(b, new_depth - reduction,
                                     -(alpha + 1), -alpha, ply + 1, true, false);
+            }
 
-            if (score > alpha && score < beta)
-                score = -alpha_beta(b, new_depth, -beta, -alpha, ply + 1, true, true);
+            if (score > alpha && reduction > 0) {
+                if (same_turn) {
+                    score = alpha_beta(b, new_depth,
+                                       alpha, alpha + 1, ply + 1, true, false);
+                } else {
+                    score = -alpha_beta(b, new_depth,
+                                        -(alpha + 1), -alpha, ply + 1, true, false);
+                }
+            }
+
+            if (score > alpha && score < beta) {
+                if (same_turn) {
+                    score = alpha_beta(b, new_depth, alpha, beta, ply + 1, true, true);
+                } else {
+                    score = -alpha_beta(b, new_depth, -beta, -alpha, ply + 1, true, true);
+                }
+            }
         }
 
         board_unmake_move(b);
@@ -1260,8 +1591,13 @@ SearchResult search_think(Board *b, int time_ms, int max_depth, int skill_level)
             best_rm = MOVE_NONE;
 
             for (int i = 0; i < ml.count; i++) {
+                Color mover = b->side;
                 board_make_move(b, ml.moves[i]);
-                int ext = board_in_check(b, b->side) ? 1 : 0;
+                bool same_turn = (b->side == mover);
+                int ext = board_in_check(
+                    b,
+                    same_turn ? color_opposite(mover) : b->side
+                ) ? 1 : 0;
                 int score;
 
                 /* Full-window root: search every move with the full
@@ -1270,8 +1606,20 @@ SearchResult search_think(Board *b, int time_ms, int max_depth, int skill_level)
                    deep in the tree clamps all fail-low scores to
                    root_alpha, making moves indistinguishable.
                    Deeper levels still use PVS for efficiency. */
-                score = -alpha_beta(b, depth - 1 + ext,
-                                    -be, -al, 1, true, true);
+                score = same_turn
+                    ? alpha_beta(b, depth - 1 + ext, al, be, 1, true, true)
+                    : -alpha_beta(b, depth - 1 + ext, -be, -al, 1, true, true);
+
+                if ((score <= al || score >= be) &&
+                    (al > -INFINITY_SCORE || be < INFINITY_SCORE)) {
+                    score = same_turn
+                        ? alpha_beta(b, depth - 1 + ext,
+                                     -INFINITY_SCORE, INFINITY_SCORE,
+                                     1, true, true)
+                        : -alpha_beta(b, depth - 1 + ext,
+                                      -INFINITY_SCORE, INFINITY_SCORE,
+                                      1, true, true);
+                }
 
                 board_unmake_move(b);
                 if (s_stopped) goto done;
