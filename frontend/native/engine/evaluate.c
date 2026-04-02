@@ -491,6 +491,209 @@ static int kb_phase1_clear_promotion_lane(const Board *b, Color side, Square sq)
     return clear;
 }
 
+static bool kb_phase1_square_attacked_by_pawn_side(const Board *b, Color side,
+                                                   Square sq) {
+    int row = SQ_ROW(sq);
+    int col = SQ_COL(sq);
+    int attacker_row = (side == WHITE) ? row - 1 : row + 1;
+
+    if (attacker_row < 0 || attacker_row > 7) return false;
+    if (col > 0 && BB_HAS(b->pieces[side][PAWN], SQ(attacker_row, col - 1))) {
+        return true;
+    }
+    if (col < 7 && BB_HAS(b->pieces[side][PAWN], SQ(attacker_row, col + 1))) {
+        return true;
+    }
+
+    return false;
+}
+
+static bool kb_phase1_king_target_safe(const Board *b, Color side, Square sq) {
+    Color opp = color_opposite(side);
+
+    if (BB_HAS(b->occupied[side], sq)) return false;
+    if (kb_phase1_square_attacked_by_pawn_side(b, opp, sq)) return false;
+
+    if (b->pieces[opp][KING] != BB_EMPTY) {
+        Square opp_king_sq = bb_lsb(b->pieces[opp][KING]);
+        if (chebyshev_distance_sq(opp_king_sq, sq) <= 1) return false;
+    }
+
+    return true;
+}
+
+static bool kb_phase1_king_can_capture_pawn(const Board *b, Color side,
+                                            Square king_sq, Square pawn_sq) {
+    Color opp = color_opposite(side);
+
+    if (chebyshev_distance_sq(king_sq, pawn_sq) != 1) return false;
+    if (!BB_HAS(b->pieces[opp][PAWN], pawn_sq)) return false;
+
+    return kb_phase1_king_target_safe(b, side, pawn_sq);
+}
+
+static bool kb_phase1_any_pawn_capture_available(const Board *b, Color side) {
+    Bitboard pawns = b->pieces[side][PAWN];
+    int step = (side == WHITE) ? 1 : -1;
+
+    while (pawns) {
+        Square sq = (Square)bb_pop_lsb(&pawns);
+        int row = SQ_ROW(sq) + step;
+        int col = SQ_COL(sq);
+
+        if (row < 0 || row > 7) continue;
+
+        if (col > 0) {
+            Piece target = b->mailbox[SQ(row, col - 1)];
+            if (target != PIECE_EMPTY && PIECE_COLOR(target) != side &&
+                PIECE_TYPE(target) == PAWN) {
+                return true;
+            }
+        }
+        if (col < 7) {
+            Piece target = b->mailbox[SQ(row, col + 1)];
+            if (target != PIECE_EMPTY && PIECE_COLOR(target) != side &&
+                PIECE_TYPE(target) == PAWN) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+static int kb_phase1_forward_corridor_blockers(const Board *b, Color side,
+                                               Square sq, int max_steps) {
+    int row = SQ_ROW(sq);
+    int col = SQ_COL(sq);
+    int step = (side == WHITE) ? 1 : -1;
+    int blockers = 0;
+
+    for (int dr = 1; dr <= max_steps; dr++) {
+        int nr = row + step * dr;
+        if (nr < 0 || nr > 7) break;
+
+        for (int dc = -1; dc <= 1; dc++) {
+            int nc = col + dc;
+            if (nc < 0 || nc > 7) continue;
+            if (BB_HAS(b->occupied[side], SQ(nr, nc))) blockers++;
+        }
+    }
+
+    return blockers;
+}
+
+static bool kb_phase1_forward_lane_open(const Board *b, Color side, Square sq) {
+    int forward_row = SQ_ROW(sq) + ((side == WHITE) ? 1 : -1);
+    int col = SQ_COL(sq);
+
+    if (forward_row < 0 || forward_row > 7) return false;
+    return !BB_HAS(b->occupied[side], SQ(forward_row, col));
+}
+
+static int kb_phase1_retreat_arc_seal_count(const Board *b, Color side) {
+    Color opp = color_opposite(side);
+    Bitboard opp_king = b->pieces[opp][KING];
+    if (opp_king == BB_EMPTY) return 0;
+
+    Square king_sq = bb_lsb(opp_king);
+    int opp_rank = kb_phase1_forward_rank(opp, king_sq);
+    int retreat_row = SQ_ROW(king_sq) + ((opp == WHITE) ? -1 : 1);
+    int sealed = 0;
+
+    if (opp_rank < 3) return 0;
+    if (retreat_row < 0 || retreat_row > 7) return 0;
+
+    for (int dc = -1; dc <= 1; dc++) {
+        int nc = SQ_COL(king_sq) + dc;
+        if (nc < 0 || nc > 7) continue;
+
+        Square rsq = SQ(retreat_row, nc);
+        if (b->mailbox[rsq] != PIECE_EMPTY ||
+            kb_phase1_square_attacked_by_pawn_side(b, side, rsq)) {
+            sealed++;
+        }
+    }
+
+    return sealed;
+}
+
+static int kb_phase1_wing_drift_penalty(const Board *b, Color side, Square sq) {
+    int file = SQ_COL(sq);
+    int rank = kb_phase1_forward_rank(side, sq);
+    int penalty;
+
+    if (file != 0 && file != 1 && file != 6 && file != 7) return 0;
+    if (rank < 2 || rank > 3) return 0;
+    if (kb_phase1_passed_pawn(b, side, sq)) return 0;
+
+    if (b->pieces[side][KING] != BB_EMPTY) {
+        Square king_sq = bb_lsb(b->pieces[side][KING]);
+        if (chebyshev_distance_sq(king_sq, sq) <= 2) return 0;
+    }
+
+    if (b->pieces[color_opposite(side)][KING] != BB_EMPTY) {
+        Square enemy_king_sq = bb_lsb(b->pieces[color_opposite(side)][KING]);
+        if (chebyshev_distance_sq(enemy_king_sq, sq) <= 2) return 0;
+    }
+
+    penalty = (rank == 2) ? 90 : 160;
+    if (kb_phase1_any_pawn_capture_available(b, side)) penalty += 30;
+    return penalty;
+}
+
+static int kb_phase1_connected_wall_bonus(const Board *b, Color side) {
+    Color opp = color_opposite(side);
+    Bitboard opp_king = b->pieces[opp][KING];
+    Bitboard pawns = b->pieces[side][PAWN];
+    int bonus = 0;
+
+    if (opp_king == BB_EMPTY) return 0;
+
+    Square king_sq = bb_lsb(opp_king);
+    int opp_rank = kb_phase1_forward_rank(opp, king_sq);
+    if (opp_rank < 4) return 0;
+
+    while (pawns) {
+        Square sq = (Square)bb_pop_lsb(&pawns);
+        int row = SQ_ROW(sq);
+        int col = SQ_COL(sq);
+        int rank = kb_phase1_forward_rank(side, sq);
+        int pair_dist;
+
+        if (rank < 3 || col >= 7) continue;
+        if (!BB_HAS(b->pieces[side][PAWN], SQ(row, col + 1))) continue;
+
+        pair_dist = chebyshev_distance_sq(sq, king_sq);
+        {
+            int right_dist = chebyshev_distance_sq(SQ(row, col + 1), king_sq);
+            if (right_dist < pair_dist) pair_dist = right_dist;
+        }
+
+        if (pair_dist <= 2) bonus += 1000;
+        else if (pair_dist == 3) bonus += 320;
+    }
+
+    return bonus;
+}
+
+static int kb_phase1_forward_file_clearance(const Board *b, Color side, Square sq,
+                                            int max_steps) {
+    int row = SQ_ROW(sq);
+    int col = SQ_COL(sq);
+    int step = (side == WHITE) ? 1 : -1;
+    int clear = 0;
+
+    for (int i = 1; i <= max_steps; i++) {
+        int nr = row + step * i;
+        if (nr < 0 || nr > 7) break;
+        if (b->mailbox[SQ(nr, col)] != PIECE_EMPTY) break;
+        clear++;
+    }
+
+    return clear;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /*  Evaluation                                                               */
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -1542,11 +1745,20 @@ int evaluate(const Board *b) {
                     Square ksq = bb_lsb(kbb);
                     int kr = SQ_ROW(ksq), kcol = SQ_COL(ksq);
                     int king_rank = kb_phase1_forward_rank((Color)c, ksq);
+                    int enemy_king_rank = -1;
                     int corridor_open = 0;
+                    int king_mobility = 0;
 
                     if (!BB_HAS(b->pieces[c][PAWN], (c == WHITE) ? SQ(1, 3) : SQ(6, 3))) corridor_open++;
                     if (!BB_HAS(b->pieces[c][PAWN], (c == WHITE) ? SQ(1, 4) : SQ(6, 4))) corridor_open++;
                     if (!BB_HAS(b->pieces[c][PAWN], (c == WHITE) ? SQ(1, 5) : SQ(6, 5))) corridor_open++;
+
+                    if (b->pieces[opp][KING] != BB_EMPTY) {
+                        enemy_king_rank = kb_phase1_forward_rank(
+                            opp,
+                            bb_lsb(b->pieces[opp][KING])
+                        );
+                    }
 
                     if (king_rank == 0) {
                         bonus -= (b->fullmove <= 4) ? 80 : 120;
@@ -1571,11 +1783,28 @@ int evaluate(const Board *b) {
                         int dist = dr > dc ? dr : dc;  /* Chebyshev */
                         if (dist < min_dist) min_dist = dist;
                         if (dist <= 7) total_prox += (7 - dist);
-                        if (dist == 1) capturable++;
+                        if (dist == 1 &&
+                            kb_phase1_king_can_capture_pawn(
+                                b,
+                                (Color)c,
+                                ksq,
+                                ps
+                            )) {
+                            capturable++;
+                        }
                     }
                     /* Strong approach bonus: each step closer is worth ~25cp */
                     if (min_dist < 15) bonus += (7 - min_dist) * 25;
                     bonus += total_prox * 5;
+                    if (min_dist >= 4 && king_rank <= 1) bonus -= 40;
+
+                    if (enemy_king_rank >= 0) {
+                        if (king_rank + 1 < enemy_king_rank) {
+                            bonus -= (enemy_king_rank - king_rank - 1) * 24;
+                        } else if (king_rank > enemy_king_rank) {
+                            bonus += (king_rank - enemy_king_rank) * 10;
+                        }
+                    }
 
                     /* CRITICAL: "Imminent King's Kill" — king is 1 step from
                        enemy pawns.  King's Kill unlocks ALL pieces (worth ~15
@@ -1597,12 +1826,87 @@ int evaluate(const Board *b) {
                     }
 
                     /* ─ King mobility ────────────────────────────────────────── */
-                    Bitboard k_moves = king_attacks[ksq] & ~b->occupied[c];
-                    Bitboard opp_kbb = b->pieces[opp][KING];
-                    if (opp_kbb != BB_EMPTY) {
-                        k_moves &= ~king_attacks[bb_lsb(opp_kbb)];
+                    {
+                        Bitboard k_moves = king_attacks[ksq];
+
+                        while (k_moves) {
+                            Square to = (Square)bb_pop_lsb(&k_moves);
+                            if (kb_phase1_king_target_safe(b, (Color)c, to)) {
+                                king_mobility++;
+                            }
+                        }
+
+                        bonus += king_mobility * 6;
                     }
-                    bonus += bb_popcount(k_moves) * 6;
+
+                    if (kb_phase1_forward_lane_open(b, (Color)c, ksq)) {
+                        bonus += 18;
+                    } else {
+                        bonus -= 10;
+                    }
+                    bonus += kb_phase1_forward_file_clearance(
+                        b,
+                        (Color)c,
+                        ksq,
+                        2
+                    ) * 12;
+                    bonus -= kb_phase1_forward_corridor_blockers(
+                        b,
+                        (Color)c,
+                        ksq,
+                        2
+                    ) * 10;
+
+                    {
+                        int retreat_seal = kb_phase1_retreat_arc_seal_count(
+                            b,
+                            (Color)c
+                        );
+                        bonus += kb_phase1_connected_wall_bonus(b, (Color)c);
+
+                        if (retreat_seal == 3) {
+                            bonus += 220;
+                        } else if (retreat_seal == 2) {
+                            bonus += 60;
+                        }
+
+                        if (retreat_seal == 3 && enemy_king_rank >= 4 &&
+                            b->pieces[opp][KING] != BB_EMPTY) {
+                            Square enemy_king_sq = bb_lsb(b->pieces[opp][KING]);
+                            Bitboard enemy_moves = king_attacks[enemy_king_sq];
+                            Bitboard own_pawns = b->pieces[c][PAWN];
+                            int enemy_safe_moves = 0;
+                            int enemy_capturable = 0;
+
+                            while (enemy_moves) {
+                                Square to = (Square)bb_pop_lsb(&enemy_moves);
+                                if (kb_phase1_king_target_safe(b, opp, to)) {
+                                    enemy_safe_moves++;
+                                }
+                            }
+
+                            while (own_pawns) {
+                                Square ps = (Square)bb_pop_lsb(&own_pawns);
+                                if (kb_phase1_king_can_capture_pawn(
+                                        b,
+                                        opp,
+                                        enemy_king_sq,
+                                        ps
+                                    )) {
+                                    enemy_capturable++;
+                                }
+                            }
+
+                            if (enemy_capturable == 0) {
+                                bonus += 240;
+                                if (enemy_safe_moves <= 2) {
+                                    bonus += 180 - enemy_safe_moves * 40;
+                                }
+                            }
+                        }
+                    }
+
+
                 }
 
                 /* ─ Vulnerable enemy pawns: isolated / undefended targets ── */
@@ -1618,6 +1922,7 @@ int evaluate(const Board *b) {
                     while (ep) {
                         Square ps = (Square)bb_pop_lsb(&ep);
                         int pcol = SQ_COL(ps);
+                        int enemy_rank = kb_phase1_forward_rank(opp, ps);
 
                         /* Is this pawn defended by an adjacent friendly pawn? */
                         bool pawn_defended = false;
@@ -1646,10 +1951,14 @@ int evaluate(const Board *b) {
                                 int dc = abs(SQ_COL(ps) - SQ_COL(own_ksq));
                                 int d = dr > dc ? dr : dc;
                                 bonus += (7 - d) * 12;
+                                if (enemy_rank >= 4 && d <= 2) {
+                                    bonus += 40 + (enemy_rank - 4) * 20;
+                                }
                             }
                         } else if (!pawn_defended) {
                             /* Only king-defended: can still be outmaneuvered */
                             bonus += 15;
+                            if (enemy_rank >= 5) bonus += 12;
                         }
                     }
                 }
@@ -1705,6 +2014,12 @@ int evaluate(const Board *b) {
                             if (d <= 1) bonus -= 40;
                             else if (d == 2) bonus -= 15;
                         }
+
+                        bonus -= kb_phase1_wing_drift_penalty(
+                            b,
+                            (Color)c,
+                            sq
+                        );
                     }
                 }
             } else {

@@ -348,8 +348,12 @@ Bitboard rook_attacks_calc(Square sq, Bitboard occ) {
 bool board_square_attacked(const Board *b, Square sq, Color by) {
     init_attacks();
 
+    /* Kings Battle Phase 1 matches the Dart rules: only kings and pawns
+       control squares until an unlocking move has been fully committed. */
+    bool kb_phase1 = (b->mod == MOD_KINGS_BATTLE && !b->kb_unlocked);
+
     /* Knights */
-    if (knight_attacks[sq] & b->pieces[by][KNIGHT]) return true;
+    if (!kb_phase1 && (knight_attacks[sq] & b->pieces[by][KNIGHT])) return true;
 
     /* King */
     if (king_attacks[sq] & b->pieces[by][KING]) return true;
@@ -363,6 +367,8 @@ bool board_square_attacked(const Board *b, Square sq, Color by) {
         Color def = color_opposite(by);
         if (pawn_attacks[def][sq] & b->pieces[by][PAWN]) return true;
     }
+
+    if (kb_phase1) return false;
 
     /* ── Save the Queen: prisoner queens cannot attack (no captures) ── */
     Bitboard effective_queens = b->pieces[by][QUEEN];

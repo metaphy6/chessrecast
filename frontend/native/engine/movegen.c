@@ -455,6 +455,16 @@ static void gen_castling(const Board *b, MoveList *ml) {
 static bool is_legal(Board *b, Move m) {
     Color mover = b->side;
     board_make_move(b, m);
+
+     /* Kings Battle validates an unlocking move against the pre-unlock
+         attack map. The capture/promotion commits the unlock only after the
+         move itself has been accepted. */
+     bool defer_kb_unlock = (b->mod == MOD_KINGS_BATTLE &&
+                                     b->history[b->ply - 1].kb_unlocked == 0 &&
+                                     b->kb_unlocked == 1);
+     uint8_t saved_kb_unlocked = b->kb_unlocked;
+     if (defer_kb_unlock) b->kb_unlocked = 0;
+
     /* The mover's king must remain safe even when a Kings Battle move
        grants a bonus turn and the side to move does not change. */
     bool legal = !board_in_check(b, mover);
@@ -470,6 +480,8 @@ static bool is_legal(Board *b, Move m) {
             }
         }
     }
+
+    b->kb_unlocked = saved_kb_unlocked;
 
     board_unmake_move(b);
     return legal;

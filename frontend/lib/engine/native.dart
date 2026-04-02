@@ -293,8 +293,18 @@ class NativeEngine {
       return rawResult;
     }
 
-    final verifyDepth = maxDepth <= 4 ? 6 : maxDepth;
-    final verifyMs = timeLimitMs <= 0 ? 200 : (timeLimitMs * 3).clamp(180, 360);
+    final openingVerification = board.moveHistory.length <= 2;
+    final unlockedVerification = mods.kingsBattle.isUnlocked(board);
+    final verifyDepth = openingVerification
+        ? (maxDepth <= 4 ? 7 : maxDepth + 1)
+        : unlockedVerification
+        ? (maxDepth <= 4 ? 6 : maxDepth)
+        : (maxDepth <= 4 ? 6 : maxDepth);
+    final verifyMs = openingVerification
+        ? (timeLimitMs <= 0 ? 480 : (timeLimitMs * 4).clamp(320, 520))
+        : unlockedVerification
+        ? (timeLimitMs <= 0 ? 280 : (timeLimitMs * 3).clamp(220, 420))
+        : (timeLimitMs <= 0 ? 200 : (timeLimitMs * 3).clamp(180, 360));
     final orchestrator = Orchestrator();
     ChessMove? bestMove;
     int? bestScore;
@@ -323,7 +333,7 @@ class NativeEngine {
         bestScore == null ||
         rawBestScore == null ||
         bestMove == rawResult.bestMove ||
-        bestScore < rawBestScore + 80) {
+        bestScore < rawBestScore + 40) {
       return rawResult;
     }
 
@@ -351,7 +361,7 @@ class NativeEngine {
     }
 
     if (mods.kingsBattle.isUnlocked(board)) {
-      return false;
+      return maxDepth <= 4 || timeLimitMs <= 150;
     }
 
     return maxDepth <= 4 || timeLimitMs <= 200;
@@ -376,6 +386,45 @@ class NativeEngine {
 
     add(rawBestMove);
 
+    if (board.moveHistory.length <= 2) {
+      for (final move in legalMoves) {
+        if (_isKingsBattleCentralTwoStepBreak(move)) {
+          add(move);
+        }
+      }
+      return candidates;
+    }
+
+    if (mods.kingsBattle.isUnlocked(board)) {
+      for (final move in legalMoves) {
+        if (move.isPromotion) {
+          add(move);
+          continue;
+        }
+
+        if (_isKingsBattleUnlockedQueenPressureMove(board, move)) {
+          add(move);
+          continue;
+        }
+
+        if (_isKingsBattleUnlockedKingSafetyMove(board, move)) {
+          add(move);
+          continue;
+        }
+
+        if (_isKingsBattleUnlockedShelterMove(board, move)) {
+          add(move);
+          continue;
+        }
+
+        if (_isKingsBattleUnlockedDevelopmentMove(move)) {
+          add(move);
+        }
+      }
+
+      return candidates;
+    }
+
     for (final move in legalMoves) {
       if (move.isPromotion) {
         add(move);
@@ -389,6 +438,16 @@ class NativeEngine {
       }
 
       if (_isKingsBattlePhase1PawnCapture(move)) {
+        add(move);
+        continue;
+      }
+
+      if (_isKingsBattlePhase1KingRouteMove(move)) {
+        add(move);
+        continue;
+      }
+
+      if (_isKingsBattlePhase1SupportPawnMove(board, move)) {
         add(move);
         continue;
       }
@@ -408,6 +467,56 @@ class NativeEngine {
         !move.isPromotion;
   }
 
+  bool _isKingsBattlePhase1KingRouteMove(ChessMove move) {
+    return move.piece.type == PieceType.king &&
+        !move.isPromotion &&
+        !move.isEnPassant;
+  }
+
+  bool _isKingsBattlePhase1SupportPawnMove(ChessBoard board, ChessMove move) {
+    if (move.piece.type != PieceType.pawn ||
+        move.isCapture ||
+        move.isEnPassant ||
+        move.isPromotion) {
+      return false;
+    }
+
+    final homeRow = move.piece.color == PieceColor.white ? 1 : 6;
+    if (move.from.row != homeRow) {
+      return false;
+    }
+
+    final rowDelta = (move.to.row - move.from.row).abs();
+    if (rowDelta != 1) {
+      return false;
+    }
+
+    final attackRow = move.piece.color == PieceColor.white
+        ? move.to.row + 1
+        : move.to.row - 1;
+    if (attackRow < 0 || attackRow > 7) {
+      return false;
+    }
+
+    for (final dc in const [-1, 1]) {
+      final attackCol = move.to.col + dc;
+      if (attackCol < 0 || attackCol > 7) {
+        continue;
+      }
+
+      for (final piece in board.pieces) {
+        if (piece.color != move.piece.color &&
+            piece.type == PieceType.pawn &&
+            piece.position.row == attackRow &&
+            piece.position.col == attackCol) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
   bool _isKingsBattleCentralPhase1BreakMove(ChessMove move) {
     if (move.piece.type != PieceType.pawn ||
         move.isCapture ||
@@ -420,6 +529,99 @@ class NativeEngine {
     return move.from.row == homeRow &&
         move.to.row != move.from.row &&
         (move.from.col == 3 || move.from.col == 4);
+  }
+
+  bool _isKingsBattleCentralTwoStepBreak(ChessMove move) {
+    if (!_isKingsBattleCentralPhase1BreakMove(move)) {
+      return false;
+    }
+
+    return (move.to.row - move.from.row).abs() == 2;
+  }
+
+  bool _isKingsBattleUnlockedQueenPressureMove(
+    ChessBoard board,
+    ChessMove move,
+  ) {
+    if (move.piece.type != PieceType.queen ||
+        move.isEnPassant ||
+        move.isPromotion) {
+      return false;
+    }
+
+    final enemyKing = _findKing(board, move.piece.color.opposite);
+    if (enemyKing == null) {
+      return false;
+    }
+
+    final fromDistance = _chebyshev(move.from, enemyKing.position);
+    final toDistance = _chebyshev(move.to, enemyKing.position);
+    return toDistance <= 2 || toDistance + 1 < fromDistance;
+  }
+
+  bool _isKingsBattleUnlockedKingSafetyMove(ChessBoard board, ChessMove move) {
+    if (move.piece.type != PieceType.king ||
+        move.isEnPassant ||
+        move.isPromotion) {
+      return false;
+    }
+
+    return _findQueen(board, move.piece.color.opposite) != null;
+  }
+
+  bool _isKingsBattleUnlockedShelterMove(ChessBoard board, ChessMove move) {
+    if (move.piece.type != PieceType.pawn ||
+        move.isCapture ||
+        move.isEnPassant ||
+        move.isPromotion) {
+      return false;
+    }
+
+    final ownKing = _findKing(board, move.piece.color);
+    if (ownKing == null ||
+        _findQueen(board, move.piece.color.opposite) == null) {
+      return false;
+    }
+
+    return _chebyshev(move.to, ownKing.position) <= 1;
+  }
+
+  bool _isKingsBattleUnlockedDevelopmentMove(ChessMove move) {
+    if (move.isCapture || move.isEnPassant || move.isPromotion) {
+      return false;
+    }
+
+    if (move.piece.type != PieceType.knight &&
+        move.piece.type != PieceType.bishop) {
+      return false;
+    }
+
+    final homeRow = move.piece.color == PieceColor.white ? 0 : 7;
+    return move.from.row == homeRow && move.to.row != homeRow;
+  }
+
+  ChessPiece? _findKing(ChessBoard board, PieceColor color) {
+    for (final piece in board.pieces) {
+      if (piece.color == color && piece.type == PieceType.king) {
+        return piece;
+      }
+    }
+    return null;
+  }
+
+  ChessPiece? _findQueen(ChessBoard board, PieceColor color) {
+    for (final piece in board.pieces) {
+      if (piece.color == color && piece.type == PieceType.queen) {
+        return piece;
+      }
+    }
+    return null;
+  }
+
+  int _chebyshev(Position a, Position b) {
+    final rowDistance = (a.row - b.row).abs();
+    final colDistance = (a.col - b.col).abs();
+    return rowDistance > colDistance ? rowDistance : colDistance;
   }
 
   int _scoreKingsBattleCandidate(
