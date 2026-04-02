@@ -150,6 +150,106 @@ void main() {
       },
       skip: !NativeEngine.isAvailable,
     );
+
+    test(
+      'prefers Qd1-b3 over the bishop sortie in the unlocked c5-g6 line',
+      () {
+        final board = _boardFromReplay([
+          'e2e3',
+          'f7f5',
+          'e1e2',
+          'e8f7',
+          'e2d3',
+          'f7f6',
+          'b2b3',
+          'f6e5',
+          'f2f4',
+          'e5d5',
+          'e3e4',
+          'd5d6',
+          'g2g3',
+          'g7g6',
+          'e4f5',
+          'd6d5',
+          'f5g6',
+          'h7g6',
+          'a2a4',
+          'd7d6',
+          'c2c4',
+          'd5c5',
+          'b3b4',
+          'c5b4',
+          'b4c5',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'd1b3');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'keeps the black king tucked with Kc6-b6 in the unlocked f3-f5 line',
+      () {
+        final board = _boardFromReplay([
+          'f2f3',
+          'f7f5',
+          'e1f2',
+          'e7e5',
+          'f2e3',
+          'e8f7',
+          'g2g3',
+          'f7e6',
+          'a2a3',
+          'e6d5',
+          'e3d3',
+          'g7g6',
+          'e2e4',
+          'f5e4',
+          'd3e3',
+          'e4f3',
+          'd2d4',
+          'd5d6',
+          'e3f3',
+          'd4e5',
+          'd6c6',
+          'b1c3',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'c6b6');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'routes the king to f2 instead of drifting with the b-pawn in the c3-d5 line',
+      () {
+        final board = _boardFromReplay([
+          'c2c3',
+          'd7d5',
+          'd2d4',
+          'e8d7',
+          'e2e3',
+          'e7e5',
+          'e1e2',
+          'e5e4',
+          'f2f3',
+          'g7g6',
+          'f3e4',
+          'd5e4',
+          'c3c4',
+          'd7c6',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'e2f2');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
   });
 }
 
