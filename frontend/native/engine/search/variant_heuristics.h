@@ -17,6 +17,9 @@ int search_truce_early_queen_sortie_penalty(const Board *b, Move m, Color side);
 int search_truce_quiet_pawn_score(const Board *b, Move m, Color side);
 
 int search_kb_phase1_forward_rank(Color side, Square sq);
+bool search_kb_full_skill_variety_enabled(const Board *b);
+int search_kb_full_skill_variety_margin(const Board *b);
+int search_kb_full_skill_tiebreak_band(const Board *b);
 bool search_kb_phase1_any_pawn_capture_available(const Board *b, Color side);
 int search_kb_phase1_king_activation_score(const Board *b, Move m, Color side);
 int search_kb_phase1_pawn_race_score(const Board *b, Move m, Color side);

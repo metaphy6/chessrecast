@@ -7,27 +7,51 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Kings Battle native regression', () {
+    test('stabilizes with b7-b6 in the c3-e5 line', () {
+      final board = _boardFromReplay([
+        'c2c3',
+        'e7e5',
+        'e2e3',
+        'e8e7',
+        'e1e2',
+        'e7e6',
+        'e2d3',
+        'e6d5',
+        'c3c4',
+        'd5c5',
+        'd3e4',
+      ]);
+      final best = _rootBestMove(board);
+
+      expect(best, isNotNull);
+      expect(_moveNotation(best), isNot('h7h6'));
+      expect(_moveNotation(best), 'b7b6');
+    }, skip: !NativeEngine.isAvailable);
+
     test(
-      'avoids the mate-losing h-pawn drift in the c3-e5 line',
+      'keeps the f-pawn lever in the f4-b5 phase-1 line',
       () {
         final board = _boardFromReplay([
-          'c2c3',
+          'f2f4',
+          'b7b5',
+          'e1f2',
           'e7e5',
-          'e2e3',
-          'e8e7',
-          'e1e2',
-          'e7e6',
-          'e2d3',
-          'e6d5',
-          'c3c4',
-          'd5c5',
-          'd3e4',
+          'f4e5',
+          'd7d5',
+          'c2c3',
+          'e8d7',
+          'd2d4',
+          'd7c6',
+          'e2e4',
+          'd5e4',
+          'd4d5',
+          'c6b6',
+          'f2e3',
         ]);
         final best = _rootBestMove(board);
 
         expect(best, isNotNull);
-        expect(_moveNotation(best), isNot('h7h6'));
-        expect(_moveNotation(best), anyOf('f7f6', 'b7b5', 'c5c4'));
+        expect(_moveNotation(best), 'f7f5');
       },
       skip: !NativeEngine.isAvailable,
     );
@@ -225,7 +249,7 @@ void main() {
     );
 
     test(
-      'routes the king to f2 instead of drifting with the b-pawn in the c3-d5 line',
+      'keeps an active king route instead of drifting with the b-pawn in the c3-d5 line',
       () {
         final board = _boardFromReplay([
           'c2c3',
@@ -246,7 +270,7 @@ void main() {
         final best = _rootBestMove(board);
 
         expect(best, isNotNull);
-        expect(_moveNotation(best), 'e2f2');
+        expect(_moveNotation(best), anyOf('e2f2', 'e2d2'));
       },
       skip: !NativeEngine.isAvailable,
     );

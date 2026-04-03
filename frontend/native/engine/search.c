@@ -85,6 +85,7 @@ static const int SEE_PIECE_VAL[7] = { 100, 320, 330, 500, 900, 20000, 0 };
 /* ======================================================================== */
 
 static uint64_t s_rng;
+static uint64_t s_search_nonce;
 
 static uint64_t rng_next(void) {
     s_rng ^= s_rng << 13;
@@ -95,7 +96,13 @@ static uint64_t rng_next(void) {
 
 static int rng_range(int max) {
     if (max <= 1) return 0;
-    return (int)(rng_next() % (uint64_t)max);
+    uint64_t x = rng_next();
+    x ^= x >> 33;
+    x *= 0xff51afd7ed558ccdULL;
+    x ^= x >> 33;
+    x *= 0xc4ceb9fe1a85ec53ULL;
+    x ^= x >> 33;
+    return (int)(x % (uint64_t)max);
 }
 
 /* ======================================================================== */
@@ -1185,7 +1192,9 @@ SearchResult search_think(Board *b, int time_ms, int max_depth, int skill_level)
     search_reset(0);
     s_deadline_ms = time_ms_now() + (int64_t)time_ms;
     s_skill_level = (skill_level < 0) ? 0 : (skill_level > 4 ? 4 : skill_level);
-    s_rng         = b->hash ^ (uint64_t)time_ms_now() ^ ((uint64_t)b->fullmove << 32);
+    s_rng         = b->hash ^ (uint64_t)time_ms_now() ^
+                    ((uint64_t)b->fullmove << 32) ^
+                    (++s_search_nonce * 0x9e3779b97f4a7c15ULL);
 
     /* Track skill changes (no TT clear — the depth margins in
        alpha_beta prevent lower skills from getting free cutoffs). */
@@ -1332,10 +1341,11 @@ SearchResult search_think(Board *b, int time_ms, int max_depth, int skill_level)
 
 done:
     /* ── Skill-based move selection (Stockfish's approach) ─────────── */
-    /*  At full skill (4), return the best move.
-        At lower skill, allow random selection from moves within a margin
-        that scales with skill deficit.  This creates genuine difficulty
-        differentiation without making lower levels play nonsensically. */
+    /*  At full skill (4), keep the engine deterministic except for a very
+        narrow Kings Battle opening tie-break before first blood.  At lower
+        skill, allow random selection from moves within a margin that scales
+        with skill deficit.  This creates genuine difficulty differentiation
+        without making lower levels play nonsensically. */
     if (s_root_count > 1 && !is_mate(result.score)) {
         int best_root = -INFINITY_SCORE;
         for (int i = 0; i < s_root_count; i++)
@@ -1344,10 +1354,11 @@ done:
         /* Skill-based margin: skill 0 = 80cp, 1 = 50cp, 2 = 30cp, 3 = 15cp, 4 = 0 */
         static const int SKILL_MARGIN[] = { 80, 50, 30, 15, 0 };
         int s_margin = SKILL_MARGIN[s_skill_level];
+        int top_band = 3;
 
-          /* Opening variety is only for sub-max skills. At full skill, keep
-              move selection deterministic so engine strength and audits are
-              measuring the actual best line rather than random opening drift. */
+        /* Opening variety is only for sub-max skills by default. Kings Battle
+           gets a tiny full-skill opening tie-break before unlock so self-play
+           does not collapse onto the exact same first line every game. */
         bool is_opening = (b->mod == MOD_MERCENARY)
                         ? (b->fullmove <= 6)
                         : (b->mod == MOD_HEIR)
@@ -1361,7 +1372,11 @@ done:
                         : (b->mod == MOD_SUCCESSION)
                         ? (b->fullmove <= 5)
                         : (b->fullmove <= 4);
-                if (is_opening && s_skill_level < 4) s_margin = maxi(s_margin, 10);
+        if (is_opening && s_skill_level < 4) s_margin = maxi(s_margin, 10);
+        if (s_skill_level == 4) {
+            s_margin = maxi(s_margin, search_kb_full_skill_variety_margin(b));
+            top_band = maxi(top_band, search_kb_full_skill_tiebreak_band(b));
+        }
 
         if (s_margin > 0) {
             Move cands[MAX_MOVES];
@@ -1379,14 +1394,14 @@ done:
             if (cand_n > 1) {
                 if (s_skill_level >= 3) {
                     /* Skill 3-4: pick best, with random tiebreak among
-                       moves within 3cp of best for variety */
+                       moves within a narrow top band for variety */
                     int top_score = -INFINITY_SCORE;
                     for (int i = 0; i < cand_n; i++)
                         if (cand_scores[i] > top_score) top_score = cand_scores[i];
                     Move top[MAX_MOVES];
                     int top_n = 0;
                     for (int i = 0; i < cand_n; i++)
-                        if (top_score - cand_scores[i] <= 3)
+                        if (top_score - cand_scores[i] <= top_band)
                             top[top_n++] = cands[i];
                     if (top_n > 0) {
                         result.best_move = top[rng_range(top_n)];

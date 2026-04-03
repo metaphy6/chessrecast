@@ -12,6 +12,16 @@
       }
     },
     {
+      "label": "start-emulator-Dev_Fast",
+      "type": "shell",
+      "command": "${workspaceFolder}/.vscode/start_android_emulator.sh Dev_Fast",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
       "label": "start-emulator-Pixel9ProXL-win",
       "type": "shell",
       "command": "powershell",
