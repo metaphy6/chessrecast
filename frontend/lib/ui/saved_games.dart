@@ -6,8 +6,8 @@ import '../routes.dart';
 import '../services/saved_game.dart';
 import '../services/saved_games_service.dart';
 
-class SavedGamesPage extends StatelessWidget {
-  const SavedGamesPage({super.key});
+class SavedGames extends StatelessWidget {
+  const SavedGames({super.key});
 
   @override
   Widget build(BuildContext context) {

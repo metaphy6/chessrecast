@@ -18,11 +18,56 @@
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 static int s_initialized = 0;
+static int s_verify_nesting = 0;
+
+static SearchResult engine_search_best_move(Board *board,
+                                            int time_ms,
+                                            int max_depth,
+                                            int skill_level);
 
 static int clamp_int(int value, int lower, int upper) {
     if (value < lower) return lower;
     if (value > upper) return upper;
     return value;
+}
+
+static bool kb_phase1_is_central_two_step_break(Color side, Move move) {
+    int from_rank;
+    int to_rank;
+    int file;
+
+    if (MOVE_PIECE(move) != PAWN || MOVE_IS_CAPTURE(move) || MOVE_IS_EP(move) ||
+        MOVE_IS_PROMO(move)) {
+        return false;
+    }
+
+    from_rank = search_kb_phase1_forward_rank(side, MOVE_FROM(move));
+    to_rank = search_kb_phase1_forward_rank(side, MOVE_TO(move));
+    file = SQ_COL(MOVE_FROM(move));
+    return from_rank == 1 && to_rank == 3 && file >= 2 && file <= 5;
+}
+
+static int kb_phase1_candidate_priority(const Board *board, Move move, Color side) {
+    int score = 0;
+
+    if (board->mod != MOD_KINGS_BATTLE || board->kb_unlocked) return 0;
+    if (MOVE_IS_PROMO(move)) return 10000;
+
+    if (MOVE_PIECE(move) == KING) {
+        score = 1000 + search_kb_phase1_king_activation_score(board, move, side);
+        if (MOVE_IS_CAPTURE(move) && MOVE_CAPTURED(move) == PAWN) score += 4000;
+        return score;
+    }
+
+    if (MOVE_PIECE(move) == PAWN) {
+        score = 1800 + search_kb_phase1_pawn_race_score(board, move, side);
+        if (MOVE_IS_CAPTURE(move)) score += 500;
+        if (kb_phase1_is_central_two_step_break(side, move)) score += 220;
+        if (search_kb_phase1_forward_rank(side, MOVE_TO(move)) >= 3) score += 80;
+        return score;
+    }
+
+    return 0;
 }
 
 static int kb_verify_child_score(const Board *root, Move move,
@@ -32,9 +77,137 @@ static int kb_verify_child_score(const Board *root, Move move,
     SearchResult reply;
 
     board_make_move(&child, move);
-    search_reset(1);
-    reply = search_think(&child, time_ms, max_depth, skill_level);
+    if (s_verify_nesting > 0) {
+        search_reset(1);
+        reply = search_think(&child, time_ms, max_depth, skill_level);
+    } else {
+        s_verify_nesting++;
+        reply = engine_search_best_move(&child, time_ms, max_depth, skill_level);
+        s_verify_nesting--;
+    }
     return (child.side == mover) ? reply.score : -reply.score;
+}
+
+static SearchResult kb_refine_phase1_result(const Board *board,
+                                            SearchResult raw,
+                                            int time_ms,
+                                            int max_depth,
+                                            int skill_level) {
+    MoveList ml;
+    Move candidates[32];
+    int candidate_scores[32];
+    int candidate_count = 0;
+    int candidate_capacity = 16;
+    int raw_best_score = 0;
+    int best_score = 0;
+    Move best_move = raw.best_move;
+    int verify_depth;
+    int verify_time;
+    bool suspicious_root;
+
+    if (board->mod != MOD_KINGS_BATTLE || board->kb_unlocked ||
+        skill_level < 4 || raw.best_move == MOVE_NONE) {
+        return raw;
+    }
+
+    if (search_kb_full_skill_variety_enabled(board)) {
+        return raw;
+    }
+
+    if (!(max_depth <= 4 || (time_ms > 0 && time_ms <= 150))) {
+        return raw;
+    }
+
+    suspicious_root = MOVE_PIECE(raw.best_move) == KING ||
+                      (MOVE_PIECE(raw.best_move) == PAWN &&
+                       !MOVE_IS_CAPTURE(raw.best_move) &&
+                       !MOVE_IS_EP(raw.best_move) &&
+                       search_kb_phase1_forward_rank(board->side, MOVE_TO(raw.best_move)) <= 2);
+    if (suspicious_root) candidate_capacity = 32;
+    if (!suspicious_root) {
+        return raw;
+    }
+
+    generate_moves(board, &ml);
+    if (ml.count <= 1) return raw;
+
+    candidates[candidate_count] = raw.best_move;
+    candidate_scores[candidate_count] = 2000000000;
+    candidate_count++;
+
+    for (int i = 0; i < ml.count; i++) {
+        Move move = ml.moves[i];
+        int priority;
+        int insert_at;
+        bool seen = false;
+
+        for (int j = 0; j < candidate_count; j++) {
+            if (candidates[j] == move) {
+                seen = true;
+                break;
+            }
+        }
+        if (seen) continue;
+
+        priority = kb_phase1_candidate_priority(board, move, board->side);
+        if (priority <= 0) continue;
+        if (candidate_count == candidate_capacity &&
+            priority <= candidate_scores[candidate_count - 1]) {
+            continue;
+        }
+
+        insert_at = candidate_count;
+        if (insert_at > candidate_capacity - 1) insert_at = candidate_capacity - 1;
+        while (insert_at > 1 && candidate_scores[insert_at - 1] < priority) {
+            if (insert_at < candidate_capacity) {
+                candidates[insert_at] = candidates[insert_at - 1];
+                candidate_scores[insert_at] = candidate_scores[insert_at - 1];
+            }
+            insert_at--;
+        }
+        if (insert_at < candidate_capacity) {
+            candidates[insert_at] = move;
+            candidate_scores[insert_at] = priority;
+            if (candidate_count < candidate_capacity) candidate_count++;
+        }
+    }
+
+    if (candidate_count <= 1) return raw;
+
+    verify_depth = (max_depth < 6) ? 6 : max_depth + 2;
+    verify_time = suspicious_root
+        ? ((time_ms <= 0) ? 420 : clamp_int(time_ms * 4, 320, 560))
+        : ((time_ms <= 0) ? 320 : clamp_int(time_ms * 3, 240, 420));
+
+    for (int i = 0; i < candidate_count; i++) {
+        int score = kb_verify_child_score(
+            board,
+            candidates[i],
+            verify_time,
+            verify_depth,
+            skill_level
+        );
+
+        if (i == 0) {
+            raw_best_score = score;
+            best_score = score;
+            best_move = candidates[i];
+            continue;
+        }
+
+        if (score > best_score) {
+            best_score = score;
+            best_move = candidates[i];
+        }
+    }
+
+    if (best_move == raw.best_move || best_score < raw_best_score + 4) {
+        return raw;
+    }
+
+    raw.best_move = best_move;
+    raw.score = best_score;
+    return raw;
 }
 
 static SearchResult kb_refine_unlocked_result(const Board *board,
@@ -188,6 +361,7 @@ static SearchResult engine_search_best_move(Board *board,
                                             int max_depth,
                                             int skill_level) {
     SearchResult raw = search_think(board, time_ms, max_depth, skill_level);
+    raw = kb_refine_phase1_result(board, raw, time_ms, max_depth, skill_level);
     raw = kb_refine_unlocked_result(board, raw, time_ms, max_depth, skill_level);
     raw = heir_refine_queen_sortie_result(board, raw, time_ms, max_depth, skill_level);
     return raw;

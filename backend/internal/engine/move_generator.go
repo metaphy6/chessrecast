@@ -832,24 +832,17 @@ func (mg *MoveGenerator) filterCheckMoves(moves []Move) []Move {
 	for _, move := range moves {
 		// Make move on cloned board
 		testBoard := mg.board.Clone()
-		
-		// IMPORTANT: Preserve the original KingsKillUnlock state for checking
-		// This prevents a king capturing a pawn from unlocking pieces during the validation check
-		originalUnlockState := testBoard.KingsKillUnlock
-		
+
 		testBoard.MakeMove(move)
-		
-		// Temporarily restore the unlock state for the check validation
-		// This ensures we validate using the game state BEFORE the move
-		wasUnlocked := testBoard.KingsKillUnlock
-		testBoard.KingsKillUnlock = originalUnlockState
-		
+
+		// Kings Battle: when an unlocking move (king×pawn) sets
+		// KingsKillUnlock = true, keep it so isKingInCheck sees ALL
+		// enemy pieces as attackers.  The king must be safe in the
+		// post-unlock position since the capture activates all pieces.
+
 		// Check if own king is in check
 		kingInCheck := mg.isKingInCheck(testBoard, move.Piece.Color)
-		
-		// Restore the actual unlock state
-		testBoard.KingsKillUnlock = wasUnlocked
-		
+
 		if !kingInCheck {
 			validMoves = append(validMoves, move)
 		}

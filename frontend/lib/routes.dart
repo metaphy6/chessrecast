@@ -1,12 +1,12 @@
 import 'package:get/get.dart';
 import 'ui/game_page.dart';
-import 'ui/game_mod_selection.dart';
+import 'ui/selection.dart';
 import 'ui/play_options.dart';
 import 'ui/bot_selection_page.dart';
 import 'ui/online_bot_vs_bot_page.dart';
 import 'ui/watch_engine_page.dart';
 import 'ui/play_engine_page.dart';
-import 'ui/saved_games_page.dart';
+import 'ui/saved_games.dart';
 import 'analytics/custom/custom_board_setup.dart';
 import 'bindings.dart';
 
@@ -33,16 +33,8 @@ class AppRoutes {
       page: () => const PlayOptionsPage(),
       binding: AppBindings(),
     ),
-    GetPage(
-      name: chess,
-      page: () => const ChessGamePage(),
-      binding: AppBindings(),
-    ),
-    GetPage(
-      name: game,
-      page: () => const ChessGamePage(),
-      binding: AppBindings(),
-    ),
+    GetPage(name: chess, page: () => const GamePage(), binding: AppBindings()),
+    GetPage(name: game, page: () => const GamePage(), binding: AppBindings()),
     GetPage(
       name: customBoard,
       page: () => const CustomBoardSetupPage(),
@@ -70,7 +62,7 @@ class AppRoutes {
     ),
     GetPage(
       name: savedGames,
-      page: () => const SavedGamesPage(),
+      page: () => const SavedGames(),
       binding: AppBindings(),
     ),
   ];

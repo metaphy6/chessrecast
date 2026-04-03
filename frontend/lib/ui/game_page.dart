@@ -6,8 +6,8 @@ import '../ui/board_theme.dart';
 import 'board.dart';
 import 'info_panel.dart';
 
-class ChessGamePage extends StatelessWidget {
-  const ChessGamePage({super.key});
+class GamePage extends StatelessWidget {
+  const GamePage({super.key});
 
   @override
   Widget build(BuildContext context) {

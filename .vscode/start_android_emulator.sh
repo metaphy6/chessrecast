@@ -33,7 +33,16 @@ if pgrep -af "emulator" | grep -qE -- "-avd\s+$AVD_NAME"; then
 fi
 
 # Start emulator in background with optimizations for UI responsiveness
-nohup "$EMU_BIN" @"$AVD_NAME" -no-snapshot-save -gpu host >/dev/null 2>&1 &
+# -no-snapshot-save : skip writing snapshot on exit (faster shutdown)
+# -no-boot-anim     : skip boot animation (faster startup)
+# -no-audio         : disable audio emulation (saves CPU)
+# -gpu host         : use host GPU acceleration
+nohup "$EMU_BIN" @"$AVD_NAME" \
+  -no-snapshot-save \
+  -no-boot-anim \
+  -no-audio \
+  -gpu host \
+  >/dev/null 2>&1 &
 EMUPID=$!
 echo "Starting AVD $AVD_NAME (pid=$EMUPID). Waiting for device to appear..."
 

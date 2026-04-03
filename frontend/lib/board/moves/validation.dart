@@ -136,14 +136,15 @@ extension MoveValidation on ChessBoard {
       performCastlingRookMove(newPieces, move.from, move.to);
     }
 
-    // KINGS' BATTLE FIX: Don't add the test move to history yet when validating
-    // This prevents First Blood from being detected during validation checks
-    // The move will be added to history properly when actually executed
+    // Include the test move in history so that unlocking captures
+    // (king×pawn in Kings' Battle, pawn promotion) are visible to
+    // isPositionUnderAttack.  This makes ALL enemy pieces contribute to
+    // the attack map when validating the post-unlock position, preventing
+    // the king from capturing a pawn defended by bishops/queens/etc.
     final result = copyWith(
       pieces: newPieces,
       currentPlayer: currentPlayer.opposite,
-      moveHistory:
-          moveHistory, // Use original history, not [...moveHistory, move]
+      moveHistory: [...moveHistory, move],
       enPassantTarget: enPassantTarget, // Keep current en passant target
     );
     return result;

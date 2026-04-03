@@ -459,6 +459,22 @@ static int kb_phase1_forward_file_clearance(const Board *b, Color side, Square s
     return clear;
 }
 
+bool search_kb_full_skill_variety_enabled(const Board *b) {
+    return b->mod == MOD_KINGS_BATTLE &&
+           !b->kb_unlocked &&
+           b->fullmove <= 4 &&
+           BB_HAS(b->pieces[WHITE][KING], SQ(0, 4)) &&
+           BB_HAS(b->pieces[BLACK][KING], SQ(7, 4));
+}
+
+int search_kb_full_skill_variety_margin(const Board *b) {
+    return search_kb_full_skill_variety_enabled(b) ? 20 : 0;
+}
+
+int search_kb_full_skill_tiebreak_band(const Board *b) {
+    return search_kb_full_skill_variety_enabled(b) ? 15 : 0;
+}
+
 bool search_kb_phase1_any_pawn_capture_available(const Board *b, Color side) {
     Bitboard pawns = b->pieces[side][PAWN];
     int step = (side == WHITE) ? 1 : -1;
