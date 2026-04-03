@@ -1,8 +1,8 @@
 # ♟️ ChessRecast
 
-> **Chess variants with a pure Dart engine — 8 original game mods, Minimax + Alpha-Beta search, and a full-stack mobile platform.**
+> **Chess variants with a native C runtime engine, 8 original game modes, and a full-stack mobile platform.**
 
-ChessRecast reinvents chess with creative rule variants like Mercenary (king-like pawns), Heir (promotable kings), Truce (no-attack opening phase), and more. Each mode is supported by a built-in Dart chess engine using Minimax with Alpha-Beta pruning, iterative deepening, quiescence search, and hand-crafted evaluation — all running natively in the Flutter app.
+ChessRecast reinvents chess with creative rule variants like Mercenary (king-like pawns), Heir (promotable kings), Truce (no-attack opening phase), and more. The Flutter app now runs engine search through the native C engine in `frontend/native/engine`, while `frontend/lib/engine` is the Dart bridge and async wrapper layer around that runtime.
 
 ---
 
@@ -28,17 +28,19 @@ ChessRecast reinvents chess with creative rule variants like Mercenary (king-lik
 ```
 chessrecast/
 ├── 📱 frontend/          Flutter mobile app (Android / iOS / Web)
-│   └── lib/engine/        Pure Dart chess engine (Minimax + Alpha-Beta)
+│   └── lib/engine/        Native-engine bridge and async wrapper
 ├── 🖥️  backend/           Go API server + PostgreSQL + Redis
 └── 📚 docs/              Project documentation
 ```
+
+Short note: Flutter runtime engine search is native-only. There is no Dart search fallback in the app runtime anymore.
 
 ### Tech Stack
 
 | Layer | Technology |
 |-------|------------|
 | **Mobile** | Flutter 3.x · Dart · GetX |
-| **Engine** | Minimax · Alpha-Beta · Iterative Deepening · Transposition Tables |
+| **Engine** | Native C engine · Alpha-Beta · Iterative Deepening · Transposition Tables |
 | **Backend** | Go 1.21 · Gin · PostgreSQL 18 · Redis 8 · WebSocket |
 | **Infra** | Docker · docker-compose |
 
@@ -117,10 +119,10 @@ frontend/lib/
 ├── constants.dart                  # App-wide constants
 ├── mods/                           # game mod definitions
 │   ├── mods.dart                   # Barrel exports
-│   ├── mods_enum.dart              # ModsEnum (all mode metadata)
-│   ├── mods_cache.dart             # Singleton mode instances
-│   ├── game_mod.dart              # Base GameMod class
-│   ├── mercenary.dart              # Mercenary rules (Dart)
+│   ├── enums.dart                  # ModsEnum (all mode metadata)
+│   ├── cache.dart                  # Singleton mode instances
+│   ├── ruleset.dart                # Base ruleset for mode-specific rules
+│   ├── mercenary.dart              # Mercenary rules
 │   └── ...                         # One file per mode
 ├── board/                          # Chess board engine
 │   ├── board.dart                  # ChessBoard state
@@ -134,12 +136,11 @@ frontend/lib/
 │   ├── watch_engine_controller.dart # Engine Lab auto-play controller
 │   ├── orchestrator.dart           # Mod-aware move orchestration
 │   └── options.dart                # Game setup options
-├── engine/                         # Pure Dart chess engine
-│   ├── transposition.dart          # Zobrist hashing + TT
-│   ├── move_ordering.dart          # MVV-LVA, killers, history
-│   ├── evaluation.dart             # Material, PST, king safety, mod bonuses
-│   ├── search.dart                 # Alpha-Beta + ID + QSearch + NMP + LMR
-│   └── engine.dart                 # Public API (Isolate.run)
+├── engine/                         # Native-engine bridge layer
+│   ├── native.dart                 # FFI bindings and runtime loading
+│   ├── engine.dart                 # Public async API (Isolate.run)
+│   ├── search_result.dart          # Search result DTO
+│   └── score_utils.dart            # Shared mate-score helpers for tests/tooling
 ├── analytics/                      # Game analysis
 │   └── custom/                     # Custom board setup
 ├── services/                       # External services
@@ -224,7 +225,7 @@ Pre-configured tasks in `.vscode/tasks.json`:
 
 - [x] 8 active game mods with full Dart logic
 - [x] Go backend with PostgreSQL, Redis, WebSocket
-- [x] Pure Dart chess engine (Minimax + Alpha-Beta + ID + QSearch)
+- [x] Native runtime chess engine with Dart FFI bridge
 - [x] 5 engine difficulty levels (Easy → Maximum)
 - [x] Engine Lab UI (watch engine self-play with live stats)
 - [ ] P2P distributed network (GameNet)

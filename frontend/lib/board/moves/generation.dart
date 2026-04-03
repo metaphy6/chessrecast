@@ -25,14 +25,14 @@ extension MoveGeneration on ChessBoard {
 
     final potentialMoves = _getPotentialMoves(piece);
 
-    // Apply Game Mod specific move filtering first
-    final filteredByGameMod = _applyGameModFilter(potentialMoves, piece);
+    // Apply ruleset-specific move filtering first.
+    final filteredByRuleset = _applyRulesetFilter(potentialMoves, piece);
 
-    // Filter out moves that would put own king in check (unless Game Mod allows suicide)
+    // Filter out moves that would put own king in check unless the active mode relaxes that rule.
     // Optimize: Pre-allocate result list
     final safeMoves = <ChessMove>[];
 
-    for (final move in filteredByGameMod) {
+    for (final move in filteredByRuleset) {
       // CRITICAL: Never allow capturing the opponent's king
       // Exception: Heir Mod allows king captures as part of the game mechanics
       if (move.capturedPiece != null &&
@@ -87,8 +87,8 @@ extension MoveGeneration on ChessBoard {
     return safeMoves;
   }
 
-  /// Centralized Game Mod move filtering to reduce duplicated switch/if blocks.
-  List<ChessMove> _applyGameModFilter(
+  /// Centralized ruleset filtering to reduce duplicated switch/if blocks.
+  List<ChessMove> _applyRulesetFilter(
     List<ChessMove> potentialMoves,
     ChessPiece piece,
   ) {

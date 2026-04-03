@@ -1,6 +1,6 @@
 import '../pieces/piece_color.dart';
 import '../pieces/piece_type.dart';
-import '../../mods/mods_enum.dart';
+import '../../mods/enums.dart';
 import 'position.dart';
 import '../board.dart';
 

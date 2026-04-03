@@ -262,7 +262,7 @@ The following items were identified during analysis but **not addressed** in thi
 - **`OnlineController`** — Inherits from `Controller`; composition pattern would reduce coupling
 
 ### Dart Mods
-- **Mod classes** (save_the_queen.dart, mercenary.dart, etc.) — Share significant logic; a base `GameMod` class with template methods could reduce duplication
+- **Mod classes** (savequeen.dart, mercenary.dart, etc.) — Share significant logic; a richer `Ruleset` base class with template methods could reduce duplication
 - **Unused imports** — Several files import packages they don't use (e.g., `dart:io` in files that only use `dart:core`)
 
 ### Architecture

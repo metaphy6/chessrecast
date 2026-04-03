@@ -1,7 +1,7 @@
 import '../pieces/piece_type.dart';
 import '../pieces/piece_color.dart';
 import '../game_status.dart';
-import '../../mods/mods_enum.dart';
+import '../../mods/enums.dart';
 import '../piece.dart';
 import 'move.dart';
 import '../board.dart';

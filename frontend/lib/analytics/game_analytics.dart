@@ -1,6 +1,6 @@
 import '../board/game_status.dart';
 import '../board/pieces/piece_color.dart';
-import '../mods/mods_enum.dart';
+import '../mods/enums.dart';
 
 /// Tracks game statistics and analytics
 class GameAnalytics {

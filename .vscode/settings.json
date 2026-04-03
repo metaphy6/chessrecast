@@ -22,6 +22,14 @@
         "**/ios/**": true,
         "**/android/build/**": true
     },
+    "search.exclude": {
+        "**/build/**": true,
+        "**/.dart_tool/**": true,
+        "**/.cxx/**": true
+    },
+    "terminal.integrated.defaultLocation": "panel",
+    "terminal.integrated.enablePersistentSessions": true,
+    "terminal.integrated.tabs.enabled": true,
     
     // Dart extension will auto-detect Flutter SDK from PATH if not specified.
     // If you need to specify a path, add to your USER settings:

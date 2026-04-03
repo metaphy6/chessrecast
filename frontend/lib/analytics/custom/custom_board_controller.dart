@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import '../../board/utils/exporter.dart';
-import '../../mods/mods_enum.dart';
+import '../../mods/enums.dart';
 import '../../ui/board_theme.dart';
 import '../../management/utils.dart';
 

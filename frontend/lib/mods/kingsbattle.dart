@@ -1,6 +1,6 @@
 import '../board/utils/exporter.dart';
 import '../debug.dart';
-import 'game_mod.dart';
+import 'ruleset.dart';
 
 /// Kings' Battle Mod: Two-phase game with restricted movement initially
 ///
@@ -15,7 +15,7 @@ import 'game_mod.dart';
 /// - All pieces can move normally
 /// - Standard chess rules apply
 /// - Player who made King's Kill gets one bonus move immediately
-class KingsBattle implements GameMod {
+class KingsBattle implements Ruleset {
   @Deprecated(
     'Use the `mods.kingsBattle` alias from mods_cache.dart instead of direct instantiation',
   )

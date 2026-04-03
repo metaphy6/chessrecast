@@ -1,7 +1,7 @@
 import '../board/utils/exporter.dart';
 import '../debug.dart';
-import 'game_mod.dart';
-import 'mods_enum.dart';
+import 'ruleset.dart';
+import 'enums.dart';
 
 /// Succession Mod: Race to promote a pawn to King!
 ///
@@ -23,7 +23,7 @@ import 'mods_enum.dart';
 /// STARTING POSITION:
 /// White: Two queens on d1 and e1
 /// Black: Two queens on d8 and e8
-class Succession extends GameMod {
+class Succession extends Ruleset {
   @Deprecated(
     'Use the `mods.succession` alias from mods_cache.dart instead of direct instantiation',
   )

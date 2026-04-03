@@ -1187,6 +1187,19 @@ int evaluate(const Board *b) {
                             bonus -= pen;
                         }
 
+                        if (t == KNIGHT) {
+                            int rel_rank = (side == WHITE) ? SQ_ROW(sq) : (7 - SQ_ROW(sq));
+                            bool central = SQ_COL(sq) >= 2 && SQ_COL(sq) <= 5 &&
+                                           rel_rank >= 2 && rel_rank <= 4;
+                            if (central) {
+                                int knight_bonus = 10;
+                                if (board_square_attacked(b, sq, side)) knight_bonus += 8;
+                                if (!board_square_attacked(b, sq, opp)) knight_bonus += 6;
+                                if (rel_rank >= 4) knight_bonus += 4;
+                                bonus += knight_bonus;
+                            }
+                        }
+
                         if (king_sq[opp] >= 0) {
                             Bitboard ring = king_attacks[king_sq[opp]] | BB_SQ(king_sq[opp]);
                             if (attacks & ring) {

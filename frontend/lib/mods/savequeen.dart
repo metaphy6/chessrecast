@@ -1,7 +1,7 @@
 import '../board/utils/exporter.dart';
 import '../debug.dart';
-import 'mods_enum.dart';
-import 'game_mod.dart';
+import 'enums.dart';
+import 'ruleset.dart';
 
 /// Save the Queen Mod: Queens start as prisoners and must escape to the other half
 ///
@@ -26,7 +26,7 @@ import 'game_mod.dart';
 /// - Returns to initial position automatically
 /// - Pawns CANNOT promote to Queen
 /// - Regular checkmate still possible with other pieces
-class SaveTheQueen implements GameMod {
+class SaveTheQueen implements Ruleset {
   @Deprecated(
     'Use the `mods.saveTheQueen` alias from mods_cache.dart instead of direct instantiation',
   )

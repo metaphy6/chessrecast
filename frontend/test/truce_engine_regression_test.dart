@@ -1,7 +1,7 @@
 import 'package:chessrecast/board/utils/exporter.dart';
 import 'package:chessrecast/engine/native.dart';
 import 'package:chessrecast/management/orchestrator.dart';
-import 'package:chessrecast/mods/mods_enum.dart';
+import 'package:chessrecast/mods/enums.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

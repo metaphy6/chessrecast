@@ -2,14 +2,14 @@
 //
 // Usage guidance:
 //   import 'package:chessrecast/mods/mods.dart';
-export 'mods_enum.dart';
-export 'game_mod.dart';
+export 'enums.dart';
+export 'ruleset.dart';
 export 'classic.dart';
-export 'friendly_fire.dart';
+export 'friendlyfire.dart';
 export 'heir.dart';
-export 'kings_battle.dart';
+export 'kingsbattle.dart';
 export 'mercenary.dart';
-export 'save_the_queen.dart';
+export 'savequeen.dart';
 export 'succession.dart';
 export 'truce.dart';
-export 'mods_cache.dart';
+export 'cache.dart';

@@ -4,11 +4,11 @@ import '../board/board.dart';
 import '../board/moves/move.dart';
 import '../management/orchestrator.dart';
 import 'native.dart';
-import 'search.dart';
+import 'search_result.dart';
 
 // ─── Chess Engine ────────────────────────────────────────────────────────────
 //
-// Public API that wraps the Search algorithm.  Provides:
+// Public API that wraps the native engine.  Provides:
 //  • Async `findBestMove()` that runs search on a background isolate
 //    so the UI never freezes.
 //  • Configurable time limit and max depth.
@@ -149,61 +149,39 @@ class _SearchArgs {
 }
 
 SearchResult _runSearch(_SearchArgs args) {
-  final search = Search();
-  return search.think(
-    args.board,
-    timeLimitMs: args.timeMs,
-    maxDepth: args.depth,
-  );
+  final native = NativeEngine();
+  return native
+      .findBestMoveSync(
+        args.board,
+        timeLimitMs: args.timeMs,
+        maxDepth: args.depth,
+        skillLevel: args.skillLevel,
+      )
+      .toSearchResult();
 }
 
 /// Search + execute move + update game status — all inside the isolate.
 EngineMoveResult _searchAndMove(_SearchArgs args) {
-  // Try native C engine first (works for all game modes: classic=0, mercenary=1).
-  try {
-    final native = NativeEngine();
-    final sw = Stopwatch()..start();
-    final nativeResult = native.findBestMoveSync(
-      args.board,
-      timeLimitMs: args.timeMs,
-      maxDepth: args.depth,
-      skillLevel: args.skillLevel,
-    );
-    sw.stop();
-    debugPrint(
-      '[NativeEngine] depth=${nativeResult.depth} '
-      'score=${nativeResult.score} nodes=${nativeResult.nodesSearched} '
-      'time=${sw.elapsedMilliseconds}ms mod=${args.board.gameType.name}',
-    );
-    if (nativeResult.bestMove != null) {
-      final orchestrator = Orchestrator();
-      final newBoard = orchestrator.executeMove(
-        args.board,
-        nativeResult.bestMove!,
-      );
-      return EngineMoveResult(nativeResult.toSearchResult(), newBoard);
-    }
-    // C engine found no legal moves – return immediately, don't fall
-    // through to the Dart engine which may hang on this position.
-    return EngineMoveResult(nativeResult.toSearchResult(), args.board);
-  } catch (e) {
-    debugPrint('[NativeEngine] unavailable, falling back to Dart: $e');
-  }
-
-  final search = Search();
-  final result = search.think(
+  final native = NativeEngine();
+  final sw = Stopwatch()..start();
+  final nativeResult = native.findBestMoveSync(
     args.board,
     timeLimitMs: args.timeMs,
     maxDepth: args.depth,
+    skillLevel: args.skillLevel,
+  );
+  sw.stop();
+  debugPrint(
+    '[NativeEngine] depth=${nativeResult.depth} '
+    'score=${nativeResult.score} nodes=${nativeResult.nodesSearched} '
+    'time=${sw.elapsedMilliseconds}ms mod=${args.board.gameType.name}',
   );
 
-  if (result.bestMove == null) {
-    return EngineMoveResult(result, args.board);
+  if (nativeResult.bestMove == null) {
+    return EngineMoveResult(nativeResult.toSearchResult(), args.board);
   }
 
-  // Execute the move and compute game status inside the isolate so the
-  // main thread never blocks.
   final orchestrator = Orchestrator();
-  final newBoard = orchestrator.executeMove(args.board, result.bestMove!);
-  return EngineMoveResult(result, newBoard);
+  final newBoard = orchestrator.executeMove(args.board, nativeResult.bestMove!);
+  return EngineMoveResult(nativeResult.toSearchResult(), newBoard);
 }

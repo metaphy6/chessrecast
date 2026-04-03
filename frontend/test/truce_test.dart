@@ -8,7 +8,7 @@ import 'package:chessrecast/board/moves/move.dart';
 import 'package:chessrecast/board/moves/generation.dart';
 import 'package:chessrecast/management/orchestrator.dart';
 import 'package:chessrecast/mods/truce.dart';
-import 'package:chessrecast/mods/mods_enum.dart';
+import 'package:chessrecast/mods/enums.dart';
 
 void main() {
   const truce = Truce();
