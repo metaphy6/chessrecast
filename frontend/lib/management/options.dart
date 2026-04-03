@@ -1,5 +1,5 @@
 import 'package:get/get.dart';
-import '../mods/mods_enum.dart';
+import '../mods/enums.dart';
 import 'utils.dart';
 
 class OptionsController extends GetxController {

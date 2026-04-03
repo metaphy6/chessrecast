@@ -2,7 +2,7 @@ import 'package:chessrecast/debug.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../board/utils/exporter.dart';
-import '../mods/mods_enum.dart';
+import '../mods/enums.dart';
 import '../analytics/game_analytics.dart';
 import '../ui/board_theme.dart';
 import '../constants.dart';

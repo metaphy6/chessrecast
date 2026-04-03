@@ -1,7 +1,7 @@
 import '../board/utils/exporter.dart';
 import '../board/moves/helpers.dart';
 import '../debug.dart';
-import 'game_mod.dart';
+import 'ruleset.dart';
 
 /// Truce Mod: Players cannot attack until all pieces have moved once
 ///
@@ -13,7 +13,7 @@ import 'game_mod.dart';
 /// - NO check or checkmate during truce - kings move freely
 /// - Moves that give check to the opponent king are illegal during truce
 /// - Once truce is broken, normal chess rules apply including check/checkmate/captures
-class Truce extends GameMod {
+class Truce extends Ruleset {
   const Truce();
 
   @override

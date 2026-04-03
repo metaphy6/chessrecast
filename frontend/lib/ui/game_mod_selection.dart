@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../mods/mods_enum.dart';
+import '../mods/enums.dart';
 import '../management/options.dart';
 
 class GameModSelectionPage extends StatelessWidget {

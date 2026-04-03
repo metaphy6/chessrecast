@@ -1,12 +1,12 @@
 import '../board/utils/exporter.dart';
-import 'game_mod.dart';
+import 'ruleset.dart';
 
 /// Friendly Fire Mod: Players can capture their own pieces (except kings)
 /// - Can capture your own pieces
 /// - Cannot capture your own king
 /// - Cannot capture pieces that haven't moved yet (balancing restriction)
 /// - Cannot put yourself in check/checkmate
-class FriendlyFire implements GameMod {
+class FriendlyFire implements Ruleset {
   @Deprecated(
     'Use the `mods.friendlyFire` alias from mods_cache.dart instead of direct instantiation',
   )

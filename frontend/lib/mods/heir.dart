@@ -1,5 +1,5 @@
 import '../board/utils/exporter.dart';
-import 'game_mod.dart';
+import 'ruleset.dart';
 
 /// Heir Mod: Pawns can promote to King
 ///
@@ -10,7 +10,7 @@ import 'game_mod.dart';
 /// - If a King is captured and the player has pawns, they can promote one to King
 /// - If a King is captured and the player has no pawns, they lose immediately
 /// - If the second (promoted) King is captured, the player loses immediately
-class Heir extends GameMod {
+class Heir extends Ruleset {
   @Deprecated(
     'Use the `mods.heir` alias from mods_cache.dart instead of direct instantiation',
   )

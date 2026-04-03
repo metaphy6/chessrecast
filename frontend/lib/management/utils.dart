@@ -1,6 +1,6 @@
 import 'package:get/get.dart';
 import '../board/utils/exporter.dart';
-import '../mods/mods_enum.dart';
+import '../mods/enums.dart';
 
 /// Cached square IDs — computed once since the board is always 8x8
 final List<String> _allSquareIds = _buildSquareIds();

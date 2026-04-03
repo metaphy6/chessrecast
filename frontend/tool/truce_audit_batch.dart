@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:chessrecast/board/utils/exporter.dart';
 import 'package:chessrecast/management/orchestrator.dart';
-import 'package:chessrecast/mods/mods_enum.dart';
+import 'package:chessrecast/mods/enums.dart';
 
 import 'truce_engine_audit.dart';
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../board/utils/exporter.dart';
 import '../debug.dart';
-import '../mods/mods_enum.dart';
+import '../mods/enums.dart';
 import '../services/api_service.dart';
 import '../services/game_websocket.dart';
 import 'controller.dart';
@@ -119,13 +119,13 @@ class OnlineController extends Controller {
   Future<void> _createNewGame(Map<String, dynamic>? args) async {
     _connectionStatus.value = 'Creating game...';
 
-    final GameMod = args?['gameType'] is ModsEnum
+    final modeName = args?['gameType'] is ModsEnum
         ? (args!['gameType'] as ModsEnum).toSnakeCase()
         : args?['gameType']?.toString().split('.').last ?? 'classic';
     final botDifficulty = args?['botDifficulty'] as int?;
 
     final gameData = await _apiService.createGame(
-      mode: GameMod,
+      mode: modeName,
       botDifficulty: botDifficulty,
     );
 

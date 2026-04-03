@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'pieces/piece_color.dart';
 import 'pieces/piece_type.dart';
 import 'moves/position.dart';
-import '../mods/mods_enum.dart';
+import '../mods/enums.dart';
 
 class ChessPiece extends Equatable {
   final PieceType type;

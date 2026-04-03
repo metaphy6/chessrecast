@@ -8,6 +8,7 @@ add_library(chess_engine SHARED
     movegen.c
     evaluate.c
     search.c
+    search/variant_heuristics.c
     bridge.c
 )
 

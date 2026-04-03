@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../mods/mods_enum.dart';
+import '../mods/enums.dart';
 import '../routes.dart';
 import '../services/saved_game.dart';
 import '../services/saved_games_service.dart';

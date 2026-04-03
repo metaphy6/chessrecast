@@ -1,6 +1,6 @@
 import '../board/utils/exporter.dart';
-import 'game_mod.dart';
-import 'mods_enum.dart';
+import 'ruleset.dart';
+import 'enums.dart';
 
 /// Mercenary Mod: Pawns move and capture like Kings
 ///
@@ -16,7 +16,7 @@ import 'mods_enum.dart';
 /// - Standard 100 half-move rule (50 full moves)
 /// - Insufficient material: K vs K, or K+N vs K+N (no pawns)
 /// - With pawns on board, checkmate is possible (pawns assist like kings)
-class Mercenary extends GameMod {
+class Mercenary extends Ruleset {
   @Deprecated(
     'Use the `mods.mercenary` alias from mods_cache.dart instead of direct instantiation',
   )
