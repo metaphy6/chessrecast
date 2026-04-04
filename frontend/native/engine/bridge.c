@@ -3,6 +3,7 @@
 #include "search.h"
 #include "search/variant_heuristics.h"
 #include "movegen.h"
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -86,6 +87,337 @@ static int kb_verify_child_score(const Board *root, Move move,
         s_verify_nesting--;
     }
     return (child.side == mover) ? reply.score : -reply.score;
+}
+
+static int ff_bridge_center_distance(Square sq) {
+    int row = SQ_ROW(sq);
+    int col = SQ_COL(sq);
+    int row_d3 = abs(row - 3);
+    int row_d4 = abs(row - 4);
+    int col_d3 = abs(col - 3);
+    int col_d4 = abs(col - 4);
+    int row_dist = (row_d3 < row_d4) ? row_d3 : row_d4;
+    int col_dist = (col_d3 < col_d4) ? col_d3 : col_d4;
+
+    return row_dist + col_dist;
+}
+
+static bool ff_bridge_is_central_square(Square sq) {
+    return SQ_ROW(sq) >= 2 && SQ_ROW(sq) <= 5 &&
+           SQ_COL(sq) >= 2 && SQ_COL(sq) <= 5;
+}
+
+static int ff_bridge_pawn_shield_count(const Board *board,
+                                       Color side,
+                                       Square king_sq) {
+    int row = SQ_ROW(king_sq);
+    int col = SQ_COL(king_sq);
+    int next_row = row + ((side == WHITE) ? 1 : -1);
+    int shield = 0;
+
+    if (next_row < 0 || next_row > 7) return 0;
+
+    for (int dc = -1; dc <= 1; dc++) {
+        int next_col = col + dc;
+
+        if (next_col < 0 || next_col > 7) continue;
+        if (BB_HAS(board->pieces[side][PAWN], SQ(next_row, next_col))) shield++;
+    }
+
+    return shield;
+}
+
+static int ff_bridge_minor_capture_priority(const Board *board,
+                                            Move move,
+                                            Color side) {
+    PieceType piece;
+    Square from_sq;
+    Square to_sq;
+    Bitboard occ;
+    Bitboard attacks;
+    Bitboard enemy_king;
+    int score = 0;
+
+    if (board->mod != MOD_FRIENDLY_FIRE || !MOVE_IS_CAPTURE(move) ||
+        MOVE_IS_EP(move) || MOVE_IS_PROMO(move) ||
+        search_ff_is_own_capture(board, move) || MOVE_CAPTURED(move) != PAWN) {
+        return 0;
+    }
+
+    piece = MOVE_PIECE(move);
+    if (piece != KNIGHT && piece != BISHOP) return 0;
+
+    from_sq = MOVE_FROM(move);
+    to_sq = MOVE_TO(move);
+    occ = board->all ^ BB_SQ(from_sq);
+    attacks = (piece == KNIGHT)
+        ? knight_attacks[to_sq]
+        : bishop_attacks_calc(to_sq, occ);
+
+    if (ff_bridge_is_central_square(to_sq)) score += 84;
+    if (ff_bridge_center_distance(to_sq) < ff_bridge_center_distance(from_sq)) {
+        score += 24 * (ff_bridge_center_distance(from_sq) -
+                       ff_bridge_center_distance(to_sq));
+    }
+
+    if (attacks & board->pieces[color_opposite(side)][QUEEN]) score += 72;
+    score += 40 * bb_popcount(attacks & board->pieces[color_opposite(side)][ROOK]);
+    score += 30 * bb_popcount(attacks &
+                              (board->pieces[color_opposite(side)][BISHOP] |
+                               board->pieces[color_opposite(side)][KNIGHT]));
+    score += 12 * bb_popcount(attacks & board->pieces[color_opposite(side)][PAWN]);
+
+    enemy_king = board->pieces[color_opposite(side)][KING];
+    if (enemy_king != BB_EMPTY) {
+        Square king_sq = bb_lsb(enemy_king);
+        Bitboard king_zone = king_attacks[king_sq] | BB_SQ(king_sq);
+
+        score += 14 * bb_popcount(attacks & king_zone);
+        if (BB_HAS(attacks, king_sq)) score += 32;
+    }
+
+    return score;
+}
+
+static int ff_bridge_quiet_minor_activity_score(const Board *board,
+                                                Move move,
+                                                Color side) {
+    PieceType piece;
+    Square from_sq;
+    Square to_sq;
+    int score = 0;
+    int from_center;
+    int to_center;
+
+    if (board->mod != MOD_FRIENDLY_FIRE || MOVE_IS_CAPTURE(move) ||
+        MOVE_IS_EP(move) || MOVE_IS_PROMO(move)) {
+        return 0;
+    }
+
+    piece = MOVE_PIECE(move);
+    if (piece != KNIGHT && piece != BISHOP) return 0;
+
+    if (search_ff_pawn_challenge_penalty(board, move, side) >= 112) return 0;
+
+    from_sq = MOVE_FROM(move);
+    to_sq = MOVE_TO(move);
+    from_center = ff_bridge_center_distance(from_sq);
+    to_center = ff_bridge_center_distance(to_sq);
+
+    if (ff_bridge_is_central_square(to_sq)) {
+        score += (piece == KNIGHT) ? 64 : 40;
+    }
+    if (to_center < from_center) score += 24 * (from_center - to_center);
+
+    if (piece == KNIGHT && (SQ_COL(from_sq) <= 1 || SQ_COL(from_sq) >= 6) &&
+        SQ_COL(to_sq) >= 2 && SQ_COL(to_sq) <= 5) {
+        score += 18;
+    }
+
+    if (piece == BISHOP && ff_bridge_is_central_square(to_sq) &&
+        SQ_ROW(from_sq) != ((side == WHITE) ? 0 : 7)) {
+        score += 16;
+    }
+
+    return score;
+}
+
+static int ff_candidate_priority(const Board *board, Move move, Color side) {
+    int score = 0;
+
+    if (board->mod != MOD_FRIENDLY_FIRE) return 0;
+    if (MOVE_IS_PROMO(move)) return 10000;
+
+    if (search_ff_is_own_capture(board, move)) {
+        score = 1600 + search_ff_self_capture_score(board, move, side);
+        if (MOVE_CAPTURED(move) == PAWN) score += 200;
+        return score;
+    }
+
+    if (MOVE_IS_CAPTURE(move) || MOVE_IS_EP(move)) {
+        score += ff_bridge_minor_capture_priority(board, move, side);
+        switch (MOVE_CAPTURED(move)) {
+            case QUEEN:
+                return 1650 + score;
+            case ROOK:
+                return 1500 + score;
+            case BISHOP:
+            case KNIGHT:
+                score += 1320;
+                if (MOVE_PIECE(move) == PAWN) score += 120;
+                if (MOVE_PIECE(move) == QUEEN) score -= 80;
+                return score;
+            default:
+                return score;
+        }
+    }
+
+    score += search_ff_minor_development_score(board, move, side);
+    score += ff_bridge_quiet_minor_activity_score(board, move, side);
+    score += search_ff_king_safety_score(board, move, side);
+    score += search_ff_king_zone_guard_score(board, move, side);
+    score += search_ff_quiet_pawn_score(board, move, side);
+    score += search_ff_quiet_pressure_score(board, move, side);
+    score += search_ff_self_capture_prep_score(board, move, side);
+    score -= search_ff_pawn_challenge_penalty(board, move, side);
+    score -= search_ff_flank_pawn_harass_penalty(board, move, side);
+    score -= search_ff_early_queen_sortie_penalty(board, move, side);
+    return score;
+}
+
+static bool ff_root_looks_suspicious(const Board *board, Move move, Color side) {
+    if (board->mod != MOD_FRIENDLY_FIRE || move == MOVE_NONE) return false;
+
+    if ((MOVE_IS_CAPTURE(move) || MOVE_IS_EP(move)) && !MOVE_IS_PROMO(move) &&
+        !search_ff_is_own_capture(board, move) && MOVE_CAPTURED(move) == PAWN &&
+        (MOVE_PIECE(move) == KNIGHT || MOVE_PIECE(move) == BISHOP)) {
+        return true;
+    }
+
+    if (MOVE_PIECE(move) == KING &&
+        !MOVE_IS_CAPTURE(move) && !MOVE_IS_EP(move) && !MOVE_IS_PROMO(move)) {
+        int king_safety = search_ff_king_safety_score(board, move, side);
+        int home_rank = (side == WHITE) ? 0 : 7;
+        bool early_non_castle = !MOVE_IS_CASTLE(move) && board->fullmove <= 16;
+        bool flank_tuck = SQ_ROW(MOVE_TO(move)) == home_rank &&
+                          (SQ_COL(MOVE_TO(move)) <= 2 || SQ_COL(MOVE_TO(move)) >= 5);
+        int shield = ff_bridge_pawn_shield_count(board, side, MOVE_TO(move));
+
+        if (king_safety < 80 ||
+            (early_non_castle && king_safety < 140) ||
+            (early_non_castle && flank_tuck && shield <= 1)) {
+            return true;
+        }
+    }
+
+    if (MOVE_PIECE(move) == QUEEN &&
+        search_ff_early_queen_sortie_penalty(board, move, side) > 0) {
+        return true;
+    }
+
+    return ff_candidate_priority(board, move, side) <= 0;
+}
+
+static SearchResult ff_refine_result(const Board *board,
+                                     SearchResult raw,
+                                     int time_ms,
+                                     int max_depth,
+                                     int skill_level) {
+    MoveList ml;
+    Move candidates[16];
+    int candidate_scores[16];
+    int candidate_count = 0;
+    int raw_best_score = 0;
+    int best_score = 0;
+    Move best_move = raw.best_move;
+    int raw_priority;
+    int verify_depth;
+    int verify_time;
+    bool suspicious_root;
+    bool raw_is_tactical;
+
+    if (board->mod != MOD_FRIENDLY_FIRE || raw.best_move == MOVE_NONE ||
+        skill_level < 4) {
+        return raw;
+    }
+
+    if (!(max_depth <= 4 || (time_ms > 0 && time_ms <= 150))) {
+        return raw;
+    }
+
+    raw_priority = ff_candidate_priority(board, raw.best_move, board->side);
+    suspicious_root = ff_root_looks_suspicious(board, raw.best_move, board->side);
+    raw_is_tactical = MOVE_IS_CAPTURE(raw.best_move) || MOVE_IS_EP(raw.best_move) ||
+                      MOVE_IS_PROMO(raw.best_move);
+
+    generate_moves(board, &ml);
+    if (ml.count <= 1) return raw;
+
+    candidates[candidate_count] = raw.best_move;
+    candidate_scores[candidate_count] = 2000000000;
+    candidate_count++;
+
+    for (int i = 0; i < ml.count; i++) {
+        Move move = ml.moves[i];
+        int priority;
+        int insert_at;
+        bool seen = false;
+
+        for (int j = 0; j < candidate_count; j++) {
+            if (candidates[j] == move) {
+                seen = true;
+                break;
+            }
+        }
+        if (seen) continue;
+
+        priority = ff_candidate_priority(board, move, board->side);
+        if (priority <= 0) continue;
+        if (!suspicious_root && raw_is_tactical && MOVE_IS_CAPTURE(raw.best_move) &&
+            MOVE_CAPTURED(raw.best_move) <= BISHOP && !MOVE_IS_CAPTURE(move) &&
+            !MOVE_IS_EP(move) && !MOVE_IS_PROMO(move) && MOVE_PIECE(move) == PAWN &&
+            search_ff_quiet_pawn_score(board, move, board->side) >= 120) {
+            suspicious_root = true;
+        }
+        if (!suspicious_root && !raw_is_tactical &&
+            priority >= 40 && priority >= raw_priority + 24) {
+            suspicious_root = true;
+        }
+        if (candidate_count == 16 && priority <= candidate_scores[candidate_count - 1]) {
+            continue;
+        }
+
+        insert_at = candidate_count;
+        if (insert_at > 15) insert_at = 15;
+        while (insert_at > 1 && candidate_scores[insert_at - 1] < priority) {
+            if (insert_at < 16) {
+                candidates[insert_at] = candidates[insert_at - 1];
+                candidate_scores[insert_at] = candidate_scores[insert_at - 1];
+            }
+            insert_at--;
+        }
+        if (insert_at < 16) {
+            candidates[insert_at] = move;
+            candidate_scores[insert_at] = priority;
+            if (candidate_count < 16) candidate_count++;
+        }
+    }
+
+    if (!suspicious_root || candidate_count <= 1) return raw;
+
+    verify_depth = (max_depth < 6) ? 6 : max_depth + 2;
+    verify_time = (time_ms <= 0) ? 420 : clamp_int(time_ms * 4, 320, 520);
+
+    for (int i = 0; i < candidate_count; i++) {
+        search_reset(1);
+        int score = kb_verify_child_score(
+            board,
+            candidates[i],
+            verify_time,
+            verify_depth,
+            skill_level
+        );
+
+        if (i == 0) {
+            raw_best_score = score;
+            best_score = score;
+            best_move = candidates[i];
+            continue;
+        }
+
+        if (score > best_score) {
+            best_score = score;
+            best_move = candidates[i];
+        }
+    }
+
+    if (best_move == raw.best_move || best_score < raw_best_score + 4) {
+        return raw;
+    }
+
+    raw.best_move = best_move;
+    raw.score = best_score;
+    return raw;
 }
 
 static SearchResult kb_refine_phase1_result(const Board *board,
@@ -361,6 +693,7 @@ static SearchResult engine_search_best_move(Board *board,
                                             int max_depth,
                                             int skill_level) {
     SearchResult raw = search_think(board, time_ms, max_depth, skill_level);
+    raw = ff_refine_result(board, raw, time_ms, max_depth, skill_level);
     raw = kb_refine_phase1_result(board, raw, time_ms, max_depth, skill_level);
     raw = kb_refine_unlocked_result(board, raw, time_ms, max_depth, skill_level);
     raw = heir_refine_queen_sortie_result(board, raw, time_ms, max_depth, skill_level);

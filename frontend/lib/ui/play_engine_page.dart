@@ -7,8 +7,8 @@ import '../engine/engine.dart';
 import 'board.dart';
 
 /// Page for playing against the chess engine.
-class PlayEnginePage extends StatelessWidget {
-  const PlayEnginePage({super.key});
+class PlayEngine extends StatelessWidget {
+  const PlayEngine({super.key});
 
   @override
   Widget build(BuildContext context) {

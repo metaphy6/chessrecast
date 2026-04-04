@@ -3,14 +3,14 @@ import 'package:get/get.dart';
 import '../mods/enums.dart';
 import 'shared.dart';
 
-class BotSelectionPage extends StatefulWidget {
-  const BotSelectionPage({super.key});
+class BotSelection extends StatefulWidget {
+  const BotSelection({super.key});
 
   @override
-  State<BotSelectionPage> createState() => _BotSelectionPageState();
+  State<BotSelection> createState() => _BotSelectionState();
 }
 
-class _BotSelectionPageState extends State<BotSelectionPage> {
+class _BotSelectionState extends State<BotSelection> {
   int _selectedDifficulty = 5;
   ModsEnum _selectedMode = ModsEnum.classic;
 

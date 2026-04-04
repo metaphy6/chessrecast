@@ -4,14 +4,14 @@ import '../mods/enums.dart';
 import 'shared.dart';
 import '../services/api_service.dart';
 
-class OnlineBotVsBotPage extends StatefulWidget {
-  const OnlineBotVsBotPage({super.key});
+class OnlineBotVsBot extends StatefulWidget {
+  const OnlineBotVsBot({super.key});
 
   @override
-  State<OnlineBotVsBotPage> createState() => _OnlineBotVsBotPageState();
+  State<OnlineBotVsBot> createState() => _OnlineBotVsBotState();
 }
 
-class _OnlineBotVsBotPageState extends State<OnlineBotVsBotPage> {
+class _OnlineBotVsBotState extends State<OnlineBotVsBot> {
   final ApiService _apiService = ApiService();
 
   int _whiteDifficulty = 5;
