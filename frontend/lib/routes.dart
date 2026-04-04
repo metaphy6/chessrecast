@@ -25,12 +25,12 @@ class AppRoutes {
   static List<GetPage> routes = [
     GetPage(
       name: home,
-      page: () => const GameModSelectionPage(),
+      page: () => const GameModSelection(),
       binding: AppBindings(),
     ),
     GetPage(
       name: playOptions,
-      page: () => const PlayOptionsPage(),
+      page: () => const PlayOptions(),
       binding: AppBindings(),
     ),
     GetPage(name: chess, page: () => const GamePage(), binding: AppBindings()),
@@ -42,22 +42,22 @@ class AppRoutes {
     ),
     GetPage(
       name: botSelection,
-      page: () => const BotSelectionPage(),
+      page: () => const BotSelection(),
       binding: AppBindings(),
     ),
     GetPage(
       name: onlineBotVsBot,
-      page: () => const OnlineBotVsBotPage(),
+      page: () => const OnlineBotVsBot(),
       binding: AppBindings(),
     ),
     GetPage(
       name: watchEngine,
-      page: () => const WatchEnginePage(),
+      page: () => const WatchEngine(),
       binding: AppBindings(),
     ),
     GetPage(
       name: playEngine,
-      page: () => const PlayEnginePage(),
+      page: () => const PlayEngine(),
       binding: AppBindings(),
     ),
     GetPage(

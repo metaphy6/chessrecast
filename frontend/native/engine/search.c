@@ -395,6 +395,50 @@ static int truce_quiet_pawn_score(const Board *b, Move m, Color side) {
     return search_truce_quiet_pawn_score(b, m, side);
 }
 
+static bool ff_is_own_capture(const Board *b, Move m) {
+    return search_ff_is_own_capture(b, m);
+}
+
+static int ff_self_capture_score(const Board *b, Move m, Color side) {
+    return search_ff_self_capture_score(b, m, side);
+}
+
+static int ff_minor_development_score(const Board *b, Move m, Color side) {
+    return search_ff_minor_development_score(b, m, side);
+}
+
+static int ff_early_queen_sortie_penalty(const Board *b, Move m, Color side) {
+    return search_ff_early_queen_sortie_penalty(b, m, side);
+}
+
+static int ff_quiet_pawn_score(const Board *b, Move m, Color side) {
+    return search_ff_quiet_pawn_score(b, m, side);
+}
+
+static int ff_quiet_pressure_score(const Board *b, Move m, Color side) {
+    return search_ff_quiet_pressure_score(b, m, side);
+}
+
+static int ff_king_safety_score(const Board *b, Move m, Color side) {
+    return search_ff_king_safety_score(b, m, side);
+}
+
+static int ff_king_zone_guard_score(const Board *b, Move m, Color side) {
+    return search_ff_king_zone_guard_score(b, m, side);
+}
+
+static int ff_self_capture_prep_score(const Board *b, Move m, Color side) {
+    return search_ff_self_capture_prep_score(b, m, side);
+}
+
+static int ff_pawn_challenge_penalty(const Board *b, Move m, Color side) {
+    return search_ff_pawn_challenge_penalty(b, m, side);
+}
+
+static int ff_flank_pawn_harass_penalty(const Board *b, Move m, Color side) {
+    return search_ff_flank_pawn_harass_penalty(b, m, side);
+}
+
 static int kb_phase1_forward_rank(Color side, Square sq) {
     return search_kb_phase1_forward_rank(side, sq);
 }
@@ -439,7 +483,11 @@ static int move_score(const Board *b, Move m, Move tt_move,
     if (MOVE_IS_CAPTURE(m) || MOVE_IS_EP(m)) {
         int see = see_value(b, m);
         int score;
-        if (see >= 0) {
+        int ff_self_cap_score = ff_self_capture_score(b, m, side);
+        if (b->mod == MOD_FRIENDLY_FIRE && ff_is_own_capture(b, m) &&
+            ff_self_cap_score >= 140) {
+            score = 4600000 + ff_self_cap_score + maxi(see, -200);
+        } else if (see >= 0) {
             score = 5000000 + MVV_LVA[MOVE_PIECE(m)][MOVE_CAPTURED(m)];
         } else {
             score = -1000000 + see;
@@ -501,6 +549,15 @@ static int move_score(const Board *b, Move m, Move tt_move,
     score += truce_minor_development_score(b, m, side);
     score -= truce_early_queen_sortie_penalty(b, m, side);
     score += truce_quiet_pawn_score(b, m, side);
+    score += ff_minor_development_score(b, m, side);
+    score -= ff_early_queen_sortie_penalty(b, m, side);
+    score += ff_quiet_pawn_score(b, m, side);
+    score += ff_quiet_pressure_score(b, m, side);
+    score += ff_king_safety_score(b, m, side);
+    score += ff_king_zone_guard_score(b, m, side);
+    score += ff_self_capture_prep_score(b, m, side);
+    score -= ff_pawn_challenge_penalty(b, m, side);
+    score -= ff_flank_pawn_harass_penalty(b, m, side);
     score += kb_phase1_king_activation_score(b, m, side);
     score += kb_phase1_pawn_race_score(b, m, side);
     score += kb_unlocked_queen_pressure_score(b, m, side);
@@ -695,6 +752,8 @@ static int quiescence(Board *b, int alpha, int beta, int ply, int qply) {
 
     for (int i = 0; i < ml.count; i++) {
         Move m = ml.moves[i];
+        int ff_self_cap_score = ff_self_capture_score(b, m, b->side);
+        bool ff_tactical_capture = ff_self_cap_score >= 140;
 
         /* SEE pruning (Stockfish-inspired graduated approach):
            Standard: skip losing captures (SEE < 0).
@@ -703,6 +762,8 @@ static int quiescence(Board *b, int alpha, int beta, int ply, int qply) {
         int see = see_value(b, m);
         if (is_merc) {
             if (qply < 4 ? (see < -50) : (see <= 0)) continue;
+        } else if (ff_tactical_capture) {
+            if (see < -220) continue;
         } else {
             if (see < 0) continue;
         }
@@ -941,6 +1002,13 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
         bool is_promo = MOVE_IS_PROMO(m);
         bool heir_critical = is_heir && heir_critical_move(b, m);
         Color mover = b->side;
+        int ff_self_cap_score = 0;
+        int ff_dev_score = 0;
+        int ff_pawn_score = 0;
+        int ff_king_score = 0;
+        int ff_guard_score = 0;
+        int ff_prep_score = 0;
+        int ff_harass_penalty = 0;
         int kb_pawn_score = (kb_phase1 && MOVE_PIECE(m) == PAWN)
             ? kb_phase1_pawn_race_score(b, m, mover)
             : 0;
@@ -949,6 +1017,19 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
         int see_val = 0;
         if (is_cap) see_val = see_value(b, m);
         bool heir_tactical = is_heir && heir_tactical_capture(b, m, see_val);
+        if (b->mod == MOD_FRIENDLY_FIRE) {
+            if (is_cap) {
+                ff_self_cap_score = ff_self_capture_score(b, m, mover);
+            } else if (!is_promo) {
+                ff_dev_score = ff_minor_development_score(b, m, mover);
+                ff_pawn_score = ff_quiet_pawn_score(b, m, mover);
+                ff_king_score = ff_king_safety_score(b, m, mover);
+                ff_guard_score = ff_king_zone_guard_score(b, m, mover);
+                ff_prep_score = ff_self_capture_prep_score(b, m, mover);
+                ff_harass_penalty = ff_flank_pawn_harass_penalty(b, m, mover);
+            }
+        }
+        bool ff_tactical_capture = ff_self_cap_score >= 140;
 
         /* Detect recapture BEFORE making the move */
         bool is_recapture = false;
@@ -972,19 +1053,34 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
             /* LMP: skip late quiet moves at shallow depths */
             if (!kb_phase1 && !is_merc && !heir_volatile && !is_cap && !is_promo && !gives_check &&
                 depth <= 5 && moves_done >= LMP_LIMIT[depth]) {
+                if (ff_dev_score >= 60 || ff_king_score >= 70 || ff_guard_score >= 90 ||
+                    ff_pawn_score >= 120) {
+                    /* Keep high-value Friendly Fire king-safety/development moves. */
+                } else {
                 board_unmake_move(b);
                 continue;
+                }
             }
 
             /* Futility: skip late quiets when eval+margin < alpha */
             if (!kb_phase1 && !is_merc && !heir_volatile && do_futility && !is_cap && !is_promo && !gives_check) {
+                if (ff_dev_score >= 60 || ff_king_score >= 70 || ff_guard_score >= 90 ||
+                    ff_pawn_score >= 120) {
+                    /* Keep high-value Friendly Fire king-safety/development moves. */
+                } else {
                 board_unmake_move(b);
                 continue;
+                }
             }
 
             /* SEE pruning for captures at low depth */
             if (is_cap && depth <= 3 && !gives_check) {
-                if (!heir_critical && see_val < -80 * depth) {
+                if (ff_tactical_capture) {
+                    if (see_val < -220) {
+                        board_unmake_move(b);
+                        continue;
+                    }
+                } else if (!heir_critical && see_val < -80 * depth) {
                     board_unmake_move(b);
                     continue;
                 }
@@ -1008,6 +1104,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
                    !is_cap && !is_promo && kb_pawn_score >= 220) {
             ext = maxi(ext, 1);
         }
+        if (!ext && ff_tactical_capture && depth >= 4) ext = 1;
         /* Recapture extension: search deeper when recapturing on the
            same square to avoid horizon-effect blunders in exchanges */
         if (!ext && is_recapture && depth >= 4) ext = 1;
@@ -1078,6 +1175,16 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
                                 reduction--;
                         }
                     }
+                }
+                if (b->mod == MOD_FRIENDLY_FIRE && reduction > 0) {
+                    if (ff_dev_score >= 50 || ff_king_score >= 80) reduction--;
+                    if (ff_guard_score >= 70 && reduction > 0) reduction--;
+                    if (ff_pawn_score >= 120 && reduction > 0) reduction--;
+                    if ((ff_dev_score >= 80 || ff_king_score >= 120) && reduction > 0) {
+                        reduction--;
+                    }
+                    if (ff_guard_score >= 120 && reduction > 0) reduction--;
+                    if (ff_harass_penalty >= 70) reduction++;
                 }
                 /* King's Battle Phase 1: king moves are tactical (hunting
                    pawns) — reduce less to see captures deeper */

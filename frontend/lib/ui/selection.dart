@@ -3,8 +3,8 @@ import 'package:get/get.dart';
 import '../mods/enums.dart';
 import '../management/options.dart';
 
-class GameModSelectionPage extends StatelessWidget {
-  const GameModSelectionPage({super.key});
+class GameModSelection extends StatelessWidget {
+  const GameModSelection({super.key});
 
   @override
   Widget build(BuildContext context) {

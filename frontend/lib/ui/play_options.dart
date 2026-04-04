@@ -4,8 +4,8 @@ import '../mods/enums.dart';
 import '../management/options.dart';
 import '../constants.dart';
 
-class PlayOptionsPage extends StatelessWidget {
-  const PlayOptionsPage({super.key});
+class PlayOptions extends StatelessWidget {
+  const PlayOptions({super.key});
 
   @override
   Widget build(BuildContext context) {

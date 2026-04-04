@@ -11,8 +11,8 @@ import 'board.dart';
 /// Shows the board, live search stats (depth, score, nodes),
 /// playback controls (play/pause, speed, step), a scrolling move log,
 /// and a running scoreboard (W-D-L) across auto-restarted games.
-class WatchEnginePage extends StatelessWidget {
-  const WatchEnginePage({super.key});
+class WatchEngine extends StatelessWidget {
+  const WatchEngine({super.key});
 
   @override
   Widget build(BuildContext context) {
