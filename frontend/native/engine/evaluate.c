@@ -1294,6 +1294,43 @@ int evaluate(const Board *b) {
                 }
             }
 
+            /* Pieces that sit on attacked squares are less reliable in FF,
+               especially advanced minor pieces that just grabbed material. */
+            {
+                static const int FF_VULN_PENALTY[6] = {
+                    0, 48, 46, 64, 96, 0
+                };
+                static const int FF_VULN_DEFENDED[6] = {
+                    0, 18, 18, 26, 42, 0
+                };
+
+                for (int t = KNIGHT; t <= QUEEN; t++) {
+                    Bitboard bb = b->pieces[c][t];
+                    while (bb) {
+                        Square sq = (Square)bb_pop_lsb(&bb);
+                        bool attacked = board_square_attacked(b, sq, (Color)opp);
+                        bool defended = BB_HAS(own_def, sq);
+                        bool pawn_attacked = BB_HAS(pawn_atk[opp], sq);
+                        int pen;
+
+                        if (!attacked) continue;
+
+                        pen = defended ? FF_VULN_DEFENDED[t] : FF_VULN_PENALTY[t];
+                        if (pawn_attacked && t <= BISHOP) pen += 18;
+
+                        if (t <= BISHOP) {
+                            int advance = (c == WHITE) ? SQ_ROW(sq) : (7 - SQ_ROW(sq));
+                            bool central = SQ_COL(sq) >= 2 && SQ_COL(sq) <= 5;
+
+                            if (!defended && advance >= 3) pen += 10 + (advance - 3) * 10;
+                            if (central && advance >= 3) pen += 8;
+                        }
+
+                        bonus -= pen;
+                    }
+                }
+            }
+
             /* ─ Open line potential: pieces that could open lines by
                self-capturing blockers get a small positional bonus.
                Rooks/queens on files with own pawns that have moved: the
