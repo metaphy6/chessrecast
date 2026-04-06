@@ -102,6 +102,13 @@ static int ff_bridge_center_distance(Square sq) {
     return row_dist + col_dist;
 }
 
+static int ff_bridge_chebyshev_distance(Square a, Square b) {
+    int row_dist = abs(SQ_ROW(a) - SQ_ROW(b));
+    int col_dist = abs(SQ_COL(a) - SQ_COL(b));
+
+    return (row_dist > col_dist) ? row_dist : col_dist;
+}
+
 static bool ff_bridge_is_central_square(Square sq) {
     return SQ_ROW(sq) >= 2 && SQ_ROW(sq) <= 5 &&
            SQ_COL(sq) >= 2 && SQ_COL(sq) <= 5;
@@ -179,6 +186,29 @@ static int ff_bridge_minor_capture_priority(const Board *board,
     return score;
 }
 
+static bool ff_bridge_loose_minor_capture(const Board *board,
+                                         Move move,
+                                         Color side) {
+    Board child;
+    Square to_sq;
+
+    if (board->mod != MOD_FRIENDLY_FIRE || !MOVE_IS_CAPTURE(move) ||
+        MOVE_IS_EP(move) || MOVE_IS_PROMO(move) ||
+        search_ff_is_own_capture(board, move)) {
+        return false;
+    }
+
+    if (MOVE_PIECE(move) != KNIGHT && MOVE_PIECE(move) != BISHOP) return false;
+    if (MOVE_CAPTURED(move) < KNIGHT) return false;
+
+    child = *board;
+    board_make_move(&child, move);
+    to_sq = MOVE_TO(move);
+
+    return board_square_attacked(&child, to_sq, child.side) &&
+           !board_square_attacked(&child, to_sq, side);
+}
+
 static int ff_bridge_quiet_minor_activity_score(const Board *board,
                                                 Move move,
                                                 Color side) {
@@ -222,6 +252,75 @@ static int ff_bridge_quiet_minor_activity_score(const Board *board,
     return score;
 }
 
+static int ff_bridge_quiet_pawn_harass_priority(const Board *board,
+                                                Move move,
+                                                Color side) {
+    Bitboard king_bb;
+    Square from_sq;
+    Square to_sq;
+    int from_rank;
+    int attack_row;
+    int best = 0;
+
+    if (board->mod != MOD_FRIENDLY_FIRE || MOVE_PIECE(move) != PAWN ||
+        MOVE_IS_CAPTURE(move) || MOVE_IS_EP(move) || MOVE_IS_PROMO(move)) {
+        return 0;
+    }
+
+    from_sq = MOVE_FROM(move);
+    to_sq = MOVE_TO(move);
+    from_rank = (side == WHITE) ? SQ_ROW(from_sq) : (7 - SQ_ROW(from_sq));
+    if (from_rank != 1) return 0;
+
+    attack_row = SQ_ROW(to_sq) + ((side == WHITE) ? 1 : -1);
+    if (attack_row < 0 || attack_row > 7) return 0;
+
+    king_bb = board->pieces[side][KING];
+    for (int dc = -1; dc <= 1; dc += 2) {
+        int attack_col = SQ_COL(to_sq) + dc;
+        Square target_sq;
+        Piece target;
+        int bonus = 0;
+        int target_rank;
+
+        if (attack_col < 0 || attack_col > 7) continue;
+
+        target_sq = SQ(attack_row, attack_col);
+        target = board->mailbox[target_sq];
+        if (target == PIECE_EMPTY || PIECE_COLOR(target) != color_opposite(side)) {
+            continue;
+        }
+
+        switch (PIECE_TYPE(target)) {
+            case QUEEN:
+                bonus = 64;
+                break;
+            case ROOK:
+                bonus = 48;
+                break;
+            case BISHOP:
+            case KNIGHT:
+                bonus = 40;
+                break;
+            default:
+                bonus = 0;
+                break;
+        }
+        if (bonus <= 0) continue;
+
+        target_rank = (side == WHITE) ? SQ_ROW(target_sq) : (7 - SQ_ROW(target_sq));
+        if (target_rank >= 3) bonus += 18;
+        if (king_bb != BB_EMPTY &&
+            ff_bridge_chebyshev_distance(target_sq, bb_lsb(king_bb)) <= 3) {
+            bonus += 18;
+        }
+
+        if (bonus > best) best = bonus;
+    }
+
+    return best;
+}
+
 static int ff_candidate_priority(const Board *board, Move move, Color side) {
     int score = 0;
 
@@ -257,6 +356,7 @@ static int ff_candidate_priority(const Board *board, Move move, Color side) {
     score += search_ff_king_safety_score(board, move, side);
     score += search_ff_king_zone_guard_score(board, move, side);
     score += search_ff_quiet_pawn_score(board, move, side);
+    score += ff_bridge_quiet_pawn_harass_priority(board, move, side);
     score += search_ff_quiet_pressure_score(board, move, side);
     score += search_ff_self_capture_prep_score(board, move, side);
     score -= search_ff_pawn_challenge_penalty(board, move, side);
@@ -271,6 +371,16 @@ static bool ff_root_looks_suspicious(const Board *board, Move move, Color side) 
     if ((MOVE_IS_CAPTURE(move) || MOVE_IS_EP(move)) && !MOVE_IS_PROMO(move) &&
         !search_ff_is_own_capture(board, move) && MOVE_CAPTURED(move) == PAWN &&
         (MOVE_PIECE(move) == KNIGHT || MOVE_PIECE(move) == BISHOP)) {
+        return true;
+    }
+
+    if ((MOVE_IS_CAPTURE(move) || MOVE_IS_EP(move)) && !MOVE_IS_PROMO(move) &&
+        !search_ff_is_own_capture(board, move) && MOVE_CAPTURED(move) >= KNIGHT &&
+        (MOVE_PIECE(move) == KNIGHT || MOVE_PIECE(move) == BISHOP)) {
+        return true;
+    }
+
+    if (ff_bridge_loose_minor_capture(board, move, side)) {
         return true;
     }
 

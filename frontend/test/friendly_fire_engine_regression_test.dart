@@ -106,6 +106,79 @@ void main() {
       },
       skip: !NativeEngine.isAvailable,
     );
+
+    test(
+      'prefers h2-h3 over routine knight development in the g4 bishop pin line',
+      () {
+        final board = _boardFromReplay([
+          'g2g4',
+          'e7e5',
+          'd2d4',
+          'd7d5',
+          'd4e5',
+          'b8c6',
+          'g4g5',
+          'c8g4',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), isNot('g1f3'));
+        expect(_moveNotation(best), 'h2h3');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'prefers Ng1-f3 over the loose Nc3xd5 pawn grab in the f5 line',
+      () {
+        final board = _boardFromReplay([
+          'e2e4',
+          'f7f5',
+          'e4f5',
+          'g8f6',
+          'f1d3',
+          'd7d5',
+          'd1e2',
+          'c8d7',
+          'b1c3',
+          'b8c6',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), isNot('c3d5'));
+        expect(_moveNotation(best), 'g1f3');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'prefers Ng8-e7 over the loose Bd6xe5 bishop capture in the b4 d5 line',
+      () {
+        final board = _boardFromReplay([
+          'b2b4',
+          'd7d5',
+          'g1f3',
+          'e7e5',
+          'f3e5',
+          'f8b4',
+          'e2e3',
+          'e8f8',
+          'a2a3',
+          'b4d6',
+          'd2d4',
+          'd8f6',
+          'b1c3',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), isNot('d6e5'));
+        expect(_moveNotation(best), 'g8e7');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
   });
 }
 

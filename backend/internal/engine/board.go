@@ -415,7 +415,8 @@ func (b *Board) MakeMove(move Move) error {
 // executeCastling handles castling move
 func (b *Board) executeCastling(move Move) {
 	// Move the rook
-	if move.To.Col == 6 { // Kingside
+	switch move.To.Col {
+case 6: // Kingside
 		rookFrom := Position{Row: move.From.Row, Col: 7}
 		rookTo := Position{Row: move.From.Row, Col: 5}
 		rook := b.GetPieceAt(rookFrom)
@@ -426,7 +427,7 @@ func (b *Board) executeCastling(move Move) {
 		rook.Position = rookTo
 		rook.HasMoved = true
 		b.setPiece(rook)
-	} else if move.To.Col == 2 { // Queenside
+	case 2: // Queenside
 		rookFrom := Position{Row: move.From.Row, Col: 0}
 		rookTo := Position{Row: move.From.Row, Col: 3}
 		rook := b.GetPieceAt(rookFrom)
