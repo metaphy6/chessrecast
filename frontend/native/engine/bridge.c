@@ -209,6 +209,165 @@ static bool ff_bridge_loose_minor_capture(const Board *board,
            !board_square_attacked(&child, to_sq, side);
 }
 
+static bool ff_bridge_pawn_capture_has_safe_heavy_alternative(const Board *board,
+                                                              Move move,
+                                                              Color side) {
+    MoveList ml;
+    Square target_sq;
+    PieceType captured;
+
+    if (board->mod != MOD_FRIENDLY_FIRE || !MOVE_IS_CAPTURE(move) ||
+        MOVE_IS_EP(move) || MOVE_IS_PROMO(move) ||
+        search_ff_is_own_capture(board, move)) {
+        return false;
+    }
+
+    if (MOVE_PIECE(move) != PAWN || MOVE_CAPTURED(move) < KNIGHT) return false;
+
+    target_sq = MOVE_TO(move);
+    captured = MOVE_CAPTURED(move);
+    generate_moves(board, &ml);
+
+    for (int i = 0; i < ml.count; i++) {
+        Move alt = ml.moves[i];
+        Board child;
+
+        if (alt == move) continue;
+        if (!(MOVE_IS_CAPTURE(alt) || MOVE_IS_EP(alt)) || MOVE_IS_PROMO(alt)) {
+            continue;
+        }
+        if (search_ff_is_own_capture(board, alt) || MOVE_TO(alt) != target_sq ||
+            MOVE_CAPTURED(alt) != captured) {
+            continue;
+        }
+        if (MOVE_PIECE(alt) != QUEEN && MOVE_PIECE(alt) != ROOK) continue;
+
+        child = *board;
+        board_make_move(&child, alt);
+        if (!board_square_attacked(&child, target_sq, child.side) ||
+            board_square_attacked(&child, target_sq, side)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static int ff_bridge_rook_firebreak_priority(const Board *board,
+                                             Move move,
+                                             Color side) {
+    Bitboard king_bb;
+    Bitboard enemy_queen_bb;
+    Square king_sq;
+    Square queen_sq;
+    Square from_sq;
+    Square to_sq;
+    int home_rank;
+    int from_dist;
+    int to_dist;
+    int score = 0;
+    Board child;
+    bool from_attacked;
+    bool to_attacked;
+    bool king_hot;
+    bool next_king_hot;
+
+    if (board->mod != MOD_FRIENDLY_FIRE || MOVE_PIECE(move) != ROOK ||
+        MOVE_IS_CAPTURE(move) || MOVE_IS_EP(move) || MOVE_IS_PROMO(move)) {
+        return 0;
+    }
+
+    king_bb = board->pieces[side][KING];
+    enemy_queen_bb = board->pieces[color_opposite(side)][QUEEN];
+    if (king_bb == BB_EMPTY || enemy_queen_bb == BB_EMPTY) return 0;
+
+    king_sq = bb_lsb(king_bb);
+    queen_sq = bb_lsb(enemy_queen_bb);
+    from_sq = MOVE_FROM(move);
+    to_sq = MOVE_TO(move);
+    home_rank = (side == WHITE) ? 0 : 7;
+
+    if (SQ_ROW(king_sq) != home_rank || SQ_ROW(from_sq) != home_rank ||
+        SQ_ROW(to_sq) != home_rank) {
+        return 0;
+    }
+    if (ff_bridge_chebyshev_distance(queen_sq, king_sq) > 3) return 0;
+
+    from_dist = abs(SQ_COL(from_sq) - SQ_COL(king_sq));
+    to_dist = abs(SQ_COL(to_sq) - SQ_COL(king_sq));
+    if (to_dist >= from_dist) return 0;
+
+    from_attacked = board_square_attacked(board, from_sq, color_opposite(side));
+    king_hot = board_square_attacked(board, king_sq, color_opposite(side));
+
+    child = *board;
+    board_make_move(&child, move);
+    to_attacked = board_square_attacked(&child, to_sq, color_opposite(side));
+    next_king_hot = board_square_attacked(&child, king_sq, color_opposite(side));
+
+    if (!from_attacked && !to_attacked && !king_hot && !next_king_hot) return 0;
+
+    score += 28 * (from_dist - to_dist);
+    if (from_attacked) score += 28;
+    if (to_attacked) score += 16;
+    if (king_hot && !next_king_hot) score += 56;
+    if (!king_hot && next_king_hot) return 0;
+
+    return score;
+}
+
+static bool ff_bridge_unsafe_queen_pawn_grab(const Board *board,
+                                             Move move,
+                                             Color side) {
+    Bitboard king_bb;
+    Bitboard enemy_queen_bb;
+    Square king_sq;
+    Square enemy_queen_sq;
+    Square from_sq;
+    Square to_sq;
+    int from_dist;
+    int to_dist;
+    Board child;
+    bool king_hot;
+    bool next_king_hot;
+    bool queen_attacked;
+    bool queen_defended;
+
+    if (board->mod != MOD_FRIENDLY_FIRE || !MOVE_IS_CAPTURE(move) ||
+        MOVE_IS_EP(move) || MOVE_IS_PROMO(move) ||
+        search_ff_is_own_capture(board, move)) {
+        return false;
+    }
+
+    if (MOVE_PIECE(move) != QUEEN || MOVE_CAPTURED(move) != PAWN) return false;
+
+    king_bb = board->pieces[side][KING];
+    enemy_queen_bb = board->pieces[color_opposite(side)][QUEEN];
+    if (king_bb == BB_EMPTY || enemy_queen_bb == BB_EMPTY) return false;
+
+    king_sq = bb_lsb(king_bb);
+    enemy_queen_sq = bb_lsb(enemy_queen_bb);
+    if (ff_bridge_chebyshev_distance(enemy_queen_sq, king_sq) > 3) return false;
+
+    from_sq = MOVE_FROM(move);
+    to_sq = MOVE_TO(move);
+    from_dist = ff_bridge_chebyshev_distance(from_sq, king_sq);
+    to_dist = ff_bridge_chebyshev_distance(to_sq, king_sq);
+
+    child = *board;
+    board_make_move(&child, move);
+
+    king_hot = board_square_attacked(board, king_sq, color_opposite(side));
+    next_king_hot = board_square_attacked(&child, king_sq, color_opposite(side));
+    queen_attacked = board_square_attacked(&child, to_sq, child.side);
+    queen_defended = board_square_attacked(&child, to_sq, side);
+
+    if (!king_hot && next_king_hot) return true;
+    if (queen_attacked && !queen_defended) return true;
+
+    return to_dist > from_dist;
+}
+
 static int ff_bridge_quiet_minor_activity_score(const Board *board,
                                                 Move move,
                                                 Color side) {
@@ -384,6 +543,10 @@ static bool ff_root_looks_suspicious(const Board *board, Move move, Color side) 
         return true;
     }
 
+    if (ff_bridge_pawn_capture_has_safe_heavy_alternative(board, move, side)) {
+        return true;
+    }
+
     if (MOVE_PIECE(move) == KING &&
         !MOVE_IS_CAPTURE(move) && !MOVE_IS_EP(move) && !MOVE_IS_PROMO(move)) {
         int king_safety = search_ff_king_safety_score(board, move, side);
@@ -425,6 +588,7 @@ static SearchResult ff_refine_result(const Board *board,
     int verify_time;
     bool suspicious_root;
     bool raw_is_tactical;
+    bool raw_unsafe_queen_pawn_grab;
 
     if (board->mod != MOD_FRIENDLY_FIRE || raw.best_move == MOVE_NONE ||
         skill_level < 4) {
@@ -439,6 +603,11 @@ static SearchResult ff_refine_result(const Board *board,
     suspicious_root = ff_root_looks_suspicious(board, raw.best_move, board->side);
     raw_is_tactical = MOVE_IS_CAPTURE(raw.best_move) || MOVE_IS_EP(raw.best_move) ||
                       MOVE_IS_PROMO(raw.best_move);
+    raw_unsafe_queen_pawn_grab = ff_bridge_unsafe_queen_pawn_grab(
+        board,
+        raw.best_move,
+        board->side
+    );
 
     generate_moves(board, &ml);
     if (ml.count <= 1) return raw;
@@ -462,6 +631,17 @@ static SearchResult ff_refine_result(const Board *board,
         if (seen) continue;
 
         priority = ff_candidate_priority(board, move, board->side);
+        if (raw_unsafe_queen_pawn_grab) {
+            int bridge_priority = ff_bridge_rook_firebreak_priority(
+                board,
+                move,
+                board->side
+            );
+
+            if (bridge_priority > 0 && priority < bridge_priority + 96) {
+                priority = bridge_priority + 96;
+            }
+        }
         if (priority <= 0) continue;
         if (!suspicious_root && raw_is_tactical && MOVE_IS_CAPTURE(raw.best_move) &&
             MOVE_CAPTURED(raw.best_move) <= BISHOP && !MOVE_IS_CAPTURE(move) &&

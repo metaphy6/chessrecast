@@ -179,6 +179,74 @@ void main() {
       },
       skip: !NativeEngine.isAvailable,
     );
+
+    test(
+      'prefers Qd1xd5 over the loose e4xd5 pawn grab in the d4 c5 line',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'c7c5',
+          'g1f3',
+          'c5d4',
+          'f3d4',
+          'g8f6',
+          'b1c3',
+          'e7e5',
+          'd4f3',
+          'b8c6',
+          'e2e4',
+          'f8c5',
+          'f1c4',
+          'd8b6',
+          'c3d5',
+          'f6d5',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), isNot('e4d5'));
+        expect(_moveNotation(best), 'd1d5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'prefers Rh1-f1 over the loose Qd4xe5 queen grab in the g4 e5 line',
+      () {
+        final board = _boardFromReplay([
+          'g2g4',
+          'e7e5',
+          'b1c3',
+          'd7d5',
+          'd2d4',
+          'b8c6',
+          'e2e3',
+          'c8e6',
+          'f1b5',
+          'g8f6',
+          'b5c6',
+          'b7c6',
+          'd4e5',
+          'f6e4',
+          'g1e2',
+          'd8h4',
+          'c3e4',
+          'd5e4',
+          'd1d4',
+          'h4g4',
+          'e2c3',
+          'e6f5',
+          'c1d2',
+          'g4g2',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), isNot('d4e5'));
+        expect(_moveNotation(best), 'h1f1');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
   });
 }
 
