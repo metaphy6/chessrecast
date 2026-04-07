@@ -424,6 +424,8 @@ void board_make_move(Board *b, Move m) {
     b->history[idx].ff_moved = b->ff_moved;
     b->history[idx].kb_unlocked = b->kb_unlocked;
     b->history[idx].kb_bonus = 0;
+    b->history[idx].stq_reprisoned = 0;
+    b->history[idx].stq_reprison_sq = SQ_NONE;
 
     Square from = MOVE_FROM(m);
     Square to   = MOVE_TO(m);
@@ -439,9 +441,27 @@ void board_make_move(Board *b, Move m) {
         b->history[idx].captured_sq = cap_sq;
         board_remove(b, cap_sq);
     } else if (MOVE_IS_CAPTURE(m)) {
-        b->history[idx].captured    = b->mailbox[to];
+        Piece captured_piece = b->mailbox[to];
+
+        b->history[idx].captured    = captured_piece;
         b->history[idx].captured_sq = to;
+
+        /* Save the Queen: capturing a prisoner queen sends it back to prison
+           when the prison square is empty at capture time. */
+        if (b->mod == MOD_SAVE_QUEEN && captured_piece != PIECE_EMPTY &&
+            PIECE_TYPE(captured_piece) == QUEEN && !stq_is_own_half(to, them)) {
+            Square prison_sq = (them == WHITE) ? STQ_WHITE_PRISON : STQ_BLACK_PRISON;
+            if (b->mailbox[prison_sq] == PIECE_EMPTY) {
+                b->history[idx].stq_reprisoned = 1;
+                b->history[idx].stq_reprison_sq = prison_sq;
+            }
+        }
+
         board_remove(b, to);
+
+        if (b->history[idx].stq_reprisoned) {
+            board_place(b, b->history[idx].stq_reprison_sq, them, QUEEN);
+        }
     }
 
     /* Move the piece */
@@ -592,6 +612,12 @@ void board_unmake_move(Board *b) {
 
     /* Place original piece back on source */
     board_place(b, from, us, pt);
+
+    /* Save the Queen: remove any prisoner queen that was re-placed at prison. */
+    if (b->history[idx].stq_reprisoned &&
+        b->history[idx].stq_reprison_sq != SQ_NONE) {
+        board_remove(b, b->history[idx].stq_reprison_sq);
+    }
 
     /* Restore captured piece */
     if (b->history[idx].captured != PIECE_EMPTY) {
