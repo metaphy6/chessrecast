@@ -59,6 +59,8 @@ typedef struct {
         uint64_t ff_moved;         /* saved friendly fire state for undo */
         uint8_t  kb_unlocked;      /* saved king's battle state for undo */
         uint8_t  kb_bonus;         /* did this move grant a bonus (no side switch)? */
+        uint8_t  stq_reprisoned;   /* save-the-queen: captured prisoner returned to prison */
+        Square   stq_reprison_sq;  /* where that prisoner queen was re-placed */
     } history[MAX_HISTORY];
     int ply;
 } Board;

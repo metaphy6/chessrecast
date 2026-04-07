@@ -153,9 +153,12 @@ static void gen_pawn_moves(const Board *b, MoveList *ml, bool captures_only) {
                 PieceType capt = PIECE_TYPE(target);
                 /* In Heir, pawns CAN capture kings; in other mods they can't */
                 if (capt == KING && !is_heir) continue;
-                /* Save the Queen: pawns can't capture prisoner queens */
-                if (is_stq && capt == QUEEN && !stq_is_own_half(to, them))
-                    continue;
+                /* Save the Queen: prisoner queen capture is legal only when
+                   the prison square is empty (otherwise prisoner stays protected). */
+                if (is_stq && capt == QUEEN && !stq_is_own_half(to, them)) {
+                    Square prison_sq = (them == WHITE) ? STQ_WHITE_PRISON : STQ_BLACK_PRISON;
+                    if (b->mailbox[prison_sq] != PIECE_EMPTY) continue;
+                }
                 if (on_promo_rank) {
                     if (is_heir) {
                         bool has_king = b->pieces[us][KING] != BB_EMPTY;
@@ -365,10 +368,13 @@ static void gen_piece_moves(const Board *b, MoveList *ml,
                 if (capt == KING) {
                     if (b->mod != MOD_HEIR || pt == KING) continue;
                 }
-                /* Save the Queen: non-queen can't capture prisoner queens */
+                /* Save the Queen: prisoner queen capture is legal only when
+                   the prison square is empty (otherwise prisoner stays protected). */
                 if (b->mod == MOD_SAVE_QUEEN && capt == QUEEN &&
-                    !stq_is_own_half(to, them))
-                    continue;
+                    !stq_is_own_half(to, them)) {
+                    Square prison_sq = (them == WHITE) ? STQ_WHITE_PRISON : STQ_BLACK_PRISON;
+                    if (b->mailbox[prison_sq] != PIECE_EMPTY) continue;
+                }
                 movelist_add(ml, move_capture(sq, to, pt, capt));
             } else {
                 movelist_add(ml, move_simple(sq, to, pt));

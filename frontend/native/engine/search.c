@@ -34,7 +34,25 @@
 #include <android/log.h>
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "CHESS_ENGINE", __VA_ARGS__)
 #else
-#define LOGD(...) do { fprintf(stderr, __VA_ARGS__); fflush(stderr); } while(0)
+static int search_logging_enabled(void) {
+    static int initialized = 0;
+    static int enabled = 0;
+
+    if (!initialized) {
+        const char *env = getenv("CHESSRECAST_ENGINE_VERBOSE");
+        enabled = (env != NULL && env[0] != '\0' && strcmp(env, "0") != 0);
+        initialized = 1;
+    }
+
+    return enabled;
+}
+
+#define LOGD(...) do { \
+    if (search_logging_enabled()) { \
+        fprintf(stderr, __VA_ARGS__); \
+        fflush(stderr); \
+    } \
+} while(0)
 #endif
 
 #ifdef _WIN32
@@ -64,6 +82,53 @@ static inline int maxi(int a, int b) { return a > b ? a : b; }
 static inline int mini(int a, int b) { return a < b ? a : b; }
 static inline bool is_mate(int s) {
     return s > MATE_SCORE - 500 || s < -MATE_SCORE + 500;
+}
+
+static int stq_terminal_score(const Board *b, int ply, bool *is_terminal) {
+    Color us;
+    Color opp;
+
+    *is_terminal = false;
+    if (b->mod != MOD_SAVE_QUEEN) return 0;
+
+    us = b->side;
+    opp = color_opposite(us);
+
+    /* Escape objective: a queen on the opponent prison square wins instantly. */
+    if (b->pieces[us][QUEEN] != BB_EMPTY) {
+        Square us_qsq = bb_lsb(b->pieces[us][QUEEN]);
+        if (stq_is_own_half(us_qsq, us) && stq_on_prison(us_qsq, opp)) {
+            *is_terminal = true;
+            return MATE_SCORE - ply;
+        }
+    }
+    if (b->pieces[opp][QUEEN] != BB_EMPTY) {
+        Square opp_qsq = bb_lsb(b->pieces[opp][QUEEN]);
+        if (stq_is_own_half(opp_qsq, opp) && stq_on_prison(opp_qsq, us)) {
+            *is_terminal = true;
+            return -(MATE_SCORE - ply);
+        }
+    }
+
+    /* Capturing an escaped queen wins instantly for the capturer. */
+    if (b->ply > 0) {
+        Piece captured = b->history[b->ply - 1].captured;
+        Square captured_sq = b->history[b->ply - 1].captured_sq;
+
+        if (captured != PIECE_EMPTY && PIECE_TYPE(captured) == QUEEN &&
+            captured_sq != SQ_NONE) {
+            Color captured_color = PIECE_COLOR(captured);
+
+            if (stq_is_own_half(captured_sq, captured_color)) {
+                *is_terminal = true;
+                return (captured_color == us)
+                    ? -(MATE_SCORE - ply)
+                    : (MATE_SCORE - ply);
+            }
+        }
+    }
+
+    return 0;
 }
 
 static const char *sq_name(Square sq) {
@@ -471,6 +536,222 @@ static int kb_phase1_king_activation_score(const Board *b, Move m, Color side) {
     return search_kb_phase1_king_activation_score(b, m, side);
 }
 
+static int stq_undeveloped_minor_count(const Board *b, Color side) {
+    int back_rank;
+    int undeveloped;
+    Bitboard minors;
+
+    if (b->mod != MOD_SAVE_QUEEN) return 0;
+
+    back_rank = (side == WHITE) ? 0 : 7;
+    undeveloped = 0;
+    minors = b->pieces[side][KNIGHT] | b->pieces[side][BISHOP];
+
+    while (minors) {
+        Square sq = (Square)bb_pop_lsb(&minors);
+        if (SQ_ROW(sq) == back_rank) undeveloped++;
+    }
+
+    return undeveloped;
+}
+
+static int stq_minor_development_score(const Board *b, Move m, Color side) {
+    PieceType piece;
+    int back_rank;
+    Square from_sq;
+    Square to_sq;
+    int to_file;
+    int to_rank;
+    int score;
+    int undeveloped;
+
+    if (b->mod != MOD_SAVE_QUEEN || MOVE_IS_CAPTURE(m) || MOVE_IS_EP(m) ||
+        MOVE_IS_PROMO(m)) {
+        return 0;
+    }
+
+    piece = MOVE_PIECE(m);
+    if (piece != KNIGHT && piece != BISHOP) return 0;
+
+    back_rank = (side == WHITE) ? 0 : 7;
+    from_sq = MOVE_FROM(m);
+    to_sq = MOVE_TO(m);
+
+    if (SQ_ROW(from_sq) != back_rank || SQ_ROW(to_sq) == back_rank) return 0;
+
+    to_file = SQ_COL(to_sq);
+    to_rank = (side == WHITE) ? SQ_ROW(to_sq) : (7 - SQ_ROW(to_sq));
+
+    undeveloped = stq_undeveloped_minor_count(b, side);
+
+    score = (piece == KNIGHT) ? 40 : 30;
+    if (to_file >= 2 && to_file <= 5) score += 6;
+    if (to_rank >= 2) score += 4;
+    if (undeveloped >= 3) score += 6;
+
+    /* STQ opening pattern: king knight development tends to stabilize lines. */
+    if (piece == KNIGHT) {
+        if ((side == WHITE && to_sq == SQ(2, 5)) ||
+            (side == BLACK && to_sq == SQ(5, 5))) {
+            score += 34;
+        }
+
+        /* Avoid over-prioritizing early queen-knight sorties in STQ openings. */
+        if (b->fullmove <= 10) {
+            if (side == WHITE && MOVE_FROM(m) == SQ(0, 1) &&
+                (to_sq == SQ(2, 2) || to_sq == SQ(1, 3))) {
+                int penalty = 48;
+                if (BB_HAS(b->pieces[WHITE][PAWN], SQ(1, 2))) penalty += 20;
+                if (BB_HAS(b->pieces[WHITE][PAWN], SQ(1, 3))) penalty += 10;
+                score -= penalty;
+            }
+            if (side == BLACK && MOVE_FROM(m) == SQ(7, 1) &&
+                (to_sq == SQ(5, 2) || to_sq == SQ(6, 3))) {
+                int penalty = 56;
+                if (BB_HAS(b->pieces[BLACK][PAWN], SQ(6, 2))) penalty += 24;
+                if (BB_HAS(b->pieces[BLACK][PAWN], SQ(6, 3))) penalty += 10;
+                score -= penalty;
+            }
+        }
+    }
+
+    return score;
+}
+
+static int stq_quiet_pawn_score(const Board *b, Move m, Color side) {
+    Square from_sq;
+    Square to_sq;
+    int from_rank;
+    int to_rank;
+    int to_file;
+    int score;
+
+    if (b->mod != MOD_SAVE_QUEEN || MOVE_PIECE(m) != PAWN ||
+        MOVE_IS_CAPTURE(m) || MOVE_IS_EP(m) || MOVE_IS_PROMO(m)) {
+        return 0;
+    }
+
+    from_sq = MOVE_FROM(m);
+    to_sq = MOVE_TO(m);
+    from_rank = (side == WHITE) ? SQ_ROW(from_sq) : (7 - SQ_ROW(from_sq));
+    if (from_rank != 1) return 0;
+
+    to_rank = (side == WHITE) ? SQ_ROW(to_sq) : (7 - SQ_ROW(to_sq));
+    to_file = SQ_COL(to_sq);
+
+    score = 0;
+    if (to_file >= 2 && to_file <= 5) score += 26;
+    if (to_file >= 3 && to_file <= 4) score += 10;
+    if (to_rank >= 3) score += 10;
+    return score;
+}
+
+static int stq_flank_pawn_penalty(const Board *b, Move m, Color side) {
+    Square from_sq;
+    int from_rank;
+    int from_file;
+    int undeveloped;
+
+    if (b->mod != MOD_SAVE_QUEEN || MOVE_PIECE(m) != PAWN ||
+        MOVE_IS_CAPTURE(m) || MOVE_IS_EP(m) || MOVE_IS_PROMO(m)) {
+        return 0;
+    }
+
+    from_sq = MOVE_FROM(m);
+    from_rank = (side == WHITE) ? SQ_ROW(from_sq) : (7 - SQ_ROW(from_sq));
+    if (from_rank != 1) return 0;
+
+    undeveloped = stq_undeveloped_minor_count(b, side);
+    if (undeveloped < 2) return 0;
+
+    from_file = SQ_COL(from_sq);
+    if (from_file == 0 || from_file == 7) return 90;
+    if (from_file == 1 || from_file == 6) return 50;
+    return 0;
+}
+
+static int stq_early_queen_sortie_penalty(const Board *b, Move m, Color side) {
+    Square from_sq;
+    Square to_sq;
+    Board child;
+    bool queen_attacked;
+    bool queen_defended;
+    bool from_own_half;
+    int undeveloped;
+
+    if (b->mod != MOD_SAVE_QUEEN || MOVE_PIECE(m) != QUEEN ||
+        MOVE_IS_CAPTURE(m) || MOVE_IS_EP(m) || MOVE_IS_PROMO(m)) {
+        return 0;
+    }
+
+    if (b->fullmove > 12) return 0;
+
+    from_sq = MOVE_FROM(m);
+    to_sq = MOVE_TO(m);
+    undeveloped = stq_undeveloped_minor_count(b, side);
+    from_own_half = stq_is_own_half(from_sq, side);
+
+    child = *b;
+    board_make_move(&child, m);
+    queen_attacked = board_square_attacked(&child, to_sq, child.side);
+    queen_defended = board_square_attacked(&child, to_sq, side);
+
+    if (!from_own_half) {
+        int before_dist = (side == WHITE) ? (SQ_ROW(from_sq) - 3) : (4 - SQ_ROW(from_sq));
+        int after_dist = (side == WHITE) ? (SQ_ROW(to_sq) - 3) : (4 - SQ_ROW(to_sq));
+        int penalty = 70 + undeveloped * 18;
+
+        if (before_dist >= 3) penalty += 45;
+        if (after_dist >= before_dist) penalty += 65;
+        if (queen_attacked && !queen_defended) {
+            penalty += 260;
+        } else if (queen_attacked) {
+            penalty += 90;
+        }
+        return penalty;
+    }
+
+    if (undeveloped >= 2) {
+        int penalty = 70 + undeveloped * 16;
+
+        if (queen_attacked && !queen_defended) {
+            penalty += 240;
+        } else if (queen_attacked) {
+            penalty += 80;
+        }
+
+        return penalty;
+    }
+
+    return 0;
+}
+
+static int stq_king_drift_penalty(const Board *b, Move m, Color side) {
+    Square from_sq;
+    Square to_sq;
+    int penalty;
+
+    if (b->mod != MOD_SAVE_QUEEN || MOVE_PIECE(m) != KING ||
+        MOVE_IS_CAPTURE(m) || MOVE_IS_EP(m) || MOVE_IS_PROMO(m)) {
+        return 0;
+    }
+
+    if (b->fullmove > 12) return 0;
+    if (board_in_check(b, side)) return 0;
+
+    from_sq = MOVE_FROM(m);
+    to_sq = MOVE_TO(m);
+    penalty = 120;
+
+    if ((side == WHITE && from_sq == SQ(0, 4)) ||
+        (side == BLACK && from_sq == SQ(7, 4))) {
+        penalty += 30;
+    }
+    if (SQ_COL(to_sq) != 4) penalty += 20;
+
+    return penalty;
+}
+
 static int move_score(const Board *b, Move m, Move tt_move,
                       int ply, Color side, Move countermove) {
     if (m == tt_move && tt_move != MOVE_NONE) return 10000000;
@@ -527,6 +808,12 @@ static int move_score(const Board *b, Move m, Move tt_move,
     if (m == countermove && countermove != MOVE_NONE) return 800000;
 
     int score = s_history[side][MOVE_FROM(m)][MOVE_TO(m)];
+    int stq_dev_score = stq_minor_development_score(b, m, side);
+    int stq_pawn_score = stq_quiet_pawn_score(b, m, side);
+    int stq_flank_penalty = stq_flank_pawn_penalty(b, m, side);
+    int stq_queen_penalty = stq_early_queen_sortie_penalty(b, m, side);
+    int stq_king_penalty = stq_king_drift_penalty(b, m, side);
+
     if (b->mod == MOD_HEIR) {
         int back_rank = (side == WHITE) ? 0 : 7;
         if ((MOVE_PIECE(m) == KNIGHT || MOVE_PIECE(m) == BISHOP) &&
@@ -564,6 +851,11 @@ static int move_score(const Board *b, Move m, Move tt_move,
     score += kb_unlocked_king_safety_score(b, m, side);
     score += kb_unlocked_development_score(b, m, side);
     score += kb_unlocked_king_shelter_score(b, m, side);
+    score += stq_dev_score;
+    score += stq_pawn_score;
+    score -= stq_flank_penalty;
+    score -= stq_queen_penalty;
+    score -= stq_king_penalty;
 
     return score;
 }
@@ -658,6 +950,12 @@ static int quiescence(Board *b, int alpha, int beta, int ply, int qply) {
     s_nodes++;
     check_time();
     if (s_stopped) return 0;
+
+    {
+        bool stq_terminal = false;
+        int stq_score = stq_terminal_score(b, ply, &stq_terminal);
+        if (stq_terminal) return stq_score;
+    }
 
     if (ply >= MAX_PLY + MAX_QPLY) return evaluate(b);
     if (qply >= MAX_QPLY) return evaluate(b);
@@ -797,6 +1095,12 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
     check_time();
     if (s_stopped) return 0;
     s_nodes++;
+
+    {
+        bool stq_terminal = false;
+        int stq_score = stq_terminal_score(b, ply, &stq_terminal);
+        if (stq_terminal) return stq_score;
+    }
 
     if (ply >= MAX_PLY) return evaluate(b);
     if (depth <= 0) return quiescence(b, alpha, beta, ply, 0);
@@ -1090,6 +1394,10 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
         /* ── Extensions ───────────────────────────────────────────── */
         bool merc_endgame = is_merc && bb_popcount(b->all) <= 16;
         int ext = gives_check ? 1 : 0;
+        if (in_check && depth >= 2) {
+            /* Stabilize check-evasion nodes to reduce odd-even tactical flips. */
+            ext = maxi(ext, 1);
+        }
         if (kb_phase1 && depth >= 3 && (is_cap || is_promo)) {
             ext = maxi(ext, 1);
         }
@@ -1344,14 +1652,16 @@ SearchResult search_think(Board *b, int time_ms, int max_depth, int skill_level)
             best_rs = -INFINITY_SCORE;
             best_rm = MOVE_NONE;
 
+            bool root_in_check = board_in_check(b, b->side);
+
             for (int i = 0; i < ml.count; i++) {
                 Color mover = b->side;
                 board_make_move(b, ml.moves[i]);
                 bool same_turn = (b->side == mover);
-                int ext = board_in_check(
+                int ext = (root_in_check || board_in_check(
                     b,
                     same_turn ? color_opposite(mover) : b->side
-                ) ? 1 : 0;
+                )) ? 1 : 0;
                 int score;
 
                 /* Full-window root: search every move with the full
