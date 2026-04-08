@@ -1118,9 +1118,11 @@ static SearchResult succ_refine_result(const Board *board,
                                        int max_depth,
                                        int skill_level) {
     MoveList ml;
-    Move candidates[8];
-    int candidate_scores[8];
+    Move candidates[12];
+    int candidate_scores[12];
     int candidate_count = 0;
+    int candidate_limit = 8;
+    int min_priority = 1;
     int raw_best_score = 0;
     int best_score = 0;
     Move best_move = raw.best_move;
@@ -1128,8 +1130,13 @@ static SearchResult succ_refine_result(const Board *board,
     int verify_time;
     int raw_priority;
     bool raw_hangs_queen;
+    bool raw_is_quiet;
     bool suspicious_root;
     bool advanced_pawn_trigger = false;
+    bool quiet_low_priority_trigger = false;
+    bool queen_sortie_trigger = false;
+    bool flank_pawn_trigger = false;
+    bool minor_retreat_trigger = false;
     bool saw_strong_non_pawn_alternative = false;
     PieceType raw_piece;
     Square raw_from;
@@ -1147,6 +1154,9 @@ static SearchResult succ_refine_result(const Board *board,
     raw_priority = succ_candidate_priority(board, raw.best_move, board->side);
     raw_piece = MOVE_PIECE(raw.best_move);
     raw_from = MOVE_FROM(raw.best_move);
+    raw_is_quiet = !MOVE_IS_CAPTURE(raw.best_move) &&
+                   !MOVE_IS_EP(raw.best_move) &&
+                   !MOVE_IS_PROMO(raw.best_move);
     raw_hangs_queen = succ_move_allows_immediate_queen_capture(
         board,
         raw.best_move,
@@ -1154,7 +1164,7 @@ static SearchResult succ_refine_result(const Board *board,
     );
 
     suspicious_root = raw_hangs_queen;
-    if (!suspicious_root && raw_piece == PAWN && !MOVE_IS_PROMO(raw.best_move) &&
+    if (raw_piece == PAWN && !MOVE_IS_PROMO(raw.best_move) &&
         !MOVE_IS_CAPTURE(raw.best_move) && !MOVE_IS_EP(raw.best_move) &&
         board->fullmove <= 14 &&
         succ_forward_rank(board->side, raw_from) >= 3 &&
@@ -1162,8 +1172,45 @@ static SearchResult succ_refine_result(const Board *board,
         advanced_pawn_trigger = true;
         suspicious_root = true;
     }
+    if (raw_is_quiet && board->fullmove <= 20) {
+        Square raw_to = MOVE_TO(raw.best_move);
+        int from_forward = succ_forward_rank(board->side, raw_from);
+        int to_forward = succ_forward_rank(board->side, raw_to);
+        int from_center = ff_bridge_center_distance(raw_from);
+        int to_center = ff_bridge_center_distance(raw_to);
+
+        if (raw_piece == QUEEN && from_forward <= 1 && raw_priority <= 220) {
+            queen_sortie_trigger = true;
+            suspicious_root = true;
+         } else if (raw_piece == BISHOP && from_forward <= 2 &&
+                 raw_priority <= 140) {
+            quiet_low_priority_trigger = true;
+            suspicious_root = true;
+        } else if (raw_piece == KNIGHT && from_forward >= 2 &&
+                   raw_priority <= 140 &&
+                   (to_center > from_center || to_forward < from_forward)) {
+            quiet_low_priority_trigger = true;
+            suspicious_root = true;
+         } else if ((raw_piece == BISHOP || raw_piece == KNIGHT) &&
+                 from_forward >= 5 && to_forward < from_forward &&
+                 raw_priority <= 220) {
+             minor_retreat_trigger = true;
+             suspicious_root = true;
+        } else if (raw_piece == PAWN && from_forward <= 1 && to_forward <= 2 &&
+                   (SQ_COL(raw_from) <= 1 || SQ_COL(raw_from) >= 6) &&
+                   raw_priority <= 190) {
+            flank_pawn_trigger = true;
+            suspicious_root = true;
+        }
+    }
     if (!suspicious_root) {
         return raw;
+    }
+
+    if (advanced_pawn_trigger || quiet_low_priority_trigger ||
+        queen_sortie_trigger || flank_pawn_trigger || minor_retreat_trigger) {
+        candidate_limit = 12;
+        min_priority = -160;
     }
 
     generate_moves(board, &ml);
@@ -1204,6 +1251,25 @@ static SearchResult succ_refine_result(const Board *board,
                 saw_strong_non_pawn_alternative = true;
             }
         }
+        if (quiet_low_priority_trigger || queen_sortie_trigger ||
+            flank_pawn_trigger || minor_retreat_trigger) {
+            bool forcing = MOVE_IS_CAPTURE(move) || MOVE_IS_EP(move) ||
+                           MOVE_IS_PROMO(move);
+            if (forcing) {
+                priority += 220;
+            } else {
+                if (MOVE_PIECE(move) != raw_piece) priority += 140;
+                if (MOVE_PIECE(move) == raw_piece && MOVE_FROM(move) == raw_from)
+                    priority -= 200;
+            }
+
+            if (minor_retreat_trigger && !forcing &&
+                (MOVE_PIECE(move) == KNIGHT || MOVE_PIECE(move) == BISHOP)) {
+                int cand_from = succ_forward_rank(board->side, MOVE_FROM(move));
+                int cand_to = succ_forward_rank(board->side, MOVE_TO(move));
+                if (cand_to > cand_from) priority += 120;
+            }
+        }
         if (raw_hangs_queen) {
             bool alt_hangs_queen = succ_move_allows_immediate_queen_capture(
                 board,
@@ -1217,25 +1283,26 @@ static SearchResult succ_refine_result(const Board *board,
             }
         }
 
-        if (priority <= 0) continue;
-        if (candidate_count == 8 && priority <= candidate_scores[candidate_count - 1]) {
+        if (priority < min_priority) continue;
+        if (candidate_count == candidate_limit &&
+            priority <= candidate_scores[candidate_count - 1]) {
             continue;
         }
 
         insert_at = candidate_count;
-        if (insert_at > 7) insert_at = 7;
+        if (insert_at > candidate_limit - 1) insert_at = candidate_limit - 1;
         while (insert_at > 1 && candidate_scores[insert_at - 1] < priority) {
-            if (insert_at < 8) {
+            if (insert_at < candidate_limit) {
                 candidates[insert_at] = candidates[insert_at - 1];
                 candidate_scores[insert_at] = candidate_scores[insert_at - 1];
             }
             insert_at--;
         }
 
-        if (insert_at < 8) {
+        if (insert_at < candidate_limit) {
             candidates[insert_at] = move;
             candidate_scores[insert_at] = priority;
-            if (candidate_count < 8) candidate_count++;
+            if (candidate_count < candidate_limit) candidate_count++;
         }
     }
 
@@ -1244,12 +1311,19 @@ static SearchResult succ_refine_result(const Board *board,
         return raw;
     }
 
-    if (raw_hangs_queen) {
+    if (minor_retreat_trigger) {
+        verify_depth = (max_depth < 6) ? 6 : (max_depth + 1);
+        verify_time = (time_ms <= 0) ? 420 : clamp_int(time_ms * 4, 320, 520);
+    } else if (quiet_low_priority_trigger || queen_sortie_trigger ||
+               flank_pawn_trigger) {
+        verify_depth = (max_depth < 6) ? 6 : (max_depth + 1);
+        verify_time = (time_ms <= 0) ? 300 : clamp_int((time_ms * 5) / 2, 220, 340);
+    } else if (advanced_pawn_trigger) {
+        verify_depth = (max_depth < 6) ? 6 : (max_depth + 1);
+        verify_time = (time_ms <= 0) ? 280 : clamp_int((time_ms * 5) / 2, 220, 340);
+    } else if (raw_hangs_queen) {
         verify_depth = (max_depth < 5) ? 5 : max_depth;
         verify_time = (time_ms <= 0) ? 200 : clamp_int((time_ms * 5) / 3, 140, 240);
-    } else if (advanced_pawn_trigger) {
-        verify_depth = (max_depth < 5) ? 5 : max_depth;
-        verify_time = (time_ms <= 0) ? 220 : clamp_int(time_ms * 2, 160, 260);
     } else {
         verify_depth = (max_depth < 4) ? 4 : max_depth;
         verify_time = (time_ms <= 0) ? 160 : clamp_int((time_ms * 3) / 2, 120, 200);
@@ -1277,14 +1351,40 @@ static SearchResult succ_refine_result(const Board *board,
         }
     }
 
+    if (advanced_pawn_trigger || quiet_low_priority_trigger ||
+        queen_sortie_trigger || flank_pawn_trigger || minor_retreat_trigger) {
+        Board deep_board = *board;
+        SearchResult deep_root;
+
+        search_reset(1);
+        if (s_verify_nesting > 0) {
+            deep_root = search_think(&deep_board, verify_time, verify_depth, skill_level);
+        } else {
+            s_verify_nesting++;
+            deep_root = search_think(&deep_board, verify_time, verify_depth, skill_level);
+            s_verify_nesting--;
+        }
+
+        if (deep_root.best_move != MOVE_NONE && deep_root.best_move != best_move) {
+            best_move = deep_root.best_move;
+            best_score = deep_root.score;
+        }
+    }
+
     if (best_move == raw.best_move) {
         return raw;
     }
-    if (!raw_hangs_queen && !advanced_pawn_trigger &&
-        best_score < raw_best_score + 6) {
+    if (advanced_pawn_trigger && best_score < raw_best_score + 1) {
         return raw;
     }
-    if (advanced_pawn_trigger && best_score < raw_best_score + 2) {
+    if (quiet_low_priority_trigger || queen_sortie_trigger ||
+        flank_pawn_trigger || minor_retreat_trigger) {
+        if (best_score <= raw_best_score) return raw;
+    }
+    if (!raw_hangs_queen && !advanced_pawn_trigger &&
+        !quiet_low_priority_trigger && !queen_sortie_trigger &&
+        !flank_pawn_trigger && !minor_retreat_trigger &&
+        best_score < raw_best_score + 6) {
         return raw;
     }
 
