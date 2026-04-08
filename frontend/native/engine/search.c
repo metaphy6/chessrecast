@@ -1107,6 +1107,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
 
     bool is_merc = (b->mod == MOD_MERCENARY);
     bool is_heir = (b->mod == MOD_HEIR);
+    bool is_succ = (b->mod == MOD_SUCCESSION);
     bool heir_volatile = is_heir && heir_position_volatile(b);
     bool kb_phase1 = (b->mod == MOD_KINGS_BATTLE && !b->kb_unlocked);
 
@@ -1207,7 +1208,8 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
                      s_eval_stack[ply] > s_eval_stack[ply - 2];
 
     /* ── Razoring ─────────────────────────────────────────────────── */
-    if (!is_merc && !heir_volatile && !kb_phase1 && !is_pv && !in_check && depth <= 2 && !is_mate(alpha)) {
+    if (!is_merc && !heir_volatile && !kb_phase1 && !is_pv && !in_check &&
+        depth <= 2 && !is_mate(alpha) && !(is_succ && b->fullmove <= 16)) {
         int razor_margin = (depth == 1) ? 300 : 500;
         if (static_eval + razor_margin < alpha) {
             int razor = quiescence(b, alpha, beta, ply, 0);
@@ -1217,6 +1219,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
 
     /* ── Reverse futility pruning ─────────────────────────────────── */
     if (!is_merc && !heir_volatile && !kb_phase1 && !is_pv && !in_check && depth <= 6 &&
+        !(is_succ && b->fullmove <= 16) &&
         !is_mate(alpha) && !is_mate(beta)) {
         int rfp_margin = depth * (improving ? 70 : 100);
         if (static_eval - rfp_margin >= beta)
@@ -1224,7 +1227,8 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
     }
 
     /* ── Null-move pruning ────────────────────────────────────────── */
-    if (!is_merc && !heir_volatile && !kb_phase1 && do_null && !in_check && !is_pv && depth >= 3 && ply > 0 &&
+    if (!is_merc && !heir_volatile && !kb_phase1 && do_null && !in_check && !is_pv &&
+        depth >= 3 && ply > 0 && !(is_succ && b->fullmove <= 16) &&
         static_eval >= beta) {
         Color us = b->side;
         bool has_pieces = b->pieces[us][KNIGHT] || b->pieces[us][BISHOP] ||
@@ -1355,7 +1359,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
         if (!is_pv && !in_check && moves_done > 0) {
 
             /* LMP: skip late quiet moves at shallow depths */
-            if (!kb_phase1 && !is_merc && !heir_volatile && !is_cap && !is_promo && !gives_check &&
+            if (!kb_phase1 && !is_merc && !is_succ && !heir_volatile && !is_cap && !is_promo && !gives_check &&
                 depth <= 5 && moves_done >= LMP_LIMIT[depth]) {
                 if (ff_dev_score >= 60 || ff_king_score >= 70 || ff_guard_score >= 90 ||
                     ff_pawn_score >= 120) {
@@ -1367,7 +1371,7 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
             }
 
             /* Futility: skip late quiets when eval+margin < alpha */
-            if (!kb_phase1 && !is_merc && !heir_volatile && do_futility && !is_cap && !is_promo && !gives_check) {
+            if (!kb_phase1 && !is_merc && !is_succ && !heir_volatile && do_futility && !is_cap && !is_promo && !gives_check) {
                 if (ff_dev_score >= 60 || ff_king_score >= 70 || ff_guard_score >= 90 ||
                     ff_pawn_score >= 120) {
                     /* Keep high-value Friendly Fire king-safety/development moves. */
@@ -1524,6 +1528,11 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
                         kb_dev_score >= 50 || kb_shelter_score >= 80) {
                         reduction--;
                     }
+                }
+                if (is_succ && reduction > 0) {
+                    reduction--;
+                    if (b->fullmove <= 16 && reduction > 0) reduction--;
+                    if (MOVE_PIECE(m) == QUEEN && reduction > 0) reduction--;
                 }
                 reduction = mini(reduction, new_depth - 1);
                 if (reduction < 0) reduction = 0;
