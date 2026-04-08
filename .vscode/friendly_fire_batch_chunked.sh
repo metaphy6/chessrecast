@@ -6,12 +6,19 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FRONTEND_DIR="${ROOT_DIR}/frontend"
 REPORT_PATH="${FRIENDLY_FIRE_BATCH_REPORT_PATH:-/tmp/friendly_fire_audit_batch_chunked_report.txt}"
 TMP_DIR="${FRIENDLY_FIRE_BATCH_TMP_DIR:-/tmp/friendly_fire_batch_chunks}"
-MAX_PARALLEL="${FRIENDLY_FIRE_BATCH_MAX_PARALLEL:-2}"
+MAX_PARALLEL="${FRIENDLY_FIRE_BATCH_MAX_PARALLEL:-1}"
+LOCK_RETRIES="${FRIENDLY_FIRE_BATCH_LOCK_RETRIES:-2}"
+SERIAL_FALLBACK="${FRIENDLY_FIRE_BATCH_SERIAL_FALLBACK:-true}"
 
 mkdir -p "${TMP_DIR}"
 
 if ! [[ "${MAX_PARALLEL}" =~ ^[0-9]+$ ]] || [[ "${MAX_PARALLEL}" -lt 1 ]]; then
     echo "FRIENDLY_FIRE_BATCH_MAX_PARALLEL must be a positive integer" >&2
+    exit 1
+fi
+
+if ! [[ "${LOCK_RETRIES}" =~ ^[0-9]+$ ]] || [[ "${LOCK_RETRIES}" -lt 1 ]]; then
+    echo "FRIENDLY_FIRE_BATCH_LOCK_RETRIES must be a positive integer" >&2
     exit 1
 fi
 
@@ -44,18 +51,56 @@ cleanup() {
 
 trap cleanup INT TERM
 
+is_true() {
+    local value="${1:-}"
+    case "${value,,}" in
+        1|true|yes|on) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+run_chunk() {
+    local index="$1"
+    local report_file="$2"
+    local log_file="$3"
+    local status_file="$4"
+    local chunk_id="$((index + 1))"
+    local attempt=1
+
+    while (( attempt <= LOCK_RETRIES )); do
+        (
+            cd "${FRONTEND_DIR}"
+            export FRIENDLY_FIRE_BATCH_OPENINGS="${chunks[index]}"
+            export FRIENDLY_FIRE_BATCH_REPORT_PATH="${report_file}"
+            flutter test test/manual_friendly_fire_audit_batch_test.dart --run-skipped -r compact >"${log_file}" 2>&1
+        ) && {
+            echo ok >"${status_file}"
+            return 0
+        }
+
+        if grep -qiE 'startup lock|another flutter command' "${log_file}"; then
+            echo "Chunk ${chunk_id}: flutter startup lock detected (attempt ${attempt}/${LOCK_RETRIES}); retrying..." >&2
+            attempt="$((attempt + 1))"
+            continue
+        fi
+
+        break
+    done
+
+    echo fail >"${status_file}"
+    return 1
+}
+
 for index in "${!chunks[@]}"; do
     chunk_id="$((index + 1))"
     report_file="${TMP_DIR}/ff_chunk${chunk_id}_report.txt"
     log_file="${TMP_DIR}/ff_chunk${chunk_id}.log"
-    rm -f "${report_file}" "${log_file}"
+    status_file="${TMP_DIR}/ff_chunk${chunk_id}.status"
+    rm -f "${report_file}" "${log_file}" "${status_file}"
 
     printf 'Starting Friendly Fire chunk %s/%s\n' "${chunk_id}" "${chunk_count}"
     (
-        cd "${FRONTEND_DIR}"
-        export FRIENDLY_FIRE_BATCH_OPENINGS="${chunks[index]}"
-        export FRIENDLY_FIRE_BATCH_REPORT_PATH="${report_file}"
-        flutter test test/manual_friendly_fire_audit_batch_test.dart --run-skipped -r compact >"${log_file}" 2>&1
+        run_chunk "${index}" "${report_file}" "${log_file}" "${status_file}"
     ) &
     pids+=("$!")
     active_jobs="$((active_jobs + 1))"
@@ -63,7 +108,6 @@ for index in "${!chunks[@]}"; do
     if [[ "${active_jobs}" -ge "${MAX_PARALLEL}" ]]; then
         if ! wait -n; then
             failed=1
-            break
         fi
         active_jobs="$((active_jobs - 1))"
     fi
@@ -74,6 +118,33 @@ for pid in "${pids[@]}"; do
         failed=1
     fi
 done
+
+failed_chunks=()
+for index in "${!chunks[@]}"; do
+    chunk_id="$((index + 1))"
+    status_file="${TMP_DIR}/ff_chunk${chunk_id}.status"
+    if [[ ! -f "${status_file}" ]] || [[ "$(cat "${status_file}")" != "ok" ]]; then
+        failed_chunks+=("${index}")
+    fi
+done
+
+if [[ "${#failed_chunks[@]}" -gt 0 ]]; then
+    failed=1
+fi
+
+if [[ "${failed}" -ne 0 ]] && [[ "${MAX_PARALLEL}" -gt 1 ]] && is_true "${SERIAL_FALLBACK}"; then
+    echo "Retrying failed chunks serially to avoid lock contention..." >&2
+    failed=0
+    for index in "${failed_chunks[@]}"; do
+        chunk_id="$((index + 1))"
+        report_file="${TMP_DIR}/ff_chunk${chunk_id}_report.txt"
+        log_file="${TMP_DIR}/ff_chunk${chunk_id}.log"
+        status_file="${TMP_DIR}/ff_chunk${chunk_id}.status"
+        if ! run_chunk "${index}" "${report_file}" "${log_file}" "${status_file}"; then
+            failed=1
+        fi
+    done
+fi
 
 trap - INT TERM
 

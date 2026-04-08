@@ -36,10 +36,6 @@ void main(List<String> args) {
   print(runHeirAudit(args));
 }
 
-String runSuccessionAudit(List<String> args) {
-  return runHeirAudit([...args, '--mod=succession']);
-}
-
 String runHeirAudit(List<String> args) {
   final options = _Options.fromArgs(args);
   final engine = NativeEngine();
@@ -53,8 +49,8 @@ String runHeirAudit(List<String> args) {
 
   lines.add(
     '${options.modeLabel} audit: '
-    'baseline d${options.baselineDepth}/${options.baselineMs}ms '
-    'vs reference d${options.referenceDepth}/${options.referenceMs}ms, '
+    'baseline d${options.baselineDepth}/${options.baselineMs}ms s${options.baselineSkill} '
+    'vs reference d${options.referenceDepth}/${options.referenceMs}ms s${options.referenceSkill}, '
     'max plies ${options.maxPlies}',
   );
 
@@ -85,7 +81,7 @@ String runHeirAudit(List<String> args) {
       board,
       timeLimitMs: options.baselineMs,
       maxDepth: options.baselineDepth,
-      skillLevel: 4,
+      skillLevel: options.baselineSkill,
     );
 
     final playedMove = baseline.bestMove;
@@ -99,7 +95,7 @@ String runHeirAudit(List<String> args) {
       board,
       timeLimitMs: options.referenceMs,
       maxDepth: options.referenceDepth,
-      skillLevel: 4,
+      skillLevel: options.referenceSkill,
     );
 
     final nextBoard = orchestrator.executeMove(board, playedMove);
@@ -108,6 +104,7 @@ String runHeirAudit(List<String> args) {
       nextBoard,
       options.referenceMs,
       options.referenceDepth,
+      options.referenceSkill,
     );
 
     final referenceMove = reference.bestMove;
@@ -120,6 +117,7 @@ String runHeirAudit(List<String> args) {
             orchestrator.executeMove(board, referenceMove),
             options.referenceMs,
             options.referenceDepth,
+            options.referenceSkill,
           );
 
     final delta = referenceMoveScore - playedScore;
@@ -192,6 +190,7 @@ int _scorePlayedMove(
   ChessBoard childBoard,
   int referenceMs,
   int referenceDepth,
+  int referenceSkill,
 ) {
   if (childBoard.gameStatus == GameStatus.checkmate) {
     return mateScore;
@@ -206,7 +205,7 @@ int _scorePlayedMove(
     childBoard,
     timeLimitMs: referenceMs,
     maxDepth: math.max(1, referenceDepth - 1),
-    skillLevel: 4,
+    skillLevel: referenceSkill,
   );
   return -reply.score;
 }
@@ -240,8 +239,10 @@ class _Options {
   final String modeLabel;
   final int baselineDepth;
   final int baselineMs;
+  final int baselineSkill;
   final int referenceDepth;
   final int referenceMs;
+  final int referenceSkill;
   final int maxPlies;
   final int topCount;
   final String? startingFen;
@@ -252,8 +253,10 @@ class _Options {
     required this.modeLabel,
     required this.baselineDepth,
     required this.baselineMs,
+    required this.baselineSkill,
     required this.referenceDepth,
     required this.referenceMs,
+    required this.referenceSkill,
     required this.maxPlies,
     required this.topCount,
     required this.startingFen,
@@ -295,10 +298,12 @@ class _Options {
       gameType: isSuccession ? ModsEnum.succession : ModsEnum.heir,
       modeLabel: isSuccession ? 'Succession' : 'Heir',
       baselineDepth: readInt('baseline-depth', 4),
-      baselineMs: readInt('baseline-ms', 150),
+      baselineMs: readInt('baseline-ms', 120),
+      baselineSkill: readInt('baseline-skill', 4),
       referenceDepth: readInt('reference-depth', 6),
-      referenceMs: readInt('reference-ms', 600),
-      maxPlies: readInt('max-plies', 40),
+      referenceMs: readInt('reference-ms', 500),
+      referenceSkill: readInt('reference-skill', 4),
+      maxPlies: readInt('max-plies', 24),
       topCount: readInt('top-count', 8),
       startingFen: readString('fen'),
       openingMoves: moves,

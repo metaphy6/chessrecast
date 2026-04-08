@@ -13,8 +13,10 @@ void main() {
 
       final report = runMercenaryPositionProbe([
         '--fen=${env('MERC_PROBE_FEN', '')}',
+        '--moves=${env('MERC_PROBE_MOVES', '')}',
         '--depth=${env('MERC_PROBE_DEPTH', '6')}',
-        '--time-ms=${env('MERC_PROBE_TIME_MS', '1200')}',
+        '--time-ms=${env('MERC_PROBE_TIME_MS', '500')}',
+        '--skill=${env('MERC_PROBE_SKILL', '4')}',
         '--top-count=${env('MERC_PROBE_TOP_COUNT', '8')}',
         '--candidates=${env('MERC_PROBE_CANDIDATES', '')}',
       ]);
@@ -30,6 +32,6 @@ void main() {
       expect(report, contains('Top'));
     },
     skip:
-        'Manual Mercenary position probe; run with --run-skipped when analyzing a specific FEN.',
+        'Manual Mercenary position probe; run with --run-skipped when analyzing a specific FEN/replay.',
   );
 }

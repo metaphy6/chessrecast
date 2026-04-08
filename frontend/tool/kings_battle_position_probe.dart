@@ -43,6 +43,9 @@ String runKingsBattlePositionProbe(List<String> args) {
   }
   lines.add('Position FEN: ${board.toFEN()}');
   lines.add('Side to move: ${board.currentPlayer.name}');
+  lines.add(
+    "Exact King's Battle reproduction requires replay history once unlock/bonus-turn state matters, not just FEN.",
+  );
   engine.resetState();
   final root = engine.findBestMoveSync(
     board,
@@ -102,7 +105,24 @@ String runKingsBattlePositionProbe(List<String> args) {
         lines.add('- $notation: not legal');
         continue;
       }
-      final item = scored.firstWhere((s) => s.move == move);
+      _ScoredMove? matched;
+      for (final scoredMove in scored) {
+        if (_sameMove(scoredMove.move, move)) {
+          matched = scoredMove;
+          break;
+        }
+      }
+      final item =
+          matched ??
+          _analyzeMove(
+            engine,
+            orchestrator,
+            board,
+            move,
+            timeMs: timeMs,
+            depth: depth,
+            skillLevel: skillLevel,
+          );
       lines.add(
         '- $notation => ${_moveLabel(item.move)} '
         'score=${_cp(item.score)} '
@@ -124,6 +144,41 @@ class _ScoredMove {
     required this.score,
     required this.bestReply,
   });
+}
+
+_ScoredMove _analyzeMove(
+  NativeEngine engine,
+  Orchestrator orchestrator,
+  ChessBoard board,
+  ChessMove move, {
+  required int timeMs,
+  required int depth,
+  required int skillLevel,
+}) {
+  final child = orchestrator.executeMove(board, move);
+  final score = _scorePlayedMove(
+    engine,
+    mover: board.currentPlayer,
+    childBoard: child,
+    referenceMs: timeMs,
+    referenceDepth: depth,
+    referenceSkill: skillLevel,
+  );
+  final bestReply = child.gameStatus.isGameOver
+      ? null
+      : (() {
+          engine.resetState();
+          return engine
+              .findBestMoveSync(
+                child,
+                timeLimitMs: timeMs,
+                maxDepth: math.max(1, depth - 1),
+                skillLevel: skillLevel,
+              )
+              .bestMove;
+        })();
+
+  return _ScoredMove(move: move, score: score, bestReply: bestReply);
 }
 
 int _scorePlayedMove(
@@ -150,6 +205,12 @@ int _scorePlayedMove(
     skillLevel: referenceSkill,
   );
   return childBoard.currentPlayer == mover ? reply.score : -reply.score;
+}
+
+bool _sameMove(ChessMove a, ChessMove b) {
+  return a.from == b.from &&
+      a.to == b.to &&
+      a.promotionPiece == b.promotionPiece;
 }
 
 String _moveLabel(ChessMove? move) {

@@ -12,25 +12,36 @@ void main(List<String> args) {
 
 String runMercenaryPositionProbe(List<String> args) {
   final fen = _readArg(args, 'fen');
-  if (fen == null || fen.isEmpty) {
-    throw ArgumentError('Provide --fen=<fen>');
+  final movesArg = _readArg(args, 'moves') ?? '';
+  final replayMoves = movesArg.isEmpty
+      ? const <String>[]
+      : movesArg.split(',').where((s) => s.isNotEmpty).toList();
+  if ((fen == null || fen.isEmpty) && replayMoves.isEmpty) {
+    throw ArgumentError('Provide --fen=<fen> and/or --moves=<uci,uci,...>');
   }
 
   final depth = _readIntArg(args, 'depth', 6);
-  final timeMs = _readIntArg(args, 'time-ms', 1200);
+  final timeMs = _readIntArg(args, 'time-ms', 500);
+  final skillLevel = _readIntArg(args, 'skill', 4);
   final topCount = _readIntArg(args, 'top-count', 8);
   final candidateArg = _readArg(args, 'candidates') ?? '';
   final candidates = candidateArg.isEmpty
       ? const <String>[]
       : candidateArg.split(',').where((s) => s.isNotEmpty).toList();
 
-  final board = ChessBoard.fromFEN(fen, gameType: ModsEnum.mercenary);
   final engine = NativeEngine();
   final orchestrator = Orchestrator();
+  final board = _buildBoard(orchestrator, fen, replayMoves);
   final lines = <String>[];
 
   lines.add('Mercenary probe: d$depth/${timeMs}ms');
-  lines.add('FEN: $fen');
+  if (fen != null && fen.isNotEmpty) {
+    lines.add('Starting FEN: $fen');
+  }
+  if (replayMoves.isNotEmpty) {
+    lines.add('Replay prefix: ${replayMoves.join(', ')}');
+  }
+  lines.add('Position FEN: ${board.toFEN()}');
   lines.add('Side to move: ${board.currentPlayer.name}');
   lines.add('');
 
@@ -38,17 +49,20 @@ String runMercenaryPositionProbe(List<String> args) {
   final scored = <_ScoredMove>[];
   for (final move in legalMoves) {
     final child = orchestrator.executeMove(board, move);
-    final score = _scorePlayedMove(engine, child, timeMs, depth);
+    final score = _scorePlayedMove(engine, child, timeMs, depth, skillLevel);
     final bestReply = child.gameStatus.isGameOver
         ? null
-        : engine
-              .findBestMoveSync(
-                child,
-                timeLimitMs: timeMs,
-                maxDepth: math.max(1, depth - 1),
-                skillLevel: 4,
-              )
-              .bestMove;
+        : (() {
+            engine.resetState();
+            return engine
+                .findBestMoveSync(
+                  child,
+                  timeLimitMs: timeMs,
+                  maxDepth: math.max(1, depth - 1),
+                  skillLevel: skillLevel,
+                )
+                .bestMove;
+          })();
     scored.add(_ScoredMove(move: move, score: score, bestReply: bestReply));
   }
 
@@ -73,7 +87,24 @@ String runMercenaryPositionProbe(List<String> args) {
         lines.add('- $notation: not legal');
         continue;
       }
-      final item = scored.firstWhere((s) => s.move == move);
+      _ScoredMove? fromSweep;
+      for (final scoredMove in scored) {
+        if (_sameMove(scoredMove.move, move)) {
+          fromSweep = scoredMove;
+          break;
+        }
+      }
+      final item =
+          fromSweep ??
+          _analyzeMove(
+            engine,
+            orchestrator,
+            board,
+            move,
+            timeMs,
+            depth,
+            skillLevel,
+          );
       lines.add(
         '- $notation => ${_moveLabel(item.move)} '
         'score=${_cp(item.score)} '
@@ -97,11 +128,40 @@ class _ScoredMove {
   });
 }
 
+_ScoredMove _analyzeMove(
+  NativeEngine engine,
+  Orchestrator orchestrator,
+  ChessBoard board,
+  ChessMove move,
+  int timeMs,
+  int depth,
+  int skillLevel,
+) {
+  final child = orchestrator.executeMove(board, move);
+  final score = _scorePlayedMove(engine, child, timeMs, depth, skillLevel);
+  final bestReply = child.gameStatus.isGameOver
+      ? null
+      : (() {
+          engine.resetState();
+          return engine
+              .findBestMoveSync(
+                child,
+                timeLimitMs: timeMs,
+                maxDepth: math.max(1, depth - 1),
+                skillLevel: skillLevel,
+              )
+              .bestMove;
+        })();
+
+  return _ScoredMove(move: move, score: score, bestReply: bestReply);
+}
+
 int _scorePlayedMove(
   NativeEngine engine,
   ChessBoard childBoard,
   int referenceMs,
   int referenceDepth,
+  int referenceSkill,
 ) {
   if (childBoard.gameStatus == GameStatus.checkmate) {
     return mateScore;
@@ -111,13 +171,20 @@ int _scorePlayedMove(
     return 0;
   }
 
+  engine.resetState();
   final reply = engine.findBestMoveSync(
     childBoard,
     timeLimitMs: referenceMs,
     maxDepth: math.max(1, referenceDepth - 1),
-    skillLevel: 4,
+    skillLevel: referenceSkill,
   );
   return -reply.score;
+}
+
+bool _sameMove(ChessMove a, ChessMove b) {
+  return a.from == b.from &&
+      a.to == b.to &&
+      a.promotionPiece == b.promotionPiece;
 }
 
 String _moveLabel(ChessMove? move) {
@@ -155,4 +222,60 @@ String? _readArg(List<String> args, String name) {
 
 int _readIntArg(List<String> args, String name, int fallback) {
   return int.tryParse(_readArg(args, name) ?? '') ?? fallback;
+}
+
+ChessBoard _buildBoard(
+  Orchestrator orchestrator,
+  String? fen,
+  List<String> replayMoves,
+) {
+  var board = (fen == null || fen.isEmpty)
+      ? ChessBoard.initial(gameType: ModsEnum.mercenary)
+      : ChessBoard.fromFEN(fen, gameType: ModsEnum.mercenary);
+
+  for (final notation in replayMoves) {
+    final move = _parseCoordinateMove(orchestrator, board, notation);
+    if (move == null) {
+      throw ArgumentError('Illegal Mercenary replay move: $notation');
+    }
+    board = orchestrator.executeMove(board, move);
+  }
+
+  return board;
+}
+
+ChessMove? _parseCoordinateMove(
+  Orchestrator orchestrator,
+  ChessBoard board,
+  String notation,
+) {
+  final moves = orchestrator.getAllValidMoves(board);
+  if (notation.length < 4) {
+    return null;
+  }
+
+  try {
+    final from = Position.fromAlgebraic(notation.substring(0, 2));
+    final to = Position.fromAlgebraic(notation.substring(2, 4));
+    final promotion = notation.length >= 5
+        ? notation.substring(4, 5).toUpperCase()
+        : null;
+
+    for (final move in moves) {
+      if (move.from != from || move.to != to) {
+        continue;
+      }
+      if (promotion != null && move.promotionPiece != promotion) {
+        continue;
+      }
+      if (promotion == null && move.isPromotion) {
+        continue;
+      }
+      return move;
+    }
+  } catch (_) {
+    return null;
+  }
+
+  return null;
 }
