@@ -120,6 +120,117 @@ void main() {
       },
       skip: !NativeEngine.isAvailable,
     );
+
+    test(
+      'avoids Bc1-g5 in the GAME 6 strategic node',
+      () {
+        final board = ChessBoard.fromFEN(
+          'r2q1b1r/ppp1n2p/2n2qp1/3p1P2/8/5N1Q/PPP3PP/RNBQ1B1R w - - 0 12',
+          gameType: ModsEnum.succession,
+        );
+
+        final engine = NativeEngine();
+        engine.resetState(clearTranspositionTable: true);
+        final result = engine.findBestMoveSync(
+          board,
+          timeLimitMs: 120,
+          maxDepth: 4,
+          skillLevel: 4,
+        );
+
+        expect(_moveNotation(result.bestMove), isNot('c1g5'));
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'avoids Qd1-f3 queen sortie in the GAME 29 strategic node',
+      () {
+        final board = ChessBoard.fromFEN(
+          'r2qqbr1/ppp2p1p/2n1pn2/3pNp2/3P4/P1N1P3/1PP2PPP/R1BQQ2R w - - 0 9',
+          gameType: ModsEnum.succession,
+        );
+
+        final engine = NativeEngine();
+        engine.resetState(clearTranspositionTable: true);
+        final result = engine.findBestMoveSync(
+          board,
+          timeLimitMs: 120,
+          maxDepth: 4,
+          skillLevel: 4,
+        );
+
+        final move = _moveNotation(result.bestMove);
+        expect(move, isNot('d1f3'));
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'chooses Ng8-f6 in the GAME 45 strategic node',
+      () {
+        final board = ChessBoard.fromFEN(
+          'r2q2nr/p1p3pp/1pn3q1/2p1B3/2B5/1P3N2/P1bP1PPP/R1Q1Q2R b - - 0 11',
+          gameType: ModsEnum.succession,
+        );
+
+        final engine = NativeEngine();
+        engine.resetState(clearTranspositionTable: true);
+        final result = engine.findBestMoveSync(
+          board,
+          timeLimitMs: 120,
+          maxDepth: 4,
+          skillLevel: 4,
+        );
+
+        expect(_moveNotation(result.bestMove), 'g8f6');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'chooses Bd3-b5 in the GAME 50 strategic node',
+      () {
+        final board = ChessBoard.fromFEN(
+          'r2qqb1r/p1p3p1/1pn5/3ppb1p/1P1Pn2P/P1NBPN2/2PB2P1/R2QQ2R w - - 0 12',
+          gameType: ModsEnum.succession,
+        );
+
+        final engine = NativeEngine();
+        engine.resetState(clearTranspositionTable: true);
+        final result = engine.findBestMoveSync(
+          board,
+          timeLimitMs: 120,
+          maxDepth: 4,
+          skillLevel: 4,
+        );
+
+        expect(_moveNotation(result.bestMove), 'd3b5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'chooses Qe1-c3 in the GAME 24 strategic node',
+      () {
+        final board = ChessBoard.fromFEN(
+          'r1bq3r/ppp2p1p/3p2p1/1qbPp3/3nP3/3PBN1P/PP3PP1/R2QQB1R w - - 0 10',
+          gameType: ModsEnum.succession,
+        );
+
+        final engine = NativeEngine();
+        engine.resetState(clearTranspositionTable: true);
+        final result = engine.findBestMoveSync(
+          board,
+          timeLimitMs: 120,
+          maxDepth: 4,
+          skillLevel: 4,
+        );
+
+        expect(_moveNotation(result.bestMove), 'e1c3');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
   });
 }
 

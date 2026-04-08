@@ -10,11 +10,20 @@ void main(List<String> args) {
   print(runHeirPositionProbe(args));
 }
 
+String runSuccessionPositionProbe(List<String> args) {
+  return runHeirPositionProbe([...args, '--mod=succession']);
+}
+
 String runHeirPositionProbe(List<String> args) {
   final fen = _readArg(args, 'fen');
   if (fen == null || fen.isEmpty) {
     throw ArgumentError('Provide --fen=<fen>');
   }
+
+  final mode = (_readArg(args, 'mod') ?? 'heir').toLowerCase();
+  final isSuccession = mode == 'succession';
+  final modName = isSuccession ? 'Succession' : 'Heir';
+  final gameType = isSuccession ? ModsEnum.succession : ModsEnum.heir;
 
   final depth = _readIntArg(args, 'depth', 6);
   final timeMs = _readIntArg(args, 'time-ms', 1200);
@@ -24,12 +33,12 @@ String runHeirPositionProbe(List<String> args) {
       ? const <String>[]
       : candidateArg.split(',').where((s) => s.isNotEmpty).toList();
 
-  final board = ChessBoard.fromFEN(fen, gameType: ModsEnum.heir);
+  final board = ChessBoard.fromFEN(fen, gameType: gameType);
   final engine = NativeEngine();
   final orchestrator = Orchestrator();
   final lines = <String>[];
 
-  lines.add('Heir probe: d$depth/${timeMs}ms');
+  lines.add('$modName probe: d$depth/${timeMs}ms');
   lines.add('FEN: $fen');
   lines.add('Side to move: ${board.currentPlayer.name}');
   lines.add('');

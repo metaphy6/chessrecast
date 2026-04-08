@@ -36,19 +36,24 @@ void main(List<String> args) {
   print(runHeirAudit(args));
 }
 
+String runSuccessionAudit(List<String> args) {
+  return runHeirAudit([...args, '--mod=succession']);
+}
+
 String runHeirAudit(List<String> args) {
   final options = _Options.fromArgs(args);
   final engine = NativeEngine();
   final orchestrator = Orchestrator();
 
   var board = options.startingFen == null
-      ? ChessBoard.initial(gameType: ModsEnum.heir)
-      : ChessBoard.fromFEN(options.startingFen!, gameType: ModsEnum.heir);
+      ? ChessBoard.initial(gameType: options.gameType)
+      : ChessBoard.fromFEN(options.startingFen!, gameType: options.gameType);
   final analyzed = <_AnalyzedPly>[];
   final lines = <String>[];
 
   lines.add(
-    'Heir audit: baseline d${options.baselineDepth}/${options.baselineMs}ms '
+    '${options.modeLabel} audit: '
+    'baseline d${options.baselineDepth}/${options.baselineMs}ms '
     'vs reference d${options.referenceDepth}/${options.referenceMs}ms, '
     'max plies ${options.maxPlies}',
   );
@@ -231,6 +236,8 @@ String _cp(int score) {
 }
 
 class _Options {
+  final ModsEnum gameType;
+  final String modeLabel;
   final int baselineDepth;
   final int baselineMs;
   final int referenceDepth;
@@ -241,6 +248,8 @@ class _Options {
   final List<String> openingMoves;
 
   const _Options({
+    required this.gameType,
+    required this.modeLabel,
     required this.baselineDepth,
     required this.baselineMs,
     required this.referenceDepth,
@@ -279,7 +288,12 @@ class _Options {
         .where((move) => move.isNotEmpty)
         .toList(growable: false);
 
+    final mode = (readString('mod') ?? 'heir').toLowerCase();
+    final isSuccession = mode == 'succession';
+
     return _Options(
+      gameType: isSuccession ? ModsEnum.succession : ModsEnum.heir,
+      modeLabel: isSuccession ? 'Succession' : 'Heir',
       baselineDepth: readInt('baseline-depth', 4),
       baselineMs: readInt('baseline-ms', 150),
       referenceDepth: readInt('reference-depth', 6),

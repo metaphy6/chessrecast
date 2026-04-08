@@ -34,11 +34,15 @@ void main(List<String> args) {
   print(runHeirAuditBatch(args));
 }
 
+String runSuccessionAuditBatch(List<String> args) {
+  return runHeirAuditBatch([...args, '--mod=succession']);
+}
+
 String runHeirAuditBatch(List<String> args) {
   final options = _BatchOptions.fromArgs(args);
   final summaries = <_BatchSummary>[];
   final lines = <String>[
-    'Heir batch audit: ${options.openings.length} openings, '
+    '${options.modeLabel} batch audit: ${options.openings.length} openings, '
         'baseline d${options.baselineDepth}/${options.baselineMs}ms '
         'vs reference d${options.referenceDepth}/${options.referenceMs}ms, '
         'max plies ${options.maxPlies}',
@@ -53,6 +57,7 @@ String runHeirAuditBatch(List<String> args) {
       '--reference-ms=${options.referenceMs}',
       '--max-plies=${options.maxPlies}',
       '--top-count=${options.topCount}',
+      '--mod=${options.modArg}',
       '--moves=$opening',
     ]);
 
@@ -108,6 +113,8 @@ String runHeirAuditBatch(List<String> args) {
 }
 
 class _BatchOptions {
+  final String modeLabel;
+  final String modArg;
   final int baselineDepth;
   final int baselineMs;
   final int referenceDepth;
@@ -117,6 +124,8 @@ class _BatchOptions {
   final List<String> openings;
 
   const _BatchOptions({
+    required this.modeLabel,
+    required this.modArg,
     required this.baselineDepth,
     required this.baselineMs,
     required this.referenceDepth,
@@ -156,8 +165,12 @@ class _BatchOptions {
               .map((opening) => opening.trim())
               .where((opening) => opening.isNotEmpty)
               .toList(growable: false);
+    final mode = (readString('mod') ?? 'heir').toLowerCase();
+    final isSuccession = mode == 'succession';
 
     return _BatchOptions(
+      modeLabel: isSuccession ? 'Succession' : 'Heir',
+      modArg: isSuccession ? 'succession' : 'heir',
       baselineDepth: readInt('baseline-depth', 4),
       baselineMs: readInt('baseline-ms', 120),
       referenceDepth: readInt('reference-depth', 6),
