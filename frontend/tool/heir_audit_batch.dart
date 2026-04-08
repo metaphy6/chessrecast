@@ -34,17 +34,13 @@ void main(List<String> args) {
   print(runHeirAuditBatch(args));
 }
 
-String runSuccessionAuditBatch(List<String> args) {
-  return runHeirAuditBatch([...args, '--mod=succession']);
-}
-
 String runHeirAuditBatch(List<String> args) {
   final options = _BatchOptions.fromArgs(args);
   final summaries = <_BatchSummary>[];
   final lines = <String>[
     '${options.modeLabel} batch audit: ${options.openings.length} openings, '
-        'baseline d${options.baselineDepth}/${options.baselineMs}ms '
-        'vs reference d${options.referenceDepth}/${options.referenceMs}ms, '
+      'baseline d${options.baselineDepth}/${options.baselineMs}ms s${options.baselineSkill} '
+      'vs reference d${options.referenceDepth}/${options.referenceMs}ms s${options.referenceSkill}, '
         'max plies ${options.maxPlies}',
   ];
 
@@ -53,8 +49,10 @@ String runHeirAuditBatch(List<String> args) {
     final report = runHeirAudit([
       '--baseline-depth=${options.baselineDepth}',
       '--baseline-ms=${options.baselineMs}',
+      '--baseline-skill=${options.baselineSkill}',
       '--reference-depth=${options.referenceDepth}',
       '--reference-ms=${options.referenceMs}',
+      '--reference-skill=${options.referenceSkill}',
       '--max-plies=${options.maxPlies}',
       '--top-count=${options.topCount}',
       '--mod=${options.modArg}',
@@ -117,8 +115,10 @@ class _BatchOptions {
   final String modArg;
   final int baselineDepth;
   final int baselineMs;
+  final int baselineSkill;
   final int referenceDepth;
   final int referenceMs;
+  final int referenceSkill;
   final int maxPlies;
   final int topCount;
   final List<String> openings;
@@ -128,8 +128,10 @@ class _BatchOptions {
     required this.modArg,
     required this.baselineDepth,
     required this.baselineMs,
+    required this.baselineSkill,
     required this.referenceDepth,
     required this.referenceMs,
+    required this.referenceSkill,
     required this.maxPlies,
     required this.topCount,
     required this.openings,
@@ -173,8 +175,10 @@ class _BatchOptions {
       modArg: isSuccession ? 'succession' : 'heir',
       baselineDepth: readInt('baseline-depth', 4),
       baselineMs: readInt('baseline-ms', 120),
+      baselineSkill: readInt('baseline-skill', 4),
       referenceDepth: readInt('reference-depth', 6),
       referenceMs: readInt('reference-ms', 500),
+      referenceSkill: readInt('reference-skill', 4),
       maxPlies: readInt('max-plies', 24),
       topCount: readInt('top-count', 10),
       openings: openings,

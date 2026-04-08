@@ -43,6 +43,9 @@ String runSuccessionPositionProbe(List<String> args) {
   }
   lines.add('Position FEN: ${board.toFEN()}');
   lines.add('Side to move: ${board.currentPlayer.name}');
+  lines.add(
+    'Replay history can matter for Succession queen-loss and king-promotion race transitions.',
+  );
 
   engine.resetState();
   final root = engine.findBestMoveSync(

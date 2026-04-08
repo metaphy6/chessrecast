@@ -13,10 +13,12 @@ void main() {
 
       final report = runHeirAudit([
         '--baseline-depth=${env('HEIR_AUDIT_BASELINE_DEPTH', '4')}',
-        '--baseline-ms=${env('HEIR_AUDIT_BASELINE_MS', '150')}',
+        '--baseline-ms=${env('HEIR_AUDIT_BASELINE_MS', '120')}',
+        '--baseline-skill=${env('HEIR_AUDIT_BASELINE_SKILL', '4')}',
         '--reference-depth=${env('HEIR_AUDIT_REFERENCE_DEPTH', '6')}',
-        '--reference-ms=${env('HEIR_AUDIT_REFERENCE_MS', '600')}',
-        '--max-plies=${env('HEIR_AUDIT_MAX_PLIES', '40')}',
+        '--reference-ms=${env('HEIR_AUDIT_REFERENCE_MS', '500')}',
+        '--reference-skill=${env('HEIR_AUDIT_REFERENCE_SKILL', '4')}',
+        '--max-plies=${env('HEIR_AUDIT_MAX_PLIES', '24')}',
         '--top-count=${env('HEIR_AUDIT_TOP_COUNT', '8')}',
         '--fen=${env('HEIR_AUDIT_FEN', '')}',
         '--moves=${env('HEIR_AUDIT_MOVES', '')}',

@@ -97,17 +97,26 @@ String runFriendlyFirePositionProbe(List<String> args) {
         lines.add('- $notation: not legal');
         continue;
       }
-      final item = topCount > 0
-          ? scored.firstWhere((s) => s.move == move)
-          : _analyzeMove(
-              engine,
-              orchestrator,
-              board,
-              move,
-              timeMs: timeMs,
-              depth: depth,
-              skillLevel: skillLevel,
-            );
+      _ScoredMove? fromSweep;
+      if (topCount > 0) {
+        for (final scoredMove in scored) {
+          if (_sameMove(scoredMove.move, move)) {
+            fromSweep = scoredMove;
+            break;
+          }
+        }
+      }
+      final item =
+          fromSweep ??
+          _analyzeMove(
+            engine,
+            orchestrator,
+            board,
+            move,
+            timeMs: timeMs,
+            depth: depth,
+            skillLevel: skillLevel,
+          );
       lines.add(
         '- $notation => ${_moveLabel(item.move)} '
         'score=${_cp(item.score)} '
@@ -190,6 +199,12 @@ int _scorePlayedMove(
     skillLevel: referenceSkill,
   );
   return childBoard.currentPlayer == mover ? reply.score : -reply.score;
+}
+
+bool _sameMove(ChessMove a, ChessMove b) {
+  return a.from == b.from &&
+      a.to == b.to &&
+      a.promotionPiece == b.promotionPiece;
 }
 
 String _moveLabel(ChessMove? move) {

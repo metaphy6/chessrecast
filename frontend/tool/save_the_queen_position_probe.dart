@@ -43,6 +43,9 @@ String runSaveTheQueenPositionProbe(List<String> args) {
   }
   lines.add('Position FEN: ${board.toFEN()}');
   lines.add('Side to move: ${board.currentPlayer.name}');
+  lines.add(
+    'Replay history can matter for Save the Queen capture/escape state transitions.',
+  );
 
   engine.resetState();
   final root = engine.findBestMoveSync(

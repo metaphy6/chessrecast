@@ -47,7 +47,8 @@ String runMercenaryAudit(List<String> args) {
 
   lines.add(
     'Mercenary audit: baseline d${options.baselineDepth}/${options.baselineMs}ms '
-    'vs reference d${options.referenceDepth}/${options.referenceMs}ms, '
+    's${options.baselineSkill} vs reference d${options.referenceDepth}/${options.referenceMs}ms '
+    's${options.referenceSkill}, '
     'max plies ${options.maxPlies}',
   );
 
@@ -73,11 +74,12 @@ String runMercenaryAudit(List<String> args) {
     final fen = board.toFEN();
     final side = board.currentPlayer;
 
+    engine.resetState();
     final baseline = engine.findBestMoveSync(
       board,
       timeLimitMs: options.baselineMs,
       maxDepth: options.baselineDepth,
-      skillLevel: 4,
+      skillLevel: options.baselineSkill,
     );
 
     final playedMove = baseline.bestMove;
@@ -86,11 +88,12 @@ String runMercenaryAudit(List<String> args) {
       break;
     }
 
+    engine.resetState();
     final reference = engine.findBestMoveSync(
       board,
       timeLimitMs: options.referenceMs,
       maxDepth: options.referenceDepth,
-      skillLevel: 4,
+      skillLevel: options.referenceSkill,
     );
 
     final nextBoard = orchestrator.executeMove(board, playedMove);
@@ -99,6 +102,7 @@ String runMercenaryAudit(List<String> args) {
       nextBoard,
       options.referenceMs,
       options.referenceDepth,
+      options.referenceSkill,
     );
 
     final delta = reference.score - playedScore;
@@ -168,6 +172,7 @@ int _scorePlayedMove(
   ChessBoard childBoard,
   int referenceMs,
   int referenceDepth,
+  int referenceSkill,
 ) {
   if (childBoard.gameStatus == GameStatus.checkmate) {
     return mateScore;
@@ -177,11 +182,12 @@ int _scorePlayedMove(
     return 0;
   }
 
+  engine.resetState();
   final reply = engine.findBestMoveSync(
     childBoard,
     timeLimitMs: referenceMs,
     maxDepth: math.max(1, referenceDepth - 1),
-    skillLevel: 4,
+    skillLevel: referenceSkill,
   );
   return -reply.score;
 }
@@ -213,8 +219,10 @@ String _cp(int score) {
 class _Options {
   final int baselineDepth;
   final int baselineMs;
+  final int baselineSkill;
   final int referenceDepth;
   final int referenceMs;
+  final int referenceSkill;
   final int maxPlies;
   final int topCount;
   final String? startingFen;
@@ -223,8 +231,10 @@ class _Options {
   const _Options({
     required this.baselineDepth,
     required this.baselineMs,
+    required this.baselineSkill,
     required this.referenceDepth,
     required this.referenceMs,
+    required this.referenceSkill,
     required this.maxPlies,
     required this.topCount,
     required this.startingFen,
@@ -261,11 +271,13 @@ class _Options {
 
     return _Options(
       baselineDepth: readInt('baseline-depth', 4),
-      baselineMs: readInt('baseline-ms', 200),
+      baselineMs: readInt('baseline-ms', 120),
+      baselineSkill: readInt('baseline-skill', 4),
       referenceDepth: readInt('reference-depth', 6),
-      referenceMs: readInt('reference-ms', 1200),
-      maxPlies: readInt('max-plies', 40),
-      topCount: readInt('top-count', 5),
+      referenceMs: readInt('reference-ms', 500),
+      referenceSkill: readInt('reference-skill', 4),
+      maxPlies: readInt('max-plies', 24),
+      topCount: readInt('top-count', 8),
       startingFen: readString('fen'),
       openingMoves: moves,
     );

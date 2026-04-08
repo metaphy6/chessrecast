@@ -31,8 +31,8 @@ String runMercenaryAuditBatch(List<String> args) {
   final summaries = <_BatchSummary>[];
   final lines = <String>[
     'Mercenary batch audit: ${options.openings.length} openings, '
-        'baseline d${options.baselineDepth}/${options.baselineMs}ms '
-        'vs reference d${options.referenceDepth}/${options.referenceMs}ms, '
+      'baseline d${options.baselineDepth}/${options.baselineMs}ms s${options.baselineSkill} '
+      'vs reference d${options.referenceDepth}/${options.referenceMs}ms s${options.referenceSkill}, '
         'max plies ${options.maxPlies}',
   ];
 
@@ -41,8 +41,10 @@ String runMercenaryAuditBatch(List<String> args) {
     final report = runMercenaryAudit([
       '--baseline-depth=${options.baselineDepth}',
       '--baseline-ms=${options.baselineMs}',
+      '--baseline-skill=${options.baselineSkill}',
       '--reference-depth=${options.referenceDepth}',
       '--reference-ms=${options.referenceMs}',
+      '--reference-skill=${options.referenceSkill}',
       '--max-plies=${options.maxPlies}',
       '--top-count=${options.topCount}',
       '--moves=$opening',
@@ -102,8 +104,10 @@ String runMercenaryAuditBatch(List<String> args) {
 class _BatchOptions {
   final int baselineDepth;
   final int baselineMs;
+  final int baselineSkill;
   final int referenceDepth;
   final int referenceMs;
+  final int referenceSkill;
   final int maxPlies;
   final int topCount;
   final List<String> openings;
@@ -111,8 +115,10 @@ class _BatchOptions {
   const _BatchOptions({
     required this.baselineDepth,
     required this.baselineMs,
+    required this.baselineSkill,
     required this.referenceDepth,
     required this.referenceMs,
+    required this.referenceSkill,
     required this.maxPlies,
     required this.topCount,
     required this.openings,
@@ -150,12 +156,14 @@ class _BatchOptions {
               .toList(growable: false);
 
     return _BatchOptions(
-      baselineDepth: readInt('baseline-depth', 5),
-      baselineMs: readInt('baseline-ms', 250),
-      referenceDepth: readInt('reference-depth', 7),
-      referenceMs: readInt('reference-ms', 900),
-      maxPlies: readInt('max-plies', 80),
-      topCount: readInt('top-count', 5),
+      baselineDepth: readInt('baseline-depth', 4),
+      baselineMs: readInt('baseline-ms', 120),
+      baselineSkill: readInt('baseline-skill', 4),
+      referenceDepth: readInt('reference-depth', 6),
+      referenceMs: readInt('reference-ms', 500),
+      referenceSkill: readInt('reference-skill', 4),
+      maxPlies: readInt('max-plies', 24),
+      topCount: readInt('top-count', 10),
       openings: openings,
     );
   }

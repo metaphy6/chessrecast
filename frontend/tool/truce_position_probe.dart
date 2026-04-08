@@ -42,6 +42,7 @@ String runTrucePositionProbe(List<String> args) {
   }
   lines.add('Position FEN: ${board.toFEN()}');
   lines.add('Side to move: ${board.currentPlayer.name}');
+  lines.add('Exact Truce reproduction requires replay history, not just FEN.');
   lines.add('');
 
   final legalMoves = orchestrator.getAllValidMoves(board);
@@ -86,7 +87,23 @@ String runTrucePositionProbe(List<String> args) {
         lines.add('- $notation: not legal');
         continue;
       }
-      final item = scored.firstWhere((s) => s.move == move);
+      _ScoredMove? matched;
+      for (final scoredMove in scored) {
+        if (_sameMove(scoredMove.move, move)) {
+          matched = scoredMove;
+          break;
+        }
+      }
+      final item =
+          matched ??
+          _analyzeMove(
+            engine,
+            orchestrator,
+            board,
+            move,
+            timeMs: timeMs,
+            depth: depth,
+          );
       lines.add(
         '- $notation => ${_moveLabel(item.move)} '
         'score=${_cp(item.score)} '
@@ -108,6 +125,33 @@ class _ScoredMove {
     required this.score,
     required this.bestReply,
   });
+}
+
+_ScoredMove _analyzeMove(
+  NativeEngine engine,
+  Orchestrator orchestrator,
+  ChessBoard board,
+  ChessMove move, {
+  required int timeMs,
+  required int depth,
+}) {
+  final child = orchestrator.executeMove(board, move);
+  final score = _scorePlayedMove(engine, child, timeMs, depth);
+  final bestReply = child.gameStatus.isGameOver
+      ? null
+      : (() {
+          engine.resetState();
+          return engine
+              .findBestMoveSync(
+                child,
+                timeLimitMs: timeMs,
+                maxDepth: math.max(1, depth - 1),
+                skillLevel: 4,
+              )
+              .bestMove;
+        })();
+
+  return _ScoredMove(move: move, score: score, bestReply: bestReply);
 }
 
 int _scorePlayedMove(
@@ -132,6 +176,12 @@ int _scorePlayedMove(
     skillLevel: 4,
   );
   return -reply.score;
+}
+
+bool _sameMove(ChessMove a, ChessMove b) {
+  return a.from == b.from &&
+      a.to == b.to &&
+      a.promotionPiece == b.promotionPiece;
 }
 
 String _moveLabel(ChessMove? move) {
