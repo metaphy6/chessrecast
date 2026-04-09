@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:chessrecast/board/utils/exporter.dart';
 import 'package:chessrecast/engine/native.dart';
-import 'package:chessrecast/engine/score_utils.dart';
 import 'package:chessrecast/management/orchestrator.dart';
 import 'package:chessrecast/mods/enums.dart';
 import 'position_probe_runner.dart';
