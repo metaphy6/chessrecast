@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'audit_kpi.dart';
 import 'heir_engine_audit.dart';
 
 const List<String> _defaultWhiteOpenings = [
@@ -38,9 +39,9 @@ String runHeirAuditBatch(List<String> args) {
   final options = _BatchOptions.fromArgs(args);
   final summaries = <_BatchSummary>[];
   final lines = <String>[
-    '${options.modeLabel} batch audit: ${options.openings.length} openings, '
-      'baseline d${options.baselineDepth}/${options.baselineMs}ms s${options.baselineSkill} '
-      'vs reference d${options.referenceDepth}/${options.referenceMs}ms s${options.referenceSkill}, '
+    'Heir batch audit: ${options.openings.length} openings, '
+        'baseline d${options.baselineDepth}/${options.baselineMs}ms s${options.baselineSkill} '
+        'vs reference d${options.referenceDepth}/${options.referenceMs}ms s${options.referenceSkill}, '
         'max plies ${options.maxPlies}',
   ];
 
@@ -55,7 +56,6 @@ String runHeirAuditBatch(List<String> args) {
       '--reference-skill=${options.referenceSkill}',
       '--max-plies=${options.maxPlies}',
       '--top-count=${options.topCount}',
-      '--mod=${options.modArg}',
       '--moves=$opening',
     ]);
 
@@ -89,6 +89,11 @@ String runHeirAuditBatch(List<String> args) {
     '>=2.00 $overTwo/${deltas.length} '
     '>=3.00 $overThree/${deltas.length}',
   );
+  lines.add(
+    AuditKpiAggregate.fromSnapshots(
+      summaries.map((s) => s.kpi).toList(),
+    ).toSummaryLine(),
+  );
 
   final worst = [...summaries]..sort((a, b) => b.delta.compareTo(a.delta));
   final worstCount = math.min(options.topCount, worst.length);
@@ -111,8 +116,6 @@ String runHeirAuditBatch(List<String> args) {
 }
 
 class _BatchOptions {
-  final String modeLabel;
-  final String modArg;
   final int baselineDepth;
   final int baselineMs;
   final int baselineSkill;
@@ -124,8 +127,6 @@ class _BatchOptions {
   final List<String> openings;
 
   const _BatchOptions({
-    required this.modeLabel,
-    required this.modArg,
     required this.baselineDepth,
     required this.baselineMs,
     required this.baselineSkill,
@@ -167,12 +168,8 @@ class _BatchOptions {
               .map((opening) => opening.trim())
               .where((opening) => opening.isNotEmpty)
               .toList(growable: false);
-    final mode = (readString('mod') ?? 'heir').toLowerCase();
-    final isSuccession = mode == 'succession';
 
     return _BatchOptions(
-      modeLabel: isSuccession ? 'Succession' : 'Heir',
-      modArg: isSuccession ? 'succession' : 'heir',
       baselineDepth: readInt('baseline-depth', 4),
       baselineMs: readInt('baseline-ms', 120),
       baselineSkill: readInt('baseline-skill', 4),
@@ -194,6 +191,7 @@ class _BatchSummary {
   final String playedMove;
   final String referenceMove;
   final String fen;
+  final AuditKpiSnapshot kpi;
 
   const _BatchSummary({
     required this.game,
@@ -203,6 +201,7 @@ class _BatchSummary {
     required this.playedMove,
     required this.referenceMove,
     required this.fen,
+    required this.kpi,
   });
 
   factory _BatchSummary.fromReport(int game, String opening, String report) {
@@ -222,6 +221,7 @@ class _BatchSummary {
       playedMove: deltaMatch.group(4)!,
       referenceMove: deltaMatch.group(5)!,
       fen: fenMatch?.group(1) ?? '(missing FEN)',
+      kpi: AuditKpiSnapshot.fromReport(report),
     );
   }
 }

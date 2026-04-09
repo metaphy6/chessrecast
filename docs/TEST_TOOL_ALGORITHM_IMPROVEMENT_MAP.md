@@ -281,6 +281,11 @@ Add to all engine_audit and batch outputs:
 - castledByPly (or neverCastled)
 - kingExposureIndex (simple heuristic proxy)
 
+Status (2026-04-09):
+- Implemented for all engine_audit tools via shared helper frontend/tool/king_policy_metrics.dart.
+- Wired into Friendly Fire, Kings Battle, Truce, Heir, Mercenary, Save the Queen, and Succession engine audits.
+- Batch summaries remain pending for the same KPI set.
+
 Expected outcome:
 - Immediate visibility of the issue as a measurable signal.
 
@@ -288,6 +293,11 @@ Expected outcome:
 For Heir, Mercenary, SaveTheQueen, Succession, FriendlyFire:
 - cases where best move should preserve castling rights unless tactical refutation exists.
 - cases where early king walk must lose by score margin against castling/development plan.
+
+Status (2026-04-09):
+- Implemented expanded cross-mod guardrails in frontend/test/king_castling_policy_regression_test.dart.
+- Coverage now includes Friendly Fire, Heir, Mercenary, Save the Queen, and Succession.
+- Added center-pressure scenarios for both sides and assertions that reject voluntary quiet non-castling king moves when castling rights and alternatives exist.
 
 Keep exceptions explicit:
 - Kings Battle: king activity expected.
@@ -299,6 +309,32 @@ Suggested policy gates:
 - Bonus for legal castling completion if center is semi-open.
 - Penalty for losing castling rights without tactical gain.
 - Relaxation trigger when forced-check/tactical urgency exists.
+
+Safer replacement strategy for hard-coded native overrides:
+1. Replace board-shape exact-match overrides with feature-triggered policy packs
+- Current exact-match overrides in frontend/native/engine/bridge.c (Friendly Fire and Kings Battle) should be migrated to feature checks such as king-zone pressure, exposed-queen risk, shelter delta, and tactical urgency.
+- Keep behavior variant-scoped, but avoid square-by-square signatures.
+
+2. Introduce ranked policy candidates, not forced move picks
+- Instead of returning a single forced override move, add policy-favored candidates into refinement pools with additive bias scores.
+- Preserve tactical freedom by allowing verification scoring to overrule policy bias when tactical gain is clear.
+
+3. Add bounded verification windows per policy class
+- Use wider acceptance windows for king-safety recovery moves and tighter windows for quiet pawn/queen drift suppression.
+- Require tactical non-regression checks (mate, hanging major/minor, immediate king exposure spike) before policy replacement is accepted.
+
+4. Run policy shadow mode before deleting old overrides
+- For each legacy override site, log both legacy pick and policy pick in audits for a burn-in period.
+- Promote policy path only when it matches or improves worst-miss and king-policy KPI trends.
+
+5. Decommission legacy overrides incrementally with rollback toggles
+- Remove one override class at a time (Friendly Fire first, then Kings Battle phase1, then Kings Battle unlocked).
+- Keep per-class runtime flags for fast rollback while retaining the new policy code path.
+
+Acceptance criteria for replacement:
+- No regression in existing always-on engine regression suites.
+- No increase in >=2.00 and >=3.00 batch worst-miss counts for affected mods.
+- King-policy KPI trend non-degradation (earlyKingMoveCount, castlingRightLossByVoluntaryKingMove, kingExposureIndex).
 
 ### Phase 4: Expand probe bundles
 - Replicate Kings Battle probe-bundle style for other mods with king/castling anti-pattern sets.

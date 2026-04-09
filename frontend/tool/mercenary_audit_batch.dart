@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'audit_kpi.dart';
 import 'mercenary_engine_audit.dart';
 
 const List<String> _defaultOpenings = [
@@ -20,6 +21,7 @@ final RegExp _deltaLine = RegExp(
   multiLine: true,
 );
 final RegExp _fenLine = RegExp(r'^\s*FEN: (.+)$', multiLine: true);
+final RegExp _replayLine = RegExp(r'^\s*Replay: (.+)$', multiLine: true);
 final RegExp _statusLine = RegExp(r'^Final status: (.+)$', multiLine: true);
 
 void main(List<String> args) {
@@ -31,8 +33,8 @@ String runMercenaryAuditBatch(List<String> args) {
   final summaries = <_BatchSummary>[];
   final lines = <String>[
     'Mercenary batch audit: ${options.openings.length} openings, '
-      'baseline d${options.baselineDepth}/${options.baselineMs}ms s${options.baselineSkill} '
-      'vs reference d${options.referenceDepth}/${options.referenceMs}ms s${options.referenceSkill}, '
+        'baseline d${options.baselineDepth}/${options.baselineMs}ms s${options.baselineSkill} '
+        'vs reference d${options.referenceDepth}/${options.referenceMs}ms s${options.referenceSkill}, '
         'max plies ${options.maxPlies}',
   ];
 
@@ -61,6 +63,7 @@ String runMercenaryAuditBatch(List<String> args) {
       'ref=${summary.referenceMove}',
     );
     lines.add('FEN: ${summary.fen}');
+    lines.add('Replay: ${summary.replay}');
   }
 
   final deltas = summaries
@@ -80,6 +83,11 @@ String runMercenaryAuditBatch(List<String> args) {
     '>=2.00 $overTwo/${deltas.length} '
     '>=3.00 $overThree/${deltas.length}',
   );
+  lines.add(
+    AuditKpiAggregate.fromSnapshots(
+      summaries.map((s) => s.kpi).toList(),
+    ).toSummaryLine(),
+  );
 
   final worst = [...summaries]..sort((a, b) => b.delta.compareTo(a.delta));
   final worstCount = math.min(options.topCount, worst.length);
@@ -95,6 +103,7 @@ String runMercenaryAuditBatch(List<String> args) {
         'ref=${item.referenceMove}',
       );
       lines.add('   FEN: ${item.fen}');
+      lines.add('   Replay: ${item.replay}');
     }
   }
 
@@ -177,6 +186,8 @@ class _BatchSummary {
   final String playedMove;
   final String referenceMove;
   final String fen;
+  final String replay;
+  final AuditKpiSnapshot kpi;
 
   const _BatchSummary({
     required this.game,
@@ -186,6 +197,8 @@ class _BatchSummary {
     required this.playedMove,
     required this.referenceMove,
     required this.fen,
+    required this.replay,
+    required this.kpi,
   });
 
   factory _BatchSummary.fromReport(int game, String opening, String report) {
@@ -195,6 +208,7 @@ class _BatchSummary {
     }
 
     final fenMatch = _fenLine.firstMatch(report);
+    final replayMatch = _replayLine.firstMatch(report);
     final statusMatch = _statusLine.firstMatch(report);
 
     return _BatchSummary(
@@ -205,6 +219,8 @@ class _BatchSummary {
       playedMove: deltaMatch.group(4)!,
       referenceMove: deltaMatch.group(5)!,
       fen: fenMatch?.group(1) ?? '(missing FEN)',
+      replay: replayMatch?.group(1) ?? '(missing replay)',
+      kpi: AuditKpiSnapshot.fromReport(report),
     );
   }
 }

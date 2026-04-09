@@ -43,6 +43,7 @@ void main() {
           skillLevel: 4,
         );
 
+        expect(result.score, greaterThan(-300));
         expect(_moveNotation(result.bestMove), 'd3e4');
       },
       skip: !NativeEngine.isAvailable,
@@ -79,10 +80,11 @@ void main() {
           'b8a6',
           'e2e4',
         ]);
-        final best = _rootBestMove(board);
+        final search = _rootSearch(board);
 
-        expect(best, isNotNull);
-        expect(_moveNotation(best), isNot('d1e2'));
+        expect(search.bestMove, isNotNull);
+        expect(search.score, greaterThan(-200));
+        expect(_moveNotation(search.bestMove), isNot('d1e2'));
       },
       skip: !NativeEngine.isAvailable,
     );
@@ -112,10 +114,11 @@ void main() {
           'r1b1k2r/pp3p1p/1Q6/1B1p1p2/1b1p4/8/1PPP1PPP/R1BqK2R b',
           gameType: ModsEnum.saveTheQueen,
         );
-        final best = _rootBestMove(board);
+        final search = _rootSearch(board);
 
-        expect(best, isNotNull);
-        expect(_moveNotation(best), 'c8d7');
+        expect(search.bestMove, isNotNull);
+        expect(search.score, greaterThan(-200));
+        expect(_moveNotation(search.bestMove), 'c8d7');
       },
       skip: !NativeEngine.isAvailable,
     );
@@ -138,6 +141,22 @@ ChessMove? _rootBestMove(
         skillLevel: skillLevel,
       )
       .bestMove;
+}
+
+NativeSearchResult _rootSearch(
+  ChessBoard board, {
+  int timeLimitMs = 120,
+  int maxDepth = 4,
+  int skillLevel = 4,
+}) {
+  final engine = NativeEngine();
+  engine.resetState();
+  return engine.findBestMoveSync(
+    board,
+    timeLimitMs: timeLimitMs,
+    maxDepth: maxDepth,
+    skillLevel: skillLevel,
+  );
 }
 
 ChessBoard _boardFromReplay(List<String> replay) {

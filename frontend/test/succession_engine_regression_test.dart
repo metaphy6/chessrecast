@@ -70,6 +70,7 @@ void main() {
         );
 
         expect(result.bestMove, isNotNull);
+        expect(result.score, greaterThan(-500));
         expect(_moveNotation(result.bestMove), isNot('d7d8'));
       },
       skip: !NativeEngine.isAvailable,
@@ -138,6 +139,7 @@ void main() {
           skillLevel: 4,
         );
 
+        expect(result.score, greaterThan(-300));
         expect(_moveNotation(result.bestMove), isNot('c1g5'));
       },
       skip: !NativeEngine.isAvailable,
@@ -161,6 +163,7 @@ void main() {
         );
 
         final move = _moveNotation(result.bestMove);
+        expect(result.score, greaterThan(-300));
         expect(move, isNot('d1f3'));
       },
       skip: !NativeEngine.isAvailable,

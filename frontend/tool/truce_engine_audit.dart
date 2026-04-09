@@ -6,6 +6,8 @@ import 'package:chessrecast/engine/native.dart';
 import 'package:chessrecast/management/orchestrator.dart';
 import 'package:chessrecast/mods/enums.dart';
 
+import 'king_policy_metrics.dart';
+
 class _AnalyzedPly {
   final int ply;
   final String fen;
@@ -48,6 +50,7 @@ String runTruceAudit(List<String> args) {
       : ChessBoard.fromFEN(options.startingFen!, gameType: ModsEnum.truce);
   final analyzed = <_AnalyzedPly>[];
   final lines = <String>[];
+  final kingPolicy = KingPolicyMetrics();
 
   lines.add(
     'Truce audit: baseline d${options.baselineDepth}/${options.baselineMs}ms '
@@ -105,6 +108,12 @@ String runTruceAudit(List<String> args) {
     );
 
     final nextBoard = orchestrator.executeMove(board, playedMove);
+    kingPolicy.recordPly(
+      ply: ply,
+      boardBefore: board,
+      playedMove: playedMove,
+      boardAfter: nextBoard,
+    );
     final playedScore = _scorePlayedMove(
       engine,
       nextBoard,
@@ -158,6 +167,14 @@ String runTruceAudit(List<String> args) {
     replayPrefix.add(_coordinateLabel(playedMove));
   }
 
+  lines.add('');
+  lines.add(
+    'King-policy KPIs: '
+    'earlyKingMoveCount(<=ply12)=${kingPolicy.earlyKingMoveCount} '
+    'castlingRightLossByVoluntaryKingMove=${kingPolicy.castlingRightLossByVoluntaryKingMove} '
+    'castledByPly[w=${kingPolicy.castledByPlyLabel(PieceColor.white)},b=${kingPolicy.castledByPlyLabel(PieceColor.black)}] '
+    'kingExposureIndex(avg)=${kingPolicy.averageKingExposureIndex.toStringAsFixed(2)}',
+  );
   lines.add('');
   lines.add(
     'Final status: ${board.gameStatus.name} after ${analyzed.length} plies',

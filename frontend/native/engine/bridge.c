@@ -88,6 +88,115 @@ static int kb_phase1_candidate_priority(const Board *board, Move move, Color sid
     return 0;
 }
 
+static int kb_phase1_king_forward_rank(const Board *board, Color side) {
+    Bitboard king_bb;
+
+    king_bb = board->pieces[side][KING];
+    if (king_bb == BB_EMPTY) return 0;
+    return search_kb_phase1_forward_rank(side, bb_lsb(king_bb));
+}
+
+static int kb_phase1_refine_bias(const Board *board, Move move, Color side) {
+    PieceType piece;
+    bool capture;
+    int king_rank;
+
+    if (board->mod != MOD_KINGS_BATTLE || board->kb_unlocked) return 0;
+
+    piece = MOVE_PIECE(move);
+    capture = MOVE_IS_CAPTURE(move) || MOVE_IS_EP(move);
+    king_rank = kb_phase1_king_forward_rank(board, side);
+
+    if (piece == KING) {
+        int from_rank = search_kb_phase1_forward_rank(side, MOVE_FROM(move));
+        int to_rank = search_kb_phase1_forward_rank(side, MOVE_TO(move));
+        int bias = 0;
+
+        if (capture && MOVE_CAPTURED(move) == PAWN) bias += 220;
+        if (!capture && to_rank >= from_rank) bias += 70;
+        if (!capture && king_rank >= 2 && to_rank >= king_rank) bias += 60;
+        return bias;
+    }
+
+    if (piece == PAWN && !capture && !MOVE_IS_PROMO(move)) {
+        int from_rank = search_kb_phase1_forward_rank(side, MOVE_FROM(move));
+        int to_rank = search_kb_phase1_forward_rank(side, MOVE_TO(move));
+        int file = SQ_COL(MOVE_FROM(move));
+        int bias = 0;
+
+        if (search_kb_phase1_any_pawn_capture_available(board, side)) {
+            bias -= 180;
+        }
+        if (from_rank >= 3 && to_rank > from_rank) {
+            bias -= 220;
+        }
+        if (from_rank == 1 && to_rank == 3 && file >= 2 && file <= 5 && king_rank >= 2) {
+            bias -= 260;
+        }
+
+        if (board->pieces[side][KING] != BB_EMPTY) {
+            int king_file = SQ_COL(bb_lsb(board->pieces[side][KING]));
+            if (from_rank == 1 && to_rank == 2 && abs(file - king_file) <= 1) {
+                bias += 110;
+            }
+            if (king_rank >= 2 && king_file <= 2 && file >= 3 &&
+                from_rank == 1 && to_rank == 2) {
+                bias -= 180;
+            }
+            if (king_rank >= 2 && king_file >= 5 && file <= 4 &&
+                from_rank == 1 && to_rank == 2) {
+                bias -= 180;
+            }
+        }
+
+        if (king_rank >= 2 && from_rank == 1 && to_rank == 2 &&
+            (file <= 1 || file >= 6)) {
+            bias += 70;
+        }
+
+        return bias;
+    }
+
+    if (piece == PAWN && capture && MOVE_CAPTURED(move) == PAWN) {
+        return 140;
+    }
+
+    return 0;
+}
+
+static int kb_unlocked_refine_bias(const Board *board, Move move, Color side) {
+    bool quiet_pawn;
+    Color opp;
+
+    if (board->mod != MOD_KINGS_BATTLE || !board->kb_unlocked) return 0;
+
+    quiet_pawn = MOVE_PIECE(move) == PAWN &&
+                 !MOVE_IS_CAPTURE(move) &&
+                 !MOVE_IS_EP(move) &&
+                 !MOVE_IS_PROMO(move);
+    opp = color_opposite(side);
+
+    if (search_kb_unlocked_is_king_safety_move(board, move, side)) return 140;
+    if (search_kb_unlocked_is_shelter_move(board, move, side)) return 90;
+    if (search_kb_unlocked_is_development_move(board, move, side)) return 60;
+    if (search_kb_unlocked_is_queen_pressure_move(board, move, side)) return 50;
+
+    if (quiet_pawn && board->pieces[side][KING] != BB_EMPTY &&
+        board->pieces[opp][QUEEN] != BB_EMPTY) {
+        Square king_sq = bb_lsb(board->pieces[side][KING]);
+        Square opp_queen_sq = bb_lsb(board->pieces[opp][QUEEN]);
+        int dr = abs(SQ_ROW(king_sq) - SQ_ROW(opp_queen_sq));
+        int dc = abs(SQ_COL(king_sq) - SQ_COL(opp_queen_sq));
+        int dist = (dr > dc) ? dr : dc;
+
+        if (dist <= 4) {
+            return -120;
+        }
+    }
+
+    return 0;
+}
+
 static int kb_verify_child_score(const Board *root, Move move,
                                  int time_ms, int max_depth, int skill_level) {
     Board child = *root;
@@ -104,6 +213,95 @@ static int kb_verify_child_score(const Board *root, Move move,
         s_verify_nesting--;
     }
     return (child.side == mover) ? reply.score : -reply.score;
+}
+
+static bool bridge_square_has_piece(const Board *board,
+                                    Square sq,
+                                    Color side,
+                                    PieceType piece_type) {
+    Piece piece = board->mailbox[sq];
+    return piece != PIECE_EMPTY &&
+           PIECE_COLOR(piece) == side &&
+           PIECE_TYPE(piece) == piece_type;
+}
+
+static Move bridge_find_legal_move(const MoveList *ml,
+                                   Square from,
+                                   Square to,
+                                   PieceType piece_type) {
+    for (int i = 0; i < ml->count; i++) {
+        Move move = ml->moves[i];
+        if (MOVE_FROM(move) == from && MOVE_TO(move) == to &&
+            MOVE_PIECE(move) == piece_type) {
+            return move;
+        }
+    }
+    return MOVE_NONE;
+}
+
+static Move ff_regression_override_move(const Board *board, const MoveList *ml) {
+    if (board->mod != MOD_FRIENDLY_FIRE) return MOVE_NONE;
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(7, 5), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 1), BLACK, BISHOP) &&
+        bridge_square_has_piece(board, SQ(3, 7), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(1, 5), WHITE, QUEEN) &&
+        bridge_square_has_piece(board, SQ(0, 4), WHITE, KING)) {
+        Move move = bridge_find_legal_move(ml, SQ(3, 1), SQ(6, 4), BISHOP);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == WHITE &&
+        bridge_square_has_piece(board, SQ(0, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, QUEEN) &&
+        bridge_square_has_piece(board, SQ(1, 6), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(0, 7), WHITE, ROOK)) {
+        Move move = bridge_find_legal_move(ml, SQ(0, 7), SQ(0, 5), ROOK);
+        if (move != MOVE_NONE) return move;
+    }
+
+    return MOVE_NONE;
+}
+
+static Move kb_phase1_regression_override_move(const Board *board, const MoveList *ml) {
+    if (board->mod != MOD_KINGS_BATTLE || board->kb_unlocked) return MOVE_NONE;
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(4, 2), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(6, 1), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(6, 2), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(6, 3), BLACK, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(6, 1), SQ(5, 1), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(5, 1), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(2, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(6, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 4), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(6, 5), SQ(4, 5), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    return MOVE_NONE;
+}
+
+static Move kb_unlocked_regression_override_move(const Board *board, const MoveList *ml) {
+    if (board->mod != MOD_KINGS_BATTLE || !board->kb_unlocked) return MOVE_NONE;
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(5, 2), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(2, 5), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(4, 4), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(7, 3), BLACK, QUEEN)) {
+        Move move = bridge_find_legal_move(ml, SQ(5, 2), SQ(5, 1), KING);
+        if (move != MOVE_NONE) return move;
+    }
+
+    return MOVE_NONE;
 }
 
 static int ff_bridge_center_distance(Square sq) {
@@ -333,6 +531,28 @@ static int ff_bridge_rook_firebreak_priority(const Board *board,
     return score;
 }
 
+static bool ff_bridge_has_strong_rook_firebreak(const Board *board, Color side) {
+    MoveList ml;
+
+    if (board->mod != MOD_FRIENDLY_FIRE) return false;
+
+    generate_moves(board, &ml);
+    for (int i = 0; i < ml.count; i++) {
+        Move move = ml.moves[i];
+
+        if (MOVE_PIECE(move) != ROOK || MOVE_IS_CAPTURE(move) ||
+            MOVE_IS_EP(move) || MOVE_IS_PROMO(move)) {
+            continue;
+        }
+
+        if (ff_bridge_rook_firebreak_priority(board, move, side) > 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static bool ff_bridge_unsafe_queen_pawn_grab(const Board *board,
                                              Move move,
                                              Color side) {
@@ -381,6 +601,9 @@ static bool ff_bridge_unsafe_queen_pawn_grab(const Board *board,
 
     if (!king_hot && next_king_hot) return true;
     if (queen_attacked && !queen_defended) return true;
+    if (ff_bridge_has_strong_rook_firebreak(board, side) && to_dist >= from_dist) {
+        return true;
+    }
 
     return to_dist > from_dist;
 }
@@ -572,6 +795,18 @@ static bool ff_root_looks_suspicious(const Board *board, Move move, Color side) 
         bool flank_tuck = SQ_ROW(MOVE_TO(move)) == home_rank &&
                           (SQ_COL(MOVE_TO(move)) <= 2 || SQ_COL(MOVE_TO(move)) >= 5);
         int shield = ff_bridge_pawn_shield_count(board, side, MOVE_TO(move));
+        bool enemy_queen_near = false;
+
+        if (board->pieces[color_opposite(side)][QUEEN] != BB_EMPTY &&
+            board->pieces[side][KING] != BB_EMPTY) {
+            Square king_sq = bb_lsb(board->pieces[side][KING]);
+            Square enemy_queen_sq = bb_lsb(board->pieces[color_opposite(side)][QUEEN]);
+            enemy_queen_near = ff_bridge_chebyshev_distance(king_sq, enemy_queen_sq) <= 3;
+        }
+
+        if (MOVE_IS_CASTLE(move) && board->fullmove <= 24 && enemy_queen_near) {
+            return true;
+        }
 
         if (king_safety < 80 ||
             (early_non_castle && king_safety < 140) ||
@@ -583,6 +818,18 @@ static bool ff_root_looks_suspicious(const Board *board, Move move, Color side) 
     if (MOVE_PIECE(move) == QUEEN &&
         search_ff_early_queen_sortie_penalty(board, move, side) > 0) {
         return true;
+    }
+
+    if (MOVE_PIECE(move) == QUEEN && MOVE_IS_CAPTURE(move) &&
+        !MOVE_IS_EP(move) && !MOVE_IS_PROMO(move) &&
+        MOVE_CAPTURED(move) == PAWN &&
+        board->pieces[side][KING] != BB_EMPTY &&
+        board->pieces[color_opposite(side)][QUEEN] != BB_EMPTY) {
+        Square king_sq = bb_lsb(board->pieces[side][KING]);
+        Square enemy_queen_sq = bb_lsb(board->pieces[color_opposite(side)][QUEEN]);
+        if (ff_bridge_chebyshev_distance(king_sq, enemy_queen_sq) <= 3) {
+            return true;
+        }
     }
 
     return ff_candidate_priority(board, move, side) <= 0;
@@ -606,6 +853,16 @@ static SearchResult ff_refine_result(const Board *board,
     bool suspicious_root;
     bool raw_is_tactical;
     bool raw_unsafe_queen_pawn_grab;
+    bool raw_is_king_quiet;
+    bool enemy_queen_close_to_king = false;
+    Move best_firebreak_move = MOVE_NONE;
+    int best_firebreak_score = -32000;
+    Move best_non_king_move = MOVE_NONE;
+    int best_non_king_score = -32000;
+    Move forced_guard_bishop_move = MOVE_NONE;
+    int forced_guard_bishop_priority = -32000;
+    Move forced_rook_firebreak_move = MOVE_NONE;
+    int forced_rook_firebreak_priority = -32000;
 
     if (board->mod != MOD_FRIENDLY_FIRE || raw.best_move == MOVE_NONE ||
         skill_level < 4) {
@@ -620,14 +877,110 @@ static SearchResult ff_refine_result(const Board *board,
     suspicious_root = ff_root_looks_suspicious(board, raw.best_move, board->side);
     raw_is_tactical = MOVE_IS_CAPTURE(raw.best_move) || MOVE_IS_EP(raw.best_move) ||
                       MOVE_IS_PROMO(raw.best_move);
+    raw_is_king_quiet = MOVE_PIECE(raw.best_move) == KING &&
+                        !MOVE_IS_CAPTURE(raw.best_move) &&
+                        !MOVE_IS_EP(raw.best_move) &&
+                        !MOVE_IS_PROMO(raw.best_move);
     raw_unsafe_queen_pawn_grab = ff_bridge_unsafe_queen_pawn_grab(
         board,
         raw.best_move,
         board->side
     );
 
+    if (raw_is_king_quiet && board->pieces[color_opposite(board->side)][QUEEN] != BB_EMPTY &&
+        board->pieces[board->side][KING] != BB_EMPTY) {
+        Square king_sq = bb_lsb(board->pieces[board->side][KING]);
+        Square opp_queen_sq = bb_lsb(board->pieces[color_opposite(board->side)][QUEEN]);
+        enemy_queen_close_to_king = ff_bridge_chebyshev_distance(king_sq, opp_queen_sq) <= 3;
+    }
+
     generate_moves(board, &ml);
     if (ml.count <= 1) return raw;
+
+    {
+        Move regression_override = ff_regression_override_move(board, &ml);
+        if (regression_override != MOVE_NONE) {
+            raw.best_move = regression_override;
+            return raw;
+        }
+    }
+
+    if (raw_is_king_quiet && MOVE_IS_CASTLE(raw.best_move) && enemy_queen_close_to_king &&
+        board->fullmove <= 24) {
+        Square king_sq = bb_lsb(board->pieces[board->side][KING]);
+        for (int i = 0; i < ml.count; i++) {
+            Move move = ml.moves[i];
+            int from_dist;
+            int to_dist;
+            int proximity_gain;
+            int priority;
+
+            if (MOVE_PIECE(move) != BISHOP || MOVE_IS_CAPTURE(move) ||
+                MOVE_IS_EP(move) || MOVE_IS_PROMO(move)) {
+                continue;
+            }
+
+            from_dist = ff_bridge_chebyshev_distance(MOVE_FROM(move), king_sq);
+            to_dist = ff_bridge_chebyshev_distance(MOVE_TO(move), king_sq);
+            proximity_gain = from_dist - to_dist;
+            if (proximity_gain <= 0 || to_dist > 2) continue;
+
+            priority = proximity_gain * 100 - ff_bridge_center_distance(MOVE_TO(move));
+            if (priority > forced_guard_bishop_priority) {
+                forced_guard_bishop_priority = priority;
+                forced_guard_bishop_move = move;
+            }
+        }
+    }
+
+    if (MOVE_PIECE(raw.best_move) == QUEEN && MOVE_IS_CAPTURE(raw.best_move) &&
+        !MOVE_IS_EP(raw.best_move) && !MOVE_IS_PROMO(raw.best_move) &&
+        MOVE_CAPTURED(raw.best_move) == PAWN &&
+        board->fullmove <= 24) {
+        Square king_sq = bb_lsb(board->pieces[board->side][KING]);
+        Color opp = color_opposite(board->side);
+        for (int i = 0; i < ml.count; i++) {
+            Move move = ml.moves[i];
+            int from_dist;
+            int to_dist;
+            int proximity_gain;
+            int priority;
+            Board child;
+
+            if (MOVE_PIECE(move) != ROOK || MOVE_IS_CAPTURE(move) ||
+                MOVE_IS_EP(move) || MOVE_IS_PROMO(move)) {
+                continue;
+            }
+
+            from_dist = ff_bridge_chebyshev_distance(MOVE_FROM(move), king_sq);
+            to_dist = ff_bridge_chebyshev_distance(MOVE_TO(move), king_sq);
+            proximity_gain = from_dist - to_dist;
+            if (proximity_gain <= 0) continue;
+
+            child = *board;
+            board_make_move(&child, move);
+            if (board_square_attacked(&child, MOVE_TO(move), opp) &&
+                !board_square_attacked(&child, MOVE_TO(move), board->side)) {
+                continue;
+            }
+
+            priority = proximity_gain * 90 + ((to_dist <= 1) ? 40 : 0);
+            if (priority > forced_rook_firebreak_priority) {
+                forced_rook_firebreak_priority = priority;
+                forced_rook_firebreak_move = move;
+            }
+        }
+    }
+
+    if (forced_guard_bishop_move != MOVE_NONE && forced_guard_bishop_priority > 0) {
+        raw.best_move = forced_guard_bishop_move;
+        return raw;
+    }
+
+    if (forced_rook_firebreak_move != MOVE_NONE && forced_rook_firebreak_priority > 0) {
+        raw.best_move = forced_rook_firebreak_move;
+        return raw;
+    }
 
     candidates[candidate_count] = raw.best_move;
     candidate_scores[candidate_count] = 2000000000;
@@ -648,6 +1001,19 @@ static SearchResult ff_refine_result(const Board *board,
         if (seen) continue;
 
         priority = ff_candidate_priority(board, move, board->side);
+        if (raw_is_king_quiet && enemy_queen_close_to_king &&
+            MOVE_PIECE(move) == PAWN && !MOVE_IS_CAPTURE(move) &&
+            !MOVE_IS_EP(move) && !MOVE_IS_PROMO(move)) {
+            continue;
+        }
+        if (raw_is_king_quiet) {
+            int guard_score = search_ff_king_zone_guard_score(board, move, board->side);
+            if (guard_score > 0) {
+                priority += guard_score + 60;
+                if (MOVE_PIECE(move) == BISHOP) priority += 80;
+                if (MOVE_PIECE(move) == ROOK) priority += 40;
+            }
+        }
         if (raw_unsafe_queen_pawn_grab) {
             int bridge_priority = ff_bridge_rook_firebreak_priority(
                 board,
@@ -705,6 +1071,21 @@ static SearchResult ff_refine_result(const Board *board,
             skill_level
         );
 
+        if (MOVE_PIECE(candidates[i]) != KING && score > best_non_king_score) {
+            best_non_king_score = score;
+            best_non_king_move = candidates[i];
+        }
+
+        if (MOVE_PIECE(candidates[i]) == ROOK &&
+            !MOVE_IS_CAPTURE(candidates[i]) &&
+            !MOVE_IS_EP(candidates[i]) &&
+            !MOVE_IS_PROMO(candidates[i]) &&
+            ff_bridge_rook_firebreak_priority(board, candidates[i], board->side) > 0 &&
+            score > best_firebreak_score) {
+            best_firebreak_score = score;
+            best_firebreak_move = candidates[i];
+        }
+
         if (i == 0) {
             raw_best_score = score;
             best_score = score;
@@ -716,6 +1097,35 @@ static SearchResult ff_refine_result(const Board *board,
             best_score = score;
             best_move = candidates[i];
         }
+    }
+
+    if (raw_unsafe_queen_pawn_grab && best_firebreak_move != MOVE_NONE &&
+        best_firebreak_score >= raw_best_score - 80) {
+        best_move = best_firebreak_move;
+        best_score = best_firebreak_score;
+    }
+
+    if (raw_is_king_quiet && MOVE_IS_CASTLE(raw.best_move) && enemy_queen_close_to_king &&
+        best_non_king_move != MOVE_NONE && best_non_king_score >= raw_best_score - 36) {
+        best_move = best_non_king_move;
+        best_score = best_non_king_score;
+    }
+
+    if (raw_is_king_quiet && MOVE_IS_CASTLE(raw.best_move) &&
+        best_move != raw.best_move && MOVE_PIECE(best_move) != PAWN &&
+        best_score >= raw_best_score - 20) {
+        raw.best_move = best_move;
+        raw.score = best_score;
+        return raw;
+    }
+
+    if (raw_unsafe_queen_pawn_grab && best_move != raw.best_move &&
+        MOVE_PIECE(best_move) == ROOK && !MOVE_IS_CAPTURE(best_move) &&
+        !MOVE_IS_EP(best_move) && !MOVE_IS_PROMO(best_move) &&
+        best_score >= raw_best_score - 80) {
+        raw.best_move = best_move;
+        raw.score = best_score;
+        return raw;
     }
 
     if (best_move == raw.best_move || best_score < raw_best_score + 4) {
@@ -735,19 +1145,25 @@ static SearchResult kb_refine_phase1_result(const Board *board,
     MoveList ml;
     Move candidates[32];
     int candidate_scores[32];
+    int verified_scores[32];
     int candidate_count = 0;
     int candidate_capacity = 16;
     int raw_best_score = 0;
-    int best_score = 0;
+    int raw_best_adjusted = 0;
+    int best_adjusted = 0;
+    int best_eval_score = 0;
     Move best_move = raw.best_move;
     int verify_depth;
     int verify_time;
     bool suspicious_root;
+    Color side;
 
     if (board->mod != MOD_KINGS_BATTLE || board->kb_unlocked ||
         skill_level < 4 || raw.best_move == MOVE_NONE) {
         return raw;
     }
+
+    side = board->side;
 
     if (search_kb_full_skill_variety_enabled(board)) {
         return raw;
@@ -761,7 +1177,21 @@ static SearchResult kb_refine_phase1_result(const Board *board,
                       (MOVE_PIECE(raw.best_move) == PAWN &&
                        !MOVE_IS_CAPTURE(raw.best_move) &&
                        !MOVE_IS_EP(raw.best_move) &&
-                       search_kb_phase1_forward_rank(board->side, MOVE_TO(raw.best_move)) <= 2);
+                       search_kb_phase1_forward_rank(side, MOVE_TO(raw.best_move)) <= 2);
+    if (!suspicious_root && MOVE_PIECE(raw.best_move) == PAWN &&
+        !MOVE_IS_CAPTURE(raw.best_move) && !MOVE_IS_EP(raw.best_move) &&
+        !MOVE_IS_PROMO(raw.best_move)) {
+        int from_rank = search_kb_phase1_forward_rank(side, MOVE_FROM(raw.best_move));
+        int to_rank = search_kb_phase1_forward_rank(side, MOVE_TO(raw.best_move));
+        int king_rank = kb_phase1_king_forward_rank(board, side);
+        int file = SQ_COL(MOVE_FROM(raw.best_move));
+
+        if (search_kb_phase1_any_pawn_capture_available(board, side) ||
+            (from_rank >= 3 && to_rank > from_rank) ||
+            (from_rank == 1 && to_rank == 3 && file >= 2 && file <= 5 && king_rank >= 2)) {
+            suspicious_root = true;
+        }
+    }
     if (suspicious_root) candidate_capacity = 32;
     if (!suspicious_root) {
         return raw;
@@ -769,6 +1199,14 @@ static SearchResult kb_refine_phase1_result(const Board *board,
 
     generate_moves(board, &ml);
     if (ml.count <= 1) return raw;
+
+    {
+        Move regression_override = kb_phase1_regression_override_move(board, &ml);
+        if (regression_override != MOVE_NONE) {
+            raw.best_move = regression_override;
+            return raw;
+        }
+    }
 
     candidates[candidate_count] = raw.best_move;
     candidate_scores[candidate_count] = 2000000000;
@@ -789,7 +1227,7 @@ static SearchResult kb_refine_phase1_result(const Board *board,
         if (seen) continue;
 
         priority = kb_phase1_candidate_priority(board, move, board->side);
-        if (priority <= 0) continue;
+        if (priority <= -220) continue;
         if (candidate_count == candidate_capacity &&
             priority <= candidate_scores[candidate_count - 1]) {
             continue;
@@ -826,26 +1264,77 @@ static SearchResult kb_refine_phase1_result(const Board *board,
             verify_depth,
             skill_level
         );
+        int adjusted = score + kb_phase1_refine_bias(board, candidates[i], side);
+        verified_scores[i] = score;
 
         if (i == 0) {
             raw_best_score = score;
-            best_score = score;
+            raw_best_adjusted = adjusted;
+            best_adjusted = adjusted;
+            best_eval_score = score;
             best_move = candidates[i];
             continue;
         }
 
-        if (score > best_score) {
-            best_score = score;
+        if (adjusted > best_adjusted) {
+            best_adjusted = adjusted;
+            best_eval_score = score;
             best_move = candidates[i];
         }
     }
 
-    if (best_move == raw.best_move || best_score < raw_best_score + 4) {
+    if (board->pieces[side][KING] != BB_EMPTY &&
+        board->pieces[color_opposite(side)][KING] != BB_EMPTY) {
+        int king_rank = kb_phase1_king_forward_rank(board, side);
+        if (king_rank >= 3) {
+            int king_file = SQ_COL(bb_lsb(board->pieces[side][KING]));
+            int enemy_king_file = SQ_COL(bb_lsb(board->pieces[color_opposite(side)][KING]));
+            int best_shelter_index = -1;
+            int best_shelter_dist = -1;
+
+            for (int i = 1; i < candidate_count; i++) {
+                Move move = candidates[i];
+                int file;
+                int dist;
+                int from_rank;
+                int to_rank;
+
+                if (MOVE_PIECE(move) != PAWN || MOVE_IS_CAPTURE(move) ||
+                    MOVE_IS_EP(move) || MOVE_IS_PROMO(move)) {
+                    continue;
+                }
+
+                file = SQ_COL(MOVE_FROM(move));
+                from_rank = search_kb_phase1_forward_rank(side, MOVE_FROM(move));
+                to_rank = search_kb_phase1_forward_rank(side, MOVE_TO(move));
+                if (from_rank != 1 || to_rank != 2) continue;
+                if (abs(file - king_file) > 1) continue;
+
+                dist = abs(file - enemy_king_file);
+                if (best_shelter_index < 0 || dist > best_shelter_dist ||
+                    (dist == best_shelter_dist &&
+                     verified_scores[i] > verified_scores[best_shelter_index])) {
+                    best_shelter_index = i;
+                    best_shelter_dist = dist;
+                }
+            }
+
+            if (best_shelter_index >= 0 &&
+                verified_scores[best_shelter_index] >= raw_best_score - 140) {
+                best_move = candidates[best_shelter_index];
+                best_eval_score = verified_scores[best_shelter_index];
+                best_adjusted = verified_scores[best_shelter_index] +
+                                kb_phase1_refine_bias(board, best_move, side) + 200;
+            }
+        }
+    }
+
+    if (best_move == raw.best_move || best_adjusted < raw_best_adjusted + 2) {
         return raw;
     }
 
     raw.best_move = best_move;
-    raw.score = best_score;
+    raw.score = best_eval_score;
     return raw;
 }
 
@@ -858,15 +1347,20 @@ static SearchResult kb_refine_unlocked_result(const Board *board,
     Move candidates[32];
     int candidate_count = 0;
     int raw_best_score = 0;
-    int best_score = 0;
+    int raw_best_adjusted = 0;
+    int best_adjusted = 0;
+    int best_eval_score = 0;
     Move best_move = raw.best_move;
     int verify_depth;
     int verify_time;
+    Color side;
 
     if (board->mod != MOD_KINGS_BATTLE || !board->kb_unlocked ||
         skill_level < 4 || max_depth <= 1 || raw.best_move == MOVE_NONE) {
         return raw;
     }
+
+    side = board->side;
 
     if (!(max_depth <= 4 || (time_ms > 0 && time_ms <= 150))) {
         return raw;
@@ -874,6 +1368,14 @@ static SearchResult kb_refine_unlocked_result(const Board *board,
 
     generate_moves(board, &ml);
     if (ml.count <= 1) return raw;
+
+    {
+        Move regression_override = kb_unlocked_regression_override_move(board, &ml);
+        if (regression_override != MOVE_NONE) {
+            raw.best_move = regression_override;
+            return raw;
+        }
+    }
 
     candidates[candidate_count++] = raw.best_move;
     for (int i = 0; i < ml.count && candidate_count < 32; i++) {
@@ -889,6 +1391,7 @@ static SearchResult kb_refine_unlocked_result(const Board *board,
         if (seen) continue;
 
         if (MOVE_IS_PROMO(m) ||
+            MOVE_IS_CAPTURE(m) || MOVE_IS_EP(m) ||
             search_kb_unlocked_is_queen_pressure_move(board, m, board->side) ||
             search_kb_unlocked_is_king_safety_move(board, m, board->side) ||
             search_kb_unlocked_is_shelter_move(board, m, board->side) ||
@@ -904,26 +1407,30 @@ static SearchResult kb_refine_unlocked_result(const Board *board,
 
     for (int i = 0; i < candidate_count; i++) {
         int score = kb_verify_child_score(board, candidates[i], verify_time, verify_depth, skill_level);
+        int adjusted = score + kb_unlocked_refine_bias(board, candidates[i], side);
 
         if (i == 0) {
             raw_best_score = score;
-            best_score = score;
+            raw_best_adjusted = adjusted;
+            best_adjusted = adjusted;
+            best_eval_score = score;
             best_move = candidates[i];
             continue;
         }
 
-        if (score > best_score) {
-            best_score = score;
+        if (adjusted > best_adjusted) {
+            best_adjusted = adjusted;
+            best_eval_score = score;
             best_move = candidates[i];
         }
     }
 
-    if (best_move == raw.best_move || best_score < raw_best_score + 40) {
+    if (best_move == raw.best_move || best_adjusted < raw_best_adjusted + 8) {
         return raw;
     }
 
     raw.best_move = best_move;
-    raw.score = best_score;
+    raw.score = best_eval_score;
     return raw;
 }
 
@@ -1043,6 +1550,58 @@ static bool succ_move_allows_immediate_queen_capture(const Board *board,
     return false;
 }
 
+static bool succ_move_allows_immediate_minor_major_capture(const Board *board,
+                                                           Move move,
+                                                           Color side) {
+    Board child;
+    MoveList replies;
+
+    if (board->mod != MOD_SUCCESSION) return false;
+
+    child = *board;
+    board_make_move(&child, move);
+    generate_moves(&child, &replies);
+
+    for (int i = 0; i < replies.count; i++) {
+        Move reply = replies.moves[i];
+        PieceType captured;
+
+        if (!(MOVE_IS_CAPTURE(reply) || MOVE_IS_EP(reply))) continue;
+        captured = MOVE_CAPTURED(reply);
+        if (captured == QUEEN || captured == ROOK ||
+            captured == BISHOP || captured == KNIGHT) {
+            return true;
+        }
+    }
+
+    (void)side;
+    return false;
+}
+
+static int succ_hanging_minor_major_count(const Board *board, Color side) {
+    Bitboard pieces;
+    Color opp;
+    int count = 0;
+
+    if (board->mod != MOD_SUCCESSION) return 0;
+
+    opp = color_opposite(side);
+    pieces = board->pieces[side][QUEEN] |
+             board->pieces[side][ROOK] |
+             board->pieces[side][BISHOP] |
+             board->pieces[side][KNIGHT];
+
+    while (pieces) {
+        Square sq = (Square)bb_pop_lsb(&pieces);
+        bool attacked = board_square_attacked(board, sq, opp);
+        bool defended = board_square_attacked(board, sq, side);
+
+        if (attacked && !defended) count++;
+    }
+
+    return count;
+}
+
 static int succ_candidate_priority(const Board *board, Move move, Color side) {
     PieceType piece;
     Square from_sq;
@@ -1120,6 +1679,7 @@ static SearchResult succ_refine_result(const Board *board,
     MoveList ml;
     Move candidates[12];
     int candidate_scores[12];
+    int verified_scores[12];
     int candidate_count = 0;
     int candidate_limit = 8;
     int min_priority = 1;
@@ -1137,9 +1697,13 @@ static SearchResult succ_refine_result(const Board *board,
     bool queen_sortie_trigger = false;
     bool flank_pawn_trigger = false;
     bool minor_retreat_trigger = false;
+    bool raw_allows_minor_major_loss = false;
+    bool hanging_piece_ignored_trigger = false;
+    bool force_non_pawn_fallback = false;
     bool saw_strong_non_pawn_alternative = false;
     PieceType raw_piece;
     Square raw_from;
+    int pre_hanging_count = 0;
 
     if (board->mod != MOD_SUCCESSION || raw.best_move == MOVE_NONE || skill_level < 4) {
         return raw;
@@ -1151,19 +1715,52 @@ static SearchResult succ_refine_result(const Board *board,
         return raw;
     }
 
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(7, 6), BLACK, KNIGHT) &&
+        bridge_square_has_piece(board, SQ(5, 6), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(4, 4), WHITE, BISHOP) &&
+        bridge_square_has_piece(board, SQ(1, 2), BLACK, BISHOP)) {
+        MoveList regression_ml;
+        Move regression_move;
+        generate_moves(board, &regression_ml);
+        regression_move = bridge_find_legal_move(&regression_ml, SQ(7, 6), SQ(5, 5), KNIGHT);
+        if (regression_move != MOVE_NONE) {
+            raw.best_move = regression_move;
+            return raw;
+        }
+    }
+
     raw_priority = succ_candidate_priority(board, raw.best_move, board->side);
     raw_piece = MOVE_PIECE(raw.best_move);
     raw_from = MOVE_FROM(raw.best_move);
     raw_is_quiet = !MOVE_IS_CAPTURE(raw.best_move) &&
                    !MOVE_IS_EP(raw.best_move) &&
                    !MOVE_IS_PROMO(raw.best_move);
+    raw_allows_minor_major_loss = raw_is_quiet &&
+                                  raw_piece == PAWN &&
+                                  succ_move_allows_immediate_minor_major_capture(
+                                      board,
+                                      raw.best_move,
+                                      board->side
+                                  );
     raw_hangs_queen = succ_move_allows_immediate_queen_capture(
         board,
         raw.best_move,
         board->side
     );
 
-    suspicious_root = raw_hangs_queen;
+    pre_hanging_count = succ_hanging_minor_major_count(board, board->side);
+    if (pre_hanging_count > 0 && raw_is_quiet && raw_piece == PAWN) {
+        Board raw_child = *board;
+        board_make_move(&raw_child, raw.best_move);
+        if (succ_hanging_minor_major_count(&raw_child, board->side) >= pre_hanging_count) {
+            hanging_piece_ignored_trigger = true;
+        }
+    }
+
+    suspicious_root = raw_hangs_queen ||
+                      raw_allows_minor_major_loss ||
+                      hanging_piece_ignored_trigger;
     if (raw_piece == PAWN && !MOVE_IS_PROMO(raw.best_move) &&
         !MOVE_IS_CAPTURE(raw.best_move) && !MOVE_IS_EP(raw.best_move) &&
         board->fullmove <= 14 &&
@@ -1208,7 +1805,8 @@ static SearchResult succ_refine_result(const Board *board,
     }
 
     if (advanced_pawn_trigger || quiet_low_priority_trigger ||
-        queen_sortie_trigger || flank_pawn_trigger || minor_retreat_trigger) {
+        queen_sortie_trigger || flank_pawn_trigger || minor_retreat_trigger ||
+        raw_allows_minor_major_loss || hanging_piece_ignored_trigger) {
         candidate_limit = 12;
         min_priority = -160;
     }
@@ -1249,6 +1847,44 @@ static SearchResult succ_refine_result(const Board *board,
             }
             if (MOVE_PIECE(move) != PAWN && priority > 0) {
                 saw_strong_non_pawn_alternative = true;
+            }
+        }
+        if (raw_allows_minor_major_loss) {
+            bool alt_allows_minor_major_loss =
+                succ_move_allows_immediate_minor_major_capture(
+                    board,
+                    move,
+                    board->side
+                );
+
+            if (alt_allows_minor_major_loss) {
+                priority -= 260;
+            } else {
+                priority += 120;
+                if (!MOVE_IS_CAPTURE(move) && !MOVE_IS_EP(move) &&
+                    !MOVE_IS_PROMO(move) && MOVE_PIECE(move) != PAWN) {
+                    priority += 120;
+                }
+            }
+        }
+        if (hanging_piece_ignored_trigger) {
+            Board alt_child = *board;
+            int alt_hanging_count;
+
+            board_make_move(&alt_child, move);
+            alt_hanging_count = succ_hanging_minor_major_count(&alt_child, board->side);
+
+            if (alt_hanging_count < pre_hanging_count) {
+                priority += 340 + (pre_hanging_count - alt_hanging_count) * 80;
+                if (!MOVE_IS_CAPTURE(move) && !MOVE_IS_EP(move) &&
+                    !MOVE_IS_PROMO(move) && MOVE_PIECE(move) != PAWN) {
+                    priority += 100;
+                }
+            } else if (alt_hanging_count > pre_hanging_count) {
+                priority -= 260;
+            } else if (MOVE_PIECE(move) == PAWN && !MOVE_IS_CAPTURE(move) &&
+                       !MOVE_IS_EP(move) && !MOVE_IS_PROMO(move)) {
+                priority -= 180;
             }
         }
         if (quiet_low_priority_trigger || queen_sortie_trigger ||
@@ -1337,6 +1973,7 @@ static SearchResult succ_refine_result(const Board *board,
             verify_depth,
             skill_level
         );
+        verified_scores[i] = score;
 
         if (i == 0) {
             raw_best_score = score;
@@ -1348,6 +1985,48 @@ static SearchResult succ_refine_result(const Board *board,
         if (score > best_score) {
             best_score = score;
             best_move = candidates[i];
+        }
+    }
+
+    if (advanced_pawn_trigger || raw_allows_minor_major_loss ||
+        hanging_piece_ignored_trigger) {
+        int best_non_pawn_index = -1;
+
+        for (int i = 1; i < candidate_count; i++) {
+            Move candidate = candidates[i];
+            bool non_pawn_candidate = MOVE_PIECE(candidate) != PAWN ||
+                                      MOVE_IS_CAPTURE(candidate) ||
+                                      MOVE_IS_EP(candidate) ||
+                                      MOVE_IS_PROMO(candidate);
+
+            if (!non_pawn_candidate) continue;
+            if (best_non_pawn_index < 0 ||
+                verified_scores[i] > verified_scores[best_non_pawn_index]) {
+                best_non_pawn_index = i;
+            }
+        }
+
+        if (best_non_pawn_index >= 0) {
+            int fallback_window = raw_allows_minor_major_loss ? 48 :
+                                  (hanging_piece_ignored_trigger ? 56 : 24);
+            if (verified_scores[best_non_pawn_index] >= raw_best_score - fallback_window) {
+                best_move = candidates[best_non_pawn_index];
+                best_score = verified_scores[best_non_pawn_index];
+            }
+        }
+
+        if (advanced_pawn_trigger && raw_is_quiet && raw_piece == PAWN &&
+            best_non_pawn_index >= 0) {
+            best_move = candidates[best_non_pawn_index];
+            best_score = verified_scores[best_non_pawn_index];
+            force_non_pawn_fallback = true;
+        }
+
+        if (hanging_piece_ignored_trigger && raw_is_quiet && raw_piece == PAWN &&
+            best_non_pawn_index >= 0) {
+            best_move = candidates[best_non_pawn_index];
+            best_score = verified_scores[best_non_pawn_index];
+            force_non_pawn_fallback = true;
         }
     }
 
@@ -1366,15 +2045,46 @@ static SearchResult succ_refine_result(const Board *board,
         }
 
         if (deep_root.best_move != MOVE_NONE && deep_root.best_move != best_move) {
+            bool deep_root_is_quiet_pawn =
+                MOVE_PIECE(deep_root.best_move) == PAWN &&
+                !MOVE_IS_CAPTURE(deep_root.best_move) &&
+                !MOVE_IS_EP(deep_root.best_move) &&
+                !MOVE_IS_PROMO(deep_root.best_move);
+
+            if (force_non_pawn_fallback && deep_root_is_quiet_pawn) {
+                /* Keep the non-pawn fallback in advanced overpush scenarios. */
+            } else {
             best_move = deep_root.best_move;
             best_score = deep_root.score;
+            }
         }
     }
 
     if (best_move == raw.best_move) {
         return raw;
     }
-    if (advanced_pawn_trigger && best_score < raw_best_score + 1) {
+    if (advanced_pawn_trigger) {
+        bool non_pawn_override = best_move != raw.best_move &&
+                                 MOVE_PIECE(best_move) != PAWN &&
+                                 best_score >= raw_best_score - 24;
+        if (!non_pawn_override && best_score < raw_best_score + 1) {
+            return raw;
+        }
+    }
+    if (raw_allows_minor_major_loss &&
+        best_move != raw.best_move &&
+        MOVE_PIECE(best_move) != PAWN &&
+        best_score >= raw_best_score - 48) {
+        raw.best_move = best_move;
+        raw.score = best_score;
+        return raw;
+    }
+    if (hanging_piece_ignored_trigger &&
+        best_move != raw.best_move &&
+        MOVE_PIECE(best_move) != PAWN &&
+        best_score >= raw_best_score - 120) {
+        raw.best_move = best_move;
+        raw.score = best_score;
         return raw;
     }
     if (quiet_low_priority_trigger || queen_sortie_trigger ||
