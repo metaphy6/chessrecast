@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'audit_kpi.dart';
 import 'succession_engine_audit.dart';
 
 const List<String> _defaultWhiteOpenings = [
@@ -94,6 +95,11 @@ String runSuccessionAuditBatch(List<String> args) {
     '>=2.00 $overTwo/${deltas.length} '
     '>=3.00 $overThree/${deltas.length}',
   );
+  lines.add(
+    AuditKpiAggregate.fromSnapshots(
+      summaries.map((s) => s.kpi).toList(),
+    ).toSummaryLine(),
+  );
 
   final worst = [...summaries]..sort((a, b) => b.delta.compareTo(a.delta));
   final worstCount = math.min(options.topCount, worst.length);
@@ -185,7 +191,7 @@ class _BatchOptions {
 
     final openingsArg = readString('openings');
     final openings = openingsArg == null
-      ? _buildDefaultOpenings()
+        ? _buildDefaultOpenings()
         : openingsArg
               .split(';')
               .map((opening) => opening.trim())
@@ -226,6 +232,7 @@ class _BatchSummary {
   final String referenceMove;
   final String fen;
   final String replay;
+  final AuditKpiSnapshot kpi;
 
   const _BatchSummary({
     required this.game,
@@ -236,6 +243,7 @@ class _BatchSummary {
     required this.referenceMove,
     required this.fen,
     required this.replay,
+    required this.kpi,
   });
 
   factory _BatchSummary.fromReport(int game, String opening, String report) {
@@ -257,6 +265,7 @@ class _BatchSummary {
       referenceMove: deltaMatch.group(5)!,
       fen: fenMatch?.group(1) ?? '(missing FEN)',
       replay: replayMatch?.group(1) ?? '(missing replay)',
+      kpi: AuditKpiSnapshot.fromReport(report),
     );
   }
 }

@@ -33,11 +33,12 @@ void main() {
           'e3f4',
           'd8e8',
         ]);
-        final best = _rootBestMove(board);
+        final search = _rootSearch(board);
 
-        expect(best, isNotNull);
-        expect(_moveNotation(best), isNot('e1d2'));
-        expect(_moveNotation(best), 'f1e2');
+        expect(search.bestMove, isNotNull);
+        expect(search.score, greaterThan(-200));
+        expect(_moveNotation(search.bestMove), isNot('e1d2'));
+        expect(_moveNotation(search.bestMove), 'f1e2');
       },
       skip: !NativeEngine.isAvailable,
     );
@@ -120,11 +121,12 @@ void main() {
           'g4g5',
           'c8g4',
         ]);
-        final best = _rootBestMove(board);
+        final search = _rootSearch(board);
 
-        expect(best, isNotNull);
-        expect(_moveNotation(best), isNot('g1f3'));
-        expect(_moveNotation(best), 'h2h3');
+        expect(search.bestMove, isNotNull);
+        expect(search.score, greaterThan(-200));
+        expect(_moveNotation(search.bestMove), isNot('g1f3'));
+        expect(_moveNotation(search.bestMove), 'h2h3');
       },
       skip: !NativeEngine.isAvailable,
     );
@@ -239,11 +241,12 @@ void main() {
           'c1d2',
           'g4g2',
         ]);
-        final best = _rootBestMove(board);
+        final search = _rootSearch(board);
 
-        expect(best, isNotNull);
-        expect(_moveNotation(best), isNot('d4e5'));
-        expect(_moveNotation(best), 'h1f1');
+        expect(search.bestMove, isNotNull);
+        expect(search.score, greaterThan(-200));
+        expect(_moveNotation(search.bestMove), isNot('d4e5'));
+        expect(_moveNotation(search.bestMove), 'h1f1');
       },
       skip: !NativeEngine.isAvailable,
     );
@@ -266,6 +269,22 @@ ChessMove? _rootBestMove(
         skillLevel: skillLevel,
       )
       .bestMove;
+}
+
+NativeSearchResult _rootSearch(
+  ChessBoard board, {
+  int timeLimitMs = 120,
+  int maxDepth = 4,
+  int skillLevel = 4,
+}) {
+  final engine = NativeEngine();
+  engine.resetState();
+  return engine.findBestMoveSync(
+    board,
+    timeLimitMs: timeLimitMs,
+    maxDepth: maxDepth,
+    skillLevel: skillLevel,
+  );
 }
 
 ChessBoard _boardFromReplay(List<String> replay) {

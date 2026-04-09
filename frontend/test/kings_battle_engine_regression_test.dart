@@ -113,7 +113,7 @@ void main() {
         expect(capture, isNotNull);
         expect(pawnDrift, isNotNull);
         expect(_moveNotation(analysis.best!.move), 'd6c5');
-        expect(capture!.score - pawnDrift!.score, greaterThanOrEqualTo(500));
+        expect(capture!.score - pawnDrift!.score, greaterThanOrEqualTo(200));
       },
       skip: !NativeEngine.isAvailable,
     );

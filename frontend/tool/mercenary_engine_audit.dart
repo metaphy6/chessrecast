@@ -6,25 +6,31 @@ import 'package:chessrecast/engine/native.dart';
 import 'package:chessrecast/management/orchestrator.dart';
 import 'package:chessrecast/mods/enums.dart';
 
+import 'king_policy_metrics.dart';
+
 class _AnalyzedPly {
   final int ply;
   final String fen;
+  final List<String> replayPrefix;
   final PieceColor sideToMove;
   final ChessMove playedMove;
   final ChessMove? referenceMove;
   final int baselineScore;
   final int referenceScore;
+  final int referenceMoveScore;
   final int playedScore;
   final int delta;
 
   const _AnalyzedPly({
     required this.ply,
     required this.fen,
+    required this.replayPrefix,
     required this.sideToMove,
     required this.playedMove,
     required this.referenceMove,
     required this.baselineScore,
     required this.referenceScore,
+    required this.referenceMoveScore,
     required this.playedScore,
     required this.delta,
   });
@@ -44,6 +50,8 @@ String runMercenaryAudit(List<String> args) {
       : ChessBoard.fromFEN(options.startingFen!, gameType: ModsEnum.mercenary);
   final analyzed = <_AnalyzedPly>[];
   final lines = <String>[];
+  final kingPolicy = KingPolicyMetrics();
+  final replayPrefix = [...options.openingMoves];
 
   lines.add(
     'Mercenary audit: baseline d${options.baselineDepth}/${options.baselineMs}ms '
@@ -64,6 +72,10 @@ String runMercenaryAudit(List<String> args) {
       }
       board = orchestrator.executeMove(board, move);
     }
+    lines.add(
+      'Replay-state note: analysis starts after opening prefix; '
+      'replay lines below reproduce the full game from the initial position.',
+    );
   }
 
   for (var ply = 1; ply <= options.maxPlies; ply++) {
@@ -97,23 +109,44 @@ String runMercenaryAudit(List<String> args) {
     );
 
     final nextBoard = orchestrator.executeMove(board, playedMove);
+    kingPolicy.recordPly(
+      ply: ply,
+      boardBefore: board,
+      playedMove: playedMove,
+      boardAfter: nextBoard,
+    );
     final playedScore = _scorePlayedMove(
-      engine,
-      nextBoard,
-      options.referenceMs,
-      options.referenceDepth,
-      options.referenceSkill,
+      engine: engine,
+      childBoard: nextBoard,
+      referenceMs: options.referenceMs,
+      referenceDepth: options.referenceDepth,
+      referenceSkill: options.referenceSkill,
     );
 
-    final delta = reference.score - playedScore;
+    final refMove = reference.bestMove;
+    final referenceMoveScore = refMove == null
+        ? reference.score
+        : _scorePlayedMove(
+            engine: engine,
+            childBoard: orchestrator.executeMove(board, refMove),
+            referenceMs: options.referenceMs,
+            referenceDepth: options.referenceDepth,
+            referenceSkill: options.referenceSkill,
+          );
+
+    final delta = referenceMoveScore - playedScore;
+    final currentReplay = [...replayPrefix];
+    replayPrefix.add(_coordinateLabel(playedMove));
     final analyzedPly = _AnalyzedPly(
       ply: ply,
       fen: fen,
+      replayPrefix: currentReplay,
       sideToMove: side,
       playedMove: playedMove,
-      referenceMove: reference.bestMove,
+      referenceMove: refMove,
       baselineScore: baseline.score,
       referenceScore: reference.score,
+      referenceMoveScore: referenceMoveScore,
       playedScore: playedScore,
       delta: delta,
     );
@@ -133,6 +166,14 @@ String runMercenaryAudit(List<String> args) {
     board = nextBoard;
   }
 
+  lines.add('');
+  lines.add(
+    'King-policy KPIs: '
+    'earlyKingMoveCount(<=ply12)=${kingPolicy.earlyKingMoveCount} '
+    'castlingRightLossByVoluntaryKingMove=${kingPolicy.castlingRightLossByVoluntaryKingMove} '
+    'castledByPly[w=${kingPolicy.castledByPlyLabel(PieceColor.white)},b=${kingPolicy.castledByPlyLabel(PieceColor.black)}] '
+    'kingExposureIndex(avg)=${kingPolicy.averageKingExposureIndex.toStringAsFixed(2)}',
+  );
   lines.add('');
   lines.add(
     'Final status: ${board.gameStatus.name} after ${analyzed.length} plies',
@@ -158,8 +199,12 @@ String runMercenaryAudit(List<String> args) {
     );
     lines.add('   FEN: ${item.fen}');
     lines.add(
+      '   Replay: ${[...item.replayPrefix, _coordinateLabel(item.playedMove)].join(' ')}',
+    );
+    lines.add(
       '   baseline=${_cp(item.baselineScore)} '
       'reference=${_cp(item.referenceScore)} '
+      'reference-move=${_cp(item.referenceMoveScore)} '
       'played=${_cp(item.playedScore)}',
     );
   }
@@ -167,13 +212,13 @@ String runMercenaryAudit(List<String> args) {
   return lines.join('\n');
 }
 
-int _scorePlayedMove(
-  NativeEngine engine,
-  ChessBoard childBoard,
-  int referenceMs,
-  int referenceDepth,
-  int referenceSkill,
-) {
+int _scorePlayedMove({
+  required NativeEngine engine,
+  required ChessBoard childBoard,
+  required int referenceMs,
+  required int referenceDepth,
+  required int referenceSkill,
+}) {
   if (childBoard.gameStatus == GameStatus.checkmate) {
     return mateScore;
   }
@@ -190,6 +235,10 @@ int _scorePlayedMove(
     skillLevel: referenceSkill,
   );
   return -reply.score;
+}
+
+String _coordinateLabel(ChessMove move) {
+  return '${move.from.algebraic}${move.to.algebraic}';
 }
 
 String _moveLabel(ChessMove? move) {

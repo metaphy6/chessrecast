@@ -60,7 +60,9 @@ void main() {
           gameType: ModsEnum.mercenary,
         );
 
-        final result = NativeEngine().findBestMoveSync(
+        final engine = NativeEngine();
+        engine.resetState(clearTranspositionTable: true);
+        final result = engine.findBestMoveSync(
           board,
           timeLimitMs: 1800,
           maxDepth: 8,
@@ -124,6 +126,7 @@ int _scoreMove(NativeEngine engine, ChessBoard childBoard) {
     return 0;
   }
 
+  engine.resetState();
   final reply = engine.findBestMoveSync(
     childBoard,
     timeLimitMs: 150,
