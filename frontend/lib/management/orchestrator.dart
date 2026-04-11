@@ -472,20 +472,32 @@ class Orchestrator {
     return false;
   }
 
-  /// Checks if current position is a special endgame requiring mate within 50 total moves
-  /// Mercenary: K+pieces vs K (must mate within 50 half-moves = 25 white + 25 black)
+  /// Checks if current position is a special endgame requiring mate within 50 total moves.
+  ///
+  /// Mercenary variant policy:
+  /// - Keep the accelerated limit for pure piece-vs-king mop-up endgames.
+  /// - Do NOT accelerate King+Pawn vs King; pawn endgames can be longer and
+  ///   should use the standard 100 half-move threshold.
   bool _isSpecialEndgameRequiringFasterMate(ChessBoard board) {
     final whitePieces = board.getPiecesOfColor(PieceColor.white);
     final blackPieces = board.getPiecesOfColor(PieceColor.black);
 
-    // Mercenary Mod: K+pieces vs K or K vs K+pieces
+    // Mercenary Mod: candidate is one-side-only-king endgame.
     if (board.gameType == ModsEnum.mercenary) {
-      // Check if one side has only king
-      final whiteOnlyKing = whitePieces.length == 1;
-      final blackOnlyKing = blackPieces.length == 1;
+      final whiteOnlyKing =
+          whitePieces.length == 1 && whitePieces.first.type == PieceType.king;
+      final blackOnlyKing =
+          blackPieces.length == 1 && blackPieces.first.type == PieceType.king;
 
       if (whiteOnlyKing || blackOnlyKing) {
-        return true;
+        // The stronger side can be either white or black.
+        final strongerSidePieces = whiteOnlyKing ? blackPieces : whitePieces;
+        final hasPawn = strongerSidePieces.any(
+          (piece) => piece.type == PieceType.pawn,
+        );
+
+        // K+Pawn vs K should use the normal 100 half-move threshold.
+        return !hasPawn;
       }
     }
 
@@ -493,7 +505,9 @@ class Orchestrator {
   }
 
   /// Checks for draw by fifty-move rule
-  /// Special endgames (Mercenary K+pieces vs K): 50 half-moves total (25+25)
+  /// Special endgames (Mercenary piece-vs-king without pawns): 50 half-moves
+  /// total (25+25)
+  /// Mercenary K+Pawn vs K uses the normal threshold.
   /// Normal games: 50 full moves (100 half-moves) without capture or pawn move
   bool _isDrawByFiftyMoveRule(ChessBoard board) {
     final fiftyMoveLimit = _isSpecialEndgameRequiringFasterMate(board)

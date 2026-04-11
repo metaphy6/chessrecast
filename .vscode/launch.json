@@ -38,9 +38,9 @@
       "deviceId": "emulator-5554",
       "preLaunchTask": "start-emulator-Pixel9ProXL",
       "env": {
-        "ANDROID_SDK_ROOT": "/home/tech/Android/Sdk",
-        "ANDROID_HOME": "/home/tech/Android/Sdk",
-        "PATH": "${env:PATH}:/home/tech/Android/Sdk/platform-tools:/home/tech/Android/Sdk/emulator"
+        "ANDROID_SDK_ROOT": "${env:HOME}/Android/Sdk",
+        "ANDROID_HOME": "${env:HOME}/Android/Sdk",
+        "PATH": "${env:PATH}:${env:HOME}/Android/Sdk/platform-tools:${env:HOME}/Android/Sdk/emulator"
       }
     },
     {
@@ -54,9 +54,24 @@
       "preLaunchTask": "start-emulator-Dev_Fast",
       "args": ["--no-enable-impeller"],
       "env": {
-        "ANDROID_SDK_ROOT": "/home/tech/Android/Sdk",
-        "ANDROID_HOME": "/home/tech/Android/Sdk",
-        "PATH": "${env:PATH}:/home/tech/Android/Sdk/platform-tools:/home/tech/Android/Sdk/emulator"
+        "ANDROID_SDK_ROOT": "${env:HOME}/Android/Sdk",
+        "ANDROID_HOME": "${env:HOME}/Android/Sdk",
+        "PATH": "${env:PATH}:${env:HOME}/Android/Sdk/platform-tools:${env:HOME}/Android/Sdk/emulator"
+      }
+    },
+    {
+      "name": "Flutter: Minimal (AOSP 36) [lnxmonster]",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "frontend",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "deviceId": "emulator-5554",
+      "preLaunchTask": "start-emulator-Minimal",
+      "env": {
+        "ANDROID_SDK_ROOT": "${env:HOME}/Android/Sdk",
+        "ANDROID_HOME": "${env:HOME}/Android/Sdk",
+        "PATH": "${env:PATH}:${env:HOME}/Android/Sdk/platform-tools:${env:HOME}/Android/Sdk/emulator"
       }
     }
   ]

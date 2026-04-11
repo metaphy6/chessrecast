@@ -24,24 +24,24 @@ class _ProbeCase {
 /// - King exposure is amplified because pawns can attack sideways and backward
 const _probeCases = [
   _ProbeCase(
-    name: 'd4-d5 standard setup — pawn lateral control',
-    moves: ['d2d4', 'd7d5', 'b1c3', 'b8c6', 'g1f3', 'g8f6', 'e2e3'],
-    candidates: ['c1d2', 'f1e2', 'e3e4'],
+    name: 'd3-d6 standard setup — pawn lateral control',
+    moves: ['d2d3', 'd7d6', 'b1c3', 'b8c6', 'g1f3', 'g8f6', 'e2e3'],
+    candidates: ['d8d7', 'e7e6', 'c8e6'],
   ),
   _ProbeCase(
-    name: 'e4-e5 knight dance — avoid pawn-king collision',
-    moves: ['e2e4', 'e7e5', 'g1f3', 'g8f6', 'b1c3', 'b8c6', 'f1c4'],
-    candidates: ['f6e4', 'd7d6', 'd7d5'],
+    name: 'e3-e6 knight dance — avoid pawn-king collision',
+    moves: ['e2e3', 'e7e6', 'g1f3', 'g8f6', 'b1c3', 'b8c6', 'f1c4'],
+    candidates: ['f6e4', 'd8e7', 'c6b4'],
   ),
   _ProbeCase(
-    name: 'pawn cluster at c4-d5 — diagonal break timing',
-    moves: ['c2c4', 'd7d5', 'd2d4', 'e7e5', 'c4d5', 'e5d4', 'g1f3'],
-    candidates: ['d4d3', 'g8f6', 'b8c6'],
+    name: 'pawn cluster at c3-d4 — diagonal break timing',
+    moves: ['c2c3', 'd7d6', 'd2d3', 'e7e6', 'c3d4', 'e6d5', 'g1f3'],
+    candidates: ['g8f6', 'b8c6', 'd8e7'],
   ),
   _ProbeCase(
-    name: 'king-side pawn storm — h4 push vs development',
-    moves: ['g2g4', 'e7e5', 'b1c3', 'b8c6', 'f1g2', 'f8c5', 'g1f3'],
-    candidates: ['h2h4', 'e2e3', 'd2d3'],
+    name: 'king-side pawn storm — h3 push vs development',
+    moves: ['g2g3', 'e7e6', 'b1c3', 'b8c6', 'f1g2', 'f8c5', 'g1f3'],
+    candidates: ['g8f6', 'd7d6', 'a7a6'],
   ),
 ];
 

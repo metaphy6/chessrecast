@@ -107,9 +107,14 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 - No two-square initial move
 - No en passant
 - Significantly more mobile and dangerous pawn structure
-- Standard 100 half-move draw rule applies (pawn moves count as regular moves)
+- Draw clock policy:
+  - Standard 100 half-move draw rule for general play
+  - **K+P vs K also uses 100 half-move threshold** (can be a real mating net)
+  - Pawnless piece-vs-king mop-ups use accelerated 50 half-move threshold
 - **Insufficient material:** K vs K, K+N vs K+N (when no pawns remain)
 - Pawns can assist in checkmates (like extra kings), so K+N vs K with pawns is NOT insufficient
+
+**Contributor Note:** In Mercenary, do not classify `King + Pawn vs King` as automatic insufficient material draw. A king-like pawn can participate in legal checkmate nets.
 
 ---
 

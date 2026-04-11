@@ -13,7 +13,7 @@ void main() {
 
       final report = runMercenaryPositionProbe([
         '--fen=${env('MERC_PROBE_FEN', '')}',
-        '--moves=${env('MERC_PROBE_MOVES', '')}',
+        '--moves=${env('MERC_PROBE_MOVES', 'd2d3,d7d6')}',
         '--depth=${env('MERC_PROBE_DEPTH', '6')}',
         '--time-ms=${env('MERC_PROBE_TIME_MS', '500')}',
         '--skill=${env('MERC_PROBE_SKILL', '4')}',
