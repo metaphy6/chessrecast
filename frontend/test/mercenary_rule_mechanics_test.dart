@@ -18,7 +18,9 @@ void main() {
       );
       final moves = orchestrator.getAllValidMoves(board);
       final pawnMoves = moves.where(
-        (m) => m.piece.type == PieceType.pawn && m.from == const Position(4, 4),
+        (m) =>
+            m.piece.type == PieceType.pawn &&
+            m.from == const Position(3, 4),
       );
 
       // e4 neighbours: d3,e3,f3,d4,f4,d5,e5,f5 — all 8 are on board and empty
@@ -35,8 +37,8 @@ void main() {
       final backwardCapture = moves.any(
         (m) =>
             m.piece.type == PieceType.pawn &&
-            m.from == const Position(4, 4) &&
-            m.to == const Position(5, 3) &&
+            m.from == const Position(3, 4) &&
+            m.to == const Position(2, 3) &&
             m.isCapture,
       );
 

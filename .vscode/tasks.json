@@ -22,6 +22,16 @@
       }
     },
     {
+      "label": "start-emulator-Minimal",
+      "type": "shell",
+      "command": "${workspaceFolder}/.vscode/start_android_emulator.sh Minimal",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
       "label": "start-emulator-Pixel9ProXL-win",
       "type": "shell",
       "command": "powershell",
