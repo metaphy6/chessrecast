@@ -45,4 +45,9 @@ bool search_kb_unlocked_is_king_safety_move(const Board *b, Move m, Color side);
 bool search_kb_unlocked_is_shelter_move(const Board *b, Move m, Color side);
 bool search_kb_unlocked_is_development_move(const Board *b, Move m, Color side);
 
+int search_merc_minor_development_score(const Board *b, Move m, Color side);
+int search_merc_early_queen_sortie_penalty(const Board *b, Move m, Color side);
+int search_merc_quiet_pawn_score(const Board *b, Move m, Color side);
+int search_merc_king_safety_score(const Board *b, Move m, Color side);
+
 #endif

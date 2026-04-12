@@ -536,6 +536,22 @@ static int kb_phase1_king_activation_score(const Board *b, Move m, Color side) {
     return search_kb_phase1_king_activation_score(b, m, side);
 }
 
+static int merc_minor_development_score(const Board *b, Move m, Color side) {
+    return search_merc_minor_development_score(b, m, side);
+}
+
+static int merc_early_queen_sortie_penalty(const Board *b, Move m, Color side) {
+    return search_merc_early_queen_sortie_penalty(b, m, side);
+}
+
+static int merc_quiet_pawn_score(const Board *b, Move m, Color side) {
+    return search_merc_quiet_pawn_score(b, m, side);
+}
+
+static int merc_king_safety_score(const Board *b, Move m, Color side) {
+    return search_merc_king_safety_score(b, m, side);
+}
+
 static int stq_undeveloped_minor_count(const Board *b, Color side) {
     int back_rank;
     int undeveloped;
@@ -851,6 +867,10 @@ static int move_score(const Board *b, Move m, Move tt_move,
     score += kb_unlocked_king_safety_score(b, m, side);
     score += kb_unlocked_development_score(b, m, side);
     score += kb_unlocked_king_shelter_score(b, m, side);
+    score += merc_minor_development_score(b, m, side);
+    score -= merc_early_queen_sortie_penalty(b, m, side);
+    score += merc_quiet_pawn_score(b, m, side);
+    score += merc_king_safety_score(b, m, side);
     score += stq_dev_score;
     score += stq_pawn_score;
     score -= stq_flank_penalty;
@@ -1095,6 +1115,14 @@ static int alpha_beta(Board *b, int depth, int alpha, int beta,
     check_time();
     if (s_stopped) return 0;
     s_nodes++;
+
+    /* ── In-search repetition detection ── */
+    if (b->ply >= 4) {
+        uint64_t h = b->hash;
+        for (int i = b->ply - 2; i >= 0; i -= 2) {
+            if (b->history[i].hash == h) return 0;
+        }
+    }
 
     {
         bool stq_terminal = false;
@@ -1802,6 +1830,11 @@ done:
         if (s_skill_level == 4) {
             s_margin = maxi(s_margin, search_kb_full_skill_variety_margin(b));
             top_band = maxi(top_band, search_kb_full_skill_tiebreak_band(b));
+            /* Generic opening variety for ALL mods at full skill */
+            if (is_opening) {
+                s_margin = maxi(s_margin, 15);
+                top_band = maxi(top_band, 10);
+            }
         }
 
         if (s_margin > 0) {
