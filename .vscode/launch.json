@@ -15,21 +15,7 @@
       }
     },
     {
-      "name": "Flutter: frontend (mobile - debug) [Linux]",
-      "type": "dart",
-      "request": "launch",
-      "cwd": "frontend",
-      "program": "lib/main.dart",
-      "flutterMode": "debug",
-      "deviceId": "",
-      "env": {
-        "ANDROID_SDK_ROOT": "${env:ANDROID_SDK_ROOT:-}",
-        "ANDROID_HOME": "${env:ANDROID_SDK_ROOT:-}",
-        "PATH": "${env:PATH}:${env:ANDROID_SDK_ROOT:-$HOME/Android/Sdk}/platform-tools:${env:ANDROID_SDK_ROOT:-$HOME/Android/Sdk}/emulator:${env:HOME}/Android/Sdk/platform-tools:${env:HOME}/Android/Sdk/emulator"
-      }
-    },
-    {
-      "name": "Flutter: frontend (mobile - Pixel9ProXL) [lnxmonster]",
+      "name": "Flutter: Pixel9ProXL",
       "type": "dart",
       "request": "launch",
       "cwd": "frontend",
@@ -44,7 +30,7 @@
       }
     },
     {
-      "name": "Flutter: Dev Fast (AOSP 35) [lnxmonster]",
+      "name": "Flutter: Dev Fast (AOSP 35)",
       "type": "dart",
       "request": "launch",
       "cwd": "frontend",
@@ -60,7 +46,7 @@
       }
     },
     {
-      "name": "Flutter: Minimal (AOSP 36) [lnxmonster]",
+      "name": "Flutter: Minimal (AOSP 36)",
       "type": "dart",
       "request": "launch",
       "cwd": "frontend",
