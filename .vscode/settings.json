@@ -1,17 +1,4 @@
 {
-    // =====================================================
-    // SHARED WORKSPACE SETTINGS (committed to git)
-    // =====================================================
-    // Machine-specific settings (dart.flutterSdkPath, dart.env, emulator paths)
-    // should be configured in your USER settings (Ctrl+Shift+P > "Preferences: Open User Settings (JSON)")
-    // or in a local .vscode/settings.local.json (add to .gitignore)
-    
-    "spellright.language": [
-        "en"
-    ],
-    "spellright.documentTypes": [
-        "latex"
-    ],
     "files.watcherExclude": {
         "**/node_modules": true,
         "**/.git": true,
@@ -27,7 +14,6 @@
         "**/.dart_tool/**": true,
         "**/.cxx/**": true
     },
-    "terminal.integrated.defaultLocation": "panel",
     "terminal.integrated.enablePersistentSessions": true,
     "terminal.integrated.tabs.enabled": true,
     
@@ -42,8 +28,6 @@
         "C:\\code\\libs\\flutter",
         // Linux paths
         "/home/serhatakbak/code/lib/flutter",
-        "/home/tech/snap/flutter/common/flutter",
-        // macOS paths
-        "/Users/${env:USER}/development/flutter"
+        "/home/tech/snap/flutter/common/flutter"
     ]
 }
