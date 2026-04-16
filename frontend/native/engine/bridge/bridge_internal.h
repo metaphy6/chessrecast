@@ -89,6 +89,12 @@ SearchResult stq_refine_result(const Board *board,
                                SearchResult raw,
                                int time_ms, int max_depth, int skill_level);
 
+SearchResult mercenary_minor_trade_refine_result(const Board *board,
+                                                 SearchResult raw,
+                                                 int time_ms,
+                                                 int max_depth,
+                                                 int skill_level);
+
 SearchResult king_discipline_refine_result(const Board *board,
                                            SearchResult raw,
                                            int time_ms, int max_depth, int skill_level);

@@ -164,8 +164,8 @@ int eval_mercenary(const Board *b, const EvalContext *ctx) {
     queen_sq[1] = ctx->queen_sq[1];
     int eg_weight = ctx->eg_weight;
 
-        /* Extra incentive to keep pawns */
-        score += (pawn_count[WHITE] - pawn_count[BLACK]) * 25;
+          /* Extra incentive to keep pawns */
+          score += (pawn_count[WHITE] - pawn_count[BLACK]) * 25;
 
         /* Pawn proximity to enemy king — scaled by game phase.
            Midgame: modest bonus.  Late-game: stronger (king-hunt). */

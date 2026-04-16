@@ -17,6 +17,7 @@ SearchResult bridge_engine_search_best_move(Board *board,
     raw = heir_refine_queen_sortie_result(board, raw, time_ms, max_depth, skill_level);
     raw = succ_refine_result(board, raw, time_ms, max_depth, skill_level);
     raw = stq_refine_result(board, raw, time_ms, max_depth, skill_level);
+    raw = mercenary_minor_trade_refine_result(board, raw, time_ms, max_depth, skill_level);
     raw = king_discipline_refine_result(board, raw, time_ms, max_depth, skill_level);
     return raw;
 }

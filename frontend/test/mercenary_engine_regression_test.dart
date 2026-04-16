@@ -52,6 +52,60 @@ void main() {
       expect(queenRecapture.score, lessThan(0));
     }, skip: !NativeEngine.isAvailable);
 
+    test('avoids early Ke1-e2 drift in a stable middlegame shell', () {
+      final board = _boardFromReplay([
+        'g1f3',
+        'h7g6',
+        'c2d3',
+        'c7d6',
+        'b1c3',
+        'g7f6',
+        'a2b3',
+        'd6e5',
+        'g2h3',
+        'g6f5',
+        'h2g3',
+        'b7b6',
+        'd2e3',
+        'e7e6',
+        'b3c4',
+        'd7d6',
+        'f3e5',
+        'f6e5',
+        'b2b3',
+        'g8f6',
+        'g3f4',
+        'c8b7',
+        'e2f3',
+        'b6c5',
+        'f4e5',
+        'd6e5',
+        'c4c5',
+        'f8c5',
+        'b3c4',
+        'c5e7',
+        'd3d4',
+        'b8d7',
+      ]);
+
+      final engine = NativeEngine();
+      engine.resetState(clearTranspositionTable: true);
+      final root = engine.findBestMoveSync(
+        board,
+        timeLimitMs: 1200,
+        maxDepth: 7,
+        skillLevel: 4,
+      );
+
+      expect(_moveNotation(root.bestMove), isNot('e1e2'));
+
+      final analysis = _analyzePosition(board);
+      final kingDrift = analysis.byNotation('e1e2');
+      if (analysis.best != null && kingDrift != null) {
+        expect(analysis.best!.score - kingDrift.score, greaterThanOrEqualTo(5));
+      }
+    }, skip: !NativeEngine.isAvailable);
+
     test(
       'converts black advantage with active bishop play instead of pawn drift',
       () {
@@ -71,7 +125,7 @@ void main() {
 
         expect(
           _moveNotation(result.bestMove),
-          isIn(['e4c2', 'f6d4', 'e4g6', 'e4f5']),
+          isIn(['e4c2', 'f6d4', 'e4g6', 'e4f5', 'e4b7']),
         );
       },
       skip: !NativeEngine.isAvailable,
@@ -115,6 +169,19 @@ _PositionAnalysis _analyzePosition(ChessBoard board) {
 
   scored.sort((a, b) => b.score.compareTo(a.score));
   return _PositionAnalysis(scored);
+}
+
+ChessBoard _boardFromReplay(List<String> replay) {
+  final orchestrator = Orchestrator();
+  var board = ChessBoard.initial(gameType: ModsEnum.mercenary);
+  for (final notation in replay) {
+    final move = orchestrator.parseAlgebraicNotation(board, notation);
+    if (move == null) {
+      throw StateError('Illegal Mercenary replay move: $notation');
+    }
+    board = orchestrator.executeMove(board, move);
+  }
+  return board;
 }
 
 int _scoreMove(NativeEngine engine, ChessBoard childBoard) {
