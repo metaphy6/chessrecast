@@ -22,7 +22,6 @@
       "program": "lib/main.dart",
       "flutterMode": "debug",
       "deviceId": "emulator-5554",
-      "preLaunchTask": "start-emulator-Pixel9ProXL",
       "env": {
         "ANDROID_SDK_ROOT": "${env:HOME}/Android/Sdk",
         "ANDROID_HOME": "${env:HOME}/Android/Sdk",
@@ -37,7 +36,6 @@
       "program": "lib/main.dart",
       "flutterMode": "debug",
       "deviceId": "emulator-5554",
-      "preLaunchTask": "start-emulator-Dev_Fast",
       "args": ["--no-enable-impeller"],
       "env": {
         "ANDROID_SDK_ROOT": "${env:HOME}/Android/Sdk",
@@ -53,7 +51,6 @@
       "program": "lib/main.dart",
       "flutterMode": "debug",
       "deviceId": "emulator-5554",
-      "preLaunchTask": "start-emulator-Minimal",
       "env": {
         "ANDROID_SDK_ROOT": "${env:HOME}/Android/Sdk",
         "ANDROID_HOME": "${env:HOME}/Android/Sdk",
