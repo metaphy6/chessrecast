@@ -339,12 +339,39 @@ class ChessBoard extends Equatable {
   /// Checks if the 50-move rule applies (draw available)
   /// Save the Queen Mod: 50 half-moves (25 white + 25 black)
   /// Succession Mod: 50 half-moves (25 white + 25 black)
+  /// Mercenary K+P vs K: 50 half-moves (25 white + 25 black)
   /// Normal games: 100 half-moves (50 full moves)
   bool canClaimFiftyMoveRule() {
     if (gameType == ModsEnum.saveTheQueen || gameType == ModsEnum.succession) {
       return halfMoveClock >= 50; // 50 half-moves total (25 white + 25 black)
     }
+    if (_isMercenaryKingPlusPawnVsKing()) {
+      return halfMoveClock >= 50;
+    }
     return halfMoveClock >= 100; // 100 half-moves = 50 full moves
+  }
+
+  bool _isMercenaryKingPlusPawnVsKing() {
+    if (gameType != ModsEnum.mercenary) {
+      return false;
+    }
+
+    final whitePieces = getPiecesOfColor(PieceColor.white);
+    final blackPieces = getPiecesOfColor(PieceColor.black);
+
+    bool isKingOnly(List<ChessPiece> pieces) {
+      return pieces.length == 1 && pieces.first.type == PieceType.king;
+    }
+
+    bool isKingAndPawn(List<ChessPiece> pieces) {
+      if (pieces.length != 2) return false;
+      final kingCount = pieces.where((piece) => piece.type == PieceType.king).length;
+      final pawnCount = pieces.where((piece) => piece.type == PieceType.pawn).length;
+      return kingCount == 1 && pawnCount == 1;
+    }
+
+    return (isKingAndPawn(whitePieces) && isKingOnly(blackPieces)) ||
+        (isKingAndPawn(blackPieces) && isKingOnly(whitePieces));
   }
 
   /// Checks if threefold repetition has occurred (draw available)

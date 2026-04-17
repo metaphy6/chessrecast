@@ -13,7 +13,8 @@ import 'enums.dart';
 /// - Pawn moves count as regular moves (increment fifty-move counter)
 ///
 /// Draw Conditions:
-/// - Standard 100 half-move rule (50 full moves)
+/// - 50 half-move rule for K+P vs K (25 white + 25 black)
+/// - Standard 100 half-move rule for other material sets
 /// - Insufficient material: K vs K, or K+N vs K+N (no pawns)
 /// - With pawns on board, checkmate is possible (pawns assist like kings)
 class Mercenary extends Ruleset {

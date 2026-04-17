@@ -22,9 +22,9 @@ void main() {
       expect(updated.gameStatus, equals(GameStatus.checkmate));
     });
 
-    test('King + pawn vs king is not auto-drawn at 50 half-moves', () {
+    test('King + pawn vs king is not auto-drawn at 49 half-moves', () {
       final board = ChessBoard.fromFEN(
-        '7k/8/8/8/3P4/2K5/8/8 b - - 50 1',
+        '7k/8/8/8/3P4/2K5/8/8 b - - 49 1',
         gameType: ModsEnum.mercenary,
       );
 
@@ -33,15 +33,24 @@ void main() {
       expect(updated.gameStatus, equals(GameStatus.ongoing));
     });
 
-    test('King + pawn vs king still draws at 100 half-moves', () {
+    test('King + pawn vs king draws at 50 half-moves', () {
       final board = ChessBoard.fromFEN(
-        '7k/8/8/8/3P4/2K5/8/8 b - - 100 1',
+        '7k/8/8/8/3P4/2K5/8/8 b - - 50 1',
         gameType: ModsEnum.mercenary,
       );
 
       final updated = orchestrator.updateGameStatus(board);
 
       expect(updated.gameStatus, equals(GameStatus.draw));
+    });
+
+    test('King + pawn vs king can claim fifty-move draw at 50 half-moves', () {
+      final board = ChessBoard.fromFEN(
+        '7k/8/8/8/3P4/2K5/8/8 b - - 50 1',
+        gameType: ModsEnum.mercenary,
+      );
+
+      expect(board.canClaimFiftyMoveRule(), isTrue);
     });
 
     test('King vs king remains draw by insufficient material', () {
