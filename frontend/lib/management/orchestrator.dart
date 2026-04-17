@@ -476,8 +476,7 @@ class Orchestrator {
   ///
   /// Mercenary variant policy:
   /// - Keep the accelerated limit for pure piece-vs-king mop-up endgames.
-  /// - Do NOT accelerate King+Pawn vs King; pawn endgames can be longer and
-  ///   should use the standard 100 half-move threshold.
+  /// - Also accelerate King+Pawn vs King to 50 half-moves (25+25).
   bool _isSpecialEndgameRequiringFasterMate(ChessBoard board) {
     final whitePieces = board.getPiecesOfColor(PieceColor.white);
     final blackPieces = board.getPiecesOfColor(PieceColor.black);
@@ -496,8 +495,13 @@ class Orchestrator {
           (piece) => piece.type == PieceType.pawn,
         );
 
-        // K+Pawn vs K should use the normal 100 half-move threshold.
-        return !hasPawn;
+        final isKingAndPawnVsKing =
+            strongerSidePieces.length == 2 &&
+            strongerSidePieces.any((piece) => piece.type == PieceType.king) &&
+            hasPawn;
+
+        // Accelerate pure piece-vs-king and K+P vs K endgames.
+        return !hasPawn || isKingAndPawnVsKing;
       }
     }
 
@@ -507,7 +511,7 @@ class Orchestrator {
   /// Checks for draw by fifty-move rule
   /// Special endgames (Mercenary piece-vs-king without pawns): 50 half-moves
   /// total (25+25)
-  /// Mercenary K+Pawn vs K uses the normal threshold.
+  /// Mercenary K+Pawn vs K: 50 half-moves total (25+25).
   /// Normal games: 50 full moves (100 half-moves) without capture or pawn move
   bool _isDrawByFiftyMoveRule(ChessBoard board) {
     final fiftyMoveLimit = _isSpecialEndgameRequiringFasterMate(board)
