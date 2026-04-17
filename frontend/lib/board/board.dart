@@ -7,6 +7,7 @@ import 'piece.dart';
 import 'moves/move.dart';
 import '../mods/mods.dart';
 import '../debug.dart';
+import 'draw_rules.dart';
 
 /// Core ChessBoard class with state and basic operations
 class ChessBoard extends Equatable {
@@ -336,42 +337,15 @@ class ChessBoard extends Equatable {
     return buffer.toString();
   }
 
-  /// Checks if the 50-move rule applies (draw available)
-  /// Save the Queen Mod: 50 half-moves (25 white + 25 black)
-  /// Succession Mod: 50 half-moves (25 white + 25 black)
-  /// Mercenary K+P vs K: 50 half-moves (25 white + 25 black)
-  /// Normal games: 100 half-moves (50 full moves)
+  /// Checks if the fifty-move rule threshold has been reached.
+  /// Delegates to [DrawRules.fiftyMoveThreshold] for the authoritative limit.
   bool canClaimFiftyMoveRule() {
-    if (gameType == ModsEnum.saveTheQueen || gameType == ModsEnum.succession) {
-      return halfMoveClock >= 50; // 50 half-moves total (25 white + 25 black)
-    }
-    if (_isMercenaryKingPlusPawnVsKing()) {
-      return halfMoveClock >= 50;
-    }
-    return halfMoveClock >= 100; // 100 half-moves = 50 full moves
-  }
-
-  bool _isMercenaryKingPlusPawnVsKing() {
-    if (gameType != ModsEnum.mercenary) {
-      return false;
-    }
-
-    final whitePieces = getPiecesOfColor(PieceColor.white);
-    final blackPieces = getPiecesOfColor(PieceColor.black);
-
-    bool isKingOnly(List<ChessPiece> pieces) {
-      return pieces.length == 1 && pieces.first.type == PieceType.king;
-    }
-
-    bool isKingAndPawn(List<ChessPiece> pieces) {
-      if (pieces.length != 2) return false;
-      final kingCount = pieces.where((piece) => piece.type == PieceType.king).length;
-      final pawnCount = pieces.where((piece) => piece.type == PieceType.pawn).length;
-      return kingCount == 1 && pawnCount == 1;
-    }
-
-    return (isKingAndPawn(whitePieces) && isKingOnly(blackPieces)) ||
-        (isKingAndPawn(blackPieces) && isKingOnly(whitePieces));
+    final threshold = DrawRules.fiftyMoveThreshold(
+      gameType: gameType,
+      whitePieces: getPiecesOfColor(PieceColor.white),
+      blackPieces: getPiecesOfColor(PieceColor.black),
+    );
+    return halfMoveClock >= threshold;
   }
 
   /// Checks if threefold repetition has occurred (draw available)
@@ -399,15 +373,15 @@ class ChessBoard extends Equatable {
 
   /// Checks if draw conditions are met (50-move rule or threefold repetition)
   bool shouldAutoDraw() {
-    // Check standard draw conditions
     if (canClaimFiftyMoveRule() || hasThreefoldRepetition()) {
       return true;
     }
 
-    // Save the Queen: Check for repeated queen capture (3 times)
+    // Save the Queen: same piece captures prisoner queen from the same square
+    // three times → automatic draw.
     if (gameType == ModsEnum.saveTheQueen) {
       for (final count in queenCaptureCounter.values) {
-        if (count >= 3) {
+        if (count >= DrawRules.queenCaptureRepeatThreshold) {
           return true;
         }
       }

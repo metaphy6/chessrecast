@@ -6,6 +6,7 @@ import '../piece.dart';
 import 'move.dart';
 import '../board.dart';
 import 'helpers.dart';
+import '../draw_rules.dart';
 
 /// Extension for move execution operations
 extension MoveExecution on ChessBoard {
@@ -112,13 +113,13 @@ extension MoveExecution on ChessBoard {
       newEscapedQueens[move.piece.color] = inOwnHalf;
     }
 
-    // Update halfMoveClock for 50-move rule
-    // Reset to 0 on pawn move or capture, otherwise increment
-    // Exception: In Mercenary Mod, pawn moves don't reset the counter
+    // Update halfMoveClock for 50-move rule — delegates to DrawRules
     final isPawnMove = move.piece.type == PieceType.pawn;
-    final shouldResetClock =
-        move.capturedPiece != null ||
-        (isPawnMove && gameType != ModsEnum.mercenary);
+    final shouldResetClock = DrawRules.shouldResetHalfMoveClock(
+      gameType: gameType,
+      isPawnMove: isPawnMove,
+      isCapture: move.capturedPiece != null,
+    );
     final newHalfMoveClock = shouldResetClock ? 0 : halfMoveClock + 1;
 
     // Update fullMoveNumber (increments after black's move)
