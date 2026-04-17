@@ -214,15 +214,14 @@ class SaveTheQueen implements Ruleset {
 
         if (prisonOccupied) {
           // Prison is occupied - queen is captured permanently
-          // Just execute the capture normally (queen disappears)
           final newBoard = board.makeMove(move);
           return newBoard;
         } else {
           // Prison is empty - return queen to prison
 
-          // Track repeated queen captures
+          // Track repeated queen captures (same piece, same square)
           final captureKey =
-              '${move.piece.color}_${move.from.row}_${move.from.col}_captures_${capturedQueen.color}';
+              '${move.piece.color}_${move.piece.type.name}_${move.from.row}_${move.from.col}_captures_${capturedQueen.color}';
           final newCaptureCounter = Map<String, int>.from(
             board.queenCaptureCounter,
           );

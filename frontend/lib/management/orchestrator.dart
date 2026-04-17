@@ -1,5 +1,6 @@
 import 'package:chessrecast/debug.dart';
 import '../board/utils/exporter.dart';
+import '../board/draw_rules.dart';
 import '../mods/mods.dart';
 
 /// Cached mode instances to avoid repeated instantiation
@@ -162,7 +163,13 @@ class Orchestrator {
       newStatus = GameStatus.draw;
     } else if (_isDrawByFiftyMoveRule(board)) {
       logDrawFiftyMoveRule(
-        isSpecialEndgame: _isSpecialEndgameRequiringFasterMate(board),
+        isSpecialEndgame:
+            DrawRules.fiftyMoveThreshold(
+              gameType: board.gameType,
+              whitePieces: board.getPiecesOfColor(PieceColor.white),
+              blackPieces: board.getPiecesOfColor(PieceColor.black),
+            ) <
+            100,
       );
       newStatus = GameStatus.draw;
     }
@@ -255,7 +262,13 @@ class Orchestrator {
       newStatus = GameStatus.draw;
     } else if (_isDrawByFiftyMoveRule(board)) {
       logDrawFiftyMoveRule(
-        isSpecialEndgame: _isSpecialEndgameRequiringFasterMate(board),
+        isSpecialEndgame:
+            DrawRules.fiftyMoveThreshold(
+              gameType: board.gameType,
+              whitePieces: board.getPiecesOfColor(PieceColor.white),
+              blackPieces: board.getPiecesOfColor(PieceColor.black),
+            ) <
+            100,
       );
       newStatus = GameStatus.draw;
     }
@@ -316,7 +329,13 @@ class Orchestrator {
       newStatus = GameStatus.draw;
     } else if (_isDrawByFiftyMoveRule(board)) {
       logDrawFiftyMoveRule(
-        isSpecialEndgame: _isSpecialEndgameRequiringFasterMate(board),
+        isSpecialEndgame:
+            DrawRules.fiftyMoveThreshold(
+              gameType: board.gameType,
+              whitePieces: board.getPiecesOfColor(PieceColor.white),
+              blackPieces: board.getPiecesOfColor(PieceColor.black),
+            ) <
+            100,
       );
       newStatus = GameStatus.draw;
     }
@@ -336,133 +355,16 @@ class Orchestrator {
     return false;
   }
 
-  /// Checks for draw by insufficient material
+  /// Checks for draw by insufficient material — delegates to [DrawRules].
   bool _isDrawByInsufficientMaterial(ChessBoard board) {
     final whitePieces = board.getPiecesOfColor(PieceColor.white);
     final blackPieces = board.getPiecesOfColor(PieceColor.black);
 
-    // Mercenary Mod: special insufficient material rules (check first)
-    if (board.gameType == ModsEnum.mercenary) {
-      if (_isDrawByInsufficientMaterialMercenary(whitePieces, blackPieces)) {
-        return true;
-      }
-      return false; // Don't apply classic rules for Mercenary
-    }
-
-    // Heir Mod: kings are capturable by non-king pieces, so only K vs K is
-    // truly insufficient (kings can never capture each other).
-    if (board.gameType == ModsEnum.heir) {
-      // Only draw when both sides have nothing but a king
-      return whitePieces.length == 1 &&
-          blackPieces.length == 1 &&
-          whitePieces.first.type == PieceType.king &&
-          blackPieces.first.type == PieceType.king;
-    }
-
-    // Apply classic chess insufficient material rules for other mods
-    if (_isDrawByInsufficientMaterialClassic(whitePieces, blackPieces)) {
-      return true;
-    }
-
-    return false;
-  }
-
-  /// Classic chess insufficient material rules
-  bool _isDrawByInsufficientMaterialClassic(
-    List<ChessPiece> whitePieces,
-    List<ChessPiece> blackPieces,
-  ) {
-    // King vs King
-    if (whitePieces.length == 1 && blackPieces.length == 1) {
-      return true;
-    }
-
-    // King and Bishop vs King or King and Knight vs King
-    if ((whitePieces.length == 2 && blackPieces.length == 1) ||
-        (whitePieces.length == 1 && blackPieces.length == 2)) {
-      final allPieces = [...whitePieces, ...blackPieces];
-      final nonKingPieces = allPieces
-          .where((p) => p.type != PieceType.king)
-          .toList();
-
-      if (nonKingPieces.length == 1) {
-        final piece = nonKingPieces.first;
-        if (piece.type == PieceType.bishop || piece.type == PieceType.knight) {
-          return true;
-        }
-      }
-    }
-
-    // King and Bishop vs King and Bishop (same color squares)
-    if (whitePieces.length == 2 && blackPieces.length == 2) {
-      final whiteBishops = whitePieces
-          .where((p) => p.type == PieceType.bishop)
-          .toList();
-      final blackBishops = blackPieces
-          .where((p) => p.type == PieceType.bishop)
-          .toList();
-
-      if (whiteBishops.length == 1 && blackBishops.length == 1) {
-        // Check if bishops are on same color squares
-        final whiteSquareColor =
-            (whiteBishops.first.position.row +
-                whiteBishops.first.position.col) %
-            2;
-        final blackSquareColor =
-            (blackBishops.first.position.row +
-                blackBishops.first.position.col) %
-            2;
-
-        if (whiteSquareColor == blackSquareColor) {
-          return true;
-        }
-      }
-    }
-
-    return false;
-  }
-
-  /// Mercenary Mod insufficient material rules
-  /// Pawns can't promote but move like kings, so they can assist in checkmates
-  bool _isDrawByInsufficientMaterialMercenary(
-    List<ChessPiece> whitePieces,
-    List<ChessPiece> blackPieces,
-  ) {
-    final whitePawns = whitePieces
-        .where((p) => p.type == PieceType.pawn)
-        .length;
-    final blackPawns = blackPieces
-        .where((p) => p.type == PieceType.pawn)
-        .length;
-
-    final totalPieces = whitePieces.length + blackPieces.length;
-
-    // King vs King - draw
-    if (totalPieces == 2) {
-      return true;
-    }
-
-    // If there are pawns, they can assist in checkmate (don't draw yet)
-    if (whitePawns > 0 || blackPawns > 0) {
-      return false;
-    }
-
-    // No pawns left - check Mercenary specific insufficient material
-    // K+N vs K+N is insufficient in Mercenary (can't checkmate without pawns to promote)
-    if (totalPieces == 4) {
-      final whiteKnights = whitePieces
-          .where((p) => p.type == PieceType.knight)
-          .length;
-      final blackKnights = blackPieces
-          .where((p) => p.type == PieceType.knight)
-          .length;
-      if (whiteKnights == 1 && blackKnights == 1) {
-        return true; // K+N vs K+N is insufficient
-      }
-    }
-
-    // Apply classic insufficient material for remaining pieces
-    return _isDrawByInsufficientMaterialClassic(whitePieces, blackPieces);
+    return DrawRules.isInsufficientMaterial(
+      gameType: board.gameType,
+      whitePieces: whitePieces,
+      blackPieces: blackPieces,
+    );
   }
 
   /// Checks for draw by threefold repetition
@@ -472,52 +374,17 @@ class Orchestrator {
     return false;
   }
 
-  /// Checks if current position is a special endgame requiring mate within 50 total moves.
-  ///
-  /// Mercenary variant policy:
-  /// - Keep the accelerated limit for pure piece-vs-king mop-up endgames.
-  /// - Also accelerate King+Pawn vs King to 50 half-moves (25+25).
-  bool _isSpecialEndgameRequiringFasterMate(ChessBoard board) {
+  /// Checks for draw by fifty-move rule — delegates to [DrawRules].
+  bool _isDrawByFiftyMoveRule(ChessBoard board) {
     final whitePieces = board.getPiecesOfColor(PieceColor.white);
     final blackPieces = board.getPiecesOfColor(PieceColor.black);
 
-    // Mercenary Mod: candidate is one-side-only-king endgame.
-    if (board.gameType == ModsEnum.mercenary) {
-      final whiteOnlyKing =
-          whitePieces.length == 1 && whitePieces.first.type == PieceType.king;
-      final blackOnlyKing =
-          blackPieces.length == 1 && blackPieces.first.type == PieceType.king;
-
-      if (whiteOnlyKing || blackOnlyKing) {
-        // The stronger side can be either white or black.
-        final strongerSidePieces = whiteOnlyKing ? blackPieces : whitePieces;
-        final hasPawn = strongerSidePieces.any(
-          (piece) => piece.type == PieceType.pawn,
-        );
-
-        final isKingAndPawnVsKing =
-            strongerSidePieces.length == 2 &&
-            strongerSidePieces.any((piece) => piece.type == PieceType.king) &&
-            hasPawn;
-
-        // Accelerate pure piece-vs-king and K+P vs K endgames.
-        return !hasPawn || isKingAndPawnVsKing;
-      }
-    }
-
-    return false;
-  }
-
-  /// Checks for draw by fifty-move rule
-  /// Special endgames (Mercenary piece-vs-king without pawns): 50 half-moves
-  /// total (25+25)
-  /// Mercenary K+Pawn vs K: 50 half-moves total (25+25).
-  /// Normal games: 50 full moves (100 half-moves) without capture or pawn move
-  bool _isDrawByFiftyMoveRule(ChessBoard board) {
-    final fiftyMoveLimit = _isSpecialEndgameRequiringFasterMate(board)
-        ? 50
-        : 100;
-    return board.halfMoveClock >= fiftyMoveLimit;
+    final threshold = DrawRules.fiftyMoveThreshold(
+      gameType: board.gameType,
+      whitePieces: whitePieces,
+      blackPieces: blackPieces,
+    );
+    return board.halfMoveClock >= threshold;
   }
 
   /// Gets all possible moves for the current player

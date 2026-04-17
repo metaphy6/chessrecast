@@ -47,10 +47,7 @@ String runSuccessionAudit(List<String> args) {
 
   var board = options.startingFen == null
       ? ChessBoard.initial(gameType: ModsEnum.succession)
-      : ChessBoard.fromFEN(
-          options.startingFen!,
-          gameType: ModsEnum.succession,
-        );
+      : ChessBoard.fromFEN(options.startingFen!, gameType: ModsEnum.succession);
   final analyzed = <_AnalyzedPly>[];
   final lines = <String>[];
   final kingPolicy = KingPolicyMetrics();
