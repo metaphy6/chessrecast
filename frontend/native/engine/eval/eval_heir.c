@@ -135,10 +135,10 @@ int eval_heir(const Board *b, const EvalContext *ctx) {
     int eg_weight = ctx->eg_weight;
     (void)eg_weight;
 
-        static const int HEIR_ADV_BONUS[] = {0, 6, 16, 34, 72, 150};
-        static const int HEIR_PASS_BONUS[] = {0, 12, 28, 56, 118, 220};
-        static const int HEIR_RECOVERY_BONUS[] = {0, 0, 18, 52, 130, 280};
-        static const int HEIR_RACE_THREAT[] = {0, 0, 16, 42, 96, 220};
+        static const int HEIR_ADV_BONUS[] = {0, 8, 20, 40, 80, 160};
+        static const int HEIR_PASS_BONUS[] = {0, 14, 32, 62, 125, 230};
+        static const int HEIR_RECOVERY_BONUS[] = {6, 10, 22, 58, 140, 300};
+        static const int HEIR_RACE_THREAT[] = {0, 0, 18, 48, 105, 235};
 
         for (int c = 0; c < 2; c++) {
             Color side = (Color)c;
@@ -305,9 +305,9 @@ int eval_heir(const Board *b, const EvalContext *ctx) {
 
                         if (board_square_attacked(b, sq, opp) &&
                             !board_square_attacked(b, sq, side)) {
-                            int pen = (t == KNIGHT || t == BISHOP) ? 22
-                                    : (t == ROOK) ? 34 : 56;
-                            if (SQ_COL(sq) == 0 || SQ_COL(sq) == 7) pen += 8;
+                            int pen = (t == KNIGHT || t == BISHOP) ? 30
+                                    : (t == ROOK) ? 45 : 70;
+                            if (SQ_COL(sq) == 0 || SQ_COL(sq) == 7) pen += 10;
                             bonus -= pen;
                         }
 
@@ -316,11 +316,38 @@ int eval_heir(const Board *b, const EvalContext *ctx) {
                             bool central = SQ_COL(sq) >= 2 && SQ_COL(sq) <= 5 &&
                                            rel_rank >= 2 && rel_rank <= 4;
                             if (central) {
-                                int knight_bonus = 10;
-                                if (board_square_attacked(b, sq, side)) knight_bonus += 8;
-                                if (!board_square_attacked(b, sq, opp)) knight_bonus += 6;
-                                if (rel_rank >= 4) knight_bonus += 4;
+                                int knight_bonus = 14;
+                                if (board_square_attacked(b, sq, side)) knight_bonus += 10;
+                                if (!board_square_attacked(b, sq, opp)) knight_bonus += 8;
+                                if (rel_rank >= 4) knight_bonus += 6;
                                 bonus += knight_bonus;
+                            }
+                        }
+
+                        /* Rook on 7th rank (2nd from opponent's perspective) */
+                        if (t == ROOK) {
+                            int rel_rank = (side == WHITE) ? SQ_ROW(sq) : (7 - SQ_ROW(sq));
+                            if (rel_rank == 6) {
+                                bonus += 25;
+                                /* Extra bonus if opponent king on 8th rank */
+                                if (king_sq[opp] >= 0) {
+                                    int opp_king_rel = (side == WHITE) ? SQ_ROW(king_sq[opp]) : (7 - SQ_ROW(king_sq[opp]));
+                                    if (opp_king_rel == 7) bonus += 15;
+                                }
+                            }
+                            /* Connected rooks bonus */
+                            Bitboard rook_atk = rook_attacks_calc(sq, b->all);
+                            if (rook_atk & b->pieces[side][ROOK]) bonus += 12;
+                        }
+
+                        /* Bishop: central diagonal control bonus */
+                        if (t == BISHOP) {
+                            int rel_rank = (side == WHITE) ? SQ_ROW(sq) : (7 - SQ_ROW(sq));
+                            if (SQ_COL(sq) >= 1 && SQ_COL(sq) <= 6 &&
+                                rel_rank >= 1 && rel_rank <= 5) {
+                                Bitboard diag_atk = bishop_attacks_calc(sq, b->all);
+                                int center_control = bb_popcount(diag_atk & (Bitboard)0x00003C3C3C3C0000ULL);
+                                bonus += center_control * 4;
                             }
                         }
 
@@ -336,7 +363,8 @@ int eval_heir(const Board *b, const EvalContext *ctx) {
                 }
 
                 if (developed > 6) developed = 6;
-                bonus += developed * 6;
+                bonus += developed * 8;
+                if (developed >= 3 && b->fullmove <= 14) bonus += 10;
 
                 if (!promoted && b->fullmove <= 12 && pawn_count[side] >= 4 &&
                     pawn_count[opp] >= 4) {
@@ -373,8 +401,9 @@ int eval_heir(const Board *b, const EvalContext *ctx) {
             score += (c == WHITE) ? bonus : -bonus;
         }
 
-    /* Tempo bonus */
-    score += (b->side == WHITE) ? 10 : -10;
+    /* Tempo bonus (eval_common_finish also adds +10 for Heir, so keep
+       only this one lighter to avoid double-counting) */
+    score += (b->side == WHITE) ? 6 : -6;
 
     return score;
 }
