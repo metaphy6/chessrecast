@@ -17,7 +17,7 @@ const List<String> _defaultOpenings = [
 ];
 
 final RegExp _deltaLine = RegExp(
-  r'^1\. ply (\d+) (\w+) delta=([+-]?\d+\.\d+) played=(.+) ref=(.+)$',
+  r'^1\. ply (\d+) (\w+) delta=(-?M\d+|[+-]?\d+\.\d+) played=(.+) ref=(.+)$',
   multiLine: true,
 );
 final RegExp _fenLine = RegExp(r'^\s*FEN: (.+)$', multiLine: true);
@@ -211,11 +211,16 @@ class _BatchSummary {
     final replayMatch = _replayLine.firstMatch(report);
     final statusMatch = _statusLine.firstMatch(report);
 
+    final deltaRaw = deltaMatch.group(3)!;
+    final delta = deltaRaw.contains('M')
+        ? (deltaRaw.startsWith('-') ? -100.0 : 100.0)
+        : double.parse(deltaRaw);
+
     return _BatchSummary(
       game: game,
       opening: opening,
       finalStatus: statusMatch?.group(1) ?? 'unknown',
-      delta: double.parse(deltaMatch.group(3)!),
+      delta: delta,
       playedMove: deltaMatch.group(4)!,
       referenceMove: deltaMatch.group(5)!,
       fen: fenMatch?.group(1) ?? '(missing FEN)',

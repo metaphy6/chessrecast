@@ -25,7 +25,7 @@ const List<String> _defaultBlackReplies = [
 ];
 
 final RegExp _deltaLine = RegExp(
-  r'^1\. ply (\d+) (\w+) delta=([^ ]+) played=(.+) ref=(.+)$',
+  r'^1\. ply (\d+) (\w+) delta=(-?M\d+|[+-]?\d+\.\d+) played=(.+) ref=(.+)$',
   multiLine: true,
 );
 final RegExp _fenLine = RegExp(r'^\s*FEN: (.+)$', multiLine: true);
@@ -276,18 +276,8 @@ String _cp(double score) {
 }
 
 double _parseDeltaValue(String value) {
-  final numeric = double.tryParse(value);
-  if (numeric != null) {
-    return numeric;
+  if (value.contains('M')) {
+    return value.startsWith('-') ? -100.0 : 100.0;
   }
-
-  if (value.startsWith('M')) {
-    final mateIn = int.tryParse(value.substring(1)) ?? 1;
-    return 20.0 - mateIn / 100.0;
-  }
-  if (value.startsWith('-M')) {
-    final mateIn = int.tryParse(value.substring(2)) ?? 1;
-    return -20.0 + mateIn / 100.0;
-  }
-  throw FormatException('Unsupported delta value: $value');
+  return double.parse(value);
 }

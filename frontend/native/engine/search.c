@@ -834,10 +834,24 @@ static int move_score(const Board *b, Move m, Move tt_move,
         int back_rank = (side == WHITE) ? 0 : 7;
         if ((MOVE_PIECE(m) == KNIGHT || MOVE_PIECE(m) == BISHOP) &&
             SQ_ROW(MOVE_FROM(m)) == back_rank && SQ_ROW(MOVE_TO(m)) != back_rank) {
-            score += 120;
+            score += 140;
         }
         if (MOVE_PIECE(m) == KING && heir_king_under_direct_fire(b)) {
             score += 220;
+        }
+        /* Rook to 7th rank or open file — boost active rook moves */
+        if (MOVE_PIECE(m) == ROOK) {
+            int to_rel = (side == WHITE) ? SQ_ROW(MOVE_TO(m)) : (7 - SQ_ROW(MOVE_TO(m)));
+            if (to_rel == 6) score += 80;
+            Bitboard file = (Bitboard)0x0101010101010101ULL << SQ_COL(MOVE_TO(m));
+            if (!(b->pieces[side][PAWN] & file)) score += 40;
+        }
+        /* Knight/bishop toward center — prefer active squares */
+        if (MOVE_PIECE(m) == KNIGHT || MOVE_PIECE(m) == BISHOP) {
+            int to_col = SQ_COL(MOVE_TO(m));
+            int to_rel_rank = (side == WHITE) ? SQ_ROW(MOVE_TO(m)) : (7 - SQ_ROW(MOVE_TO(m)));
+            if (to_col >= 2 && to_col <= 5 && to_rel_rank >= 2 && to_rel_rank <= 5)
+                score += 30;
         }
         {
             int queen_sortie_penalty = heir_early_queen_sortie_penalty(b, m);
