@@ -130,9 +130,8 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 - Can promote to Rook, Bishop, or Knight (NOT Queen - already have 2)
 - Your LAST pawn MUST promote to King (no choice)
 - Cannot promote to King if promotion square is under attack
-- **Instant loss conditions:**
-  - Any of your queens are captured
-  - You lose all of your pawns (no way to promote to King)
+- **Instant loss condition:** You lose all of your pawns (no way to promote to King)
+- Queens can be captured like normal pieces — losing a queen is a setback, not an instant loss
 - 50 half-move draw rule applies (25 white + 25 black with no captures/pawn moves)
 
 ---
@@ -150,6 +149,7 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 2. **ESCAPED (reached own half):**
    - Moves and captures like a regular queen
    - Can checkmate
+   - **CANNOT directly capture the opponent's queen** (see Queen vs Queen rule below)
    - If captured = GAME OVER (instant win for capturer)
 
 3. **RECAPTURED (captured while prisoner):**
@@ -162,6 +162,13 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 - Queens CANNOT be captured while on their initial prison squares (d1 for black, d8 for white)
 - Capturing an escaped queen (in own territory) = instant win/checkmate
 - Regular checkmate possible with other pieces
+
+**Queen vs Queen — Special Capture Rule:**
+An escaped queen **cannot** directly hunt and capture the opponent's queen. The only queen-captures-queen move allowed is when **both** of the following conditions are true:
+1. The **target queen** is still on its exact initial prison square (d8 for white, d1 for black — it has never moved or has been sent back there)
+2. The **attacking piece** is adjacent (king-distance: 1 square away)
+
+In other words: an escaped queen roaming freely can never capture the opponent's queen. The only way to capture a queen is to sit right next to it while it is locked on its prison square — a very specific short-range move. This prevents an escaped queen from immediately hunting the prisoner and ending the game trivially, keeping both sides engaged in the escape race.
 
 ---
 

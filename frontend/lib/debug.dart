@@ -46,13 +46,6 @@ void logSuccessionPromotion(String playerColor, String position) {
   );
 }
 
-/// Succession Mod: Queen captured
-void logSuccessionQueenCapture(String winner, String loser, String position) {
-  debugPrint(
-    '♕ SUCCESSION - Queen Capture: $winner captured $loser\'s queen at $position - Victory!',
-  );
-}
-
 /// Succession Mod: Opponent lost all pawns
 void logSuccessionNoPawns(String winner) {
   debugPrint(

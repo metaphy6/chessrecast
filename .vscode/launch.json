@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Flutter: frontend (mobile - debug) [Windows]",
+      "name": "Flutter: Mobile [Windows]",
       "type": "dart",
       "request": "launch",
       "cwd": "frontend",
