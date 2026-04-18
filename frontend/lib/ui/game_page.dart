@@ -243,26 +243,18 @@ class GamePage extends StatelessWidget {
   Widget _buildPortraitLayout() {
     return Column(
       children: [
-        // PERFORMANCE: Flexible instead of Expanded to prevent overflow
-        const Flexible(
-          flex: 1,
-          fit: FlexFit.tight,
-          child: InfoPanel(isTopPanel: true),
-        ),
-        const Expanded(
-          flex: 6,
+        // InfoPanels are NOT flex children — they take their natural height so
+        // they can never overflow. The board uses Expanded to fill the rest.
+        const InfoPanel(isTopPanel: true),
+        Expanded(
           child: Center(
             child: Padding(
-              padding: EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16.0),
               child: ChessBoardWidget(),
             ),
           ),
         ),
-        const Flexible(
-          flex: 1,
-          fit: FlexFit.tight,
-          child: InfoPanel(isTopPanel: false),
-        ),
+        const InfoPanel(isTopPanel: false),
         _buildActionButtons(),
       ],
     );

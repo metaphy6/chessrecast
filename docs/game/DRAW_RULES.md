@@ -668,11 +668,139 @@ Classic insufficient-material rules apply. In practice this is rare because both
 
 | Draw mechanism | Active? | Threshold / Condition |
 |---|---|---|
-| Stalemate | ✅ | Custom: no-move + no-check → draw |
-| Insufficient material | ✅ | Classic set |
-| Fifty-move rule | ✅ | **50 half-moves** (25+25) |
+| Stalemate | ✅ | No legal moves → always draw (no king, so never "in check") |
+| Insufficient material | ✅ | Classic set (practical only after at least one king promotion) |
+| Fifty-move rule | ✅ | **50 half-moves** — resets on captures and pawn moves |
 | Threefold repetition | ✅ | 3× same position |
-| Mod-specific draw | ❌ | Variant victory/loss conditions can end game before draw triggers |
+
+---
+
+### 🎭 Succession — Mod Context (draw-relevant)
+
+Both sides start with **two queens and no king**. The goal is to promote a pawn to King first. Win conditions that preempt draws:
+
+| Win condition | Effect |
+|---|---|
+| Opponent runs out of pawns | No way to promote → instant loss |
+| Promote pawn to King on safe square | Immediate win |
+
+Queens can be captured like normal pieces — losing a queen is a material setback but **not** an instant loss.
+
+Draws only occur when **none** of the above happen and the position deadlocks.
+
+---
+
+### 🚦 Draw Trigger 1 — Stalemate (No Legal Moves)
+
+Because there is **no king** at the start of Succession, the concept of "check" does not apply until at least one side promotes a pawn to King. This has an important consequence:
+
+> **Any position with no legal moves in Succession is always a draw** — there is no "checkmate by blocking" scenario without a king.
+
+This is implemented via the Succession ruleset's `updateGameStatus()` override:
+
+```dart
+// Check for stalemate
+if (!hasValidMoves && !currentPlayerInCheck) {
+  return GameStatus.draw;
+}
+```
+
+Since `currentPlayerInCheck` is always `false` when no king exists, no-moves → draw, unconditionally.
+
+#### 💡 Example — All pawns blocked, queens bottled up
+
+```
+Both sides' pawns are completely locked by opposing pawns.
+White's queens are trapped behind the pawn wall with no escape squares.
+White has no legal moves anywhere on the board.
+
+→ !hasValidMoves && !currentPlayerInCheck (no king exists)
+→ Succession.updateGameStatus() → GameStatus.draw 🤝
+```
+
+---
+
+### 🚦 Draw Trigger 2 — Fifty-Move Rule (50 Half-Moves)
+
+Succession uses **50 half-moves** (25 per side) — half the Classic threshold. This is intentional: with two queens on each side from move 1, the game should be highly dynamic. A stretch of 50 quiet half-moves (no captures, no pawn progress) indicates a genuine standoff and the game is drawn.
+
+📁 `frontend/lib/board/draw_rules.dart`
+
+```dart
+// Succession: always 50 half-moves
+if (gameType == ModsEnum.succession) {
+  return 50;
+}
+```
+
+**Clock reset rules** (same as Classic):
+
+| Event | Result |
+|---|---|
+| Any capture | Clock → 0 |
+| Any pawn move (no capture) | Clock → 0 |
+| Queen / rook / bishop / knight move | Clock +1 |
+
+> 💡 Pawn moves reset the clock. In Succession, advancing a pawn toward promotion is meaningful progress — it signals activity and resets the draw clock.
+
+#### 💡 Example — Queens maneuvering toward draw
+
+```
+Both sides' pawns are blocked and no captures are possible.
+Each side shuffles queens around the board.
+
+Move 1:  White Qd1→e2  → halfMoveClock = 1
+Move 2:  Black Qd8→e7  → halfMoveClock = 2
+Move 3:  White Qe1→d2  → halfMoveClock = 3
+Move 4:  Black Qe8→d7  → halfMoveClock = 4
+  ...
+Move 25: White Qd1→e2  → halfMoveClock = 49
+Move 26: Black Qe8→d7  → halfMoveClock = 50
+  → canClaimFiftyMoveRule() → 50 >= 50 → shouldAutoDraw() → 🤝 DRAW
+```
+
+Compare: in Classic this same 50-half-move sequence would reach `halfMoveClock = 50`, still 50 short of the 100 threshold — the game would continue another 50 half-moves.
+
+---
+
+### 🚦 Draw Trigger 3 — Threefold Repetition
+
+Standard threefold repetition applies. With two queens per side roaming freely, it's easy to oscillate them between the same squares and recreate the same board position three times.
+
+#### 💡 Example — Queen shuffle loop
+
+```
+Both sides alternate shuffling their queens between two squares.
+
+Position A (initial):  Qd1, Qe1  vs  Qd8, Qe8
+Move 1: Qd1→c1   → history: [A, B]
+Move 2: Qd8→c8   → history: [A, B, C]
+Move 3: Qc1→d1   → history: [A, B, C, A]    ← A seen 2×
+Move 4: Qc8→d8   → history: [A, B, C, A, B]
+Move 5: Qd1→c1   → history: [A, B, C, A, B, C]
+Move 6: Qc8→d8 (wait, let me redo to reach A 3× times)
+
+Move 5: Qd1→c1   → history: [A, B, C, A, B, C]
+Move 6: Qc8→d8   → history: [A, B, C, A, B, C, A]  ← A seen 3× → 🤝 DRAW
+```
+
+---
+
+### 🚦 Draw Trigger 4 — Insufficient Material
+
+Classic insufficient-material rules are used. In practice, this is relevant **only after at least one king promotion** has occurred (since Classic checks look for kings in the piece list).
+
+**Practical scenarios:**
+
+| Scenario | Draw? | Notes |
+|---|---|---|
+| Neither side has promoted a king yet | ❌ Rarely triggers | Classic checks require kings; pre-promotion material won't match |
+| Both sides promoted kings, all else traded off | ✅ K vs K | Classic K vs K = draw |
+| One king promoted, opponent has only a bishop | ✅ K+B vs K | Classic K+B vs K = draw |
+| Queens still on board | ❌ No | Queens can always force a result |
+| Pawns still on board | ❌ No | Promotion is still possible |
+
+> 💡 In practice, insufficient material draws in Succession are extremely rare. Pawn losses almost always decide the game before material thins to a drawable endgame.
 
 ---
 
@@ -686,7 +814,7 @@ Classic insufficient-material rules apply. In practice this is rare because both
 | 🕊️ Truce | ✅ Both phases | Classic set | 100 half-moves | ✅ | — |
 | 🔥 Friendly Fire | ✅ Standard | Classic set | 100 half-moves | ✅ | — |
 | ⚔️ Kings' Battle | ✅ Standard | Classic set | 100 half-moves | ✅ | — |
-| 👸 Save the Queen | ✅ Standard | Classic set | **100 half-moves** | ✅ | Same piece captures prisoner queen 3× from same square → draw |
+| 👸 Save the Queen | ✅ Standard | Classic set | 100 half-moves | ✅ | Same piece captures prisoner queen 3× from same square → draw |
 | 👑 Succession | ✅ No-move/no-check → draw | Classic set | **50 half-moves** | ✅ | — |
 
 > ¹ Mercenary insufficient material: K vs K, K+N vs K+N (no pawns), then classic fallback.

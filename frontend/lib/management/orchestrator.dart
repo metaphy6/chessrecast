@@ -55,7 +55,7 @@ class Orchestrator {
       }
     }
 
-    // Check for Succession Mod special moves (queen capture or King promotion)
+    // Check for Succession Mod special moves (pawn-loss or King promotion)
     if (board.gameType == ModsEnum.succession) {
       final successionBoard = mods.succession.handleSpecialMove(board, move);
       if (successionBoard != null) {

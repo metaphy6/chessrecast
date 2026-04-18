@@ -739,22 +739,8 @@ func (sess *Session) checkSaveTheQueenVictory(lastMove *engine.Move) bool {
 }
 
 // checkSuccessionVictory checks Succession mod win conditions:
-// 1. Any queen is captured - instant loss for the player who lost the queen
-// 2. Player loses all pawns - instant loss (can't promote to King)
+// 1. Player loses all pawns - instant loss (can't promote to King)
 func (sess *Session) checkSuccessionVictory(lastMove *engine.Move) bool {
-	// Check if a queen was captured - captor wins!
-	if lastMove.CapturedPiece != nil && lastMove.CapturedPiece.Type == engine.Queen {
-		winner := lastMove.Piece.Color
-		sess.State = engine.Checkmate
-		sess.Result = &engine.GameResult{
-			State:  engine.Checkmate,
-			Winner: winner,
-			Reason: "Queen captured - Succession victory!",
-		}
-		logf("🏆 Succession: %s wins by capturing opponent's queen!", winner)
-		return true
-	}
-
 	// Check if a pawn was captured - check if opponent has any pawns left
 	if lastMove.CapturedPiece != nil && lastMove.CapturedPiece.Type == engine.Pawn {
 		opponent := lastMove.CapturedPiece.Color

@@ -8,24 +8,23 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final orchestrator = Orchestrator();
 
-  group('Succession: queen-capture triggers instant win', () {
-    test('capturing enemy queen ends the game immediately', () {
+  group('Succession: queen capture does NOT end the game', () {
+    test('capturing enemy queen continues the game normally', () {
       // White rook on e2 can capture black queen on e5.
-      // After the capture the board status should be checkmate (game over).
+      // After the capture the game should continue (not checkmate).
       final board = ChessBoard.fromFEN(
-        '8/8/8/4q3/8/8/4R3/3QQ3 w - - 0 1',
+        '8/4p3/8/4q3/8/8/P3R3/3QQ3 w - - 0 1',
         gameType: ModsEnum.succession,
       );
       final moves = orchestrator.getAllValidMoves(board);
       final queenCapture = moves.firstWhere(
         (m) =>
-            m.from == const Position(6, 4) &&
-            m.to == const Position(3, 4) &&
+            m.piece.type == PieceType.rook &&
             m.capturedPiece?.type == PieceType.queen,
       );
 
       final nextBoard = orchestrator.executeMove(board, queenCapture);
-      expect(nextBoard.gameStatus, equals(GameStatus.checkmate));
+      expect(nextBoard.gameStatus, isNot(equals(GameStatus.checkmate)));
     });
   });
 
@@ -75,10 +74,10 @@ void main() {
 
   group('Succession: losing all pawns triggers instant loss', () {
     test('capturing the last enemy pawn ends the game for the pawn-loser', () {
-      // Black has one pawn left on e5; white knight captures it.
+      // Black has one pawn left on d5; white knight on e3 captures it.
       // This leaves black with no pawns → instant loss for black.
       final board = ChessBoard.fromFEN(
-        '3qq3/8/8/4p3/4N3/8/8/3QQ3 w - - 0 1',
+        '3qq3/8/8/3p4/8/4N3/P7/3QQ3 w - - 0 1',
         gameType: ModsEnum.succession,
       );
       final moves = orchestrator.getAllValidMoves(board);

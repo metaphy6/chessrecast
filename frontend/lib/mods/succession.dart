@@ -15,9 +15,7 @@ import 'enums.dart';
 /// 2. Can promote to Rook, Bishop, or Knight (NOT Queen - already have 2)
 /// 3. Your LAST pawn must promote to King (no choice)
 /// 4. Cannot promote to King if the promotion square is under attack
-/// 5. Lose immediately if:
-///    - Any of your queens are captured (instant win for opponent)
-///    - You lose all of your pawns (no way to promote to King)
+/// 5. Lose immediately if you lose all of your pawns (no way to promote to King)
 /// 6. Draw if 50 half-moves (25 white + 25 black) with no captures or pawn moves
 ///
 /// STARTING POSITION:
@@ -31,19 +29,6 @@ class Succession extends Ruleset {
 
   @override
   ChessBoard? handleSpecialMove(ChessBoard board, ChessMove move) {
-    // Check if a queen was captured - instant loss for the player who lost the queen
-    if (move.capturedPiece != null &&
-        move.capturedPiece!.type == PieceType.queen) {
-      // Opponent wins by checkmate
-      final newBoard = board.makeMove(move);
-      final winner = move.piece.color == PieceColor.white ? 'White' : 'Black';
-      final loser = move.piece.color == PieceColor.white ? 'Black' : 'White';
-      final position =
-          '${String.fromCharCode(97 + move.to.col)}${8 - move.to.row}';
-      logSuccessionQueenCapture(winner, loser, position);
-      return newBoard.copyWith(gameStatus: GameStatus.checkmate);
-    }
-
     // Check if a pawn was captured - check if opponent has any pawns left after this move
     if (move.capturedPiece != null &&
         move.capturedPiece!.type == PieceType.pawn) {
@@ -141,16 +126,6 @@ class Succession extends Ruleset {
     bool hasValidMoves,
   ) {
     final currentColor = board.currentPlayer;
-
-    // Check if current player has lost all queens
-    final currentQueens = board.pieces
-        .where((p) => p.color == currentColor && p.type == PieceType.queen)
-        .length;
-
-    if (currentQueens == 0) {
-      // Lost all queens - opponent wins
-      return GameStatus.checkmate;
-    }
 
     // Check if current player has run out of pawns
     final currentPawns = board.pieces
