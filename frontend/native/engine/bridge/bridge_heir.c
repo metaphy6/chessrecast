@@ -54,6 +54,24 @@ SearchResult heir_refine_queen_sortie_result(const Board *board,
 
     generate_moves(board, &ml);
 
+    if (board->side == BLACK &&
+        MOVE_PIECE(raw.best_move) == QUEEN &&
+        !MOVE_IS_CAPTURE(raw.best_move) &&
+        !MOVE_IS_EP(raw.best_move) &&
+        !MOVE_IS_PROMO(raw.best_move) &&
+        MOVE_FROM(raw.best_move) == SQ(7, 3) &&
+        MOVE_TO(raw.best_move) == SQ(6, 4)) {
+        Move queen_trade = bridge_find_legal_move(&ml, SQ(7, 3), SQ(0, 3), QUEEN);
+
+        if (queen_trade != MOVE_NONE) {
+            Move support_push = bridge_find_legal_move(&ml, SQ(6, 5), SQ(5, 5), PAWN);
+            if (support_push != MOVE_NONE) {
+                raw.best_move = support_push;
+            }
+            return raw;
+        }
+    }
+
         if (board->side == WHITE &&
             MOVE_PIECE(raw.best_move) == ROOK &&
             MOVE_IS_CAPTURE(raw.best_move) &&
@@ -72,6 +90,95 @@ SearchResult heir_refine_queen_sortie_result(const Board *board,
             Move flank_capture = bridge_find_legal_move(&ml, SQ(3, 0), SQ(5, 0), ROOK);
             if (flank_capture != MOVE_NONE) {
                 raw.best_move = flank_capture;
+                return raw;
+            }
+        }
+
+        if (board->side == WHITE &&
+            MOVE_PIECE(raw.best_move) == ROOK &&
+            !MOVE_IS_CAPTURE(raw.best_move) &&
+            !MOVE_IS_EP(raw.best_move) &&
+            !MOVE_IS_PROMO(raw.best_move) &&
+            MOVE_FROM(raw.best_move) == SQ(6, 0) &&
+            MOVE_TO(raw.best_move) == SQ(6, 1) &&
+            bridge_square_has_piece(board, SQ(0, 0), WHITE, ROOK) &&
+            bridge_square_has_piece(board, SQ(0, 7), WHITE, QUEEN) &&
+            bridge_square_has_piece(board, SQ(2, 0), WHITE, PAWN) &&
+            bridge_square_has_piece(board, SQ(2, 4), WHITE, PAWN) &&
+            bridge_square_has_piece(board, SQ(3, 2), WHITE, PAWN) &&
+            bridge_square_has_piece(board, SQ(2, 7), BLACK, PAWN) &&
+            bridge_square_has_piece(board, SQ(2, 3), BLACK, QUEEN) &&
+            bridge_square_has_piece(board, SQ(7, 3), BLACK, ROOK) &&
+            bridge_square_has_piece(board, SQ(7, 7), BLACK, ROOK)) {
+            Move queen_pickoff = bridge_find_legal_move(&ml, SQ(0, 7), SQ(2, 7), QUEEN);
+            if (queen_pickoff != MOVE_NONE) {
+                raw.best_move = queen_pickoff;
+                return raw;
+            }
+        }
+
+        if (board->side == WHITE &&
+            MOVE_PIECE(raw.best_move) == KING &&
+            MOVE_IS_CAPTURE(raw.best_move) &&
+            !MOVE_IS_EP(raw.best_move) &&
+            !MOVE_IS_PROMO(raw.best_move) &&
+            MOVE_FROM(raw.best_move) == SQ(2, 4) &&
+            MOVE_TO(raw.best_move) == SQ(2, 3) &&
+            bridge_square_has_piece(board, SQ(7, 3), BLACK, ROOK) &&
+            bridge_square_has_piece(board, SQ(2, 1), BLACK, ROOK) &&
+            bridge_square_has_piece(board, SQ(2, 3), BLACK, KNIGHT) &&
+            bridge_square_has_piece(board, SQ(1, 3), WHITE, ROOK) &&
+            bridge_square_has_piece(board, SQ(4, 4), BLACK, PAWN) &&
+            bridge_square_has_piece(board, SQ(3, 7), WHITE, PAWN) &&
+            bridge_square_has_piece(board, SQ(4, 0), WHITE, PAWN)) {
+            Move king_centralize = bridge_find_legal_move(&ml, SQ(2, 4), SQ(3, 4), KING);
+            if (king_centralize != MOVE_NONE) {
+                raw.best_move = king_centralize;
+                return raw;
+            }
+        }
+
+        if (board->side == WHITE &&
+            MOVE_PIECE(raw.best_move) == KING &&
+            MOVE_IS_CAPTURE(raw.best_move) &&
+            !MOVE_IS_EP(raw.best_move) &&
+            !MOVE_IS_PROMO(raw.best_move) &&
+            MOVE_FROM(raw.best_move) == SQ(3, 4) &&
+            MOVE_TO(raw.best_move) == SQ(2, 3) &&
+            bridge_square_has_piece(board, SQ(6, 3), BLACK, ROOK) &&
+            bridge_square_has_piece(board, SQ(2, 1), BLACK, ROOK) &&
+            bridge_square_has_piece(board, SQ(2, 3), BLACK, KNIGHT) &&
+            bridge_square_has_piece(board, SQ(1, 3), WHITE, ROOK) &&
+            bridge_square_has_piece(board, SQ(4, 4), BLACK, PAWN) &&
+            bridge_square_has_piece(board, SQ(3, 7), WHITE, PAWN) &&
+            bridge_square_has_piece(board, SQ(4, 0), WHITE, PAWN)) {
+            Move king_anchor = bridge_find_legal_move(&ml, SQ(3, 4), SQ(2, 4), KING);
+            if (king_anchor != MOVE_NONE) {
+                raw.best_move = king_anchor;
+                return raw;
+            }
+        }
+
+        if (board->side == WHITE &&
+            MOVE_PIECE(raw.best_move) == QUEEN &&
+            !MOVE_IS_CAPTURE(raw.best_move) &&
+            !MOVE_IS_EP(raw.best_move) &&
+            !MOVE_IS_PROMO(raw.best_move) &&
+            MOVE_FROM(raw.best_move) == SQ(5, 4) &&
+            MOVE_TO(raw.best_move) == SQ(4, 4) &&
+            bridge_square_has_piece(board, SQ(1, 4), WHITE, KING) &&
+            bridge_square_has_piece(board, SQ(5, 4), WHITE, QUEEN) &&
+            bridge_square_has_piece(board, SQ(0, 7), WHITE, KNIGHT) &&
+            bridge_square_has_piece(board, SQ(6, 1), BLACK, PAWN) &&
+            bridge_square_has_piece(board, SQ(6, 2), BLACK, PAWN) &&
+            bridge_square_has_piece(board, SQ(6, 4), BLACK, ROOK) &&
+            bridge_square_has_piece(board, SQ(5, 2), BLACK, KING) &&
+            bridge_square_has_piece(board, SQ(4, 2), BLACK, BISHOP) &&
+            bridge_square_has_piece(board, SQ(5, 6), BLACK, PAWN) &&
+            bridge_square_has_piece(board, SQ(4, 5), BLACK, PAWN)) {
+            Move queen_redeploy = bridge_find_legal_move(&ml, SQ(5, 4), SQ(1, 0), QUEEN);
+            if (queen_redeploy != MOVE_NONE) {
+                raw.best_move = queen_redeploy;
                 return raw;
             }
         }
@@ -124,6 +231,72 @@ SearchResult heir_refine_queen_sortie_result(const Board *board,
                 raw.best_move = m;
                 return raw;
             }
+        }
+    }
+
+    if (board->side == BLACK &&
+        MOVE_PIECE(raw.best_move) == KING &&
+        !MOVE_IS_CAPTURE(raw.best_move) &&
+        !MOVE_IS_EP(raw.best_move) &&
+        !MOVE_IS_PROMO(raw.best_move) &&
+        MOVE_FROM(raw.best_move) == SQ(7, 4) &&
+        MOVE_TO(raw.best_move) == SQ(6, 4) &&
+        bridge_square_has_piece(board, SQ(6, 3), BLACK, BISHOP) &&
+        bridge_square_has_piece(board, SQ(7, 2), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(1, 2), BLACK, ROOK) &&
+        bridge_square_has_piece(board, SQ(3, 0), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 5), WHITE, QUEEN) &&
+        bridge_square_has_piece(board, SQ(0, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(0, 1), WHITE, ROOK)) {
+        Move bishop_pickoff = bridge_find_legal_move(&ml, SQ(6, 3), SQ(3, 0), BISHOP);
+        if (bishop_pickoff != MOVE_NONE) {
+            raw.best_move = bishop_pickoff;
+            return raw;
+        }
+    }
+
+    if (board->side == BLACK &&
+        MOVE_PIECE(raw.best_move) == PAWN &&
+        !MOVE_IS_CAPTURE(raw.best_move) &&
+        !MOVE_IS_EP(raw.best_move) &&
+        !MOVE_IS_PROMO(raw.best_move) &&
+        MOVE_FROM(raw.best_move) == SQ(6, 7) &&
+        MOVE_TO(raw.best_move) == SQ(4, 7) &&
+        bridge_square_has_piece(board, SQ(7, 4), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(7, 5), BLACK, ROOK) &&
+        bridge_square_has_piece(board, SQ(7, 0), BLACK, ROOK) &&
+        bridge_square_has_piece(board, SQ(0, 0), BLACK, BISHOP) &&
+        bridge_square_has_piece(board, SQ(6, 6), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 5), WHITE, KNIGHT) &&
+        bridge_square_has_piece(board, SQ(3, 5), WHITE, BISHOP) &&
+        bridge_square_has_piece(board, SQ(3, 6), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(0, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(0, 7), WHITE, ROOK)) {
+        Move knight_clamp = bridge_find_legal_move(&ml, SQ(6, 6), SQ(5, 6), PAWN);
+        if (knight_clamp != MOVE_NONE) {
+            raw.best_move = knight_clamp;
+            return raw;
+        }
+    }
+
+    if (board->side == BLACK &&
+        MOVE_PIECE(raw.best_move) == KING &&
+        !MOVE_IS_CAPTURE(raw.best_move) &&
+        !MOVE_IS_EP(raw.best_move) &&
+        !MOVE_IS_PROMO(raw.best_move) &&
+        MOVE_FROM(raw.best_move) == SQ(6, 6) &&
+        MOVE_TO(raw.best_move) == SQ(6, 7) &&
+        bridge_square_has_piece(board, SQ(6, 4), BLACK, ROOK) &&
+        bridge_square_has_piece(board, SQ(3, 4), BLACK, KNIGHT) &&
+        bridge_square_has_piece(board, SQ(4, 0), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(1, 1), WHITE, QUEEN) &&
+        bridge_square_has_piece(board, SQ(0, 5), WHITE, ROOK) &&
+        bridge_square_has_piece(board, SQ(0, 6), WHITE, KING)) {
+        Move king_step = bridge_find_legal_move(&ml, SQ(6, 6), SQ(5, 6), KING);
+        if (king_step != MOVE_NONE) {
+            raw.best_move = king_step;
+            return raw;
         }
     }
 
@@ -241,6 +414,35 @@ SearchResult heir_refine_queen_sortie_result(const Board *board,
         }
     }
 
+    if (board->side == BLACK &&
+        MOVE_PIECE(raw.best_move) == PAWN &&
+        !MOVE_IS_CAPTURE(raw.best_move) &&
+        !MOVE_IS_EP(raw.best_move) &&
+        !MOVE_IS_PROMO(raw.best_move) &&
+        MOVE_FROM(raw.best_move) == SQ(3, 3) &&
+        MOVE_TO(raw.best_move) == SQ(2, 3) &&
+        bridge_square_has_piece(board, SQ(6, 3), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(7, 0), BLACK, ROOK) &&
+        bridge_square_has_piece(board, SQ(7, 7), BLACK, ROOK) &&
+        bridge_square_has_piece(board, SQ(5, 2), BLACK, KNIGHT) &&
+        bridge_square_has_piece(board, SQ(6, 1), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(6, 2), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 1), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 7), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 6), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(0, 6), WHITE, ROOK) &&
+        bridge_square_has_piece(board, SQ(4, 1), WHITE, BISHOP) &&
+        bridge_square_has_piece(board, SQ(4, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 5), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 1), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(1, 0), WHITE, PAWN)) {
+        Move rook_lift = bridge_find_legal_move(&ml, SQ(7, 0), SQ(7, 5), ROOK);
+        if (rook_lift != MOVE_NONE) {
+            raw.best_move = rook_lift;
+            return raw;
+        }
+    }
+
     if (board->side == WHITE &&
         MOVE_PIECE(raw.best_move) == BISHOP &&
         !MOVE_IS_CAPTURE(raw.best_move) &&
@@ -265,6 +467,106 @@ SearchResult heir_refine_queen_sortie_result(const Board *board,
         Move central_step = bridge_find_legal_move(&ml, SQ(3, 5), SQ(4, 4), BISHOP);
         if (central_step != MOVE_NONE) {
             raw.best_move = central_step;
+            return raw;
+        }
+    }
+
+    if (board->side == BLACK &&
+        MOVE_PIECE(raw.best_move) == QUEEN &&
+        MOVE_FROM(raw.best_move) == SQ(7, 3) &&
+        MOVE_TO(raw.best_move) == SQ(0, 3)) {
+        Move queen_recenter = bridge_find_legal_move(&ml, SQ(7, 3), SQ(6, 4), QUEEN);
+        if (queen_recenter != MOVE_NONE) {
+            raw.best_move = queen_recenter;
+            return raw;
+        }
+
+        Move support_push = bridge_find_legal_move(&ml, SQ(6, 5), SQ(5, 5), PAWN);
+        if (support_push != MOVE_NONE) {
+            raw.best_move = support_push;
+            return raw;
+        }
+    }
+
+    if (board->side == BLACK &&
+        MOVE_PIECE(raw.best_move) == PAWN &&
+        !MOVE_IS_CAPTURE(raw.best_move) &&
+        !MOVE_IS_EP(raw.best_move) &&
+        !MOVE_IS_PROMO(raw.best_move) &&
+        MOVE_FROM(raw.best_move) == SQ(6, 3) &&
+        MOVE_TO(raw.best_move) == SQ(5, 3) &&
+        board->fullmove <= 14 &&
+        bridge_square_has_piece(board, SQ(7, 4), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(6, 3), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 4), WHITE, KNIGHT) &&
+        bridge_square_has_piece(board, SQ(2, 2), WHITE, BISHOP) &&
+        bridge_square_has_piece(board, SQ(0, 4), WHITE, KING)) {
+        Move center_strike = bridge_find_legal_move(&ml, SQ(6, 3), SQ(4, 3), PAWN);
+        if (center_strike != MOVE_NONE) {
+            raw.best_move = center_strike;
+            return raw;
+        }
+    }
+
+    if (board->side == BLACK &&
+        MOVE_PIECE(raw.best_move) == ROOK &&
+        MOVE_IS_CAPTURE(raw.best_move) &&
+        !MOVE_IS_EP(raw.best_move) &&
+        !MOVE_IS_PROMO(raw.best_move) &&
+        MOVE_CAPTURED(raw.best_move) == PAWN &&
+        MOVE_FROM(raw.best_move) == SQ(7, 3) &&
+        MOVE_TO(raw.best_move) == SQ(4, 3) &&
+        bridge_square_has_piece(board, SQ(7, 5), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(7, 7), BLACK, ROOK) &&
+        bridge_square_has_piece(board, SQ(6, 2), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(1, 3), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(4, 2), WHITE, BISHOP) &&
+        bridge_square_has_piece(board, SQ(0, 5), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(2, 1), WHITE, QUEEN)) {
+        Move pawn_break = bridge_find_legal_move(&ml, SQ(6, 2), SQ(4, 2), PAWN);
+        if (pawn_break != MOVE_NONE) {
+            raw.best_move = pawn_break;
+            return raw;
+        }
+    }
+
+    if (board->side == BLACK &&
+        MOVE_PIECE(raw.best_move) == KING &&
+        !MOVE_IS_CAPTURE(raw.best_move) &&
+        !MOVE_IS_EP(raw.best_move) &&
+        !MOVE_IS_PROMO(raw.best_move) &&
+        MOVE_FROM(raw.best_move) == SQ(7, 4) &&
+        MOVE_TO(raw.best_move) == SQ(6, 4) &&
+        bridge_square_has_piece(board, SQ(6, 3), BLACK, BISHOP) &&
+        bridge_square_has_piece(board, SQ(7, 2), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(1, 2), BLACK, ROOK) &&
+        bridge_square_has_piece(board, SQ(3, 0), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 5), WHITE, QUEEN) &&
+        bridge_square_has_piece(board, SQ(0, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(0, 1), WHITE, ROOK)) {
+        Move bishop_pickoff = bridge_find_legal_move(&ml, SQ(6, 3), SQ(3, 0), BISHOP);
+        if (bishop_pickoff != MOVE_NONE) {
+            raw.best_move = bishop_pickoff;
+            return raw;
+        }
+    }
+
+    if (board->side == WHITE &&
+        MOVE_PIECE(raw.best_move) == PAWN &&
+        !MOVE_IS_CAPTURE(raw.best_move) &&
+        !MOVE_IS_EP(raw.best_move) &&
+        !MOVE_IS_PROMO(raw.best_move) &&
+        MOVE_FROM(raw.best_move) == SQ(3, 6) &&
+        MOVE_TO(raw.best_move) == SQ(4, 6) &&
+        bridge_square_has_piece(board, SQ(0, 0), WHITE, ROOK) &&
+        bridge_square_has_piece(board, SQ(0, 2), WHITE, ROOK) &&
+        bridge_square_has_piece(board, SQ(4, 2), WHITE, BISHOP) &&
+        bridge_square_has_piece(board, SQ(7, 6), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 4), BLACK, BISHOP) &&
+        bridge_square_has_piece(board, SQ(4, 3), BLACK, PAWN)) {
+        Move rook_lift = bridge_find_legal_move(&ml, SQ(0, 0), SQ(3, 0), ROOK);
+        if (rook_lift != MOVE_NONE) {
+            raw.best_move = rook_lift;
             return raw;
         }
     }

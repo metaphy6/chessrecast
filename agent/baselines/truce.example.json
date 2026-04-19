@@ -1,0 +1,39 @@
+{
+  "_comment": "Example KPI baseline for truce. truceBreak_byPly_avg + postTruce_avgWorstMiss_cp are the truce-specific KPIs.",
+  "mod": "truce",
+  "generated_at": "2026-04-19T02:55:00+03:00",
+  "run_id": "20260419-025500",
+  "report_path": "agent/reports/truce/20260419-025500.txt",
+  "games": 50,
+  "max_plies": 120,
+  "engine_preset": {
+    "depth": 6,
+    "time_ms": 500,
+    "skill": 4,
+    "randomness": 0.0
+  },
+  "kpi": {
+    "earlyKingMoves": 4,
+    "castlingRightLosses": 2,
+    "castledByPly_avg": 24.1,
+    "kingExposureIndex_avg": 19.8,
+    "avgWorstMiss_cp": 55,
+    "maxWorstMiss_cp": 174,
+    "blundersGte200cp": 0,
+    "blundersGte300cp": 0,
+    "ruleViolations": 0,
+    "engineCrashes": 0,
+    "truceBreak_byPly_avg": 31.4,
+    "postTruce_avgWorstMiss_cp": 58,
+    "illegalCheckDuringTruce": 0
+  },
+  "regression_thresholds": {
+    "earlyKingMoves": 0.05,
+    "castlingRightLosses": 0.05,
+    "kingExposureIndex_avg": 0.05,
+    "avgWorstMiss_cp": 0.05,
+    "maxWorstMiss_cp": 0.05,
+    "postTruce_avgWorstMiss_cp": 0.05,
+    "illegalCheckDuringTruce": 0.0
+  }
+}

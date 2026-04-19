@@ -1,0 +1,449 @@
+# Autonomous improvement queue.
+#
+# The chess-mod-improver chat mode reads this file top-to-bottom and processes
+# every entry whose status is "pending", honouring severity then phase order.
+# Entries with status: example are documentation / schema reference and are
+# always skipped.
+#
+# Schema (see `.github/copilot-instructions.md` → Queue entry schema):
+#   id, mod, status, kind, phase, severity,
+#   evidence: { report, line, fen, move },
+#   blunder_threshold_cp, notes.
+#
+# Status values: pending | in_progress | done | failed | blocked | example
+#
+# When the agent files a NEW finding (per the take-initiative directive) it
+# appends an entry below the last existing one and never rewrites unrelated
+# entries.
+
+# ===========================================================================
+# Bootstrap: refresh every baseline before any per-mod work runs.
+# ===========================================================================
+
+- id: bootstrap-baselines-all
+  mod: shared
+  status: pending
+  kind: kpi_regression
+  phase: strategy
+  severity: high
+  evidence:
+    report: agent/reports/_shared/bootstrap-baselines.txt
+  blunder_threshold_cp: 200
+  notes: "Generate fresh ≥50-game baselines for all seven mods at depth=6 / time_ms=500 / skill=4 and write each to agent/baselines/<mod>.json. Pre-req for every other task."
+
+# ===========================================================================
+# HEIR — second-king + double-king mating nets
+# ===========================================================================
+
+- id: heir-opening-castle-by-16
+  mod: heir
+  status: pending
+  kind: opening_principle
+  phase: opening
+  severity: med
+  evidence:
+    report: agent/reports/heir/seed-opening-audit.txt
+  blunder_threshold_cp: 200
+  notes: "Heir engine must castle by ply ≤16 in ≥ 90% of audit games when castling is legal. Today castledByPly_avg drifts higher in c2c4/g8f6 lines."
+
+- id: heir-midgame-game10-baseline-v53
+  mod: heir
+  status: pending
+  kind: blunder
+  phase: midgame
+  severity: high
+  evidence:
+    report: /tmp/heir_probe_game10_baseline_v53.txt
+    fen: "r1bqk2r/ppp2ppp/8/1N2n3/1P3B2/8/P3PPPP/R2QKB1R b - - 0 9"
+    move: "d8d1"
+  blunder_threshold_cp: 200
+  notes: "Engine plays Qxd1+ losing the queen for a rook; expected f7f6 (-0.4 vs -6.1). Persistent across audit batches at heir reference preset."
+
+- id: heir-midgame-3rk2r-rd1xd8-motif
+  mod: heir
+  status: pending
+  kind: blunder
+  phase: midgame
+  severity: high
+  evidence:
+    report: agent/reports/heir/motif-rd1xd8.txt
+    fen: "3rk2r/2p3pp/p1q1b3/1pP5/R3NB2/8/2Q1KPPP/3R4 w - - 0 1"
+    move: "d1d8"
+  blunder_threshold_cp: 200
+  notes: "Recurring Rd1xd8 vs Ra4xa6 evaluation flip across openings. Tighten heir_refine_result tactical guard for back-rank rook trades when second king not yet promoted."
+
+- id: heir-midgame-game4-e2e4-d7d5
+  mod: heir
+  status: pending
+  kind: blunder
+  phase: midgame
+  severity: med
+  evidence:
+    report: agent/reports/heir/full-batch-game4.txt
+    fen: "2r4r/p4kp1/8/1q1p3p/3P1B1b/P4P2/1P1QK3/R6R w - - 0 1"
+    move: "a3a4"
+  blunder_threshold_cp: 200
+  notes: "Played a3a4 vs reference Rh1xh4 in e2e4,d7d5 line. Symptom: engine over-values queenside pawn nudges over heavy-piece activity when both kings are exposed."
+
+- id: heir-endgame-double-king-mating-net
+  mod: heir
+  status: pending
+  kind: endgame_conversion
+  phase: endgame
+  severity: high
+  evidence:
+    report: agent/reports/heir/endgame-doubleking.txt
+  blunder_threshold_cp: 0
+  notes: "Heir bot must mate K+K vs K within 30 half-moves when both own kings + a pawn remain. Add focused position probe + extend eval_heir.c king-pair coordination bonus."
+
+# ===========================================================================
+# FRIENDLY_FIRE — sacrifice discipline + unmoved-piece guard
+# ===========================================================================
+
+- id: friendly_fire-rule-unmoved-piece-guard
+  mod: friendly_fire
+  status: pending
+  kind: rule_violation
+  phase: opening
+  severity: critical
+  evidence:
+    report: agent/reports/friendly_fire/rule-unmoved-piece.txt
+    fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    move: "b1d2"
+  blunder_threshold_cp: 0
+  notes: "Engine attempted to capture an own unmoved piece in friendly_fire mode (illegal per docs/game/GAME_MODS_DOCUMENTATION.md). Add explicit guard test in friendly_fire_engine_regression_test.dart and tighten ff_refine_result in bridge.c."
+
+- id: friendly_fire-midgame-flank-minor-harassment
+  mod: friendly_fire
+  status: pending
+  kind: blunder
+  phase: midgame
+  severity: high
+  evidence:
+    report: agent/reports/friendly_fire/flank-minor-harassment.txt
+  blunder_threshold_cp: 200
+  notes: "Per repo memory: ff bridge refinement is sensitive to unresolved flank-minor harassment and king-zone guard tie-breaks. Add a probe-driven tie-break."
+
+- id: friendly_fire-strategy-sac-validation-depth
+  mod: friendly_fire
+  status: pending
+  kind: strategy
+  phase: tactics
+  severity: med
+  evidence:
+    report: agent/reports/friendly_fire/sac-validation.txt
+  blunder_threshold_cp: 200
+  notes: "Friendly Fire sacrifices must be validated to depth ≥ 6 in eval_friendly_fire.c; reject self-captures whose verification depth was reduced by quiescence pruning."
+
+- id: friendly_fire-endgame-sacless-conversion
+  mod: friendly_fire
+  status: pending
+  kind: endgame_conversion
+  phase: endgame
+  severity: med
+  evidence:
+    report: agent/reports/friendly_fire/endgame-conversion.txt
+  blunder_threshold_cp: 0
+  notes: "After both sides exhaust self-sacrifice opportunities, FF endgames must converge on classical mate techniques (K+R vs K, K+Q vs K). Today the bot dawdles when up material."
+
+# ===========================================================================
+# KINGS_BATTLE — Phase-1 King's Kill, Phase-2 classical strength
+# ===========================================================================
+
+- id: kings_battle-rule-phase1-piece-restriction
+  mod: kings_battle
+  status: pending
+  kind: rule_violation
+  phase: opening
+  severity: critical
+  evidence:
+    report: agent/reports/kings_battle/rule-phase1.txt
+  blunder_threshold_cp: 0
+  notes: "During Phase 1 (before King's Kill) only pawns and kings may move; verify no engine path tries to move a knight/bishop/rook/queen and ensure the legal-move generator filters them out."
+
+- id: kings_battle-strategy-kings-kill-route
+  mod: kings_battle
+  status: pending
+  kind: strategy
+  phase: opening
+  severity: high
+  evidence:
+    report: agent/reports/kings_battle/kings-kill-route.txt
+  blunder_threshold_cp: 0
+  notes: "Engine must drive king + nearest pawn toward an unguarded enemy pawn to trigger King's Kill within ply ≤ 24, without exposing king to a forced response."
+
+- id: kings_battle-phase2-classical-revert
+  mod: kings_battle
+  status: pending
+  kind: kpi_regression
+  phase: midgame
+  severity: high
+  evidence:
+    report: agent/reports/kings_battle/phase2-classical.txt
+  blunder_threshold_cp: 200
+  notes: "After King's Kill the engine must revert to classical-strength play: avgWorstMiss_cp in Phase 2 should match the heir/friendly_fire baselines within 10 cp."
+
+- id: kings_battle-endgame-bonus-move-conversion
+  mod: kings_battle
+  status: pending
+  kind: endgame_conversion
+  phase: endgame
+  severity: med
+  evidence:
+    report: agent/reports/kings_battle/bonus-move.txt
+  blunder_threshold_cp: 0
+  notes: "Bonus-move after King's Kill must be used to entrench the king or capture a hanging piece, not to make a passive pawn push."
+
+# ===========================================================================
+# MERCENARY — king-like pawns, K+P vs K mating net
+# ===========================================================================
+
+- id: mercenary-rule-kp-vs-k-100half-mate
+  mod: mercenary
+  status: pending
+  kind: endgame_conversion
+  phase: endgame
+  severity: critical
+  evidence:
+    report: agent/reports/mercenary/kp-vs-k.txt
+  blunder_threshold_cp: 0
+  notes: "K+P vs K must be mated inside 100 half-moves (per docs/game/DRAW_RULES.md). Engine sometimes triggers 50-half-move draw incorrectly; verify mercenary_draw_conditions_test.dart still passes after any change to merc_refine_result."
+
+- id: mercenary-opening-minor-development
+  mod: mercenary
+  status: pending
+  kind: opening_principle
+  phase: opening
+  severity: med
+  evidence:
+    report: agent/reports/mercenary/opening-minor-dev.txt
+  blunder_threshold_cp: 200
+  notes: "Per repo memory: search/heuristics_mercenary.c rewards minor development; ensure earlyKingMoves stays ≤ 2 and castledByPly_avg ≤ 18 over the 50-game opening set."
+
+- id: mercenary-midgame-king-shield-vs-pawn-push
+  mod: mercenary
+  status: pending
+  kind: strategy
+  phase: midgame
+  severity: med
+  evidence:
+    report: agent/reports/mercenary/king-shield.txt
+  blunder_threshold_cp: 200
+  notes: "King-like pawns must not abandon the king's shield in the middlegame. Tune phase-scaled pawn proximity tables in eval_mercenary.c."
+
+- id: mercenary-endgame-knight-vs-knight-draw
+  mod: mercenary
+  status: pending
+  kind: rule_violation
+  phase: endgame
+  severity: high
+  evidence:
+    report: agent/reports/mercenary/insufficient-material.txt
+  blunder_threshold_cp: 0
+  notes: "K vs K, K+N vs K+N (no pawns) must be classified insufficient material. K+N vs K WITH pawns must NOT be insufficient. Validate against mercenary_rule_mechanics_test.dart."
+
+# ===========================================================================
+# SAVE_THE_QUEEN — escape race + queen-vs-queen short-range rule
+# ===========================================================================
+
+- id: save_the_queen-rule-queen-vs-queen-short-range
+  mod: save_the_queen
+  status: pending
+  kind: rule_violation
+  phase: strategy
+  severity: critical
+  evidence:
+    report: agent/reports/save_the_queen/qvq-short-range.txt
+    fen: "r1bqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    move: "d1d8"
+  blunder_threshold_cp: 0
+  notes: "An escaped queen MUST NOT capture an opponent queen unless the target sits on its initial prison square AND the attacking piece is king-distance. Add explicit regression in save_the_queen_rule_mechanics_test.dart."
+
+- id: save_the_queen-opening-prison-walk
+  mod: save_the_queen
+  status: pending
+  kind: opening_principle
+  phase: opening
+  severity: med
+  evidence:
+    report: agent/reports/save_the_queen/prison-walk.txt
+  blunder_threshold_cp: 200
+  notes: "Prisoner queen must walk toward own half on a non-capturable diagonal; engine sometimes wastes tempo with side-to-side king-step shuffles."
+
+- id: save_the_queen-midgame-escort-priority
+  mod: save_the_queen
+  status: pending
+  kind: strategy
+  phase: midgame
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/escort-priority.txt
+  blunder_threshold_cp: 200
+  notes: "Escort piece (knight or bishop) must shadow the queen's escape route. Today engine prioritises generic centre control."
+
+- id: save_the_queen-endgame-recapture-handling
+  mod: save_the_queen
+  status: pending
+  kind: rule_violation
+  phase: endgame
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/recapture-reset.txt
+  blunder_threshold_cp: 0
+  notes: "Captured-while-prisoner queen returns to initial prison square — engine must continue the race, not treat the queen as lost."
+
+# ===========================================================================
+# SUCCESSION — last-pawn-must-promote-to-king + dual queens
+# ===========================================================================
+
+- id: succession-rule-last-pawn-must-king
+  mod: succession
+  status: pending
+  kind: rule_violation
+  phase: endgame
+  severity: critical
+  evidence:
+    report: agent/reports/succession/last-pawn.txt
+  blunder_threshold_cp: 0
+  notes: "When a side's promoting pawn is its last pawn, promotion piece is forced to King. Validate via succession_rule_mechanics_test.dart and ensure the engine never plays the pawn to a square where promotion-to-king would be illegal (square under attack)."
+
+- id: succession-strategy-promote-priority
+  mod: succession
+  status: pending
+  kind: strategy
+  phase: midgame
+  severity: high
+  evidence:
+    report: agent/reports/succession/promote-priority.txt
+  blunder_threshold_cp: 200
+  notes: "Strategic objective is the FIRST king promotion, not material parity. Eval must reward pawn advancement over queen activity once one side has < 4 pawns."
+
+- id: succession-midgame-game19-residual-blunder
+  mod: succession
+  status: pending
+  kind: blunder
+  phase: midgame
+  severity: high
+  evidence:
+    report: agent/reports/succession/post-patch-batch.txt
+    line: 19
+  blunder_threshold_cp: 200
+  notes: "Post-patch top miss (delta 2.73). Investigate suspicious quiet-root triggers; consider raising verification budget another 50ms only for late-midgame nodes with both queens still on the board."
+
+- id: succession-endgame-zero-pawn-loss
+  mod: succession
+  status: pending
+  kind: endgame_conversion
+  phase: endgame
+  severity: critical
+  evidence:
+    report: agent/reports/succession/zero-pawns.txt
+  blunder_threshold_cp: 0
+  notes: "Losing all pawns = instant loss. Engine must treat the last pawn as priceless (eval bonus +600 cp when pawn count drops to 1) without violating per-mod isolation rules."
+
+# ===========================================================================
+# TRUCE — no-capture/no-check during truce, hand-off to classical
+# ===========================================================================
+
+- id: truce-rule-no-check-during-truce
+  mod: truce
+  status: pending
+  kind: rule_violation
+  phase: opening
+  severity: critical
+  evidence:
+    report: agent/reports/truce/no-check.txt
+  blunder_threshold_cp: 0
+  notes: "Moves giving check during truce are illegal. Validate against truce_test.dart, especially the king-castling-freeze test on line 497."
+
+- id: truce-strategy-truce-break-positioning
+  mod: truce
+  status: pending
+  kind: strategy
+  phase: opening
+  severity: high
+  evidence:
+    report: agent/reports/truce/truce-break-positioning.txt
+  blunder_threshold_cp: 0
+  notes: "Engine must position pieces so that, the moment truce breaks, it has at least one attacking move with material advantage. Add eval_truce.c bonus for piece convergence on opponent king zone."
+
+- id: truce-midgame-post-truce-strength
+  mod: truce
+  status: pending
+  kind: kpi_regression
+  phase: midgame
+  severity: high
+  evidence:
+    report: agent/reports/truce/post-truce-strength.txt
+  blunder_threshold_cp: 200
+  notes: "Post-truce avgWorstMiss_cp must match classical baseline within 5%. The transition from frozen-piece eval to classical eval often produces a 1-ply blind spot."
+
+- id: truce-endgame-castling-freeze-followthrough
+  mod: truce
+  status: pending
+  kind: opening_principle
+  phase: opening
+  severity: med
+  evidence:
+    report: agent/reports/truce/castling-freeze.txt
+  blunder_threshold_cp: 0
+  notes: "King and rook involved in a never-completed castle during truce must remain marked as castle-eligible after truce-break. Verified by truce_test.dart line 497; add audit-batch coverage."
+
+# ===========================================================================
+# SHARED — cross-mod issues that require kind: shared_edit approval
+# ===========================================================================
+
+- id: shared-search-quiescence-king-discipline
+  mod: shared
+  status: pending
+  kind: shared_edit
+  phase: tactics
+  severity: med
+  evidence:
+    report: agent/reports/_shared/quiescence-king-discipline.txt
+  blunder_threshold_cp: 200
+  notes: "Per repo memory: native king_discipline_refine_result was added for Heir/Mercenary/SaveTheQueen/Succession. Decide if this should graduate from per-mod refine into a shared search hook; requires explicit shared-edit approval before any code change."
+
+# ===========================================================================
+# Reference / examples (status: example — agent skips). Kept here so authors
+# of new tasks can copy-paste a known-good shape.
+# ===========================================================================
+
+- id: heir-example-blunder
+  mod: heir
+  status: example
+  kind: blunder
+  phase: midgame
+  severity: high
+  evidence:
+    report: agent/reports/heir/EXAMPLE-20260419-021500.txt
+    line: 142
+    fen: "r1bqk2r/ppp2ppp/8/1N2n3/1P3B2/8/P3PPPP/R2QKB1R b - - 0 9"
+    move: "d8d1"
+  blunder_threshold_cp: 200
+  notes: "Engine plays Qxd1+ losing the queen for a rook; expected f7f6 (-0.4 vs -6.1)."
+
+- id: friendly_fire-example-rule
+  mod: friendly_fire
+  status: example
+  kind: rule_violation
+  phase: opening
+  severity: critical
+  evidence:
+    report: agent/reports/friendly_fire/EXAMPLE-rule-violation.txt
+    line: 87
+    fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    move: "b1d2"
+  blunder_threshold_cp: 0
+  notes: "Engine tried to capture an own unmoved knight; rule-violation in Friendly Fire mode."
+
+- id: shared-example
+  mod: shared
+  status: example
+  kind: shared_edit
+  phase: strategy
+  severity: med
+  evidence:
+    report: agent/reports/_shared/EXAMPLE-move-ordering.txt
+  blunder_threshold_cp: 0
+  notes: "Cross-mod move-ordering anomaly. Requires explicit shared-edit approval; agent must NOT touch shared files without this kind of task."

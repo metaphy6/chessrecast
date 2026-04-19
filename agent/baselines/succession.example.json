@@ -1,0 +1,38 @@
+{
+  "_comment": "Example KPI baseline for succession. The strategic objective is the FIRST king-promotion, so kingPromotion_byPly_avg + zeroPawnLosses are the primary KPIs.",
+  "mod": "succession",
+  "generated_at": "2026-04-19T02:50:00+03:00",
+  "run_id": "20260419-025000",
+  "report_path": "agent/reports/succession/20260419-025000.txt",
+  "games": 50,
+  "max_plies": 120,
+  "engine_preset": {
+    "depth": 6,
+    "time_ms": 500,
+    "skill": 4,
+    "randomness": 0.0
+  },
+  "kpi": {
+    "earlyKingMoves": 0,
+    "castlingRightLosses": 0,
+    "castledByPly_avg": null,
+    "kingExposureIndex_avg": 18.9,
+    "avgWorstMiss_cp": 64,
+    "maxWorstMiss_cp": 273,
+    "blundersGte200cp": 1,
+    "blundersGte300cp": 0,
+    "ruleViolations": 0,
+    "engineCrashes": 0,
+    "kingPromotion_byPly_avg": 38.6,
+    "zeroPawnLosses": 0,
+    "queenLossesPerGame_avg": 0.42
+  },
+  "regression_thresholds": {
+    "kingExposureIndex_avg": 0.05,
+    "avgWorstMiss_cp": 0.05,
+    "maxWorstMiss_cp": 0.05,
+    "blundersGte200cp": 0.0,
+    "kingPromotion_byPly_avg": 0.10,
+    "zeroPawnLosses": 0.0
+  }
+}

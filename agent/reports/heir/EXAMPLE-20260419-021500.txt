@@ -1,0 +1,41 @@
+# EXAMPLE audit-batch report (heir, 50 games)
+# Real reports are produced by:
+#   HEIR_BATCH_OPENINGS="$(cat ../agent/openings/heir.csv)" \
+#   HEIR_BATCH_MAX_PLIES=120 \
+#   HEIR_BATCH_LIVE_PROGRESS=1 \
+#   HEIR_BATCH_REPORT_PATH=../agent/reports/heir/<run-id>.txt \
+#   flutter test test/manual_heir_audit_batch_test.dart --run-skipped -r compact
+#
+# Format below mirrors what manual_heir_audit_batch_test.dart already emits;
+# the triage prompt parses these sections.
+
+== Run summary ==
+mod:           heir
+run_id:        20260419-021500
+games:         50
+max_plies:     120
+engine:        depth=6 time_ms=500 skill=4 random=0.0
+duration_s:    412.7
+
+== KPI ==
+earlyKingMoves:           1
+castlingRightLosses:      5
+castledByPly_avg:         14.2
+kingExposureIndex_avg:    22.4
+avgWorstMiss_cp:          58
+maxWorstMiss_cp:          184
+blundersGte200cp:         0
+blundersGte300cp:         0
+ruleViolations:           0
+engineCrashes:            0
+
+== Per-game findings ==
+[game 07 ply 18]  worst_miss=164cp  fen=r1bqk2r/ppp2ppp/8/1N2n3/1P3B2/8/P3PPPP/R2QKB1R b - - 0 9
+                  played=d8d1  best=f7f6  delta=-1.64
+                  note: engine over-values queen activity vs king safety
+
+[game 22 ply 31]  worst_miss=98cp   fen=...
+                  played=...      best=...      delta=-0.98
+
+== Aggregate ==
+no rule violations, no crashes, baseline KPI within tolerance.
