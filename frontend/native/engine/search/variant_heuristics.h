@@ -9,6 +9,12 @@ bool search_heir_critical_move(const Board *b, Move m);
 bool search_heir_king_under_direct_fire(const Board *b);
 bool search_heir_tactical_capture(const Board *b, Move m, int see);
 int search_heir_early_queen_sortie_penalty(const Board *b, Move m);
+int search_heir_risky_bishop_pawn_grab_penalty(const Board *b, Move m);
+int search_heir_flank_pawn_drift_penalty(const Board *b, Move m);
+int search_heir_risky_center_pawn_push_penalty(const Board *b, Move m);
+int search_heir_simplified_center_pawn_push_penalty(const Board *b, Move m);
+int search_heir_pawn_harass_score(const Board *b, Move m);
+int search_heir_passive_king_edge_retreat_penalty(const Board *b, Move m);
 bool search_heir_is_tactical_capture_candidate(const Board *b, Move m);
 
 int search_truce_undeveloped_minor_count(const Board *b, Color side);

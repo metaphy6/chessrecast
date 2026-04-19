@@ -289,6 +289,26 @@ static int heir_early_queen_sortie_penalty(const Board *b, Move m) {
     return search_heir_early_queen_sortie_penalty(b, m);
 }
 
+static int heir_risky_bishop_pawn_grab_penalty(const Board *b, Move m) {
+    return search_heir_risky_bishop_pawn_grab_penalty(b, m);
+}
+
+static int heir_flank_pawn_drift_penalty(const Board *b, Move m) {
+    return search_heir_flank_pawn_drift_penalty(b, m);
+}
+
+static int heir_risky_center_pawn_push_penalty(const Board *b, Move m) {
+    return search_heir_risky_center_pawn_push_penalty(b, m);
+}
+
+static int heir_simplified_center_pawn_push_penalty(const Board *b, Move m) {
+    return search_heir_simplified_center_pawn_push_penalty(b, m);
+}
+
+static int heir_pawn_harass_score(const Board *b, Move m) {
+    return search_heir_pawn_harass_score(b, m);
+}
+
 /*
  * Compute SEE for capture move m.
  * Returns expected material gain (positive = winning exchange).
@@ -795,9 +815,11 @@ static int move_score(const Board *b, Move m, Move tt_move,
             Square to = MOVE_TO(m);
             bool central = SQ_ROW(to) >= 2 && SQ_ROW(to) <= 5 &&
                            SQ_COL(to) >= 2 && SQ_COL(to) <= 5;
+            int bishop_grab_penalty = heir_risky_bishop_pawn_grab_penalty(b, m);
 
             if (captured >= KNIGHT) score += 240;
             if (captured == PAWN && central) score += 140;
+            if (bishop_grab_penalty > 0) score -= bishop_grab_penalty;
         }
 
         if (b->mod == MOD_KINGS_BATTLE && !b->kb_unlocked) {
@@ -860,6 +882,22 @@ static int move_score(const Board *b, Move m, Move tt_move,
         {
             int f_pawn_block_penalty = heir_f_pawn_block_move_penalty(b, m);
             if (f_pawn_block_penalty > 0) score -= f_pawn_block_penalty;
+        }
+        {
+            int flank_drift_penalty = heir_flank_pawn_drift_penalty(b, m);
+            if (flank_drift_penalty > 0) score -= flank_drift_penalty;
+        }
+        {
+            int center_pawn_push_penalty = heir_risky_center_pawn_push_penalty(b, m);
+            if (center_pawn_push_penalty > 0) score -= center_pawn_push_penalty;
+        }
+        {
+            int simplified_center_penalty = heir_simplified_center_pawn_push_penalty(b, m);
+            if (simplified_center_penalty > 0) score -= simplified_center_penalty;
+        }
+        {
+            int pawn_harass_score = heir_pawn_harass_score(b, m);
+            if (pawn_harass_score > 0) score += pawn_harass_score;
         }
     }
 
@@ -1844,11 +1882,6 @@ done:
         if (s_skill_level == 4) {
             s_margin = maxi(s_margin, search_kb_full_skill_variety_margin(b));
             top_band = maxi(top_band, search_kb_full_skill_tiebreak_band(b));
-            /* Generic opening variety for ALL mods at full skill */
-            if (is_opening) {
-                s_margin = maxi(s_margin, 15);
-                top_band = maxi(top_band, 10);
-            }
         }
 
         if (s_margin > 0) {
