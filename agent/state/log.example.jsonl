@@ -1,0 +1,10 @@
+{"ts":"2026-04-19T02:15:00+03:00","event":"baseline","mod":"heir","run_id":"20260419-021500","report":"agent/reports/heir/20260419-021500.txt","kpi":{"avgWorstMiss_cp":58,"maxWorstMiss_cp":184,"earlyKingMoves":1,"castlingRightLosses":5}}
+{"ts":"2026-04-19T02:30:11+03:00","event":"task_claim","task_id":"heir-midgame-game10-baseline-v53"}
+{"ts":"2026-04-19T02:31:42+03:00","event":"repro_done","task_id":"heir-midgame-game10-baseline-v53","report":"agent/reports/heir/20260419-023011.txt","finding_confirmed":true}
+{"ts":"2026-04-19T02:32:17+03:00","event":"watchdog","task_id":"heir-midgame-game10-baseline-v53","token":"worst_miss=6.10","action":"killed_run_proceeding_to_fix"}
+{"ts":"2026-04-19T02:33:05+03:00","event":"edit","task_id":"heir-midgame-game10-baseline-v53","files":["frontend/native/engine/eval/eval_heir.c","frontend/native/engine/bridge.c"]}
+{"ts":"2026-04-19T02:41:18+03:00","event":"gate_pass","task_id":"heir-midgame-game10-baseline-v53","kpi_delta":{"avgWorstMiss_cp":-12,"maxWorstMiss_cp":-40,"earlyKingMoves":0,"castlingRightLosses":-1}}
+{"ts":"2026-04-19T02:41:55+03:00","event":"commit","task_id":"heir-midgame-game10-baseline-v53","branch":"main","sha":"abc1234","message":"auto(heir): suppress Qxd1+ overvaluation in king-discipline refine [20260419-023011]"}
+{"ts":"2026-04-19T02:42:10+03:00","event":"task_done","task_id":"heir-midgame-game10-baseline-v53","result":"pass"}
+{"ts":"2026-04-19T02:50:01+03:00","event":"new_finding_filed","source_task":"heir-midgame-game10-baseline-v53","new_task_id":"heir-midgame-3rk2r-rd1xd8-motif","reason":"motif observed in same audit batch, outside current task scope"}
+

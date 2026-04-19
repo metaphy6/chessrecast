@@ -1,0 +1,38 @@
+{
+  "_comment": "Example KPI baseline for friendly_fire. Replace by running /improve-mod friendly_fire (the bootstrap-baselines-all task generates the real one).",
+  "mod": "friendly_fire",
+  "generated_at": "2026-04-19T02:30:00+03:00",
+  "run_id": "20260419-023000",
+  "report_path": "agent/reports/friendly_fire/20260419-023000.txt",
+  "games": 50,
+  "max_plies": 120,
+  "engine_preset": {
+    "depth": 6,
+    "time_ms": 500,
+    "skill": 4,
+    "randomness": 0.0
+  },
+  "kpi": {
+    "earlyKingMoves": 2,
+    "castlingRightLosses": 6,
+    "castledByPly_avg": 15.4,
+    "kingExposureIndex_avg": 24.1,
+    "avgWorstMiss_cp": 71,
+    "maxWorstMiss_cp": 198,
+    "blundersGte200cp": 0,
+    "blundersGte300cp": 0,
+    "ruleViolations": 0,
+    "engineCrashes": 0,
+    "selfCaptureAttempts": 11,
+    "selfCaptureWithDepth6Verification": 11
+  },
+  "regression_thresholds": {
+    "_comment": "A patch is rejected if any metric regresses by more than this fraction.",
+    "earlyKingMoves": 0.05,
+    "castlingRightLosses": 0.05,
+    "kingExposureIndex_avg": 0.05,
+    "avgWorstMiss_cp": 0.05,
+    "maxWorstMiss_cp": 0.05,
+    "selfCaptureWithDepth6Verification": 0.0
+  }
+}

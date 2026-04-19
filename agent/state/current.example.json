@@ -1,0 +1,13 @@
+{
+  "_comment": "Example contents of state/current.json — written by the agent when it claims a task. Deleted (or status=idle) when no task is active. Branch field is 'main' because the chess-mod-improver mode commits directly to main after gating.",
+  "task_id": "heir-midgame-game10-baseline-v53",
+  "mod": "heir",
+  "started_at": "2026-04-19T02:30:11+03:00",
+  "session_id": "vscode-copilot-2026-04-19-0230",
+  "branch": "main",
+  "phase": "gating",
+  "last_command": "flutter test test/heir_engine_regression_test.dart test/king_castling_policy_regression_test.dart -r compact",
+  "last_exit_code": 0,
+  "watchdog_log": "/tmp/agent-runs/heir-20260419-023011.log"
+}
+

@@ -1,0 +1,10 @@
+# Keep folder structure, ignore volatile runtime artifacts but keep examples.
+reports/**/*.txt
+state/current.json
+state/log.jsonl
+state/usage.json
+state/checkpoint.json
+STOP
+!**/.gitkeep
+!**/*.example.*
+!**/EXAMPLE-*

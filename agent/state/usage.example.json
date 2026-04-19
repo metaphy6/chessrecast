@@ -1,0 +1,10 @@
+{
+  "_comment": "Rolling tool-call counter the agent uses for its rate-limit guard. Window is 10 minutes. If `calls_in_window` > 40 the agent sleeps before the next task.",
+  "window_started_at": "2026-04-19T02:35:00+03:00",
+  "window_seconds": 600,
+  "calls_in_window": 12,
+  "soft_limit": 40,
+  "hard_pause_until": null,
+  "last_429_at": null,
+  "consecutive_429": 0
+}

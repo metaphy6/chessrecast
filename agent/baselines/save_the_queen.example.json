@@ -1,0 +1,40 @@
+{
+  "_comment": "Example KPI baseline for save_the_queen. queenEscape_byPly_avg tracks how fast the prisoner reaches own half; queenLossesAfterEscape must stay 0.",
+  "mod": "save_the_queen",
+  "generated_at": "2026-04-19T02:45:00+03:00",
+  "run_id": "20260419-024500",
+  "report_path": "agent/reports/save_the_queen/20260419-024500.txt",
+  "games": 50,
+  "max_plies": 120,
+  "engine_preset": {
+    "depth": 6,
+    "time_ms": 500,
+    "skill": 4,
+    "randomness": 0.0
+  },
+  "kpi": {
+    "earlyKingMoves": 3,
+    "castlingRightLosses": 7,
+    "castledByPly_avg": 17.2,
+    "kingExposureIndex_avg": 26.4,
+    "avgWorstMiss_cp": 68,
+    "maxWorstMiss_cp": 183,
+    "blundersGte200cp": 0,
+    "blundersGte300cp": 0,
+    "ruleViolations": 0,
+    "engineCrashes": 0,
+    "queenEscape_byPly_avg": 19.5,
+    "queenLossesAfterEscape": 0,
+    "qvqShortRangeRuleHits": 0
+  },
+  "regression_thresholds": {
+    "earlyKingMoves": 0.05,
+    "castlingRightLosses": 0.05,
+    "kingExposureIndex_avg": 0.05,
+    "avgWorstMiss_cp": 0.05,
+    "maxWorstMiss_cp": 0.05,
+    "queenEscape_byPly_avg": 0.10,
+    "queenLossesAfterEscape": 0.0,
+    "qvqShortRangeRuleHits": 0.0
+  }
+}
