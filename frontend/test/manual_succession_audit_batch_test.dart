@@ -11,7 +11,10 @@ void main() {
       String env(String name, String fallback) =>
           Platform.environment[name] ?? fallback;
 
-      final report = runSuccessionAuditBatch([
+      final stopAtDeltaRaw =
+          Platform.environment['SUCCESSION_BATCH_STOP_AT_DELTA'];
+
+      final args = [
         '--baseline-depth=${env('SUCCESSION_BATCH_BASELINE_DEPTH', '4')}',
         '--baseline-ms=${env('SUCCESSION_BATCH_BASELINE_MS', '120')}',
         '--baseline-skill=${env('SUCCESSION_BATCH_BASELINE_SKILL', '4')}',
@@ -22,7 +25,12 @@ void main() {
         '--top-count=${env('SUCCESSION_BATCH_TOP_COUNT', '10')}',
         '--isolate-openings=${env('SUCCESSION_BATCH_ISOLATE_OPENINGS', 'true')}',
         '--openings=${env('SUCCESSION_BATCH_OPENINGS', '')}',
-      ]);
+      ];
+      if (stopAtDeltaRaw != null && stopAtDeltaRaw.trim().isNotEmpty) {
+        args.add('--stop-at-delta=${stopAtDeltaRaw.trim()}');
+      }
+
+      final report = runSuccessionAuditBatch(args);
 
       final reportFile = File(
         env(

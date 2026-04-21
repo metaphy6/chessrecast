@@ -33,19 +33,3 @@ Before claiming the first task, post a one-line plan listing the task ids you in
 ## Stop conditions
 
 Halt the loop when: queue is empty for the requested mod, file `agent/STOP` exists, three consecutive tasks ended in `failed`, or the user types `stop`.
----
-mode: chess-mod-improver
-description: Kick off the autonomous improvement loop for a single mod (or the full queue).
----
-
-# Improve mod: ${input:mod:heir|friendly_fire|kings_battle|mercenary|save_the_queen|succession|truce|ALL}
-
-Operate per the `chess-mod-improver` chat mode and `.github/copilot-instructions.md`.
-
-If `${input:mod}` is `ALL`, walk every `pending` task in `agent/queue.yaml` in order.
-Otherwise, only process tasks whose `mod` field equals `${input:mod}`.
-
-Per-task budget: stop the task and revert if it exceeds **${input:max_minutes:45}** minutes wall-clock.
-Per-session budget: stop the whole loop after **${input:max_tasks:6}** tasks completed (pass or fail).
-
-Before starting, post a one-line plan listing the task ids you intend to attempt this session.

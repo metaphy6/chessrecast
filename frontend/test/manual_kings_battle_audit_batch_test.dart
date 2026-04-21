@@ -17,6 +17,7 @@ const _kbBatchReferenceSkill = String.fromEnvironment(
 const _kbBatchMaxPlies = String.fromEnvironment('KB_BATCH_MAX_PLIES');
 const _kbBatchTopCount = String.fromEnvironment('KB_BATCH_TOP_COUNT');
 const _kbBatchOpenings = String.fromEnvironment('KB_BATCH_OPENINGS');
+const _kbBatchStopAtDelta = String.fromEnvironment('KB_BATCH_STOP_AT_DELTA');
 const _kbBatchReportPath = String.fromEnvironment('KB_BATCH_REPORT_PATH');
 
 void main() {
@@ -34,7 +35,7 @@ void main() {
         return fallback;
       }
 
-      final report = runKingsBattleAuditBatch([
+      final args = [
         '--baseline-depth=${setting('KB_BATCH_BASELINE_DEPTH', '4', _kbBatchBaselineDepth)}',
         '--baseline-ms=${setting('KB_BATCH_BASELINE_MS', '120', _kbBatchBaselineMs)}',
         '--baseline-skill=${setting('KB_BATCH_BASELINE_SKILL', '4', _kbBatchBaselineSkill)}',
@@ -44,7 +45,18 @@ void main() {
         '--max-plies=${setting('KB_BATCH_MAX_PLIES', '24', _kbBatchMaxPlies)}',
         '--top-count=${setting('KB_BATCH_TOP_COUNT', '10', _kbBatchTopCount)}',
         '--openings=${setting('KB_BATCH_OPENINGS', '', _kbBatchOpenings)}',
-      ]);
+      ];
+
+      final stopAtDelta = setting(
+        'KB_BATCH_STOP_AT_DELTA',
+        '',
+        _kbBatchStopAtDelta,
+      ).trim();
+      if (stopAtDelta.isNotEmpty) {
+        args.add('--stop-at-delta=$stopAtDelta');
+      }
+
+      final report = runKingsBattleAuditBatch(args);
 
       final reportFile = File(
         setting(
