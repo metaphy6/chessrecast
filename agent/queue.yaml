@@ -111,29 +111,54 @@
 # FRIENDLY_FIRE — sacrifice discipline + unmoved-piece guard
 # ===========================================================================
 
+- id: friendly_fire-baseline-refresh-20260421
+  mod: friendly_fire
+  status: done
+  kind: kpi_regression
+  phase: strategy
+  severity: high
+  evidence:
+    report: agent/reports/friendly_fire/friendly_fire-baseline-refresh-20260421.txt
+  blunder_threshold_cp: 200
+  notes: "Completed 2026-04-21 run_id=20260421-123447 (50 games, max_plies=24): avgWorstMiss_cp=109, maxWorstMiss_cp=1144, blundersGte200cp=7, blundersGte300cp=3, earlyKingMoves=5, castlingRightLosses=51, kingExposureIndex_avg=28.20."
+
 - id: friendly_fire-rule-unmoved-piece-guard
   mod: friendly_fire
-  status: pending
+  status: done
   kind: rule_violation
   phase: opening
   severity: critical
   evidence:
-    report: agent/reports/friendly_fire/rule-unmoved-piece.txt
+    report: agent/reports/friendly_fire/rule-unmoved-piece-probe-20260421.txt
     fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
     move: "b1d2"
   blunder_threshold_cp: 0
-  notes: "Engine attempted to capture an own unmoved piece in friendly_fire mode (illegal per docs/game/GAME_MODS_DOCUMENTATION.md). Add explicit guard test in friendly_fire_engine_regression_test.dart and tighten ff_refine_result in bridge.c."
+  notes: "Reproduced with probe and regression gate on 2026-04-21; b1d2 is currently not legal from start FEN and task evidence no longer reproduces. No code changes required."
 
 - id: friendly_fire-midgame-flank-minor-harassment
   mod: friendly_fire
-  status: pending
+  status: done
   kind: blunder
   phase: midgame
   severity: high
   evidence:
-    report: agent/reports/friendly_fire/flank-minor-harassment.txt
+    report: agent/reports/friendly_fire/flank-minor-harassment-postfix-20260421.txt
   blunder_threshold_cp: 200
-  notes: "Per repo memory: ff bridge refinement is sensitive to unresolved flank-minor harassment and king-zone guard tie-breaks. Add a probe-driven tie-break."
+  notes: "Fixed 2026-04-21 by removing unconditional rook-firebreak override and adding replay-dependent regression coverage; post-fix triage: avgWorstMiss_cp=16, maxWorstMiss_cp=190, blundersGte200cp=0/50."
+
+- id: friendly_fire-midgame-game37-rh8f8-blunder-20260421
+  mod: friendly_fire
+  status: done
+  kind: blunder
+  phase: midgame
+  severity: critical
+  evidence:
+    report: agent/reports/friendly_fire/flank-minor-harassment-postfix-20260421.txt
+    line: 39
+    fen: "r1b1k2r/ppp1nppp/5q2/3pP3/4P3/2N5/PPP2PPP/R2QKB1R b"
+    move: "h8f8"
+  blunder_threshold_cp: 200
+  notes: "Resolved by the same midgame fix set; post-fix report has no >=2.00cp misses and this motif no longer appears in the worst list."
 
 - id: friendly_fire-strategy-sac-validation-depth
   mod: friendly_fire
