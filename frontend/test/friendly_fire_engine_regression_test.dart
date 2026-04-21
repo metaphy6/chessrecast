@@ -250,6 +250,38 @@ void main() {
       },
       skip: !NativeEngine.isAvailable,
     );
+
+    test(
+      'prefers Qd2xe3 over passive rook firebreak in the b4 e5 d4e3 line',
+      () {
+        final board = _boardFromReplay([
+          'b2b4',
+          'e7e5',
+          'b4b5',
+          'd7d5',
+          'd2d3',
+          'g8f6',
+          'b1c3',
+          'f8b4',
+          'c1d2',
+          'b8d7',
+          'g1f3',
+          'd5d4',
+          'c3e4',
+          'b4d2',
+          'd1d2',
+          'e8f8',
+          'e2e3',
+          'd4e3',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), isNot('a1d1'));
+        expect(_moveNotation(search.bestMove), 'd2e3');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
   });
 }
 

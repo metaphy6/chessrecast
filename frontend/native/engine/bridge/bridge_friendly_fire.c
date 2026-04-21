@@ -582,8 +582,6 @@ SearchResult ff_refine_result(const Board *board,
     int best_non_king_score = -32000;
     Move forced_guard_bishop_move = MOVE_NONE;
     int forced_guard_bishop_priority = -32000;
-    Move forced_rook_firebreak_move = MOVE_NONE;
-    int forced_rook_firebreak_priority = -32000;
 
     if (board->mod != MOD_FRIENDLY_FIRE || raw.best_move == MOVE_NONE ||
         skill_level < 4) {
@@ -626,6 +624,25 @@ SearchResult ff_refine_result(const Board *board,
         }
     }
 
+    if (!suspicious_root && MOVE_PIECE(raw.best_move) == ROOK &&
+        !MOVE_IS_CAPTURE(raw.best_move) && !MOVE_IS_EP(raw.best_move) &&
+        !MOVE_IS_PROMO(raw.best_move) && board->fullmove <= 24 &&
+        ff_bridge_rook_firebreak_priority(board, raw.best_move, board->side) > 0) {
+        for (int i = 0; i < ml.count; i++) {
+            Move move = ml.moves[i];
+
+            if (MOVE_PIECE(move) != QUEEN || !MOVE_IS_CAPTURE(move) ||
+                MOVE_IS_EP(move) || MOVE_IS_PROMO(move) ||
+                MOVE_CAPTURED(move) != PAWN ||
+                search_ff_is_own_capture(board, move)) {
+                continue;
+            }
+
+            suspicious_root = true;
+            break;
+        }
+    }
+
     if (raw_is_king_quiet && MOVE_IS_CASTLE(raw.best_move) && enemy_queen_close_to_king &&
         board->fullmove <= 24) {
         Square king_sq = bb_lsb(board->pieces[board->side][KING]);
@@ -654,52 +671,8 @@ SearchResult ff_refine_result(const Board *board,
         }
     }
 
-    if (MOVE_PIECE(raw.best_move) == QUEEN && MOVE_IS_CAPTURE(raw.best_move) &&
-        !MOVE_IS_EP(raw.best_move) && !MOVE_IS_PROMO(raw.best_move) &&
-        MOVE_CAPTURED(raw.best_move) == PAWN &&
-        board->fullmove <= 24) {
-        Square king_sq = bb_lsb(board->pieces[board->side][KING]);
-        Color opp = color_opposite(board->side);
-        for (int i = 0; i < ml.count; i++) {
-            Move move = ml.moves[i];
-            int from_dist;
-            int to_dist;
-            int proximity_gain;
-            int priority;
-            Board child;
-
-            if (MOVE_PIECE(move) != ROOK || MOVE_IS_CAPTURE(move) ||
-                MOVE_IS_EP(move) || MOVE_IS_PROMO(move)) {
-                continue;
-            }
-
-            from_dist = ff_bridge_chebyshev_distance(MOVE_FROM(move), king_sq);
-            to_dist = ff_bridge_chebyshev_distance(MOVE_TO(move), king_sq);
-            proximity_gain = from_dist - to_dist;
-            if (proximity_gain <= 0) continue;
-
-            child = *board;
-            board_make_move(&child, move);
-            if (board_square_attacked(&child, MOVE_TO(move), opp) &&
-                !board_square_attacked(&child, MOVE_TO(move), board->side)) {
-                continue;
-            }
-
-            priority = proximity_gain * 90 + ((to_dist <= 1) ? 40 : 0);
-            if (priority > forced_rook_firebreak_priority) {
-                forced_rook_firebreak_priority = priority;
-                forced_rook_firebreak_move = move;
-            }
-        }
-    }
-
     if (forced_guard_bishop_move != MOVE_NONE && forced_guard_bishop_priority > 0) {
         raw.best_move = forced_guard_bishop_move;
-        return raw;
-    }
-
-    if (forced_rook_firebreak_move != MOVE_NONE && forced_rook_firebreak_priority > 0) {
-        raw.best_move = forced_rook_firebreak_move;
         return raw;
     }
 
