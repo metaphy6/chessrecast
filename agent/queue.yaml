@@ -35,6 +35,17 @@
 # HEIR — second-king + double-king mating nets
 # ===========================================================================
 
+- id: heir-baseline-refresh-20260420
+  mod: heir
+  status: done
+  kind: kpi_regression
+  phase: strategy
+  severity: high
+  evidence:
+    report: agent/reports/heir/heir-baseline-refresh-20260420.txt
+  blunder_threshold_cp: 200
+  notes: "Completed 2026-04-21 run_id=20260421-013012 (50 games, max_plies=12): avgWorstMiss_cp=42, maxWorstMiss_cp=115, earlyKingMoves=1, castlingRightLosses=1, kingExposureIndex_avg=27.40."
+
 - id: heir-opening-castle-by-16
   mod: heir
   status: pending

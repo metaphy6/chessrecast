@@ -64,6 +64,15 @@ String runMercenaryAuditBatch(List<String> args) {
     );
     lines.add('FEN: ${summary.fen}');
     lines.add('Replay: ${summary.replay}');
+
+    if (summary.delta >= options.stopAtDelta) {
+      lines.add(
+        'EARLY STOP: GAME ${summary.game} ${summary.opening} '
+        'delta=${_cp(summary.delta)} '
+        'reached stop-at-delta ${_cp(options.stopAtDelta)}',
+      );
+      break;
+    }
   }
 
   final deltas = summaries
@@ -119,6 +128,7 @@ class _BatchOptions {
   final int referenceSkill;
   final int maxPlies;
   final int topCount;
+  final double stopAtDelta;
   final List<String> openings;
 
   const _BatchOptions({
@@ -130,6 +140,7 @@ class _BatchOptions {
     required this.referenceSkill,
     required this.maxPlies,
     required this.topCount,
+    required this.stopAtDelta,
     required this.openings,
   });
 
@@ -139,6 +150,16 @@ class _BatchOptions {
       for (final arg in args) {
         if (arg.startsWith(prefix)) {
           return int.tryParse(arg.substring(prefix.length)) ?? fallback;
+        }
+      }
+      return fallback;
+    }
+
+    double readDouble(String name, double fallback) {
+      final prefix = '--$name=';
+      for (final arg in args) {
+        if (arg.startsWith(prefix)) {
+          return double.tryParse(arg.substring(prefix.length)) ?? fallback;
         }
       }
       return fallback;
@@ -173,6 +194,7 @@ class _BatchOptions {
       referenceSkill: readInt('reference-skill', 4),
       maxPlies: readInt('max-plies', 24),
       topCount: readInt('top-count', 10),
+      stopAtDelta: readDouble('stop-at-delta', double.infinity),
       openings: openings,
     );
   }

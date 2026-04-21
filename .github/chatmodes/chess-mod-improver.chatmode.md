@@ -21,8 +21,8 @@ You are a long-running coding agent embedded in VS Code. Your job is to walk the
 For each task in `agent/queue.yaml` whose `status` is `pending`, in order:
 
 1. **Claim the task.** Set its `status` to `in_progress` and write the timestamp + your VS Code session id (if known) to `agent/state/current.json`. Commit nothing yet.
-2. **Establish baseline.** If `agent/baselines/<mod>.json` is missing or older than 7 days, run a fresh ≥50-game audit batch (see "Run recipes") and store its KPI summary as the new baseline. Otherwise load the existing one.
-3. **Reproduce.** Run the audit batch from the task's `repro` block (or the default recipe if absent). Save the report under `agent/reports/<mod>/<run-id>.txt`.
+2. **Establish baseline.** If `agent/baselines/<mod>.json` is missing or older than 7 days, run a fresh ≥50-game **baseline batch** (see "Run recipes") with no early-stop threshold, then store its KPI summary as the new baseline. Otherwise load the existing one.
+3. **Reproduce.** Run the task repro using the **triage batch** recipe with `<PREFIX>_BATCH_STOP_AT_DELTA=2.00` (or task-specific threshold if provided). Save the report under `agent/reports/<mod>/<run-id>.txt`.
 4. **Triage with watchdog.** While the run streams, watch for the stop tokens listed in `.github/copilot-instructions.md` → *Live test-watchdog protocol*. The moment one appears: kill the run, classify, fix or file a new task, restart from a clean state. Do not let a known-broken run finish "for completeness".
 5. **Pick exactly one fix.** From the clean report, pick the **single** finding with the largest game-quality impact (favour rule violations > endgame conversion losses > opening-principle breaches > middlegame blunders ≥ 200 cp > everything else). All other findings get appended to the queue per the *take-initiative* rule.
 6. **Plan.** Write a 5-line plan into the chat. Identify the exact files you will edit (must be inside the per-mod allow-list from the repo instructions). If the fix requires shared-code edits, **stop**, mark the task `blocked: shared-edit-required`, file a `kind: shared_edit` task, and move on.
@@ -58,12 +58,12 @@ Always also run `repetition_draw_regression_test.dart` if the change touches dra
 
 Working directory: `frontend/`. Always export the native-lib env vars first.
 
-### Audit batch (≥50 games, one mod)
+### Baseline batch (≥50 games, one mod, no early stop)
 
 ```bash
 CHESSRECAST_NATIVE_ENGINE_LIB=$PWD/build/native/linux/libchess_engine.so \
 LD_LIBRARY_PATH=$PWD/build/native/linux:$PWD \
-<PREFIX>_BATCH_OPENINGS="$(cat ../agent/openings/<mod>.csv)" \
+<PREFIX>_BATCH_OPENINGS="$(paste -sd ';' ../agent/openings/<mod>.csv)" \
 <PREFIX>_BATCH_MAX_PLIES=120 \
 <PREFIX>_BATCH_LIVE_PROGRESS=1 \
 <PREFIX>_BATCH_REPORT_PATH=../agent/reports/<mod>/<run-id>.txt \
@@ -72,6 +72,22 @@ flutter test test/manual_<mod>_audit_batch_test.dart --run-skipped -r compact 2>
 ```
 
 Use the `<PREFIX>` from the table in `.github/copilot-instructions.md` → *Per-mod env-var prefixes*. The `_BATCH_OPENINGS` value must be a CSV of UCI opening lines, **one entry per game**, ≥50 entries (the audit harness plays one game per opening line). If `agent/openings/<mod>.csv` does not yet exist, generate it from the seed openings in `agent/queue.yaml` for that mod.
+
+### Triage batch (watchdog mode, stop on large miss)
+
+```bash
+CHESSRECAST_NATIVE_ENGINE_LIB=$PWD/build/native/linux/libchess_engine.so \
+LD_LIBRARY_PATH=$PWD/build/native/linux:$PWD \
+<PREFIX>_BATCH_OPENINGS="$(paste -sd ';' ../agent/openings/<mod>.csv)" \
+<PREFIX>_BATCH_MAX_PLIES=120 \
+<PREFIX>_BATCH_LIVE_PROGRESS=1 \
+<PREFIX>_BATCH_STOP_AT_DELTA=2.00 \
+<PREFIX>_BATCH_REPORT_PATH=../agent/reports/<mod>/<run-id>.txt \
+flutter test test/manual_<mod>_audit_batch_test.dart --run-skipped -r compact 2>&1 \
+  | tee /tmp/agent-runs/<mod>-<run-id>.log
+```
+
+For tasks with a custom threshold, replace `2.00` with `task.blunder_threshold_cp / 100.0`.
 
 ### Mod regression + king-castling + UI smoke
 

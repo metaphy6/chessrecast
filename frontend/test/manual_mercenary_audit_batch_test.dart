@@ -11,7 +11,9 @@ void main() {
       String env(String name, String fallback) =>
           Platform.environment[name] ?? fallback;
 
-      final report = runMercenaryAuditBatch([
+      final stopAtDeltaRaw = Platform.environment['MERC_BATCH_STOP_AT_DELTA'];
+
+      final args = [
         '--baseline-depth=${env('MERC_BATCH_BASELINE_DEPTH', '4')}',
         '--baseline-ms=${env('MERC_BATCH_BASELINE_MS', '120')}',
         '--baseline-skill=${env('MERC_BATCH_BASELINE_SKILL', '4')}',
@@ -21,7 +23,12 @@ void main() {
         '--max-plies=${env('MERC_BATCH_MAX_PLIES', '24')}',
         '--top-count=${env('MERC_BATCH_TOP_COUNT', '10')}',
         '--openings=${env('MERC_BATCH_OPENINGS', '')}',
-      ]);
+      ];
+      if (stopAtDeltaRaw != null && stopAtDeltaRaw.trim().isNotEmpty) {
+        args.add('--stop-at-delta=${stopAtDeltaRaw.trim()}');
+      }
+
+      final report = runMercenaryAuditBatch(args);
 
       final reportFile = File(
         env('MERC_BATCH_REPORT_PATH', '/tmp/mercenary_audit_batch_report.txt'),
