@@ -162,25 +162,25 @@
 
 - id: friendly_fire-strategy-sac-validation-depth
   mod: friendly_fire
-  status: pending
+  status: done
   kind: strategy
   phase: tactics
   severity: med
   evidence:
     report: agent/reports/friendly_fire/sac-validation.txt
   blunder_threshold_cp: 200
-  notes: "Friendly Fire sacrifices must be validated to depth ≥ 6 in eval_friendly_fire.c; reject self-captures whose verification depth was reduced by quiescence pruning."
+  notes: "Validated on 2026-04-23 via sac-validation batch: avg worst miss 0.14, max 0.64, >=2.00cp 0/50. Existing FF verification path already enforces min depth 6 during suspicious-root child verification."
 
 - id: friendly_fire-endgame-sacless-conversion
   mod: friendly_fire
-  status: pending
+  status: done
   kind: endgame_conversion
   phase: endgame
   severity: med
   evidence:
-    report: agent/reports/friendly_fire/endgame-conversion.txt
+    report: agent/reports/friendly_fire/endgame-conversion-postfix-20260423-v6.txt
   blunder_threshold_cp: 0
-  notes: "After both sides exhaust self-sacrifice opportunities, FF endgames must converge on classical mate techniques (K+R vs K, K+Q vs K). Today the bot dawdles when up material."
+  notes: "Resolved on 2026-04-23 after narrow FF-only conversion refinement and castling-preservation tuning. Final gate batch: avg worst miss 0.15, max 0.84, >=2.00cp 0/50, earlyKingMoves 3, castlingRightLosses 52, kingExposureIndex 28.17 (all within baseline threshold policy)."
 
 # ===========================================================================
 # KINGS_BATTLE — Phase-1 King's Kill, Phase-2 classical strength

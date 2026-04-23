@@ -581,7 +581,20 @@ int search_ff_king_safety_score(const Board *b, Move m, Color side) {
     home_rank = (side == WHITE) ? 0 : 7;
     undeveloped = ff_undeveloped_minor_count(b, side);
 
-    if (MOVE_IS_CASTLE(m)) score += 180;
+    {
+        int rights = (side == WHITE) ? (CASTLE_WK | CASTLE_WQ)
+                                     : (CASTLE_BK | CASTLE_BQ);
+
+        if (!MOVE_IS_CASTLE(m) && b->fullmove <= 24 && (b->castling & rights)) {
+            score -= 208;
+            if (SQ_ROW(from_sq) == home_rank && SQ_ROW(to_sq) == home_rank &&
+                abs(SQ_COL(to_sq) - SQ_COL(from_sq)) == 1) {
+                score -= 56;
+            }
+        }
+    }
+
+    if (MOVE_IS_CASTLE(m)) score += 220;
 
     if (SQ_ROW(from_sq) == home_rank && SQ_ROW(to_sq) == home_rank &&
         (SQ_COL(to_sq) <= 2 || SQ_COL(to_sq) >= 5)) {

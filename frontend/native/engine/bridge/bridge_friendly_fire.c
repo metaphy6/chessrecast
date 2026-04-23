@@ -485,6 +485,117 @@ static int ff_candidate_priority(const Board *board, Move move, Color side) {
     return score;
 }
 
+static bool ff_bridge_is_simple_conversion_endgame(const Board *board,
+                                                   Color side,
+                                                   PieceType *heavy_type_out) {
+    Color opp;
+    Bitboard side_rooks;
+    Bitboard side_queens;
+    Bitboard side_heavy;
+    Bitboard opp_non_king;
+
+    if (board->mod != MOD_FRIENDLY_FIRE) return false;
+
+    opp = color_opposite(side);
+    if (board->pieces[side][KING] == BB_EMPTY || board->pieces[opp][KING] == BB_EMPTY) {
+        return false;
+    }
+
+    side_rooks = board->pieces[side][ROOK];
+    side_queens = board->pieces[side][QUEEN];
+    side_heavy = side_rooks | side_queens;
+
+    if (bb_popcount(side_heavy) != 1) return false;
+    if (side_rooks != BB_EMPTY && side_queens != BB_EMPTY) return false;
+    if (board->pieces[side][PAWN] != BB_EMPTY ||
+        board->pieces[side][KNIGHT] != BB_EMPTY ||
+        board->pieces[side][BISHOP] != BB_EMPTY) {
+        return false;
+    }
+
+    opp_non_king = board->pieces[opp][PAWN] |
+                   board->pieces[opp][KNIGHT] |
+                   board->pieces[opp][BISHOP] |
+                   board->pieces[opp][ROOK] |
+                   board->pieces[opp][QUEEN];
+    if (opp_non_king != BB_EMPTY) return false;
+
+    if (heavy_type_out) {
+        *heavy_type_out = (side_rooks != BB_EMPTY) ? ROOK : QUEEN;
+    }
+
+    return true;
+}
+
+static int ff_bridge_simple_endgame_tiebreak(const Board *board,
+                                             Move move,
+                                             Color side) {
+    PieceType heavy_type;
+    Board child;
+    Color opp;
+    Square own_before;
+    Square own_after;
+    Square enemy_before;
+    Square enemy_after;
+    int score = 0;
+    bool gives_check;
+    int repetition_hits = 0;
+    MoveList replies;
+
+    if (!ff_bridge_is_simple_conversion_endgame(board, side, &heavy_type)) return 0;
+
+    child = *board;
+    board_make_move(&child, move);
+
+    opp = color_opposite(side);
+    own_before = bb_lsb(board->pieces[side][KING]);
+    own_after = bb_lsb(child.pieces[side][KING]);
+    enemy_before = bb_lsb(board->pieces[opp][KING]);
+    enemy_after = bb_lsb(child.pieces[opp][KING]);
+
+    score += 40 * (ff_bridge_center_distance(enemy_after) -
+                   ff_bridge_center_distance(enemy_before));
+    score += 44 * (ff_bridge_chebyshev_distance(own_before, enemy_before) -
+                   ff_bridge_chebyshev_distance(own_after, enemy_after));
+
+    gives_check = board_square_attacked(&child, enemy_after, side);
+    if (gives_check) score += 96;
+
+    if (child.ply >= 4) {
+        for (int i = child.ply - 2; i >= 0; i -= 2) {
+            if (child.history[i].hash == child.hash) repetition_hits++;
+        }
+    }
+
+    if (repetition_hits >= 2) {
+        score -= 1200;
+    } else if (repetition_hits == 1) {
+        score -= 320;
+    }
+
+    generate_moves(&child, &replies);
+    if (replies.count == 0) return gives_check ? 10000 : -10000;
+
+    if (replies.count <= 2) score += 60;
+    if (replies.count >= 7) score -= 40;
+
+    if (MOVE_PIECE(move) == KING &&
+        ff_bridge_chebyshev_distance(own_after, enemy_after) <
+            ff_bridge_chebyshev_distance(own_before, enemy_before)) {
+        score += 24;
+    }
+
+    if (MOVE_PIECE(move) != KING && !gives_check &&
+        ff_bridge_chebyshev_distance(own_after, enemy_after) >=
+            ff_bridge_chebyshev_distance(own_before, enemy_before) &&
+        ff_bridge_center_distance(enemy_after) <= ff_bridge_center_distance(enemy_before)) {
+        score -= 80;
+    }
+
+    (void)heavy_type;
+    return score;
+}
+
 static bool ff_root_looks_suspicious(const Board *board, Move move, Color side) {
     if (board->mod != MOD_FRIENDLY_FIRE || move == MOVE_NONE) return false;
 
@@ -622,6 +733,70 @@ SearchResult ff_refine_result(const Board *board,
             raw.best_move = regression_override;
             return raw;
         }
+    }
+
+    if (ff_bridge_is_simple_conversion_endgame(board, board->side, NULL)) {
+        int endgame_best_score = -32000;
+        int endgame_best_tiebreak = -32000;
+        Move endgame_best_move = raw.best_move;
+        int raw_score = -32000;
+        int raw_tiebreak = -32000;
+        int endgame_verify_depth = (max_depth < 7) ? 7 : max_depth + 2;
+        int endgame_verify_time = (time_ms <= 0) ? 520 : clamp_int(time_ms * 5, 380, 700);
+
+        for (int i = 0; i < ml.count; i++) {
+            Move move = ml.moves[i];
+            int score;
+            int tiebreak;
+
+            search_reset(1);
+            score = kb_verify_child_score(
+                board,
+                move,
+                endgame_verify_time,
+                endgame_verify_depth,
+                skill_level
+            );
+            tiebreak = ff_bridge_simple_endgame_tiebreak(board, move, board->side);
+
+            if (move == raw.best_move) {
+                raw_score = score;
+                raw_tiebreak = tiebreak;
+            }
+
+            if (score > endgame_best_score ||
+                (score == endgame_best_score && tiebreak > endgame_best_tiebreak)) {
+                endgame_best_score = score;
+                endgame_best_tiebreak = tiebreak;
+                endgame_best_move = move;
+            }
+        }
+
+        if (raw_score == -32000) {
+            search_reset(1);
+            raw_score = kb_verify_child_score(
+                board,
+                raw.best_move,
+                endgame_verify_time,
+                endgame_verify_depth,
+                skill_level
+            );
+            raw_tiebreak = ff_bridge_simple_endgame_tiebreak(
+                board,
+                raw.best_move,
+                board->side
+            );
+        }
+
+        if (endgame_best_move != raw.best_move &&
+            (endgame_best_score > raw_score ||
+             (endgame_best_score == raw_score && endgame_best_tiebreak > raw_tiebreak) ||
+             (endgame_best_tiebreak > raw_tiebreak && endgame_best_score >= raw_score - 12))) {
+            raw.best_move = endgame_best_move;
+            raw.score = endgame_best_score;
+        }
+
+        return raw;
     }
 
     if (!suspicious_root && MOVE_PIECE(raw.best_move) == ROOK &&

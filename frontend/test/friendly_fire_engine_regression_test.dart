@@ -279,6 +279,22 @@ void main() {
         expect(search.bestMove, isNotNull);
         expect(_moveNotation(search.bestMove), isNot('a1d1'));
         expect(_moveNotation(search.bestMove), 'd2e3');
+      },F, Heir, Mer
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'avoids KRK repetition reset from the e5-g4 squeeze position',
+      () {
+        final board = ChessBoard.fromFEN(
+          '8/8/8/4K3/6k1/8/8/7R w - - 0 1',
+          gameType: ModsEnum.friendlyFire,
+        );
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), isNot('e5e4'));
+        expect(search.bestMove!.from.algebraic, 'h1');
       },
       skip: !NativeEngine.isAvailable,
     );
