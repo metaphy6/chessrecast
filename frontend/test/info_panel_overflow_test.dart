@@ -10,7 +10,6 @@
 /// to its natural height, so there is no overflow regardless of screen size.
 library;
 
-import 'package:chessrecast/board/draw_rules.dart';
 import 'package:chessrecast/board/utils/exporter.dart';
 import 'package:chessrecast/management/controller.dart';
 import 'package:chessrecast/ui/info_panel.dart';
