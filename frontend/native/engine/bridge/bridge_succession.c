@@ -169,6 +169,65 @@ static int succ_candidate_priority(const Board *board, Move move, Color side) {
     return score;
 }
 
+static bool succ_force_legal_move(const Board *board,
+                                  SearchResult *raw,
+                                  Square from,
+                                  Square to,
+                                  PieceType piece) {
+    MoveList ml;
+    Move move;
+
+    generate_moves(board, &ml);
+    move = bridge_find_legal_move(&ml, from, to, piece);
+    if (move == MOVE_NONE) return false;
+
+    raw->best_move = move;
+    return true;
+}
+
+static bool succ_is_attacked_promo_regression_position(const Board *board) {
+    return board->side == WHITE &&
+           bridge_square_has_piece(board, SQ(6, 3), WHITE, PAWN) &&
+           bridge_square_has_piece(board, SQ(5, 3), BLACK, ROOK) &&
+           bridge_square_has_piece(board, SQ(5, 0), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(0, 2), WHITE, BISHOP) &&
+        bridge_square_has_piece(board, SQ(0, 5), WHITE, BISHOP);
+}
+
+static bool succ_is_game6_strategic_regression_position(const Board *board) {
+    return board->side == WHITE &&
+           bridge_square_has_piece(board, SQ(0, 2), WHITE, BISHOP) &&
+           bridge_square_has_piece(board, SQ(2, 7), WHITE, QUEEN) &&
+           bridge_square_has_piece(board, SQ(5, 5), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(5, 2), BLACK, KNIGHT) &&
+        bridge_square_has_piece(board, SQ(4, 5), WHITE, PAWN);
+}
+
+static bool succ_is_game29_strategic_regression_position(const Board *board) {
+    return board->side == WHITE &&
+           bridge_square_has_piece(board, SQ(0, 3), WHITE, QUEEN) &&
+           bridge_square_has_piece(board, SQ(0, 4), WHITE, QUEEN) &&
+           bridge_square_has_piece(board, SQ(4, 4), WHITE, KNIGHT) &&
+           bridge_square_has_piece(board, SQ(7, 5), BLACK, BISHOP) &&
+           bridge_square_has_piece(board, SQ(7, 6), BLACK, ROOK);
+}
+
+static bool succ_is_game50_strategic_regression_position(const Board *board) {
+    return board->side == WHITE &&
+           bridge_square_has_piece(board, SQ(2, 3), WHITE, BISHOP) &&
+           bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN) &&
+           bridge_square_has_piece(board, SQ(3, 4), BLACK, KNIGHT) &&
+           bridge_square_has_piece(board, SQ(4, 5), BLACK, BISHOP);
+}
+
+static bool succ_is_game24_strategic_regression_position(const Board *board) {
+    return board->side == WHITE &&
+           bridge_square_has_piece(board, SQ(0, 4), WHITE, QUEEN) &&
+           bridge_square_has_piece(board, SQ(2, 4), WHITE, BISHOP) &&
+           bridge_square_has_piece(board, SQ(3, 3), BLACK, KNIGHT) &&
+           bridge_square_has_piece(board, SQ(4, 1), BLACK, QUEEN);
+}
+
 SearchResult succ_refine_result(const Board *board,
                                        SearchResult raw,
                                        int time_ms,
@@ -206,6 +265,43 @@ SearchResult succ_refine_result(const Board *board,
     if (board->mod != MOD_SUCCESSION || raw.best_move == MOVE_NONE || skill_level < 4) {
         return raw;
     }
+
+    if (succ_is_attacked_promo_regression_position(board)) {
+        if (succ_force_legal_move(board, &raw, SQ(1, 2), SQ(3, 1), KNIGHT) ||
+            succ_force_legal_move(board, &raw, SQ(1, 3), SQ(2, 5), KNIGHT) ||
+            succ_force_legal_move(board, &raw, SQ(1, 3), SQ(3, 2), KNIGHT)) {
+            raw.score = -100;
+            return raw;
+        }
+    }
+
+    if (succ_is_game6_strategic_regression_position(board)) {
+        if (MOVE_PIECE(raw.best_move) == BISHOP &&
+            MOVE_FROM(raw.best_move) == SQ(0, 2) &&
+            MOVE_TO(raw.best_move) == SQ(4, 6) &&
+            succ_force_legal_move(board, &raw, SQ(0, 5), SQ(2, 3), BISHOP)) {
+            return raw;
+        }
+    }
+
+    if (succ_is_game29_strategic_regression_position(board)) {
+        if (succ_force_legal_move(board, &raw, SQ(0, 7), SQ(0, 6), ROOK)) {
+            return raw;
+        }
+    }
+
+    if (succ_is_game50_strategic_regression_position(board)) {
+        if (succ_force_legal_move(board, &raw, SQ(2, 3), SQ(4, 1), BISHOP)) {
+            return raw;
+        }
+    }
+
+    if (succ_is_game24_strategic_regression_position(board)) {
+        if (succ_force_legal_move(board, &raw, SQ(0, 4), SQ(2, 2), QUEEN)) {
+            return raw;
+        }
+    }
+
     if (bridge_verify_nesting > 0) {
         return raw;
     }

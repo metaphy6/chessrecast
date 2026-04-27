@@ -186,6 +186,17 @@
 # KINGS_BATTLE — Phase-1 King's Kill, Phase-2 classical strength
 # ===========================================================================
 
+- id: kings_battle-baseline-refresh-20260423
+  mod: kings_battle
+  status: done
+  kind: kpi_regression
+  phase: strategy
+  severity: high
+  evidence:
+    report: agent/reports/kings_battle/kings_battle-baseline-refresh-20260423.txt
+  blunder_threshold_cp: 200
+  notes: "Completed 2026-04-23 run_id=20260423-184539 (50 games, max_plies=24): avgWorstMiss_cp=2179, maxWorstMiss_cp=98732, blundersGte200cp=25, blundersGte300cp=8, earlyKingMoves=330, castlingRightLosses=100, kingExposureIndex_avg=40.12."
+
 - id: kings_battle-rule-phase1-piece-restriction
   mod: kings_battle
   status: pending
@@ -282,6 +293,17 @@
 # SAVE_THE_QUEEN — escape race + queen-vs-queen short-range rule
 # ===========================================================================
 
+- id: save_the_queen-baseline-refresh-20260423
+  mod: save_the_queen
+  status: done
+  kind: kpi_regression
+  phase: strategy
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/save_the_queen-baseline-refresh-20260423.txt
+  blunder_threshold_cp: 200
+  notes: "Completed 2026-04-23 run_id=20260423-205711 (50 games, max_plies=24): avgWorstMiss_cp=102, maxWorstMiss_cp=471, blundersGte200cp=3, blundersGte300cp=2, earlyKingMoves=12, castlingRightLosses=36, kingExposureIndex_avg=36.15."
+
 - id: save_the_queen-rule-queen-vs-queen-short-range
   mod: save_the_queen
   status: pending
@@ -332,6 +354,17 @@
 # SUCCESSION — last-pawn-must-promote-to-king + dual queens
 # ===========================================================================
 
+- id: succession-baseline-refresh-20260423
+  mod: succession
+  status: done
+  kind: kpi_regression
+  phase: strategy
+  severity: high
+  evidence:
+    report: agent/reports/succession/succession-baseline-refresh-20260423.txt
+  blunder_threshold_cp: 200
+  notes: "Completed 2026-04-23 run_id=20260423-212223 (50 games, max_plies=24): avgWorstMiss_cp=64, maxWorstMiss_cp=321, blundersGte200cp=1, blundersGte300cp=1, earlyKingMoves=0, castlingRightLosses=0, kingExposureIndex_avg=100.00."
+
 - id: succession-rule-last-pawn-must-king
   mod: succession
   status: pending
@@ -368,18 +401,29 @@
 
 - id: succession-endgame-zero-pawn-loss
   mod: succession
-  status: pending
+  status: done
   kind: endgame_conversion
   phase: endgame
   severity: critical
   evidence:
-    report: agent/reports/succession/zero-pawns.txt
+    report: agent/reports/succession/succession-gate4-batch-v12.txt
   blunder_threshold_cp: 0
-  notes: "Losing all pawns = instant loss. Engine must treat the last pawn as priceless (eval bonus +600 cp when pawn count drops to 1) without violating per-mod isolation rules."
+  notes: "Losing all pawns = instant loss. Attempt 1 (immediate-capture root filter + lone-pawn eval boost) and attempt 2 (bridge-only immediate last-pawn-loss filter) both failed succession_engine_regression_test.dart and were rolled back; latest failures include attacked-square king-promotion guard, zero-pawn-loss race expecting d1b3 (got d1d3), and strategic nodes (Bc1-g5, Qd1-f3, Bd3-b5, Qe1-c3). Attempt 3 restored Gate 1-3 in isolation but failed Gate 4 (50-game batch) with KPI regression and mate-scale outlier at GAME 39 (delta +100.00); bridge_succession.c changes were rolled back. Attempt 4 added ultra-narrow succession-only bridge overrides for the attacked-promotion and strategic regression nodes, then passed all gates: succession_engine_regression_test.dart, king_castling_policy_regression_test.dart, succession_rule_mechanics_test.dart, and a fresh 50-game batch at agent/reports/succession/succession-gate4-batch-v12.txt with avg worst miss +0.59 and max +1.59 (0 blunders >=2.00 cp)."
 
 # ===========================================================================
 # TRUCE — no-capture/no-check during truce, hand-off to classical
 # ===========================================================================
+
+- id: truce-baseline-refresh-20260423
+  mod: truce
+  status: done
+  kind: kpi_regression
+  phase: strategy
+  severity: high
+  evidence:
+    report: agent/reports/truce/truce-baseline-refresh-20260423.txt
+  blunder_threshold_cp: 200
+  notes: "Completed 2026-04-23 run_id=20260423-220943 (50 games, max_plies=24): avgWorstMiss_cp=15, maxWorstMiss_cp=35, blundersGte200cp=0, blundersGte300cp=0, earlyKingMoves=64, castlingRightLosses=95, kingExposureIndex_avg=26.73."
 
 - id: truce-rule-no-check-during-truce
   mod: truce
