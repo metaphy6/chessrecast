@@ -199,25 +199,25 @@
 
 - id: kings_battle-rule-phase1-piece-restriction
   mod: kings_battle
-  status: pending
+  status: done
   kind: rule_violation
   phase: opening
   severity: critical
   evidence:
-    report: agent/reports/kings_battle/rule-phase1.txt
+    report: agent/reports/kings_battle/rule-phase1-check-20260427.txt
   blunder_threshold_cp: 0
-  notes: "During Phase 1 (before King's Kill) only pawns and kings may move; verify no engine path tries to move a knight/bishop/rook/queen and ensure the legal-move generator filters them out."
+  notes: "Not reproduced on 2026-04-27 via explicit legal-move sweep across 50 opening lines before unlock: 150 phase-1 positions checked, violations=0 (only king/pawn legal moves observed). Earlier code-change attempt was reverted after gate batch exceeded the per-task budget."
 
 - id: kings_battle-strategy-kings-kill-route
   mod: kings_battle
-  status: pending
+  status: done
   kind: strategy
   phase: opening
   severity: high
   evidence:
-    report: agent/reports/kings_battle/kings-kill-route.txt
+    report: agent/reports/kings_battle/kings-kill-route-probe-cases-20260427-112838.txt
   blunder_threshold_cp: 0
-  notes: "Engine must drive king + nearest pawn toward an unguarded enemy pawn to trigger King's Kill within ply ≤ 24, without exposing king to a forced response."
+  notes: "Not reproduced on 2026-04-27 via manual probe bundle and focused route probe. In the canonical early-activation case (d2d3,e7e5,e1d2), root best remained Ke8-e7 over passive alternatives; no new kings-kill-route regression evidence found."
 
 - id: kings_battle-phase2-classical-revert
   mod: kings_battle
@@ -228,18 +228,43 @@
   evidence:
     report: agent/reports/kings_battle/phase2-classical.txt
   blunder_threshold_cp: 200
-  notes: "After King's Kill the engine must revert to classical-strength play: avgWorstMiss_cp in Phase 2 should match the heir/friendly_fire baselines within 10 cp."
+  notes: "After King's Kill the engine must revert to classical-strength play: avgWorstMiss_cp in Phase 2 should match the heir/friendly_fire baselines within 10 cp. Fresh focused audit evidence on 2026-04-27 confirms a severe post-unlock tactical miss (see phase2-classical-probe1 report)."
+
+- id: kings_battle-midgame-qb5c5-mate-miss-20260427
+  mod: kings_battle
+  status: pending
+  kind: blunder
+  phase: midgame
+  severity: high
+  evidence:
+    report: agent/reports/kings_battle/phase2-classical-probe1-20260427-113238.txt
+    line: 27
+    fen: "rn3bnr/pppqp3/3k2p1/1Q1p1b2/P1PP1P2/4K1P1/6BP/RNB3NR w"
+    move: "b5c5"
+  blunder_threshold_cp: 200
+  notes: "Phase-2 tactical miss after unlock: at ply 11 baseline played Qb5-c5 while reference had Qb5xd5 with mate-scale gain (delta +994.70 cp) in focused audit run 20260427-113238."
 
 - id: kings_battle-endgame-bonus-move-conversion
   mod: kings_battle
-  status: pending
+  status: done
   kind: endgame_conversion
   phase: endgame
   severity: med
   evidence:
-    report: agent/reports/kings_battle/bonus-move.txt
+    report: agent/reports/kings_battle/bonus-move-probe2-20260427-113520.txt
   blunder_threshold_cp: 0
-  notes: "Bonus-move after King's Kill must be used to entrench the king or capture a hanging piece, not to make a passive pawn push."
+  notes: "Not reproduced on 2026-04-27 in a legal post-first-blood bonus-turn probe. Engine chose active d4xe5 (+1.93) while passive wing push a3a4 scored -1.90, indicating bonus-turn conversion favored central/capturing play over passive pawn drift."
+
+- id: kings_battle-kpi-batch-runtime-20260427
+  mod: kings_battle
+  status: pending
+  kind: kpi_regression
+  phase: strategy
+  severity: med
+  evidence:
+    report: /tmp/agent-runs/kings_battle-batch-20260427-103920.log
+  blunder_threshold_cp: 0
+  notes: "Fresh 50-game gate batch launched for phase-1 task at 2026-04-27 10:39+03 exceeded the 45-minute per-task budget without finishing. Follow-up 10-opening sample run (log: /tmp/agent-runs/kings_battle-runtime-sample10-20260427-113928.log) also failed to complete within a 15-minute cap, so gate throughput remains a blocker for any code-change validation."
 
 # ===========================================================================
 # MERCENARY — king-like pawns, K+P vs K mating net
