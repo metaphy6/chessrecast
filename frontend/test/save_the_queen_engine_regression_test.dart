@@ -50,6 +50,27 @@ void main() {
     );
 
     test(
+      'prefers a2xb3 in the GAME 19 tactical node',
+      () {
+        final board = ChessBoard.fromFEN(
+          'N1b2bnr/ppQpkppp/8/4p3/8/1q1P1N2/PP1KPPPP/n1B2B1R w',
+          gameType: ModsEnum.saveTheQueen,
+        );
+
+        final result = NativeEngine().findBestMoveSync(
+          board,
+          timeLimitMs: 120,
+          maxDepth: 4,
+          skillLevel: 4,
+        );
+
+        expect(result.score, greaterThan(-400));
+        expect(_moveNotation(result.bestMove), 'a2b3');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
       'treats reaching opponent prison with escaped queen as immediate win',
       () {
         final board = ChessBoard.fromFEN(
