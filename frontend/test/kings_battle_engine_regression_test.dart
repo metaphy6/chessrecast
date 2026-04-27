@@ -214,6 +214,54 @@ void main() {
     );
 
     test(
+      'prefers Qb5xd5 over Qb5-c5 in the unlocked c5-g6 continuation',
+      () {
+        final board = _boardFromReplay([
+          'e2e3',
+          'f7f5',
+          'e1e2',
+          'e8f7',
+          'e2d3',
+          'f7f6',
+          'b2b3',
+          'f6e5',
+          'f2f4',
+          'e5d5',
+          'e3e4',
+          'd5d6',
+          'g2g3',
+          'g7g6',
+          'e4f5',
+          'd6d5',
+          'f5g6',
+          'h7g6',
+          'a2a4',
+          'd7d6',
+          'c2c4',
+          'd5c5',
+          'b3b4',
+          'c5b4',
+          'b4c5',
+          'd1b3',
+          'c8f5',
+          'd3e3',
+          'd8d7',
+          'd2d4',
+          'c5c6',
+          'f1g2',
+          'd6d5',
+          'b3b5',
+          'c6d6',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'b5d5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
       'keeps the black king tucked with Kc6-b6 in the unlocked f3-f5 line',
       () {
         final board = _boardFromReplay([
