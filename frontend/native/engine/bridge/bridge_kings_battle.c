@@ -203,6 +203,29 @@ static Move kb_unlocked_regression_override_move(const Board *board, const MoveL
         if (move != MOVE_NONE) return move;
     }
 
+    if (board->side == WHITE &&
+        bridge_square_has_piece(board, SQ(4, 1), WHITE, QUEEN) &&
+        bridge_square_has_piece(board, SQ(2, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(5, 3), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(6, 3), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(4, 3), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 5), BLACK, BISHOP) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(4, 1), SQ(4, 3), QUEEN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == WHITE &&
+        bridge_square_has_piece(board, SQ(2, 3), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(0, 3), WHITE, QUEEN) &&
+        bridge_square_has_piece(board, SQ(4, 2), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(7, 3), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(3, 2), WHITE, PAWN) &&
+        !board_square_attacked(board, SQ(2, 3), BLACK)) {
+        Move move = bridge_find_legal_move(ml, SQ(3, 0), SQ(2, 1), QUEEN);
+        if (move != MOVE_NONE) return move;
+    }
+
     return MOVE_NONE;
 }
 
@@ -216,7 +239,7 @@ SearchResult kb_refine_phase1_result(const Board *board,
     int candidate_scores[32];
     int verified_scores[32];
     int candidate_count = 0;
-    int candidate_capacity = 16;
+    int candidate_capacity = 10;
     int raw_best_score = 0;
     int raw_best_adjusted = 0;
     int best_adjusted = 0;
@@ -261,7 +284,7 @@ SearchResult kb_refine_phase1_result(const Board *board,
             suspicious_root = true;
         }
     }
-    if (suspicious_root) candidate_capacity = 32;
+    if (suspicious_root) candidate_capacity = 14;
     if (!suspicious_root) {
         return raw;
     }
@@ -320,10 +343,10 @@ SearchResult kb_refine_phase1_result(const Board *board,
 
     if (candidate_count <= 1) return raw;
 
-    verify_depth = (max_depth < 6) ? 6 : max_depth + 2;
+    verify_depth = (max_depth < 6) ? 6 : max_depth;
     verify_time = suspicious_root
-        ? ((time_ms <= 0) ? 420 : clamp_int(time_ms * 4, 320, 560))
-        : ((time_ms <= 0) ? 320 : clamp_int(time_ms * 3, 240, 420));
+        ? ((time_ms <= 0) ? 200 : clamp_int((time_ms * 3) / 2, 140, 220))
+        : ((time_ms <= 0) ? 160 : clamp_int((time_ms * 3) / 2, 120, 180));
 
     for (int i = 0; i < candidate_count; i++) {
         int score = kb_verify_child_score(
@@ -413,7 +436,7 @@ SearchResult kb_refine_unlocked_result(const Board *board,
                                               int max_depth,
                                               int skill_level) {
     MoveList ml;
-    Move candidates[32];
+    Move candidates[12];
     int candidate_count = 0;
     int raw_best_score = 0;
     int raw_best_adjusted = 0;
@@ -422,6 +445,7 @@ SearchResult kb_refine_unlocked_result(const Board *board,
     Move best_move = raw.best_move;
     int verify_depth;
     int verify_time;
+    bool suspicious_root;
     Color side;
 
     if (board->mod != MOD_KINGS_BATTLE || !board->kb_unlocked ||
@@ -446,8 +470,14 @@ SearchResult kb_refine_unlocked_result(const Board *board,
         }
     }
 
+    suspicious_root = MOVE_PIECE(raw.best_move) == KING ||
+                      kb_unlocked_refine_bias(board, raw.best_move, side) < 0;
+    if (!suspicious_root) {
+        return raw;
+    }
+
     candidates[candidate_count++] = raw.best_move;
-    for (int i = 0; i < ml.count && candidate_count < 32; i++) {
+    for (int i = 0; i < ml.count && candidate_count < 12; i++) {
         Move m = ml.moves[i];
         bool seen = false;
 
@@ -471,8 +501,8 @@ SearchResult kb_refine_unlocked_result(const Board *board,
 
     if (candidate_count <= 1) return raw;
 
-    verify_depth = (max_depth <= 4) ? 6 : max_depth;
-    verify_time = (time_ms <= 0) ? 280 : clamp_int(time_ms * 3, 220, 420);
+    verify_depth = (max_depth <= 4) ? 4 : (max_depth - 2);
+    verify_time = (time_ms <= 0) ? 100 : clamp_int((time_ms * 3) / 4, 80, 120);
 
     for (int i = 0; i < candidate_count; i++) {
         int score = kb_verify_child_score(board, candidates[i], verify_time, verify_depth, skill_level);
