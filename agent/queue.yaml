@@ -226,9 +226,9 @@
   phase: midgame
   severity: high
   evidence:
-    report: agent/reports/kings_battle/kings_battle-gate4-batch-20260428-014024.txt
+    report: /tmp/agent-runs/kings_battle-batch-20260428-160408-report.txt
   blunder_threshold_cp: 200
-  notes: "After King's Kill the engine must revert to classical-strength play: avgWorstMiss_cp in Phase 2 should match the heir/friendly_fire baselines within 10 cp. Fresh full 50-opening Gate 4 completed on 2026-04-28 (run 20260428-014024) with avg worst miss +1.80 and max +6.96; runtime blocker is cleared, but phase-2 quality remains pending because the current aggregate is still above the classical-strength target."
+  notes: "After King's Kill the engine must revert to classical-strength play: avg worst miss in Phase 2 should match the heir/friendly_fire quality target band. Fresh full 50-opening Gate 4 completed on 2026-04-28 (run 20260428-160408): avg worst miss +1.58, max +3.94, earlyKingMoves=328, castlingRightLosses=100, kingExposureIndex=40.88. KPI guards vs agent/baselines/kings_battle.json are still within the 5% charter threshold, but the stricter classical-strength quality target is still pending."
 
 - id: kings_battle-midgame-qb5c5-mate-miss-20260427
   mod: kings_battle
@@ -267,17 +267,16 @@
 
 - id: kings_battle-opening-game37-f7f6-blunder-20260428
   mod: kings_battle
-  status: pending
+  status: done
   kind: blunder
   phase: opening
   severity: high
   evidence:
-    report: agent/reports/kings_battle/kings_battle-gate4-batch-20260428-014024.txt
-    line: 207
+    report: /tmp/agent-runs/kb-probe-game37-post-20260428-160046.txt
     fen: "rnbqkbnr/ppp1pppp/8/3p4/8/3P4/PPPKPPPP/RNBQ1BNR b"
-    move: "f7f6"
+    move: "e8d7"
   blunder_threshold_cp: 200
-  notes: "Fresh finding from completed 50-opening Gate 4 run 20260428-014024: GAME 37 is now the top miss at +6.96 (played f7-f6, reference Ke8-d7)."
+  notes: "Closed on 2026-04-28 after targeted replay probe at reference settings (d2d3,d7d5,e1d2): root best is Ke8-d7 and f7-f6 scores materially worse (-8.20), so the original blunder no longer reproduces."
 
 # ===========================================================================
 # MERCENARY — king-like pawns, K+P vs K mating net
@@ -638,27 +637,52 @@
 
 - id: kings_battle-blunder-d2d3d7d5-game37-20260428
   mod: kings_battle
-  status: pending
+  status: done
   kind: blunder
   phase: opening
   severity: high
   evidence:
-    report: agent/reports/kings_battle/kings_battle-rule-fix-20260428-130642.txt
-    line: 1
+    report: /tmp/agent-runs/kings_battle-batch-20260428-160408-report.txt
     fen: "rnbqkbnr/ppp1pppp/8/3p4/8/3P4/PPPKPPPP/RNBQ1BNR b - - 0 0"
-    move: "f7-f6"
+    move: "d5xc4"
   blunder_threshold_cp: 200
-  notes: "Worst miss in 50-game post-rulefix batch: GAME 37 d2d3,d7d5 → engine plays f7-f6 (delta +6.96, ref Ke8-d7). Pre-existing engine behavior unrelated to rule fix; needs eval_kings_battle.c king-development tuning and/or heuristics_kings_battle.c move-ordering nudge for Phase-1 king march. Independent task — do not bundle with rule-update commit."
+  notes: "Closed on 2026-04-28. The original f7-f6 motif no longer reproduces on replay probes and fresh Gate 4 evidence; GAME 37 now shows a different top miss (d5xc4 vs c7c5, delta +3.23), tracked separately as a new finding."
 
 - id: kings_battle-blunder-c2c4f7f5-game18-20260428
   mod: kings_battle
-  status: pending
+  status: done
   kind: blunder
   phase: midgame
   severity: med
   evidence:
-    report: agent/reports/kings_battle/kings_battle-rule-fix-20260428-130642.txt
+    report: /tmp/agent-runs/kings_battle-batch-20260428-160408-report.txt
     fen: "rnbq1bnr/p6p/2ppp1p1/1P1k1p2/1P3K1P/3P2P1/P3PP2/RNBQ1BNR w - - 0 0"
-    move: "b5xc6"
+    move: "a7-a6"
   blunder_threshold_cp: 200
-  notes: "GAME 18 c2c4,f7f5 delta +4.76 — pawn capture b5xc6 vs ref e2-e4. Phase-1 motif; pawn captures don't unlock so engine should value central tempo over pawn grab here. Tune eval_kings_battle.c phase-1 weights."
+  notes: "Closed on 2026-04-28. The original b5xc6 motif no longer reproduces in the fresh 50-game Gate 4 run; GAME 18 now lands at delta +1.27 with move a7-a6, below the 2.00 blunder threshold."
+
+- id: kings_battle-blunder-e2e3b7b5-game35-20260428
+  mod: kings_battle
+  status: pending
+  kind: blunder
+  phase: midgame
+  severity: high
+  evidence:
+    report: /tmp/agent-runs/kings_battle-batch-20260428-160408-report.txt
+    fen: "rnbq1bnr/2p1p2p/2k2pp1/Pp6/3KP3/2P4P/P4PP1/RNBQ1BNR b"
+    move: "c6d6"
+  blunder_threshold_cp: 200
+  notes: "Fresh Gate 4 finding (run 20260428-160408): GAME 35 e2e3,b7b5 is the new top miss at +3.94 (played Kc6-d6, reference e7-e5)."
+
+- id: kings_battle-blunder-f2f4f7f5-game13-20260428
+  mod: kings_battle
+  status: pending
+  kind: blunder
+  phase: midgame
+  severity: high
+  evidence:
+    report: /tmp/agent-runs/kings_battle-batch-20260428-160408-report.txt
+    fen: "rnbq1bnr/2p1p2p/1p1p1kp1/PK3p2/5P2/2P5/P2PP1PP/RNBQ1BNR b"
+    move: "b6a5"
+  blunder_threshold_cp: 200
+  notes: "Fresh Gate 4 finding (run 20260428-160408): GAME 13 f2f4,f7f5 remains a high miss at +3.89 (played b6xa5, reference e7-e5)."

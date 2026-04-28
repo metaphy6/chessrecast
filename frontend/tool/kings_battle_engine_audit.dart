@@ -77,7 +77,7 @@ String runKingsBattleAudit(List<String> args) {
     }
   }
   lines.add(
-    "Exact King's Battle reproduction requires replay history once unlock/bonus-turn state matters, not just FEN.",
+    "Exact King's Battle reproduction requires replay history once unlock/bonus/deadlock-counter state matters, not just FEN.",
   );
 
   final replayPrefix = <String>[...options.openingMoves];
