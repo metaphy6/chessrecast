@@ -36,7 +36,9 @@ class Orchestrator {
       }
     }
 
-    // Check for Kings' Battle mode special moves (King's Kill or pawn promotion)
+    // Kings' Battle: detect King's Kill (king captures pawn) which both
+    // unlocks Phase 2 and grants the capturer a bonus move. No other
+    // event (pawn capture, pawn push, promotion) triggers either effect.
     if (board.gameType == ModsEnum.kingsBattle) {
       final kingsBattleBoard = mods.kingsBattle.handleSpecialMove(board, move);
       if (kingsBattleBoard != null) {

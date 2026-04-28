@@ -74,8 +74,8 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 - Only pawns and kings can move
 - Kings and pawns can capture any piece
 - Kings cannot capture each other
-- If king captures a pawn = "King's Kill" → triggers Phase 2 + bonus move
-- Pawn promotion unlocks all pieces
+- The ONLY trigger that ends Phase 1 is a king capturing a pawn ("King's Kill"). It both unlocks Phase 2 AND grants the capturer one bonus (additional) move immediately.
+- Pawn captures, pawn pushes, and pawn promotions do NOT unlock Phase 2 and do NOT grant a bonus move. A pawn that promotes during Phase 1 becomes a piece that remains locked until a King's Kill occurs.
 
 **Phase 2 (After King's Kill):**
 - All pieces can move normally
