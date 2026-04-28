@@ -611,7 +611,7 @@ Classic insufficient-material rules apply. In practice this is rare because both
 
 | Draw mechanism | Active? | Threshold / Condition |
 |---|---|---|
-| Stalemate | ✅ | During truce: no legal moves → stalemate. After truce: standard. |
+| Stalemate | ✅ | During truce: no legal moves → truce broken. Then, standard stalemate rules apply. |
 | Insufficient material | ✅ | Classic set |
 | Fifty-move rule | ✅ | 100 half-moves |
 | Threefold repetition | ✅ | 3× same position |

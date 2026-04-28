@@ -71,6 +71,84 @@ void main() {
     );
 
     test(
+      'prefers a2-a3 in the GAME 30 opening-prison-walk node',
+      () {
+        final board = _boardFromReplay([
+          'e2e3',
+          'c7c5',
+          'd8c7',
+          'e7e6',
+          'b1c3',
+          'b8c6',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(search.score, greaterThan(-300));
+        expect(_moveNotation(search.bestMove), 'a2a3');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'prefers a7-a6 in the GAME 8/9 opening node',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'g8f6',
+          'g1f3',
+          'b8c6',
+          'c1d2',
+          'b7b5',
+          'b1c3',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(search.score, greaterThan(-400));
+        expect(_moveNotation(search.bestMove), 'a7a6');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'prefers Be7-c5 in the GAME 34 midgame node',
+      () {
+        final board = _boardFromReplay([
+          'd2d3',
+          'b8c6',
+          'g1f3',
+          'c6b4',
+          'b1a3',
+          'g8f6',
+          'c1d2',
+          'a7a5',
+          'f3d4',
+          'e7e5',
+          'd4b5',
+          'b4d5',
+          'e2e4',
+          'f8e7',
+          'a3c4',
+          'd5b4',
+          'b5c7',
+          'e8f8',
+          'a1c1',
+          'a8b8',
+          'c4b6',
+          'b4a2',
+          'c1b1',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(search.score, greaterThan(-400));
+        expect(_moveNotation(search.bestMove), 'e7c5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
       'treats reaching opponent prison with escaped queen as immediate win',
       () {
         final board = ChessBoard.fromFEN(
