@@ -44,7 +44,7 @@ String runKingsBattlePositionProbe(List<String> args) {
   lines.add('Position FEN: ${board.toFEN()}');
   lines.add('Side to move: ${board.currentPlayer.name}');
   lines.add(
-    "Exact King's Battle reproduction requires replay history once unlock/bonus-turn state matters, not just FEN.",
+    "Exact King's Battle reproduction requires replay history once unlock/bonus/deadlock-counter state matters, not just FEN.",
   );
   engine.resetState();
   final root = engine.findBestMoveSync(

@@ -88,7 +88,14 @@ static int kb_phase1_refine_bias(const Board *board, Move move, Color side) {
         if (board->pieces[side][KING] != BB_EMPTY) {
             int king_file = SQ_COL(bb_lsb(board->pieces[side][KING]));
             if (from_rank == 1 && to_rank == 2 && abs(file - king_file) <= 1) {
-                bias += 110;
+                if (king_rank >= 2) {
+                    bias += 110;
+                } else {
+                    /* Before king activation, avoid spending tempi on
+                     * king-shield pawn nudges that stall central king
+                     * progress in Phase 1. */
+                    bias -= 180;
+                }
             }
             if (king_rank >= 2 && king_file <= 2 && file >= 3 &&
                 from_rank == 1 && to_rank == 2) {

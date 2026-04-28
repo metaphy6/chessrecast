@@ -58,6 +58,46 @@ void main() {
     });
 
     test(
+      'king\'s kill can give check and the capturer still keeps the bonus turn',
+      () {
+        // Bishop a2 targets g8 through b3-c4-d5-e6-f7-g8.
+        // White king on d5 captures c6 (King's Kill), vacating d5 and
+        // uncovering bishop check on black king g8.
+        final board = ChessBoard.fromFEN(
+          '6k1/8/2p5/3K4/8/8/B7/8 w - - 0 1',
+          gameType: ModsEnum.kingsBattle,
+        );
+
+        final kingsKill = _findMove(board, 'd5', 'c6');
+        expect(kingsKill.piece.type, PieceType.king);
+        expect(kingsKill.capturedPiece?.type, PieceType.pawn);
+
+        final afterKill = orchestrator.executeMove(board, kingsKill);
+
+        // Bonus move still belongs to White.
+        expect(afterKill.currentPlayer, PieceColor.white);
+
+        // Black should be in check right after the King's Kill.
+        expect(
+          afterKill.isKingInCheck(PieceColor.black),
+          isTrue,
+          reason:
+              'King\'s Kill can uncover check, and check must be visible '
+              'immediately',
+        );
+
+        // White can spend the bonus move normally even while Black is checked.
+        final bonusMove = _findMove(afterKill, 'a2', 'b1');
+        final afterBonus = orchestrator.executeMove(afterKill, bonusMove);
+        expect(
+          afterBonus.currentPlayer,
+          PieceColor.black,
+          reason: 'After the bonus move, turn should pass to Black',
+        );
+      },
+    );
+
+    test(
       'pawn capturing an opponent pawn does NOT unlock and does NOT grant bonus',
       () {
         // White pawn e4, black pawn d5. e4xd5 is a pawn capture in Phase 1.
