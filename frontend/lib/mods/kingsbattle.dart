@@ -102,10 +102,7 @@ class KingsBattle implements Ruleset {
         final playerColor = move.piece.color == PieceColor.white
             ? 'White'
             : 'Black';
-        logKingsBattlePhase2Unlock(
-          playerColor,
-          'deadlock: 6 idle king moves',
-        );
+        logKingsBattlePhase2Unlock(playerColor, 'deadlock: 6 idle king moves');
       }
     }
 
