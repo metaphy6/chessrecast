@@ -21,7 +21,7 @@ extension SpecialCases on ChessBoard {
 
       // KINGS' BATTLE PHASE 1: Only pawns and kings can attack/control squares before First Blood
       // Kings and pawns follow classic chess rules between themselves
-      if (gameType == ModsEnum.kingsBattle && !_hasKingsKillHappened()) {
+      if (gameType == ModsEnum.kingsBattle && !_isKingsBattlePhase2Unlocked()) {
         if (piece.type != PieceType.pawn && piece.type != PieceType.king) {
           return false; // Other pieces have no effect before First Blood
         }
@@ -49,22 +49,40 @@ extension SpecialCases on ChessBoard {
         position,
         pieces,
         gameType,
-        _hasKingsKillHappened(),
+        _isKingsBattlePhase2Unlocked(),
       );
     });
   }
 
-  /// Helper to check if King's Kill has happened in Kings' Battle mode.
-  /// Only a king capturing a pawn unlocks Phase 2 — promotions do not.
-  bool _hasKingsKillHappened() {
+  /// Helper to check if Phase 2 is unlocked in Kings' Battle mode.
+  /// Three triggers unlock Phase 2:
+  ///   - a king capturing a pawn (King's Kill, also grants bonus move),
+  ///   - a pawn promotion (with or without capture),
+  ///   - 6 consecutive trailing non-capturing king moves (deadlock
+  ///     auto-unlock; any pawn move or any capture resets the counter).
+  /// Pawn captures without promotion never unlock by themselves.
+  bool _isKingsBattlePhase2Unlocked() {
+    var trailingIdleKings = 0;
+    var deadlockUnlocked = false;
     for (final move in moveHistory) {
       if (move.piece.type == PieceType.king &&
           move.capturedPiece != null &&
           move.capturedPiece!.type == PieceType.pawn) {
         return true;
       }
+      if (move.piece.type == PieceType.pawn && move.isPromotion) {
+        return true;
+      }
+      if (move.piece.type == PieceType.king && move.capturedPiece == null) {
+        trailingIdleKings++;
+        if (trailingIdleKings >= 6) {
+          deadlockUnlocked = true;
+        }
+      } else {
+        trailingIdleKings = 0;
+      }
     }
-    return false;
+    return deadlockUnlocked;
   }
 
   /// Checks if a pawn can attack a position in Mercenary Mod (like a king)

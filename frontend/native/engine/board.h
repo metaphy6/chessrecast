@@ -41,6 +41,12 @@ typedef struct {
     /* King's Battle mod: whether pieces are unlocked (0=Phase 1: kings+pawns only, 1=Phase 2: all) */
     uint8_t  kb_unlocked;
 
+    /* King's Battle mod: count of trailing consecutive non-capturing king
+     * moves (across both colors). When this reaches 6 in Phase 1, Phase 2
+     * unlocks automatically (deadlock rule). Reset by any pawn move or
+     * any capture. */
+    uint8_t  kb_idle_kings;
+
     /* Zobrist hash */
     uint64_t hash;
 
@@ -58,6 +64,7 @@ typedef struct {
         uint64_t truce_frozen;     /* saved truce frozen bitboard for undo */
         uint64_t ff_moved;         /* saved friendly fire state for undo */
         uint8_t  kb_unlocked;      /* saved king's battle state for undo */
+        uint8_t  kb_idle_kings;    /* saved trailing idle-king count for undo */
         uint8_t  kb_bonus;         /* did this move grant a bonus (no side switch)? */
         uint8_t  stq_reprisoned;   /* save-the-queen: captured prisoner returned to prison */
         Square   stq_reprison_sq;  /* where that prisoner queen was re-placed */
