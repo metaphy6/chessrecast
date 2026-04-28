@@ -118,7 +118,7 @@ void main() {
         (m) =>
             m.piece.type == PieceType.queen &&
             m.piece.color == PieceColor.white &&
-        m.to == blackPrison &&
+            m.to == blackPrison &&
             m.capturedPiece?.type == PieceType.queen &&
             m.capturedPiece?.color == PieceColor.black,
       );
@@ -132,7 +132,7 @@ void main() {
         (m) =>
             m.piece.type == PieceType.queen &&
             m.piece.color == PieceColor.white &&
-        m.to == blackPrison &&
+            m.to == blackPrison &&
             m.capturedPiece?.type == PieceType.queen &&
             m.capturedPiece?.color == PieceColor.black,
       );
@@ -176,7 +176,9 @@ void main() {
       );
 
       final nextBoard = orchestrator.executeMove(board, prisonerCapture);
-      final reprisonedQueen = nextBoard.getPieceAt(Position.fromAlgebraic('d8'));
+      final reprisonedQueen = nextBoard.getPieceAt(
+        Position.fromAlgebraic('d8'),
+      );
 
       expect(reprisonedQueen, isNotNull);
       expect(reprisonedQueen!.type, PieceType.queen);
