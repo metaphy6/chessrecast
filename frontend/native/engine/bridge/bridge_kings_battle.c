@@ -82,7 +82,10 @@ static int kb_phase1_refine_bias(const Board *board, Move move, Color side) {
             bias -= 220;
         }
         if (from_rank == 1 && to_rank == 3 && file >= 2 && file <= 5 && king_rank >= 2) {
-            bias -= 260;
+            /* Keep some caution once the king is advanced, but do not
+             * over-penalize central breaks. Fresh batch evidence shows
+             * this was suppressing strong e7-e5 / e2-e4 continuations. */
+            bias -= (king_rank >= 3) ? 220 : 60;
         }
 
         if (board->pieces[side][KING] != BB_EMPTY) {
