@@ -60,6 +60,15 @@ void logKingsBattleUnlock(String playerColor, String position) {
   );
 }
 
+/// King's Battle Mod: Phase 2 unlocked by a pawn promotion or by the
+/// 6-idle-king-move deadlock auto-unlock (no bonus move — only King's
+/// Kill grants the bonus).
+void logKingsBattlePhase2Unlock(String playerColor, String reason) {
+  debugPrint(
+    '🔓 PHASE 2 UNLOCKED by $playerColor ($reason) - all pieces unlocked, no bonus move',
+  );
+}
+
 /// Truce Mod: Truce broken
 void logTruceBroken(String playerColor) {
   debugPrint(

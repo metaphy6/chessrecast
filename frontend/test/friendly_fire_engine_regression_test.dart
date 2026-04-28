@@ -279,7 +279,7 @@ void main() {
         expect(search.bestMove, isNotNull);
         expect(_moveNotation(search.bestMove), isNot('a1d1'));
         expect(_moveNotation(search.bestMove), 'd2e3');
-      },F, Heir, Mer
+      },
       skip: !NativeEngine.isAvailable,
     );
 

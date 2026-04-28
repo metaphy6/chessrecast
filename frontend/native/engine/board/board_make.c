@@ -20,6 +20,7 @@ void board_make_move(Board *b, Move m) {
     b->history[idx].truce_frozen = b->truce_frozen;
     b->history[idx].ff_moved = b->ff_moved;
     b->history[idx].kb_unlocked = b->kb_unlocked;
+    b->history[idx].kb_idle_kings = b->kb_idle_kings;
     b->history[idx].kb_bonus = 0;
     b->history[idx].stq_reprisoned = 0;
     b->history[idx].stq_reprison_sq = SQ_NONE;
@@ -168,15 +169,32 @@ void board_make_move(Board *b, Move m) {
     /* Full move number */
     if (us == BLACK) b->fullmove++;
 
-    /* King's Battle: detect unlock trigger.
-     * The ONLY trigger is King's Kill (a king capturing a pawn).
-     * Pawn captures and pawn promotions do NOT unlock Phase 2 and do
-     * NOT grant a bonus move. */
+    /* King's Battle: detect Phase-2 unlock triggers.
+     * Three events unlock Phase 2:
+     *   1. King's Kill: king captures a pawn -> unlock + bonus move.
+     *      This is the ONLY trigger that grants a bonus move.
+     *   2. Pawn promotion: pawn reaches back rank -> unlock, no bonus.
+     *   3. Deadlock: 6 consecutive trailing non-capturing king moves
+     *      (across both colors) -> unlock, no bonus. Any pawn move or
+     *      any capture resets the counter.
+     * Pawn captures (without promotion) and quiet pushes do nothing. */
     if (b->mod == MOD_KINGS_BATTLE && !b->kb_unlocked) {
         if (pt == KING && MOVE_IS_CAPTURE(m) &&
             PIECE_TYPE(b->history[idx].captured) == PAWN) {
             b->kb_unlocked = 1;
+            b->kb_idle_kings = 0;
             b->history[idx].kb_bonus = 1;
+        } else if (pt == PAWN && MOVE_IS_PROMO(m)) {
+            b->kb_unlocked = 1;
+            b->kb_idle_kings = 0;
+        } else if (pt == KING && !MOVE_IS_CAPTURE(m)) {
+            if (b->kb_idle_kings < 255) b->kb_idle_kings++;
+            if (b->kb_idle_kings >= 6) {
+                b->kb_unlocked = 1;
+            }
+        } else {
+            /* Pawn move (push or capture) or any other capture resets. */
+            b->kb_idle_kings = 0;
         }
     }
 
@@ -248,6 +266,7 @@ void board_unmake_move(Board *b) {
     b->truce_frozen = b->history[idx].truce_frozen;
     b->ff_moved = b->history[idx].ff_moved;
     b->kb_unlocked = b->history[idx].kb_unlocked;
+    b->kb_idle_kings = b->history[idx].kb_idle_kings;
 
     if (us == BLACK) b->fullmove--;
 }

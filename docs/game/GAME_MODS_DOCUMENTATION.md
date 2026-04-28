@@ -69,15 +69,22 @@ Chess Recast is a novel chess game featuring 12 unique game mods, each introduci
 ---
 
 ## Kings' Battle Mod
-**Description:** Two-phase game with restricted movement until "King's Kill" happens.
-**Phase 1 (Before King's Kill):**
+**Description:** Two-phase game with restricted movement until Phase 2 is unlocked.
+**Phase 1 (locked):**
 - Only pawns and kings can move
 - Kings and pawns can capture any piece
 - Kings cannot capture each other
-- The ONLY trigger that ends Phase 1 is a king capturing a pawn ("King's Kill"). It both unlocks Phase 2 AND grants the capturer one bonus (additional) move immediately.
-- Pawn captures, pawn pushes, and pawn promotions do NOT unlock Phase 2 and do NOT grant a bonus move. A pawn that promotes during Phase 1 becomes a piece that remains locked until a King's Kill occurs.
+- Three events end Phase 1 and unlock all pieces:
+  1. **King's Kill** — a king captures a pawn. Unlocks Phase 2 **and** grants the capturer one bonus (additional) move immediately. This is the **only** way to earn a bonus move in this mod.
+  2. **Pawn promotion** — a pawn reaches the back rank (with or without a capture). Unlocks Phase 2 but does **not** grant a bonus move. The newly-promoted piece is immediately playable.
+  3. **Deadlock auto-unlock** — if pawns and kings cannot capture each other (typical pawn blockage where pawns can neither move nor capture), Phase 2 unlocks automatically after **6 consecutive non-capturing king moves** (counted across both colors). Any pawn move or any capture resets the counter. No bonus move is granted.
+- Pawn captures (without promotion) and quiet pawn pushes do nothing.
 
-**Phase 2 (After King's Kill):**
+**Phase 2 (unlocked):**
+- All pieces can move normally
+- Standard chess rules apply
+
+**Phase 2 (unlocked):**
 - All pieces can move normally
 - Standard chess rules apply
 
