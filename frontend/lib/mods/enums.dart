@@ -18,7 +18,7 @@ enum ModsEnum {
   ),
   kingsBattle(
     'Kings\' Battle',
-    'Only kings and pawns can move until one of kings captures a pawn (King\'s Kill); after that, all pieces unlock and the capturer gets a bonus move. Pawn promotion also unlocks all the other pieces.',
+    'Only kings and pawns can move until a king captures a pawn (King\'s Kill); only then do all pieces unlock and the capturer gets one bonus move. Pawn captures and pawn promotions do NOT unlock pieces or grant a bonus move.',
   ),
   saveTheQueen(
     'Save the Queen',

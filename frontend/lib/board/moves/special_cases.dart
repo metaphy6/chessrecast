@@ -54,15 +54,13 @@ extension SpecialCases on ChessBoard {
     });
   }
 
-  /// Helper to check if King's Kill has happened in Kings' Battle mode
+  /// Helper to check if King's Kill has happened in Kings' Battle mode.
+  /// Only a king capturing a pawn unlocks Phase 2 — promotions do not.
   bool _hasKingsKillHappened() {
     for (final move in moveHistory) {
       if (move.piece.type == PieceType.king &&
           move.capturedPiece != null &&
           move.capturedPiece!.type == PieceType.pawn) {
-        return true;
-      }
-      if (move.isPromotion) {
         return true;
       }
     }

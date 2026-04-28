@@ -168,16 +168,13 @@ void board_make_move(Board *b, Move m) {
     /* Full move number */
     if (us == BLACK) b->fullmove++;
 
-    /* King's Battle: detect unlock trigger (King's Kill or promotion in Phase 1) */
+    /* King's Battle: detect unlock trigger.
+     * The ONLY trigger is King's Kill (a king capturing a pawn).
+     * Pawn captures and pawn promotions do NOT unlock Phase 2 and do
+     * NOT grant a bonus move. */
     if (b->mod == MOD_KINGS_BATTLE && !b->kb_unlocked) {
-        /* King captures a pawn = King's Kill */
         if (pt == KING && MOVE_IS_CAPTURE(m) &&
             PIECE_TYPE(b->history[idx].captured) == PAWN) {
-            b->kb_unlocked = 1;
-            b->history[idx].kb_bonus = 1;
-        }
-        /* Pawn promotion also unlocks all pieces */
-        if (MOVE_IS_PROMO(m)) {
             b->kb_unlocked = 1;
             b->history[idx].kb_bonus = 1;
         }

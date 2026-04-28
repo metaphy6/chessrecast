@@ -8,8 +8,10 @@ import 'ruleset.dart';
 /// - Only pawns and kings can move
 /// - Kings and pawns can capture any piece (even checkmate)
 /// - Kings cannot capture each other
-/// - If king captures a pawn = "King's Kill" → Phase 2 + bonus move
-/// - Pawn promotion unlocks all pieces (acts like King's Kill happened)
+/// - The ONLY trigger that ends Phase 1 and grants the bonus move is a
+///   king capturing a pawn ("King's Kill"). Pawn captures, pawn pushes,
+///   and pawn promotions do NOT unlock Phase 2 and do NOT grant a bonus
+///   move.
 ///
 /// PHASE 2 (After King's Kill):
 /// - All pieces can move normally
@@ -75,15 +77,6 @@ class KingsBattle implements Ruleset {
       return _markKingsKillAndGrantBonusMove(newBoard);
     }
 
-    // Check if this is a pawn promotion (also unlocks all pieces)
-    if (move.isPromotion && !_hasKingsKillHappened(board)) {
-      // Execute the promotion normally first
-      final newBoard = board.makeMove(move);
-
-      // Mark that King's Kill equivalent has happened (pawn promoted)
-      return _markKingsKillAndGrantBonusMove(newBoard);
-    }
-
     return null; // Use standard handling
   }
 
@@ -124,19 +117,15 @@ class KingsBattle implements Ruleset {
   /// Checks if King's Kill has happened (public for engine FFI bridge)
   bool isUnlocked(ChessBoard board) => _hasKingsKillHappened(board);
 
-  /// Checks if King's Kill has happened by looking at move history
+  /// Checks if King's Kill has happened by looking at move history.
+  /// The ONLY unlock trigger is a king capturing a pawn — pawn captures
+  /// and promotions never end Phase 1.
   bool _hasKingsKillHappened(ChessBoard board) {
-    // Check if any move in history was a king capturing a pawn
     for (final move in board.moveHistory) {
       if (move.piece.type == PieceType.king &&
           move.capturedPiece != null &&
           move.capturedPiece!.type == PieceType.pawn) {
         return true; // King's Kill happened
-      }
-
-      // Also check for pawn promotions (equivalent to King's Kill)
-      if (move.isPromotion) {
-        return true; // Promotion unlocks all pieces
       }
     }
 
