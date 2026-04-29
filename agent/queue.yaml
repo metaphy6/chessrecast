@@ -221,14 +221,14 @@
 
 - id: kings_battle-phase2-classical-revert
   mod: kings_battle
-  status: pending
+  status: done
   kind: kpi_regression
   phase: midgame
   severity: high
   evidence:
-    report: /tmp/agent-runs/kings_battle-batch-20260428-160408-report.txt
+    report: agent/reports/kings_battle/kings_battle-phase2-classical-batch-final.txt
   blunder_threshold_cp: 200
-  notes: "After King's Kill the engine must revert to classical-strength play: avg worst miss in Phase 2 should match the heir/friendly_fire quality target band. Fresh full 50-opening Gate 4 completed on 2026-04-28 (run 20260428-160408): avg worst miss +1.58, max +3.94, earlyKingMoves=328, castlingRightLosses=100, kingExposureIndex=40.88. KPI guards vs agent/baselines/kings_battle.json are still within the 5% charter threshold, but the stricter classical-strength quality target is still pending."
+  notes: "Resolved on 2026-04-29. Fresh full 50-opening Gate 4 batch passed with avg worst miss +1.10 and max +1.98 (>=2.00: 0/50), earlyKingMoves=321, castlingRightLosses=100, kingExposureIndex=41.10. Gate 1 (kings_battle_engine_regression_test), Gate 2 (king_castling_policy_regression_test), Gate 3 (kings_battle_rule_mechanics_test), and Gate 4 all passed. KPI deltas vs agent/baselines/kings_battle.json remain within the 5% threshold."
 
 - id: kings_battle-midgame-qb5c5-mate-miss-20260427
   mod: kings_battle

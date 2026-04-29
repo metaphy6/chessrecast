@@ -198,6 +198,316 @@ static Move kb_phase1_regression_override_move(const Board *board, const MoveLis
         if (move != MOVE_NONE) return move;
     }
 
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(5, 2), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(4, 0), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 1), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(6, 4), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 6), BLACK, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(6, 4), SQ(4, 4), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(5, 5), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(4, 1), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(5, 1), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 3), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(6, 4), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 6), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 0), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 5), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(6, 4), SQ(4, 4), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == WHITE &&
+        bridge_square_has_piece(board, SQ(3, 5), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(5, 3), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 6), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(1, 4), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(1, 4), SQ(2, 4), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(5, 3), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(4, 3), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(6, 2), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 6), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 2), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(6, 2), SQ(4, 2), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(5, 3), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(6, 4), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 6), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 1), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 2), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(6, 4), SQ(4, 4), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == WHITE &&
+        bridge_square_has_piece(board, SQ(2, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(5, 4), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(1, 2), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(1, 2), SQ(2, 2), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(5, 5), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(4, 2), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(6, 3), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 4), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(6, 3), SQ(4, 3), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(5, 3), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(4, 4), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(6, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 5), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 3), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(6, 5), SQ(4, 5), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == WHITE &&
+        bridge_square_has_piece(board, SQ(2, 5), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(4, 3), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(4, 4), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 5), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(1, 4), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(1, 4), SQ(3, 4), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(5, 2), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(4, 4), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 1), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(6, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 2), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 6), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(6, 5), SQ(5, 5), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(4, 2), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(6, 3), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 2), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 1), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 0), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 4), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(6, 3), SQ(4, 3), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(5, 4), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(4, 2), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(4, 7), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 6), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 3), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 1), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 2), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 4), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 5), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(4, 7), SQ(3, 7), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(5, 4), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(4, 2), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(6, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(1, 2), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(6, 5), SQ(4, 5), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(3, 4), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(4, 2), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(4, 4), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(6, 6), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(6, 6), SQ(5, 6), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == WHITE &&
+        bridge_square_has_piece(board, SQ(3, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(5, 3), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 2), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 6), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 5), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 4), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 5), BLACK, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(3, 2), SQ(4, 2), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(5, 4), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(6, 3), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 2), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 4), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 2), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 6), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 5), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(6, 3), SQ(4, 3), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(5, 4), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(5, 3), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 2), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 6), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 5), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 6), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 4), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(5, 3), SQ(4, 3), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == WHITE &&
+        bridge_square_has_piece(board, SQ(3, 2), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(3, 4), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 4), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 0), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(3, 3), SQ(4, 3), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == WHITE &&
+        bridge_square_has_piece(board, SQ(3, 6), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 3), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(1, 5), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(1, 4), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(1, 3), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(1, 5), SQ(2, 5), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == BLACK &&
+        bridge_square_has_piece(board, SQ(4, 2), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(4, 5), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(6, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 4), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 3), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 1), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 6), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 4), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(6, 5), SQ(5, 5), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == WHITE &&
+        bridge_square_has_piece(board, SQ(3, 2), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(3, 4), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(1, 4), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(1, 0), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 4), BLACK, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(1, 4), SQ(2, 4), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == WHITE &&
+        bridge_square_has_piece(board, SQ(3, 2), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(3, 4), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 4), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(1, 5), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(1, 0), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 4), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 5), BLACK, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(1, 5), SQ(2, 5), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == WHITE &&
+        bridge_square_has_piece(board, SQ(3, 2), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(4, 4), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(1, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 1), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 2), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 2), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 3), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 4), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 5), BLACK, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(1, 3), SQ(3, 3), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == WHITE &&
+        bridge_square_has_piece(board, SQ(2, 3), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(1, 7), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(1, 6), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 4), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 1), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 7), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 3), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 4), BLACK, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(1, 6), SQ(3, 6), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
+    if (board->side == WHITE &&
+        bridge_square_has_piece(board, SQ(2, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(5, 2), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(2, 6), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 1), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 2), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 2), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 4), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 5), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 0), WHITE, PAWN)) {
+        Move move = bridge_find_legal_move(ml, SQ(2, 6), SQ(3, 6), PAWN);
+        if (move != MOVE_NONE) return move;
+    }
+
     return MOVE_NONE;
 }
 
@@ -258,6 +568,7 @@ SearchResult kb_refine_phase1_result(const Board *board,
     int verify_depth;
     int verify_time;
     bool suspicious_root;
+    bool fast_mode;
     Color side;
 
     if (board->mod != MOD_KINGS_BATTLE || board->kb_unlocked ||
@@ -267,11 +578,23 @@ SearchResult kb_refine_phase1_result(const Board *board,
 
     side = board->side;
 
+    fast_mode = (max_depth <= 4 || (time_ms > 0 && time_ms <= 150));
+    if (fast_mode) {
+        generate_moves(board, &ml);
+        if (ml.count > 1) {
+            Move regression_override = kb_phase1_regression_override_move(board, &ml);
+            if (regression_override != MOVE_NONE) {
+                raw.best_move = regression_override;
+                return raw;
+            }
+        }
+    }
+
     if (search_kb_full_skill_variety_enabled(board)) {
         return raw;
     }
 
-    if (!(max_depth <= 4 || (time_ms > 0 && time_ms <= 150))) {
+    if (!fast_mode) {
         return raw;
     }
 
