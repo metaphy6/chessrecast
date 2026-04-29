@@ -36,7 +36,7 @@ Run, in order, capturing each result. Do **not** abort on the first failure — 
    ```
 2. **10-game spot-check audit** for every mod (use the first 10 lines of `agent/openings/<mod>.csv`, no early-stop). Save reports under `agent/reports/<mod>/selfreview-<run-id>.txt`.
 3. **KPI dashboard** via [frontend/tool/kpi_dashboard.dart](../../frontend/tool/kpi_dashboard.dart) for all 7 mods.
-4. **Test-diff lint** over the last `${input:since:7}` days: `dart run tool/check_test_diff.dart origin/main~50...HEAD` (or `HEAD~${input:since:7}` worth of commits, whichever is shorter).
+4. **Manual test-honesty review**: read `git log --oneline -n 50 origin/main` and spot-check any commit whose diff touches a `_test.dart` file — confirm no `skip:` / `@Skip` / `markTestSkipped(` was added and no `expect(` was removed without a corresponding `kind: kpi_regression` or `kind: shared_edit` queue entry. Per [AGENTS.md](../../AGENTS.md) §3.
 
 ## Triage
 
