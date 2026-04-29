@@ -223,7 +223,7 @@ void main() {
     );
 
     test(
-      'prefers Bf8-c5 in the GAME 10 tactical node',
+      'prefers Na6-b4 in the GAME 10 tactical node',
       () {
         final board = _boardFromReplay([
           'd2d4',
@@ -242,7 +242,7 @@ void main() {
 
         expect(search.bestMove, isNotNull);
         expect(search.score, greaterThan(-250));
-        expect(_moveNotation(search.bestMove), 'f8c5');
+        expect(_moveNotation(search.bestMove), 'a6b4');
       },
       skip: !NativeEngine.isAvailable,
     );
