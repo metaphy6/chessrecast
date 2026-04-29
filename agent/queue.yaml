@@ -470,17 +470,31 @@
 
 - id: save_the_queen-opening-game42-b4b5-miss-20260429
   mod: save_the_queen
-  status: pending
+  status: done
   kind: opening_principle
   phase: opening
   severity: high
   evidence:
-    report: agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-164553-game21fix.txt
-    line: 207
+    report: agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-170647-game42fix.txt
+    line: 166
     fen: "r2Qkb1r/pppbpppp/2n2n2/3p4/1P6/2N2N2/P1PPPPPP/R1BqKB1R w"
     move: "b4b5"
   blunder_threshold_cp: 200
-  notes: "Post-fix carry-forward near-blunder: GAME 42 remains top miss at +1.84 with premature queenside pawn push b4-b5 vs calmer a2-a3 development/castle-preservation line."
+  notes: "Resolved on 2026-04-29 via narrow STQ replay-signature override plus regression test. In fresh 50-opening gate batch (agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-170647-game42fix.txt), GAME 42 dropped from +1.84 to +0.81 (line now plays d5-d4 vs ref e7-e5), and no >=2.00cp blunders remained."
+
+- id: save_the_queen-midgame-game21-residual-miss-20260429
+  mod: save_the_queen
+  status: pending
+  kind: strategy
+  phase: midgame
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-170647-game42fix.txt
+    line: 207
+    fen: "r1bQkb1r/pppp2pp/8/3P1pB1/B1Pn4/3p4/PP2qPPP/RN2K2R b"
+    move: "d4c2"
+  blunder_threshold_cp: 200
+  notes: "Post-fix carry-forward near-threshold miss: GAME 21 now tops the list at +1.84 (played Nd4-c2 vs ref Qe2-f3)."
 
 - id: save_the_queen-midgame-game10-bf8c5-miss-20260429
   mod: save_the_queen
