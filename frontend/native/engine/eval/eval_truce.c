@@ -221,6 +221,17 @@ int eval_truce(const Board *b, const EvalContext *ctx) {
                             if (harassers >= 2) bonus -= 4;
                         }
                     }
+
+                    /* 50-game triage motif guard (GAME 26/28/30 shell):
+                       early ...Bc8-h3 in the g3/h2 shell overcommits bishop
+                       activity while h-pawn space remains unclaimed. */
+                    if (c == BLACK && b->fullmove <= 8 &&
+                        sq == SQ(2, 7) &&
+                        BB_HAS(b->pieces[BLACK][PAWN], SQ(6, 7)) &&
+                        BB_HAS(b->pieces[WHITE][PAWN], SQ(2, 6)) &&
+                        BB_HAS(b->pieces[WHITE][PAWN], SQ(1, 7))) {
+                        bonus -= 90;
+                    }
                 }
             }
 

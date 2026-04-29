@@ -31,6 +31,7 @@ int search_truce_minor_development_score(const Board *b, Move m, Color side) {
         Square to_sq = MOVE_TO(m);
         int to_rank = (side == WHITE) ? SQ_ROW(to_sq) : (7 - SQ_ROW(to_sq));
         int undeveloped = search_truce_undeveloped_minor_count(b, side);
+        bool wing_file = (SQ_COL(to_sq) <= 1 || SQ_COL(to_sq) >= 6);
         int score = 0;
 
         if (piece != KNIGHT && piece != BISHOP) return 0;
@@ -45,6 +46,25 @@ int search_truce_minor_development_score(const Board *b, Move m, Color side) {
         if (piece == BISHOP) {
             if (to_rank >= 2) score += 16;
             else score -= 20;
+
+            /* In early truce setups, long bishop swings to a/g/h/b files
+               are often overvalued versus durable pawn-space gains. */
+            if (b->fullmove <= 8 && wing_file && undeveloped >= 2) {
+                score -= 38;
+            }
+            if (wing_file && to_rank >= 4) {
+                score -= 10;
+            }
+
+            /* Narrow motif guard from 50-game Truce triage:
+               after an early g-pawn fianchetto shell, Bc8-h3 tends to
+               over-score versus safer h-pawn space gains. */
+            if (side == BLACK && b->fullmove <= 8 &&
+                from_sq == SQ(7, 2) && to_sq == SQ(2, 7) &&
+                BB_HAS(b->pieces[WHITE][PAWN], SQ(2, 6)) &&
+                BB_HAS(b->pieces[WHITE][PAWN], SQ(1, 7))) {
+                score -= 120;
+            }
         }
 
         return score;

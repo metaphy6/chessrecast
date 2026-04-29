@@ -221,6 +221,33 @@ void main() {
       },
       skip: !NativeEngine.isAvailable,
     );
+
+    test(
+      'prefers h7h5 over Bc8h3 in the g2g3 truce shell',
+      () {
+        final board = _boardFromReplay([
+          'g2g3',
+          'e7e5',
+          'b1c3',
+          'b8c6',
+          'd2d4',
+          'd7d5',
+          'e2e4',
+          'g8f6',
+          'g1f3',
+          'f8d6',
+          'c1e3',
+          'e8f8',
+          'a2a4',
+        ]);
+
+        final root = _rootSearch(board, timeLimitMs: 120, maxDepth: 4);
+
+        expect(root.score, greaterThan(-200));
+        expect(_moveNotation(root.bestMove), 'h7h5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
   });
 }
 
