@@ -320,27 +320,23 @@ void main() {
       skip: !NativeEngine.isAvailable,
     );
 
-    test(
-      'prefers a2-a3 in the GAME 42 opening node',
-      () {
-        final board = _boardFromReplay([
-          'b2b3',
-          'd7d5',
-          'b1c3',
-          'g8f6',
-          'g1f3',
-          'c8d7',
-          'b3b4',
-          'b8c6',
-        ]);
-        final search = _rootSearch(board);
+    test('prefers a2-a3 in the GAME 42 opening node', () {
+      final board = _boardFromReplay([
+        'b2b3',
+        'd7d5',
+        'b1c3',
+        'g8f6',
+        'g1f3',
+        'c8d7',
+        'b3b4',
+        'b8c6',
+      ]);
+      final search = _rootSearch(board);
 
-        expect(search.bestMove, isNotNull);
-        expect(search.score, greaterThan(-500));
-        expect(_moveNotation(search.bestMove), 'a2a3');
-      },
-      skip: !NativeEngine.isAvailable,
-    );
+      expect(search.bestMove, isNotNull);
+      expect(search.score, greaterThan(-500));
+      expect(_moveNotation(search.bestMove), 'a2a3');
+    }, skip: !NativeEngine.isAvailable);
   });
 }
 
