@@ -221,6 +221,31 @@ void main() {
       },
       skip: !NativeEngine.isAvailable,
     );
+
+    test(
+      'prefers Bf8-c5 in the GAME 10 tactical node',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'c7c5',
+          'd4c5',
+          'b8a6',
+          'c1f4',
+          'a6b4',
+          'b1a3',
+          'e7e6',
+          'f4e3',
+          'b4a6',
+          'a3b5',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(search.score, greaterThan(-250));
+        expect(_moveNotation(search.bestMove), 'f8c5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
   });
 }
 
