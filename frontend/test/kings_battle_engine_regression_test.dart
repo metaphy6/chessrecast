@@ -623,10 +623,7 @@ void main() {
     test(
       'plays f2f3 instead of g4g5 after g2g4 d7d5',
       () {
-        final board = _boardFromReplay([
-          'g2g4',
-          'd7d5',
-        ]);
+        final board = _boardFromReplay(['g2g4', 'd7d5']);
         final best = _rootBestMove(board);
 
         expect(best, isNotNull);
