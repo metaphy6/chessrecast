@@ -33,3 +33,22 @@ Before claiming the first task, post a one-line plan listing the task ids you in
 ## Stop conditions
 
 Halt the loop when: queue is empty for the requested mod, file `agent/STOP` exists, three consecutive tasks ended in `failed`, or the user types `stop`.
+
+## Mandatory terminal state — commit and push, no exceptions
+
+This slash command **must** end with the agent in one of the four terminal states defined in [.github/copilot-instructions.md](../copilot-instructions.md) → *Hard rules → 8* (`pushed` / `reverted` / `no-op` / `blocked`) and equivalently in [AGENTS.md](../../AGENTS.md) → *§2 Mandatory commit & push*.
+
+Concretely, the **last action** of this command, if at least one task ended with `result: pass` and the working tree is dirty, is:
+
+```bash
+git add -A
+git commit -m "auto(<mod>): <one-line summary> [<run-id>]"
+git switch main && git pull --ff-only   # rebase if needed; re-run the gate
+git push origin main                    # normal push, never --force
+```
+
+Then report the commit SHA in chat. The agent is **forbidden** from ending with phrases like "I'll let you review and commit yourself", "this seems out of scope to push", "I'll leave this uncommitted for now". If the user wanted a dry run they would have said so before invoking the slash command.
+
+If gates failed, the terminal action is `git restore .` (or `git reset --hard HEAD` if local-only) plus a fresh queue entry; never push the failing change.
+
+If the diff was empty (`git status -s` clean), say so in one line and exit; that is a `no-op`, not a problem.

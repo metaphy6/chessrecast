@@ -24,6 +24,14 @@ linter:
     # avoid_print: false  # Uncomment to disable the `avoid_print` rule
     # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
 
+    # --- Stricter lints requested by docs/coding/ai/automation.md Phase 4 ---
+    # If any of these flag too much existing code at first roll-out, the agent
+    # may downgrade individual ones to `false` here, but only with a queue
+    # entry of kind: kpi_regression documenting the follow-up cleanup.
+    avoid_dynamic_calls: true
+    use_build_context_synchronously: true
+    unsafe_html: true
+
 analyzer:
   errors:
     # Treat using deprecated members as errors to disallow direct instantiation
