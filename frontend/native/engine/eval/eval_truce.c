@@ -1,7 +1,7 @@
 #include "eval_types.h"
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
-/*  Truce: Helper functions                                                 */
+/*  Truce: Helper functions                                                    */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 static int truce_start_pawn_harassers(const Board *b, Color bishop_side, Square sq) {
@@ -21,7 +21,7 @@ static int truce_start_pawn_harassers(const Board *b, Color bishop_side, Square 
 
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
-/*  Truce: Piece-Square Tables                                              */
+/*  Truce: Piece-Square Tables                                                 */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 const int PST_TRUCE_PAWN[64] = {
@@ -63,7 +63,7 @@ const int PST_TRUCE_BISHOP[64] = {
 
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
-/*  Truce: Strategic evaluation                                             */
+/*  Truce: Strategic evaluation                                                */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 int eval_truce(const Board *b, const EvalContext *ctx) {
