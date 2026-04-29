@@ -522,7 +522,7 @@
     fen: "r1bQkb1r/p1pppppp/p4n2/4P3/8/2N5/PPPP1PPP/R1BqK1NR b"
     move: "f6h5"
   blunder_threshold_cp: 200
-  notes: "Post-fix carry-forward: GAME 3 remains high miss at +1.78 with early knight rim move Nf6-h5 while reference keeps structure with Bc8-b7. Attempted narrow Bc8-b7 override on 2026-04-29 regressed Gate 4 to +2.35 (played e5xf6 vs ref f2-f3) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-180620-game3fix.txt, so the patch was reverted. A second attempt using a generalized early knight-rim penalty also regressed Gate 4 to max +3.73 with 3/50 >=2.00 misses (new worst GAME 31/GAME 11/GAME 28) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-195443-game3heuristic.txt, and was reverted as well."
+  notes: "Post-fix carry-forward: GAME 3 remains high miss at +1.78 with early knight rim move Nf6-h5 while reference keeps structure with Bc8-b7. Attempted narrow Bc8-b7 override on 2026-04-29 regressed Gate 4 to +2.35 (played e5xf6 vs ref f2-f3) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-180620-game3fix.txt, so the patch was reverted. A second attempt using a generalized early knight-rim penalty also regressed Gate 4 to max +3.73 with 3/50 >=2.00 misses (new worst GAME 31/GAME 11/GAME 28) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-195443-game3heuristic.txt, and was reverted as well. A third attempt with signature-scoped candidate-priority penalties regressed Gate 4 again to +2.35 in GAME 3 (played e5xf6 vs ref f2-f3) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-205328-game3game22fix.txt, and was reverted."
 
 - id: save_the_queen-opening-game22-ng8f6-miss-20260429
   mod: save_the_queen
@@ -536,7 +536,7 @@
     fen: "r1bQkbnr/pppnpppp/8/8/2B5/N3P3/PP1P1PPP/R1BqK1NR b"
     move: "g8f6"
   blunder_threshold_cp: 200
-  notes: "Post-fix carry-forward: GAME 22 remains high miss at +1.74 with Ng8-f6 while reference Nd7-e5 gives a tighter evaluation. Attempted narrow Nd7-e5 override on 2026-04-29 reduced GAME 22 locally but regressed Gate 4 with a new +2.66 miss in GAME 11 (played Be2-g4 vs ref Be2-c4) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-184213-game22fix.txt, so the patch was reverted."
+  notes: "Post-fix carry-forward: GAME 22 remains high miss at +1.74 with Ng8-f6 while reference Nd7-e5 gives a tighter evaluation. Attempted narrow Nd7-e5 override on 2026-04-29 reduced GAME 22 locally but regressed Gate 4 with a new +2.66 miss in GAME 11 (played Be2-g4 vs ref Be2-c4) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-184213-game22fix.txt, so the patch was reverted. A second combined attempt with signature-scoped candidate-priority penalties regressed Gate 4 to +2.07 in GAME 22 (played Nd7xb6 vs ref a7xb6) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-205328-game3game22fix.txt, and was reverted."
 
 # ===========================================================================
 # SUCCESSION — last-pawn-must-promote-to-king + dual queens
