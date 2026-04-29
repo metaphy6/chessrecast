@@ -170,7 +170,7 @@ The per-mod allow-list above (Hard rules → 2) governs *engine strength* tasks.
 | `engine`   | per-mod allow-list from Hard rules → 2 (no change). |
 | `ui`       | `frontend/lib/ui/**`, `frontend/lib/board/**`, `frontend/lib/main.dart`, `frontend/lib/routes.dart`, `frontend/test/ui/**`, `frontend/test/info_panel_overflow_test.dart`, `frontend/test/widget_test.dart`, `frontend/assets/**`. |
 | `network`  | `frontend/lib/services/**` (when P2P / multiplayer modules exist), `backend/internal/**`, `backend/cmd/**`, `backend/config/**`, the matching tests under `frontend/test/network/**` and `backend/internal/**/_test.go`. |
-| `security` | `frontend/tool/scan_secrets.dart`, `frontend/analysis_options.yaml` (lints only), `.githooks/**`, `backend/internal/**` (auth-touching code only), the matching tests. |
+| `security` | `frontend/tool/scan_secrets.dart`, `frontend/analysis_options.yaml` (lints only), `backend/internal/**` (auth-touching code only), the matching tests. |
 | `tooling`  | `frontend/tool/**`, `scripts/agent/**`, `scripts/power/**` (read/edit; never run the power scripts), `.github/**`, `docs/coding/ai/**`, [agent/README.md](../agent/README.md). |
 
 Forbidden in every area without a `kind: shared_edit` queue entry: `frontend/native/engine/search/search.c`, `frontend/native/engine/eval/eval.c`, `frontend/native/engine/bridge.c` outside `*_refine_result` blocks, `frontend/lib/engine/engine.dart`, `frontend/lib/engine/native.dart`, the chat mode file, the slash-command prompts, the `_audit_batch_test.dart` skip flags.

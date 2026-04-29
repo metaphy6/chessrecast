@@ -38,8 +38,7 @@ Goal: make the existing loop stop wasting time on the recurring failures above. 
 
 Remaining work:
 - [x] Add a one-shot **session-bootstrap script** the agent runs first thing in any new chat: prints `pwd`, last entries of `agent/state/log.jsonl`, status of `agent/state/current.json`, last commit SHA, and whether `frontend/build/native/linux/libchess_engine.so` is up-to-date. Shipped as [scripts/agent/session-bootstrap.sh](../../../scripts/agent/session-bootstrap.sh).
-- [x] Add a `pre-push` git hook that runs the per-mod regression test for every mod whose source tree was touched, plus `king_castling_policy_regression_test.dart`. Hook is opt-in via `git config core.hooksPath .githooks` so the agent can install it without touching global git config. Shipped as [.githooks/pre-push](../../../.githooks/pre-push) + [scripts/agent/install-hooks.sh](../../../scripts/agent/install-hooks.sh).
-- [x] Add a lint pass that flags any test edit that *removes* an `expect(` line, *adds* `skip:` or `@Skip`, or replaces a strict matcher with `isNotNull` / `isAny`. Shipped as [frontend/tool/check_test_diff.dart](../../../frontend/tool/check_test_diff.dart); invoked by the pre-push hook.
+- ~~Pre-push git hook + test-diff lint~~ — **dropped**. The user does not want pre-push scripting. The agent enforces the same discipline behaviorally per [AGENTS.md](../../../AGENTS.md) §3 (tests-with-code) and §9 (vigilance charter); the gate is the agent's judgement plus mod regression tests, not a git hook.
 - [ ] Refresh `/memories/repo/*_notes.md` discipline: every commit message that touches a mod must trigger an entry append (the agent does this manually today).
 
 ## Phase 2 — observability
@@ -66,7 +65,7 @@ Goal: catch the OWASP Top 10 issues before users do.
 
 - [x] **Dependency audit (frontend only)**: [.github/prompts/dependency-audit.prompt.md](../../../.github/prompts/dependency-audit.prompt.md) drives [frontend/tool/dependency_audit.dart](../../../frontend/tool/dependency_audit.dart) which runs `flutter pub outdated --json`, writes a markdown report to `agent/reports/_security/<run-id>.md`, and (with `--write-queue`) appends `kind: shared_edit / severity: med` queue entries for major-version-behind or security-sensitive packages. **Go backend is intentionally excluded** — the Go service is slated for replacement by a P2P stack and we do not invest churn there.
 - [x] **Static-analysis gate**: extended [frontend/analysis_options.yaml](../../../frontend/analysis_options.yaml) with `avoid_dynamic_calls`, `unsafe_html`, `use_build_context_synchronously`. `gosec` for the backend is **dropped** (Go backend deprecation path).
-- [x] **Secrets scan**: [frontend/tool/scan_secrets.dart](../../../frontend/tool/scan_secrets.dart) grep-walks the diff of every commit for AWS / GitHub / Google / Slack / Stripe / private-key / JWT shapes. Pre-push hook integration is the next follow-up.
+- [x] **Secrets scan**: [frontend/tool/scan_secrets.dart](../../../frontend/tool/scan_secrets.dart) grep-walks the diff of every commit for AWS / GitHub / Google / Slack / Stripe / private-key / JWT shapes. The agent runs it manually before push when touching auth-adjacent code (no git hook).
 - [ ] **Crash & input-fuzz harness** for `bridge.c` — random FENs + random move strings into the C parser; any abort → queue entry.
 
 ## Phase 5 — autonomy uplift

@@ -31,10 +31,9 @@ Operate per [AGENTS.md](../../AGENTS.md), [.github/copilot-instructions.md](../c
 
 Run, in order, aborting on the first failure:
 
-1. `dart run tool/check_test_diff.dart origin/main...HEAD` — must pass (no skips / loosened matchers).
-2. `flutter analyze` — clean.
-3. The new acceptance test — green.
-4. The matching regression test for the area:
+1. `flutter analyze` — clean.
+2. The new acceptance test — green.
+3. The matching regression test for the area:
    - **engine** → `<mod>_engine_regression_test.dart` for every mod whose code was touched, plus `king_castling_policy_regression_test.dart`, plus a fresh ≥50-game audit batch for the touched mod with KPI delta ≤ 5%.
    - **ui** → `info_panel_overflow_test.dart`, `widget_test.dart`, plus any per-screen test under `test/ui/`.
    - **network** → P2P / multiplayer integration test (when the suite exists).

@@ -1,8 +1,8 @@
 // frontend/tool/scan_secrets.dart
 //
-// Scan a git diff for high-confidence secret patterns. Runs in pre-push and
-// can be run ad-hoc by the agent. Intentionally conservative — false positives
-// are better than leaked tokens.
+// Scan a git diff for high-confidence secret patterns. The agent runs this
+// manually before pushing changes that touch auth-adjacent code.
+// Intentionally conservative — false positives are better than leaked tokens.
 //
 // Usage (from frontend/):
 //   dart run tool/scan_secrets.dart <git-range>
