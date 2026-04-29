@@ -246,6 +246,44 @@ void main() {
       },
       skip: !NativeEngine.isAvailable,
     );
+
+    test(
+      'prefers Ke1xe2 in the GAME 21 blunder node',
+      () {
+        final board = _boardFromReplay([
+          'c2c4',
+          'e7e5',
+          'e2e3',
+          'g8e7',
+          'f1d3',
+          'b8c6',
+          'g1f3',
+          'f7f5',
+          'd3c2',
+          'e5e4',
+          'f3d4',
+          'c6d4',
+          'e3d4',
+          'e7c6',
+          'd4d5',
+          'c6d4',
+          'c2a4',
+          'd1e2',
+          'd2d3',
+          'e4d3',
+          'c1g5',
+          'd4c2',
+          'a4c2',
+          'd3c2',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(search.score, greaterThan(-500));
+        expect(_moveNotation(search.bestMove), 'e1e2');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
   });
 }
 

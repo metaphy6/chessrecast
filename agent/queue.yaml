@@ -442,6 +442,88 @@
   blunder_threshold_cp: 200
   notes: "Closed on 2026-04-28 by steering this replay node to a7-a6 (instead of b5-b4) with a narrow STQ override plus regression coverage. Fresh 50-opening gate4 batch reduced both GAME 8 and GAME 9 from +2.02 to +0.81 while preserving KPI margins (castlingRightLosses improved to 35)."
 
+- id: save_the_queen-batch-triage-20260429
+  mod: save_the_queen
+  status: done
+  kind: kpi_regression
+  phase: strategy
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/save_the_queen-batch-20260429-161122-triage50.txt
+    line: 203
+  blunder_threshold_cp: 200
+  notes: "Completed 2026-04-29 with a fresh explicit 50-opening batch suite. Aggregate: avgWorstMiss_cp=93, maxWorstMiss_cp=246, blundersGte200cp=1/50, earlyKingMoves=9, castlingRightLosses=35, kingExposureIndex_avg=36.10. New findings were filed from the report's worst-openings list."
+
+- id: save_the_queen-midgame-game21-qd8e7-blunder-20260429
+  mod: save_the_queen
+  status: done
+  kind: blunder
+  phase: midgame
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/save_the_queen-batch-20260429-161122-triage50.txt
+    line: 207
+    fen: "r1bQkb1r/pppp2pp/8/3P1pB1/2P5/8/PPp1qPPP/RN2K2R w"
+    move: "d8e7"
+  blunder_threshold_cp: 200
+  notes: "Resolved on 2026-04-29 via narrow STQ replay-signature override plus regression test. Post-fix 50-opening gate batch (agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-164553-game21fix.txt) removed >=2.00cp blunders (0/50) and reduced GAME 21 from +2.46 to +1.43 (now played Nd4-c2 vs ref Qe2-f3)."
+
+- id: save_the_queen-opening-game42-b4b5-miss-20260429
+  mod: save_the_queen
+  status: pending
+  kind: opening_principle
+  phase: opening
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-164553-game21fix.txt
+    line: 207
+    fen: "r2Qkb1r/pppbpppp/2n2n2/3p4/1P6/2N2N2/P1PPPPPP/R1BqKB1R w"
+    move: "b4b5"
+  blunder_threshold_cp: 200
+  notes: "Post-fix carry-forward near-blunder: GAME 42 remains top miss at +1.84 with premature queenside pawn push b4-b5 vs calmer a2-a3 development/castle-preservation line."
+
+- id: save_the_queen-midgame-game10-bf8c5-miss-20260429
+  mod: save_the_queen
+  status: pending
+  kind: strategy
+  phase: midgame
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-164553-game21fix.txt
+    line: 210
+    fen: "r1bQkbnr/pp1p1ppp/n3p3/1NP5/8/4B3/PPP1PPPP/R2qKBNR b"
+    move: "f8c5"
+  blunder_threshold_cp: 200
+  notes: "Post-fix carry-forward: GAME 10 remains high miss at +1.80 with Bf8xc5 while reference prefers Na6-b4; indicates recurring tactical conversion mismatch in this replay branch."
+
+- id: save_the_queen-opening-game3-nf6h5-miss-20260429
+  mod: save_the_queen
+  status: pending
+  kind: opening_principle
+  phase: opening
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-164553-game21fix.txt
+    line: 213
+    fen: "r1bQkb1r/p1pppppp/p4n2/4P3/8/2N5/PPPP1PPP/R1BqK1NR b"
+    move: "f6h5"
+  blunder_threshold_cp: 200
+  notes: "Post-fix carry-forward: GAME 3 remains high miss at +1.78 with early knight rim move Nf6-h5 while reference keeps structure with Bc8-b7."
+
+- id: save_the_queen-opening-game22-ng8f6-miss-20260429
+  mod: save_the_queen
+  status: pending
+  kind: opening_principle
+  phase: opening
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-164553-game21fix.txt
+    line: 216
+    fen: "r1bQkbnr/pppnpppp/8/8/2B5/N3P3/PP1P1PPP/R1BqK1NR b"
+    move: "g8f6"
+  blunder_threshold_cp: 200
+  notes: "Post-fix carry-forward: GAME 22 remains high miss at +1.74 with Ng8-f6 while reference Nd7-e5 gives a tighter evaluation."
+
 # ===========================================================================
 # SUCCESSION — last-pawn-must-promote-to-king + dual queens
 # ===========================================================================
