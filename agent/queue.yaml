@@ -695,6 +695,60 @@
   blunder_threshold_cp: 0
   notes: "King and rook involved in a never-completed castle during truce must remain marked as castle-eligible after truce-break. 2026-04-27 verification: targeted truce_test.dart case at line 497 passed, full truce_test.dart suite remained green, and fresh 50-game batch coverage remained stable (agent/reports/truce/truce-gate4-batch-rule-no-check-v1.txt). No followthrough regression reproduced; no code change needed."
 
+- id: truce-batch-triage-20260429
+  mod: truce
+  status: done
+  kind: kpi_regression
+  phase: strategy
+  severity: low
+  evidence:
+    report: agent/reports/truce/truce-batch-20260429-230707-triage50.txt
+    line: 203
+  blunder_threshold_cp: 200
+  notes: "Completed 2026-04-29 with fresh explicit 50-opening suite. Aggregate: avgWorstMiss_cp=15, maxWorstMiss_cp=35, blundersGte200cp=0/50, earlyKingMoves=64, castlingRightLosses=95, kingExposureIndex_avg=26.73. Filed opening-improvement follow-ups from repeated worst-line motifs."
+
+- id: truce-opening-g2g3-bc8h3-vs-h7h5-20260429
+  mod: truce
+  status: done
+  kind: opening_principle
+  phase: opening
+  severity: low
+  evidence:
+    report: agent/reports/truce/truce-batch-20260429-230707-triage50.txt
+    line: 207
+    fen: "r1bq1k1r/ppp2ppp/2nb1n2/3pp3/P2PP3/2N1BNP1/1PP2P1P/R2QKB1R b"
+    move: "c8h3"
+  blunder_threshold_cp: 200
+  notes: "Resolved 2026-04-29 with a Truce-only opening motif guard: added regression coverage in frontend/test/truce_engine_regression_test.dart and tuned frontend/native/engine/search/heuristics_truce.c + frontend/native/engine/eval/eval_truce.c to demote early ...Bc8-h3 in the g3/h2 shell. Post-fix gate report agent/reports/truce/truce-batch-20260429-235429-gate4-g2g3h5.txt: avgWorstMiss_cp=14 (baseline 15), maxWorstMiss_cp=29 (baseline 35), blunders>=2.00=0/50, earlyKingMoves=63 (baseline 64), castlingRightLosses=95 (baseline 95), kingExposureIndex_avg=26.20 (baseline 26.73)."
+
+- id: truce-opening-e4c5-queen-sortie-vs-b-pawn-20260429
+  mod: truce
+  status: pending
+  kind: opening_principle
+  phase: opening
+  severity: low
+  evidence:
+    report: agent/reports/truce/truce-batch-20260429-230707-triage50.txt
+    line: 216
+    fen: "r2q1k1r/pp3pp1/2nbbn2/2ppp2p/1P1PP2P/P1NBBN2/2P2PP1/R2Q1K1R b"
+    move: "d8b6"
+  blunder_threshold_cp: 200
+  notes: "Observed in GAME 2/GAME 42 at +0.29/+0.28: early queen sortie Qd8-b6 trails reference queenside expansion b7-b5 in similar post-truce structures."
+
+- id: truce-opening-e3-dev-bishop-vs-knight-20260429
+  mod: truce
+  status: pending
+  kind: opening_principle
+  phase: opening
+  severity: low
+  evidence:
+    report: agent/reports/truce/truce-batch-20260429-230707-triage50.txt
+    line: 219
+    fen: "rnbqkbnr/pp2pppp/8/2pp4/8/2N1P3/PPPP1PPP/R1BQKBNR w"
+    move: "f1d3"
+  blunder_threshold_cp: 200
+  notes: "Repeated in GAME 37/36/38/39/40 at +0.25 to +0.29: Bf1-d3 underperforms reference Ng1-f3 in low-contact truce openings."
+
 # ===========================================================================
 # SHARED — cross-mod issues that require kind: shared_edit approval
 # ===========================================================================
