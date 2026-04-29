@@ -176,6 +176,659 @@ void main() {
     );
 
     test(
+      'plays e7e5 instead of Kc6d6 in the a5-b5 phase-1 race',
+      () {
+        final board = _boardFromReplay([
+          'e2e3',
+          'b7b5',
+          'e1e2',
+          'd7d5',
+          'e2d3',
+          'e8d7',
+          'd3d4',
+          'd7e6',
+          'c2c3',
+          'g7g6',
+          'b2b4',
+          'f7f6',
+          'd2d3',
+          'e6d6',
+          'e3e4',
+          'd5e4',
+          'd3e4',
+          'd6c6',
+          'h2h3',
+          'a7a5',
+          'b4a5',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'e7e5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays e2e3 instead of g4xf5 in the d4-f5 phase-1 structure',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'f7f5',
+          'e1d2',
+          'e8f7',
+          'd2e3',
+          'f7e6',
+          'e3f4',
+          'g7g6',
+          'g2g4',
+          'e6d6',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'e2e3');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays c7c5 instead of d5xc4 in the d3-d5 phase-1 center knot',
+      () {
+        final board = _boardFromReplay([
+          'd2d3',
+          'd7d5',
+          'e1d2',
+          'e8d7',
+          'd2e3',
+          'd7e6',
+          'g2g3',
+          'f7f6',
+          'e3d4',
+          'g7g5',
+          'c2c3',
+          'e6d6',
+          'c3c4',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'c7c5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays c2c3 instead of Ke3f4 in the d4-f5 phase-1 king-race node',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'f7f5',
+          'e1d2',
+          'e8f7',
+          'd2e3',
+          'f7e6',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'c2c3');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays d7d5 instead of c5xd4 in the c5-e6 phase-1 center node',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'c7c5',
+          'e1d2',
+          'e7e6',
+          'd2e3',
+          'e8e7',
+          'e3e4',
+          'e7f6',
+          'e2e3',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'd7d5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays f7f5 instead of Kd6c6 in the f4-e5 phase-1 king-race node',
+      () {
+        final board = _boardFromReplay([
+          'f2f4',
+          'e7e5',
+          'e1f2',
+          'e8e7',
+          'f2e3',
+          'e7d6',
+          'e3e4',
+          'g7g6',
+          'd2d3',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'f7f5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays e2e4 instead of f4xe5 in the post-f7f5 phase-1 continuation',
+      () {
+        final board = _boardFromReplay([
+          'f2f4',
+          'e7e5',
+          'e1f2',
+          'e8e7',
+          'f2e3',
+          'e7d6',
+          'e3e4',
+          'g7g6',
+          'd2d3',
+          'f7f5',
+          'e4f3',
+          'd6d5',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'e2e4');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays f7f6 instead of Kc6d6 in the c4-e5 phase-1 race node',
+      () {
+        final board = _boardFromReplay([
+          'c2c4',
+          'e7e5',
+          'd2d3',
+          'e8e7',
+          'e1d2',
+          'e7d6',
+          'd2e3',
+          'b7b6',
+          'g2g3',
+          'd6c6',
+          'e3e4',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'f7f6');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays d7d5 instead of f6xe5 in the c4-e5 phase-1 follow-up',
+      () {
+        final board = _boardFromReplay([
+          'c2c4',
+          'e7e5',
+          'd2d3',
+          'e8e7',
+          'e1d2',
+          'e7d6',
+          'd2e3',
+          'b7b6',
+          'g2g3',
+          'd6c6',
+          'e3e4',
+          'f7f6',
+          'f2f3',
+          'a7a5',
+          'f3f4',
+          'c6c5',
+          'e2e3',
+          'c7c6',
+          'f4e5',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'd7d5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays h5h4 instead of Ke6f5 in the b4-d5 phase-1 king-race node',
+      () {
+        final board = _boardFromReplay([
+          'b2b4',
+          'd7d5',
+          'd2d3',
+          'e8d7',
+          'e1d2',
+          'd7e6',
+          'd2c3',
+          'e6e5',
+          'f2f4',
+          'e5f6',
+          'c3d4',
+          'g7g6',
+          'c2c3',
+          'h7h5',
+          'e2e3',
+          'f6e6',
+          'd4c5',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'h5h4');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays f7f5 instead of Ke6f6 in the b4-c5 phase-1 center node',
+      () {
+        final board = _boardFromReplay([
+          'b2b4',
+          'c7c5',
+          'd2d4',
+          'd7d6',
+          'e1d2',
+          'e8d7',
+          'b4c5',
+          'd6c5',
+          'd2e3',
+          'd7e6',
+          'e3e4',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'f7f5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays g7g6 instead of Ke4f4 in the b4-c5 phase-1 late continuation',
+      () {
+        final board = _boardFromReplay([
+          'b2b4',
+          'c7c5',
+          'd2d4',
+          'd7d6',
+          'e1d2',
+          'e8d7',
+          'b4c5',
+          'd6c5',
+          'd2e3',
+          'd7e6',
+          'e3e4',
+          'f7f5',
+          'e4d3',
+          'c5d4',
+          'd3c4',
+          'e6e5',
+          'c2c3',
+          'e5e4',
+          'c3d4',
+          'e7e6',
+          'a2a3',
+          'e6e5',
+          'c4c5',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'g7g6');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays c4c5 instead of Ke4f5 in the g4-e5 phase-1 center race',
+      () {
+        final board = _boardFromReplay([
+          'g2g4',
+          'e7e5',
+          'f2f3',
+          'e8e7',
+          'e1f2',
+          'e7d6',
+          'f2e3',
+          'd6d5',
+          'd2d3',
+          'b7b5',
+          'b2b3',
+          'c7c6',
+          'c2c4',
+          'b5c4',
+          'b3c4',
+          'd5e6',
+          'e3e4',
+          'f7f6',
+          'd3d4',
+          'e6d6',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'c4c5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays d7d5 instead of Ke6d6 in the g4-e5 phase-1 setup node',
+      () {
+        final board = _boardFromReplay([
+          'g2g4',
+          'e7e5',
+          'f2f3',
+          'e8e7',
+          'e1f2',
+          'e7d6',
+          'f2e3',
+          'd6d5',
+          'd2d3',
+          'b7b5',
+          'b2b3',
+          'c7c6',
+          'c2c4',
+          'b5c4',
+          'b3c4',
+          'd5e6',
+          'e3e4',
+          'f7f6',
+          'd3d4',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'd7d5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays d6d5 instead of g5xf4 in the g4-c5 phase-1 center structure',
+      () {
+        final board = _boardFromReplay([
+          'g2g4',
+          'c7c5',
+          'f2f3',
+          'd7d6',
+          'e1f2',
+          'e8d7',
+          'f2e3',
+          'd7e6',
+          'e3e4',
+          'g7g6',
+          'd2d3',
+          'f7f6',
+          'e2e3',
+          'g6g5',
+          'f3f4',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'd6d5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays d4d5 instead of Kc4c5 in the b4-c5 phase-1 late king race',
+      () {
+        final board = _boardFromReplay([
+          'b2b4',
+          'c7c5',
+          'd2d4',
+          'd7d6',
+          'e1d2',
+          'e8d7',
+          'b4c5',
+          'd6c5',
+          'd2e3',
+          'd7e6',
+          'e3e4',
+          'f7f5',
+          'e4d3',
+          'c5d4',
+          'd3c4',
+          'e6e5',
+          'c2c3',
+          'e5e4',
+          'c3d4',
+          'e7e6',
+          'a2a3',
+          'e6e5',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'd4d5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays f2f3 instead of g4g5 after g2g4 d7d5',
+      () {
+        final board = _boardFromReplay([
+          'g2g4',
+          'd7d5',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'f2f3');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays f7f6 instead of Kc5b4 in the g4-b5 phase-1 king race',
+      () {
+        final board = _boardFromReplay([
+          'g2g4',
+          'b7b5',
+          'e2e3',
+          'd7d6',
+          'e1e2',
+          'e8d7',
+          'e2f3',
+          'd7c6',
+          'f3f4',
+          'e7e5',
+          'f4e4',
+          'c6c5',
+          'e4f5',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'f7f6');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays e2e3 instead of a2a3 in the b4-c5 phase-1 late simplification',
+      () {
+        final board = _boardFromReplay([
+          'b2b4',
+          'c7c5',
+          'd2d4',
+          'd7d6',
+          'e1d2',
+          'e8d7',
+          'b4c5',
+          'd6c5',
+          'd2e3',
+          'd7e6',
+          'e3e4',
+          'f7f5',
+          'e4d3',
+          'c5d4',
+          'd3c4',
+          'e6e5',
+          'c2c3',
+          'e5e4',
+          'c3d4',
+          'e7e6',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'e2e3');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays d2d4 instead of b4xc5 in the f3-f5 phase-1 center bind',
+      () {
+        final board = _boardFromReplay([
+          'f2f3',
+          'f7f5',
+          'e1f2',
+          'e8f7',
+          'f2e3',
+          'f7e6',
+          'e3d4',
+          'd7d6',
+          'c2c3',
+          'c7c5',
+          'd4c4',
+          'e6e5',
+          'b2b4',
+          'e7e6',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'd2d4');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays f2f3 instead of d4d5 in the post-e2e3 b4-c5 continuation',
+      () {
+        final board = _boardFromReplay([
+          'b2b4',
+          'c7c5',
+          'd2d4',
+          'd7d6',
+          'e1d2',
+          'e8d7',
+          'b4c5',
+          'd6c5',
+          'd2e3',
+          'd7e6',
+          'e3e4',
+          'f7f5',
+          'e4d3',
+          'c5d4',
+          'd3c4',
+          'e6e5',
+          'c2c3',
+          'e5e4',
+          'c3d4',
+          'e7e6',
+          'e2e3',
+          'e6e5',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'f2f3');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays g2g4 instead of e4xf5 in the f3-f5 late counter-race',
+      () {
+        final board = _boardFromReplay([
+          'f2f3',
+          'f7f5',
+          'e1f2',
+          'e8f7',
+          'f2e3',
+          'f7e6',
+          'e3d4',
+          'd7d6',
+          'c2c3',
+          'c7c5',
+          'd4c4',
+          'e6e5',
+          'b2b4',
+          'e7e6',
+          'd2d4',
+          'c5d4',
+          'c3d4',
+          'e5f4',
+          'h2h4',
+          'd6d5',
+          'c4d3',
+          'f4g3',
+          'e2e4',
+          'g3h2',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'g2g4');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'plays g3g4 instead of b4xc5 in the f3-c5 phase-1 center race',
+      () {
+        final board = _boardFromReplay([
+          'f2f3',
+          'c7c5',
+          'e1f2',
+          'e7e5',
+          'f2e3',
+          'e8e7',
+          'd2d3',
+          'e7d6',
+          'g2g3',
+          'b7b6',
+          'e3e4',
+          'g7g6',
+          'a2a3',
+          'd6e6',
+          'c2c3',
+          'f7f5',
+          'e4e3',
+          'e6d5',
+          'c3c4',
+          'd5d6',
+          'b2b4',
+          'd6c6',
+        ]);
+        final best = _rootBestMove(board);
+
+        expect(best, isNotNull);
+        expect(_moveNotation(best), 'g3g4');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
       'prefers Qd1-b3 over the bishop sortie in the unlocked c5-g6 line',
       () {
         final board = _boardFromReplay([
