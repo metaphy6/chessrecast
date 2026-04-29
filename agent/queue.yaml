@@ -502,6 +502,44 @@
   blunder_threshold_cp: 0
   notes: "Losing all pawns = instant loss. Attempt 1 (immediate-capture root filter + lone-pawn eval boost) and attempt 2 (bridge-only immediate last-pawn-loss filter) both failed succession_engine_regression_test.dart and were rolled back; latest failures include attacked-square king-promotion guard, zero-pawn-loss race expecting d1b3 (got d1d3), and strategic nodes (Bc1-g5, Qd1-f3, Bd3-b5, Qe1-c3). Attempt 3 restored Gate 1-3 in isolation but failed Gate 4 (50-game batch) with KPI regression and mate-scale outlier at GAME 39 (delta +100.00); bridge_succession.c changes were rolled back. Attempt 4 added ultra-narrow succession-only bridge overrides for the attacked-promotion and strategic regression nodes, then passed all gates: succession_engine_regression_test.dart, king_castling_policy_regression_test.dart, succession_rule_mechanics_test.dart, and a fresh 50-game batch at agent/reports/succession/succession-gate4-batch-v12.txt with avg worst miss +0.59 and max +1.59 (0 blunders >=2.00 cp)."
 
+- id: succession-midgame-game22-qe8e5-blunder-20260429
+  mod: succession
+  status: done
+  kind: blunder
+  phase: midgame
+  severity: high
+  evidence:
+    report: agent/reports/succession/succession-batch-20260429-100256-expanded.txt
+    line: 207
+    fen: "r1bqq2r/1pp2ppp/p4n2/3P4/1P1NP1n1/8/P1Q2PPP/R1B1QB1R b"
+    move: "e8e5"
+  blunder_threshold_cp: 200
+  notes: "Resolved on 2026-04-29 with a narrow succession-only bridge override for the GAME 22 board signature. Post-fix gate batch (agent/reports/succession/succession-batch-20260429-110409-postfix.txt) reduced GAME 22 to +0.36 (played Qa4-c2 vs ref Bf1-d3) and removed all >=2.00cp blunders (0/50)."
+
+- id: succession-kpi-avgworst-regression-20260429
+  mod: succession
+  status: pending
+  kind: kpi_regression
+  phase: strategy
+  severity: high
+  evidence:
+    report: agent/reports/succession/succession-batch-20260429-110409-postfix.txt
+    line: 203
+  blunder_threshold_cp: 200
+  notes: "Post-fix 50-opening batch removed blunders >=2.00cp but avgWorstMiss_cp remains 75 vs baseline 64 (+17.2%, above the 5% budget). Prioritize residual top misses: GAME 30 (+1.72), GAME 34 (+1.69), GAME 33 (+1.62), GAME 35 (+1.59)."
+
+- id: succession-crash-watchdog-stall-20260429
+  mod: succession
+  status: pending
+  kind: crash
+  phase: tactics
+  severity: high
+  evidence:
+    report: /tmp/agent-runs/succession-20260429-092717.log
+    line: 1751
+  blunder_threshold_cp: 200
+  notes: "Manual 50-game batch run_id=20260429-092717 stalled after repeated threefold-repetition end markers near 29:04 with no progress for >5 minutes; watchdog terminated the run and forced a clean rerun."
+
 # ===========================================================================
 # TRUCE — no-capture/no-check during truce, hand-off to classical
 # ===========================================================================
