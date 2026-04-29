@@ -9,6 +9,31 @@ section by section — do not rename headings without updating those.
 
 These rules apply to **every** Copilot Chat / agent interaction in this repo.
 
+> Companion documents: [AGENTS.md](../AGENTS.md) (top-level rulebook for any AI coding assistant, including Copilot, Claude, and others) and [CLAUDE.md](../CLAUDE.md) (Claude-specific entry point that delegates to AGENTS.md). When this file and AGENTS.md disagree, **AGENTS.md wins** for non-mod-specific rules; this file remains authoritative for engine/mod work.
+
+## Discoverability index — read before searching or creating
+
+Before creating any new config / doc / script, **first check whether it already exists** in the list below. The agent has historically wasted effort recreating these files because it didn't know they were here.
+
+| Concern | Path |
+|---|---|
+| Top-level AI rulebook | [AGENTS.md](../AGENTS.md), [CLAUDE.md](../CLAUDE.md) |
+| Copilot repo rules (this file) | [.github/copilot-instructions.md](copilot-instructions.md) |
+| Chat mode for the autonomous loop | [.github/chatmodes/chess-mod-improver.chatmode.md](chatmodes/chess-mod-improver.chatmode.md) |
+| Slash-command prompts | [.github/prompts/improve-mod.prompt.md](prompts/improve-mod.prompt.md), [.github/prompts/triage-audit-report.prompt.md](prompts/triage-audit-report.prompt.md) |
+| AI automation roadmap | [docs/coding/ai/automation.md](../docs/coding/ai/automation.md) |
+| Game design / rules | [docs/game/GAME_MODS_DOCUMENTATION.md](../docs/game/GAME_MODS_DOCUMENTATION.md), [docs/game/DRAW_RULES.md](../docs/game/DRAW_RULES.md) |
+| Native engine build / artifacts | [docs/code/BUILD_ARTIFACTS_MANAGEMENT.md](../docs/code/BUILD_ARTIFACTS_MANAGEMENT.md), [docs/code/NATIVE_ENGINE_PLATFORM_AUDIT.md](../docs/code/NATIVE_ENGINE_PLATFORM_AUDIT.md) |
+| Test tooling notes | [docs/code/TEST_TOOL_IMPROVEMENTS.md](../docs/code/TEST_TOOL_IMPROVEMENTS.md), [docs/code/TEST_TOOL_ALGORITHM_IMPROVEMENT_MAP.md](../docs/code/TEST_TOOL_ALGORITHM_IMPROVEMENT_MAP.md) |
+| Agent loop state / queue / reports | [agent/README.md](../agent/README.md), [agent/queue.yaml](../agent/queue.yaml), [agent/baselines/](../agent/baselines), [agent/reports/](../agent/reports), [agent/state/](../agent/state) |
+| Power / wake-lock scripts | [scripts/power/README.md](../scripts/power/README.md) |
+| Native CMake | [frontend/CMakeLists.txt](../frontend/CMakeLists.txt), [frontend/native/engine/](../frontend/native/engine), build output `frontend/build/native/linux/` |
+| Per-mod source allow-list | see *Hard rules → 2* below |
+| Per-mod tests | `frontend/test/<mod>_*` and `frontend/test/manual_<mod>_*` |
+| Mod source memory notes | `/memories/repo/*_notes.md` (Copilot memory tool) |
+
+**Rule:** if a file in this index already exists, **read it; do not recreate it**. If you believe an existing file is wrong, propose an edit — never shadow it with a new file at a different path.
+
 ## Project shape
 
 - `frontend/` — Flutter app + Dart test harness (`frontend/test/`) + Dart audit tools (`frontend/tool/`).
@@ -55,6 +80,37 @@ A change is acceptable only when it improves at least one of those four buckets 
 5. **Rate-limit hygiene.** If a tool call returns 429 / "rate limit" / "quota": stop the current task, write progress to `agent/state/checkpoint.json`, and pause for the cooldown the response specifies (or 5 minutes if unspecified) before resuming. Never retry tighter than exponential backoff.
 6. **Findings must be evidence-backed.** A "blunder" or "rule violation" is only a finding if it appears in a generated audit report file under `/tmp/` or `agent/reports/`. No edits based on guessed positions.
 7. **Never edit the `_audit_batch_test.dart` / `_position_probe_test.dart` skip flags or thresholds to make a run pass.** Those tests are the gate.
+8. **Mandatory commit & push after every slash command.** Any `/<name>` command (`/improve-mod`, `/triage-audit-report`, future commands) **must end** with the agent committing and pushing to `origin/main` if — and only if — every gate in rule 4 passed and the working tree contains real changes. The agent is **forbidden** from inventing reasons to defer the commit ("for the user to review", "needs verification", "out of scope") when gates are green. The acceptable terminal states of a slash command are exactly:
+   - **`pushed`** — gates green, `git push origin main` exit 0, commit SHA reported in chat.
+   - **`reverted`** — at least one gate failed; `git restore .` (or `git reset --hard HEAD` if local-only), no push, finding filed in `agent/queue.yaml`.
+   - **`no-op`** — `git status -s` was already clean before any edit; nothing to commit.
+   - **`blocked`** — non-fast-forward push that did not pass a re-gate after rebase, or a `kind: shared_edit` requirement was discovered mid-task. State must be written to `agent/state/checkpoint.json`.
+
+   "I'll let you review and commit yourself" is **not** an acceptable terminal state. If commit/push is genuinely undesired (e.g. user says "dry run"), the user must say so explicitly *before* the slash command runs.
+9. **System-level change guardrails.** The agent may change the repo, the Flutter SDK cache (`flutter pub get`), and the local native build directory (`frontend/build/native/`). The agent **must not**, without an explicit one-shot user confirmation in chat:
+   - install / upgrade / remove OS packages (`apt`, `dnf`, `pacman`, `brew`, `snap`, `flatpak`),
+   - modify systemd units, cron, login shells, `/etc/**`, kernel modules, firewall, SELinux/AppArmor profiles,
+   - change global git config, global SSH config, GPG keyrings, or credential stores,
+   - touch any path outside this workspace except: `/tmp/agent-runs/**` (allowed; created on demand), `~/.cache/flutter/**` and `~/.pub-cache/**` (allowed via `flutter`/`dart` tooling only),
+   - run the [scripts/power/](../scripts/power) wake-lock scripts (those are user-initiated only — see *Long-session ergonomics*).
+
+   System-level changes that are required for the project (e.g. a missing native dependency that breaks the build) **may** be requested, but the agent must propose the exact command in chat first, justify why a per-project alternative does not exist, and wait for the user's "go". Stability and security come before convenience: if a system change could harm the user's workstation or expose secrets, refuse and report.
+10. **Tests move with code (no exceptions).** Any code change must be accompanied — *in the same commit* — by the corresponding test work:
+    - **New feature** → at least one new test that fails before the change and passes after. Per-mod allow-list still applies (`frontend/test/<mod>_*` or `frontend/test/manual_<mod>_*`).
+    - **Bug fix** → a regression test that reproduces the bug pre-fix (verified by temporary revert or by saved log line in `agent/state/log.jsonl`) and turns green post-fix.
+    - **Refactor** → no behavior change, but every test that touched the refactored symbol must be re-run; if a test was *only* passing because of the old shape, fix the test (don't loosen its assertions). Loosening or deleting assertions to make a test pass is a hard violation.
+    - **Debug investigation that ships a code change** → same as bug fix.
+    - **Pure docs / config / build-script changes** → no test required, but the relevant audit batch (`manual_<mod>_audit_batch_test.dart` for engine-affecting configs) must still run if the change can influence engine behavior.
+
+    The agent must **never** silence, skip (`@Skip`, `skip: true`, `markTestSkipped`), or weaken assertions to make a gate pass. Skipping a test is allowed only with a queue entry of `kind: kpi_regression` or `kind: shared_edit` documenting why and when it will be re-enabled.
+11. **Session recovery & directory hygiene.** A previous chat session, terminal, or watchdog may have been killed mid-task. Before doing real work the agent **must**:
+    1. read [agent/state/current.json](../agent/state/current.json) and [agent/state/checkpoint.json](../agent/state/checkpoint.json) (if present); if `current.json` shows a task in `in_progress`, treat it as orphaned — verify whether its commit landed (`git log --oneline -5`) and either resume or reset its status to `pending`,
+    2. inspect [agent/state/log.jsonl](../agent/state/log.jsonl) tail (last ~20 lines) for the previous session's last action,
+    3. confirm `pwd` matches the expected working directory before every `flutter test` / `cmake` / git command — never assume the shell's `cwd` survived a session restart,
+    4. clean up only files the agent itself created in `/tmp/agent-runs/`; never `rm -rf` anything it didn't write,
+    5. if the native lib path or symlinks look stale, rebuild via the **`Frontend: Rebuild Native Engine`** task rather than guessing.
+
+    On 429 / rate-limit / SIGINT mid-task: write `agent/state/checkpoint.json` with the current step, then exit cleanly. Do not attempt destructive cleanup on the way out.
 
 ## Take-initiative directive
 
@@ -104,6 +160,20 @@ Run from `frontend/`. Build the native lib first if missing (`cmake --build buil
 | truce            | `TRUCE_BATCH_*`           | `TRUCE_PROBE_*`           | `truce_engine_regression_test.dart`       |
 
 Common suffixes: `_BATCH_OPENINGS` (CSV of opening UCI sequences, one per game — use ≥50 lines for a real batch), `_BATCH_MAX_PLIES`, `_BATCH_REPORT_PATH`, `_BATCH_STOP_AT_DELTA` (cp), `_BATCH_LIVE_PROGRESS=1`. Probes additionally accept `_PROBE_FEN`, `_PROBE_DEPTH`, `_PROBE_TIME_MS`, `_PROBE_SKILL`, `_PROBE_CANDIDATES`, `_PROBE_REPORT_PATH`.
+
+## Per-area source allow-list (for `/add-feature` and non-mod work)
+
+The per-mod allow-list above (Hard rules → 2) governs *engine strength* tasks. For broader feature work driven by [`/add-feature`](prompts/add-feature.prompt.md), use the per-area allow-list below. Each area is a closed set; touching a path outside the listed prefixes requires an explicit `kind: shared_edit` task.
+
+| Area       | Allowed paths |
+|---|---|
+| `engine`   | per-mod allow-list from Hard rules → 2 (no change). |
+| `ui`       | `frontend/lib/ui/**`, `frontend/lib/board/**`, `frontend/lib/main.dart`, `frontend/lib/routes.dart`, `frontend/test/ui/**`, `frontend/test/info_panel_overflow_test.dart`, `frontend/test/widget_test.dart`, `frontend/assets/**`. |
+| `network`  | `frontend/lib/services/**` (when P2P / multiplayer modules exist), `backend/internal/**`, `backend/cmd/**`, `backend/config/**`, the matching tests under `frontend/test/network/**` and `backend/internal/**/_test.go`. |
+| `security` | `frontend/tool/scan_secrets.dart`, `frontend/analysis_options.yaml` (lints only), `.githooks/**`, `backend/internal/**` (auth-touching code only), the matching tests. |
+| `tooling`  | `frontend/tool/**`, `scripts/agent/**`, `scripts/power/**` (read/edit; never run the power scripts), `.github/**`, `docs/coding/ai/**`, [agent/README.md](../agent/README.md). |
+
+Forbidden in every area without a `kind: shared_edit` queue entry: `frontend/native/engine/search/search.c`, `frontend/native/engine/eval/eval.c`, `frontend/native/engine/bridge.c` outside `*_refine_result` blocks, `frontend/lib/engine/engine.dart`, `frontend/lib/engine/native.dart`, the chat mode file, the slash-command prompts, the `_audit_batch_test.dart` skip flags.
 
 ## Difficulty levels (target)
 

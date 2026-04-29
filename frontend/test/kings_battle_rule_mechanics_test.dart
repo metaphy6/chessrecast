@@ -17,7 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final orchestrator = Orchestrator();
 
-  ChessMove _findMove(
+  ChessMove findMove(
     ChessBoard board,
     String fromAlg,
     String toAlg, {
@@ -43,7 +43,7 @@ void main() {
       );
       expect(board.currentPlayer, PieceColor.white);
 
-      final move = _findMove(board, 'e4', 'e5');
+      final move = findMove(board, 'e4', 'e5');
       expect(move.piece.type, PieceType.king);
       expect(move.capturedPiece?.type, PieceType.pawn);
 
@@ -68,7 +68,7 @@ void main() {
           gameType: ModsEnum.kingsBattle,
         );
 
-        final kingsKill = _findMove(board, 'd5', 'c6');
+        final kingsKill = findMove(board, 'd5', 'c6');
         expect(kingsKill.piece.type, PieceType.king);
         expect(kingsKill.capturedPiece?.type, PieceType.pawn);
 
@@ -87,7 +87,7 @@ void main() {
         );
 
         // White can spend the bonus move normally even while Black is checked.
-        final bonusMove = _findMove(afterKill, 'a2', 'b1');
+        final bonusMove = findMove(afterKill, 'a2', 'b1');
         final afterBonus = orchestrator.executeMove(afterKill, bonusMove);
         expect(
           afterBonus.currentPlayer,
@@ -107,7 +107,7 @@ void main() {
         );
         expect(board.currentPlayer, PieceColor.white);
 
-        final move = _findMove(board, 'e4', 'd5');
+        final move = findMove(board, 'e4', 'd5');
         expect(move.piece.type, PieceType.pawn);
         expect(move.capturedPiece?.type, PieceType.pawn);
 
@@ -126,7 +126,7 @@ void main() {
           '4k3/8/8/3p4/4P3/8/n7/4K3 w - - 0 1',
           gameType: ModsEnum.kingsBattle,
         );
-        final captureMove = _findMove(boardWithKnight, 'e4', 'd5');
+        final captureMove = findMove(boardWithKnight, 'e4', 'd5');
         final afterCapture = orchestrator.executeMove(
           boardWithKnight,
           captureMove,
@@ -150,7 +150,7 @@ void main() {
       );
       expect(board.currentPlayer, PieceColor.white);
 
-      final move = _findMove(board, 'e7', 'e8', promotion: 'Q');
+      final move = findMove(board, 'e7', 'e8', promotion: 'Q');
       expect(move.isPromotion, isTrue);
 
       final after = orchestrator.executeMove(board, move);
@@ -169,10 +169,10 @@ void main() {
         '8/4P3/k7/8/8/8/8/N3K3 w - - 0 1',
         gameType: ModsEnum.kingsBattle,
       );
-      final promoMove = _findMove(boardWithKnight, 'e7', 'e8', promotion: 'Q');
+      final promoMove = findMove(boardWithKnight, 'e7', 'e8', promotion: 'Q');
       var afterPromo = orchestrator.executeMove(boardWithKnight, promoMove);
       // Black plays any king move so it is White's turn again.
-      final blackKingMove = _findMove(afterPromo, 'a6', 'b6');
+      final blackKingMove = findMove(afterPromo, 'a6', 'b6');
       afterPromo = orchestrator.executeMove(afterPromo, blackKingMove);
       expect(afterPromo.currentPlayer, PieceColor.white);
 
@@ -233,7 +233,7 @@ void main() {
         ];
         var current = board;
         for (final pair in shuffles) {
-          final m = _findMove(current, pair[0], pair[1]);
+          final m = findMove(current, pair[0], pair[1]);
           expect(m.piece.type, PieceType.king);
           expect(m.capturedPiece, isNull);
           current = orchestrator.executeMove(current, m);
@@ -280,12 +280,12 @@ void main() {
           ['e1', 'd1'],
         ];
         for (final p in firstFive) {
-          final m = _findMove(current, p[0], p[1]);
+          final m = findMove(current, p[0], p[1]);
           current = orchestrator.executeMove(current, m);
         }
 
         // Black pushes h6-h5 (pawn move resets counter).
-        final pawnPush = _findMove(current, 'h6', 'h5');
+        final pawnPush = findMove(current, 'h6', 'h5');
         expect(pawnPush.piece.type, PieceType.pawn);
         current = orchestrator.executeMove(current, pawnPush);
 
@@ -298,7 +298,7 @@ void main() {
           ['d1', 'e1'],
         ];
         for (final p in lastFive) {
-          final m = _findMove(current, p[0], p[1]);
+          final m = findMove(current, p[0], p[1]);
           current = orchestrator.executeMove(current, m);
         }
 
