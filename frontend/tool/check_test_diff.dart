@@ -5,8 +5,11 @@
 // → 10, the following changes are forbidden in any agent-authored commit:
 //
 //   * adding `skip:` / `@Skip` / `markTestSkipped(...)` to a test,
-//   * removing an `expect(` line,
-//   * replacing a strict matcher with a loose one (e.g. `equals(x)` -> `isNotNull`),
+//   * net loss of `expect(` lines across the diff,
+//   * replacing a strict matcher with a loose one in the SAME file
+//     (detected as: an added loose matcher AND a removed `expect(` in the
+//     same file — a pure addition of a sanity assertion in a new test is
+//     allowed),
 //   * deleting a `_test.dart` file without an accompanying queue entry of
 //     kind: kpi_regression or kind: shared_edit.
 //
@@ -58,6 +61,13 @@ void main(List<String> args) async {
   int addedExpect = 0;
   int removedExpect = 0;
 
+  // Per-file tally so we can tell "loosened an existing assertion" (added
+  // loose matcher AND removed at least one expect in the same file) from
+  // "added a brand-new sanity assertion in a fresh test" (loose matcher with
+  // zero removals in that file). Only the former is a violation.
+  final fileAddedLoose = <String, List<String>>{};
+  final fileRemovedExpect = <String, int>{};
+
   for (final line in diff.split('\n')) {
     final fm = _filePragma.firstMatch(line);
     if (fm != null) {
@@ -70,11 +80,26 @@ void main(List<String> args) async {
       findings.add('SKIP added in $currentFile: ${line.trim()}');
     }
     if (_addedLooseMatcher.hasMatch(line)) {
-      findings.add('LOOSENED matcher in $currentFile: ${line.trim()}');
+      (fileAddedLoose[currentFile] ??= []).add(line.trim());
     }
     if (line.startsWith('+') && line.contains('expect(')) addedExpect++;
-    if (_removedExpect.hasMatch(line)) removedExpect++;
+    if (_removedExpect.hasMatch(line)) {
+      removedExpect++;
+      fileRemovedExpect[currentFile] = (fileRemovedExpect[currentFile] ?? 0) + 1;
+    }
   }
+
+  // Only flag loose matchers when the same file also drops an expect() line —
+  // i.e. a likely downgrade of an existing assertion, not a fresh test.
+  fileAddedLoose.forEach((file, looseLines) {
+    final removed = fileRemovedExpect[file] ?? 0;
+    if (removed == 0) return; // pure addition, allowed.
+    for (final l in looseLines) {
+      findings.add(
+        'LOOSENED matcher in $file (file also removes $removed expect() line(s)): $l',
+      );
+    }
+  });
 
   // Net loss of expect() calls is a red flag.
   if (removedExpect > addedExpect) {
