@@ -356,11 +356,11 @@ SearchResult stq_refine_result(const Board *board,
     if (candidate_count <= 1) return raw;
 
     verify_depth = (max_depth < 5) ? 5 : max_depth;
-    verify_time = (time_ms <= 0) ? 220 : clamp_int((time_ms * 3) / 2, 140, 240);
+    verify_time = (time_ms <= 0) ? 190 : clamp_int((time_ms * 5) / 4, 130, 210);
 
     if (raw_is_king) {
         verify_depth = (verify_depth < 6) ? 6 : (verify_depth + 1);
-        verify_time = (time_ms <= 0) ? 300 : clamp_int(time_ms * 2, 220, 360);
+        verify_time = (time_ms <= 0) ? 250 : clamp_int((time_ms * 7) / 4, 180, 300);
     }
 
     for (int i = 0; i < candidate_count; i++) {
