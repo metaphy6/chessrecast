@@ -192,6 +192,28 @@ void main() {
     );
 
     test(
+      'avoids Qe8-e5 in the GAME 22 tactical node',
+      () {
+        final board = ChessBoard.fromFEN(
+          'r1bqq2r/1pp2ppp/p4n2/3P4/1P1NP1n1/8/P1Q2PPP/R1B1QB1R b - - 0 1',
+          gameType: ModsEnum.succession,
+        );
+
+        final engine = NativeEngine();
+        engine.resetState(clearTranspositionTable: true);
+        final result = engine.findBestMoveSync(
+          board,
+          timeLimitMs: 120,
+          maxDepth: 4,
+          skillLevel: 4,
+        );
+
+        expect(_moveNotation(result.bestMove), 'f6e4');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
       'chooses Bd3-b5 in the GAME 50 strategic node',
       () {
         final board = ChessBoard.fromFEN(
