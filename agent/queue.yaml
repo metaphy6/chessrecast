@@ -522,7 +522,7 @@
     fen: "r1bQkb1r/p1pppppp/p4n2/4P3/8/2N5/PPPP1PPP/R1BqK1NR b"
     move: "f6h5"
   blunder_threshold_cp: 200
-  notes: "Post-fix carry-forward: GAME 3 remains high miss at +1.78 with early knight rim move Nf6-h5 while reference keeps structure with Bc8-b7. Attempted narrow Bc8-b7 override on 2026-04-29 regressed Gate 4 to +2.35 (played e5xf6 vs ref f2-f3) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-180620-game3fix.txt, so the patch was reverted. A second attempt using a generalized early knight-rim penalty also regressed Gate 4 to max +3.73 with 3/50 >=2.00 misses (new worst GAME 31/GAME 11/GAME 28) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-195443-game3heuristic.txt, and was reverted as well. A third attempt with signature-scoped candidate-priority penalties regressed Gate 4 again to +2.35 in GAME 3 (played e5xf6 vs ref f2-f3) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-205328-game3game22fix.txt, and was reverted."
+  notes: "Post-fix carry-forward: GAME 3 remains high miss at +1.78 with early knight rim move Nf6-h5 while reference keeps structure with Bc8-b7. Attempted narrow Bc8-b7 override on 2026-04-29 regressed Gate 4 to +2.35 (played e5xf6 vs ref f2-f3) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-180620-game3fix.txt, so the patch was reverted. A second attempt using a generalized early knight-rim penalty also regressed Gate 4 to max +3.73 with 3/50 >=2.00 misses (new worst GAME 31/GAME 11/GAME 28) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-195443-game3heuristic.txt, and was reverted as well. A third attempt with signature-scoped candidate-priority penalties regressed Gate 4 again to +2.35 in GAME 3 (played e5xf6 vs ref f2-f3) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-205328-game3game22fix.txt, and was reverted. Replayed on 2026-04-30 at d6/500ms/skill4 and the line looked improved, but baseline-preset replay probe at d4/120ms reproduced the issue with root best still Nf6-h5 (see /tmp/agent-runs/stq-probe-game3-replay-d4t120-20260430.txt). Reopened. A follow-up attempt on 2026-04-30 that steered GAME 3 away from Nf6-h5 still failed Gate 4 by introducing GAME 11 +2.91 and worsening GAME 3 to +2.35 (report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260430-115628.txt), so the patch was rolled back."
 
 - id: save_the_queen-opening-game22-ng8f6-miss-20260429
   mod: save_the_queen
@@ -536,7 +536,21 @@
     fen: "r1bQkbnr/pppnpppp/8/8/2B5/N3P3/PP1P1PPP/R1BqK1NR b"
     move: "g8f6"
   blunder_threshold_cp: 200
-  notes: "Post-fix carry-forward: GAME 22 remains high miss at +1.74 with Ng8-f6 while reference Nd7-e5 gives a tighter evaluation. Attempted narrow Nd7-e5 override on 2026-04-29 reduced GAME 22 locally but regressed Gate 4 with a new +2.66 miss in GAME 11 (played Be2-g4 vs ref Be2-c4) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-184213-game22fix.txt, so the patch was reverted. A second combined attempt with signature-scoped candidate-priority penalties regressed Gate 4 to +2.07 in GAME 22 (played Nd7xb6 vs ref a7xb6) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-205328-game3game22fix.txt, and was reverted."
+  notes: "Post-fix carry-forward: GAME 22 remains high miss at +1.74 with Ng8-f6 while reference Nd7-e5 gives a tighter evaluation. Attempted narrow Nd7-e5 override on 2026-04-29 reduced GAME 22 locally but regressed Gate 4 with a new +2.66 miss in GAME 11 (played Be2-g4 vs ref Be2-c4) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-184213-game22fix.txt, so the patch was reverted. A second combined attempt with signature-scoped candidate-priority penalties regressed Gate 4 to +2.07 in GAME 22 (played Nd7xb6 vs ref a7xb6) in report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260429-205328-game3game22fix.txt, and was reverted. Replayed on 2026-04-30 at d6/500ms/skill4 and the line looked improved, but baseline-preset replay probe at d4/120ms reproduced the issue with root best still Ng8-f6 (see /tmp/agent-runs/stq-probe-game22-replay-d4t120-20260430.txt). Reopened. A follow-up attempt on 2026-04-30 did steer away from Ng8-f6 in the immediate node but failed Gate 4 with 3/50 >=2.00 misses and a new GAME 11 +2.91 regression (report agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260430-115628.txt), so the patch was rolled back."
+
+- id: save_the_queen-opening-game11-nc6b4-regression-20260430
+  mod: save_the_queen
+  status: pending
+  kind: opening_principle
+  phase: opening
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/save_the_queen-gate4-postfix-20260430-115628.txt
+    line: 207
+    fen: "r1bQk2r/pppp1ppp/2n5/1N6/5b2/4P3/PPPP2PP/R1BqKB1R b"
+    move: "c6b4"
+  blunder_threshold_cp: 200
+  notes: "Fresh Gate 4 run on 2026-04-30 surfaced a new high-severity opening regression in GAME 11 (+2.91, played Nc6-b4 vs ref Bf4-e5) while testing fixes for GAME 3/22. This finding preempts shipping that patch and needs targeted triage before reattempting GAME 3/22." 
 
 # ===========================================================================
 # SUCCESSION — last-pawn-must-promote-to-king + dual queens
