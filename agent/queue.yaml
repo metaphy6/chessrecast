@@ -764,6 +764,17 @@
   blunder_threshold_cp: 200
   notes: "Per repo memory: native king_discipline_refine_result was added for Heir/Mercenary/SaveTheQueen/Succession. Decide if this should graduate from per-mod refine into a shared search hook; requires explicit shared-edit approval before any code change."
 
+- id: shared-kings-battle-discovery-runtime-budget-20260430
+  mod: shared
+  status: pending
+  kind: shared_edit
+  phase: strategy
+  severity: med
+  evidence:
+    report: /tmp/agent-runs/kings_battle-discovery-20260430-100557.log
+  blunder_threshold_cp: 0
+  notes: "Kings Battle 50-game discovery exceeded the 45-minute task budget and required a 25-game fallback; investigate cross-mod runtime knobs/search throughput before re-enabling 50-game discovery under this budget."
+
 # ===========================================================================
 # Reference / examples (status: example — agent skips). Kept here so authors
 # of new tasks can copy-paste a known-good shape.
@@ -876,3 +887,15 @@
     move: "b6a5"
   blunder_threshold_cp: 200
   notes: "Closed as not reproduced on 2026-04-30. Fresh replay-aware probe at d4/120ms (agent/reports/kings_battle/kings_battle-g13-replay-probe-d4t120-20260430.txt) now selects e7-e5 at root (line 6/9); the old blunder move b6xa5 is only rank #6 with negative score (line 14)."
+
+- id: kings_battle-kpi-discovery-runtime-20260430
+  mod: kings_battle
+  status: done
+  kind: kpi_regression
+  phase: strategy
+  severity: med
+  evidence:
+    report: agent/reports/kings_battle/discovery-20260430-105312-25g.txt
+    line: 103
+  blunder_threshold_cp: 0
+  notes: "Resolved operationally on 2026-04-30: 50-game discovery exceeded the 45-minute budget and was interrupted, then fallback 25-game discovery completed in 26:09 with clean tactical profile (avg worst miss 1.21, max 1.98, >=2.00 0/25). Escalated longer-horizon runtime tuning as shared task shared-kings-battle-discovery-runtime-budget-20260430."
