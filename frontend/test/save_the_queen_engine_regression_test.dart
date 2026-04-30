@@ -223,6 +223,91 @@ void main() {
     );
 
     test(
+      'prefers Bf4-e5 in the GAME 11 opening regression node',
+      () {
+        final board = _boardFromReplay([
+          'g1f3',
+          'e7e5',
+          'f3e5',
+          'f8d6',
+          'f2f4',
+          'g8e7',
+          'b1c3',
+          'b8c6',
+          'e5c6',
+          'e7c6',
+          'c3b5',
+          'd6f4',
+          'e2e3',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(search.score, greaterThan(-500));
+        expect(_moveNotation(search.bestMove), 'f4e5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'prefers Nd7-e5 in the GAME 22 opening regression node',
+      () {
+        final board = _boardFromReplay([
+          'c2c4',
+          'd7d5',
+          'e2e3',
+          'd5c4',
+          'f1c4',
+          'b8d7',
+          'b1a3',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(search.score, greaterThan(-500));
+        expect(_moveNotation(search.bestMove), 'd7e5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'prefers Bc8-b7 in the GAME 3 opening regression node',
+      () {
+        final board = _boardFromReplay([
+          'e2e4',
+          'g8f6',
+          'b1c3',
+          'b8a6',
+          'f1a6',
+          'b7a6',
+          'e4e5',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(search.score, greaterThan(-500));
+        expect(_moveNotation(search.bestMove), 'c8b7');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'prefers f2-f3 in the GAME 3 follow-up node after Bc8-b7',
+      () {
+        final board = ChessBoard.fromFEN(
+          'r2Qkb1r/pbpppppp/p4n2/4P3/8/2N5/PPPP1PPP/R1BqK1NR w',
+          gameType: ModsEnum.saveTheQueen,
+        );
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(search.score, greaterThan(-500));
+        expect(_moveNotation(search.bestMove), 'f2f3');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
       'prefers Na6-b4 in the GAME 10 tactical node',
       () {
         final board = _boardFromReplay([
