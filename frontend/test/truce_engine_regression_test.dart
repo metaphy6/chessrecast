@@ -118,9 +118,7 @@ void main() {
 
       expect(root.score, greaterThan(-200));
       expect(_moveNotation(root.bestMove), 'h2h3');
-    },
-    skip: !NativeEngine.isAvailable,
-  );
+    }, skip: !NativeEngine.isAvailable);
 
     test(
       'prefers Ng1f3 over an early h-pawn shove in restrained e3-c6 structures',
