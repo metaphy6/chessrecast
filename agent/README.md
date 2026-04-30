@@ -41,7 +41,7 @@ agent/
    /improve-mod
    ```
 
-   Pick a mod (or `ALL`), a per-task minute budget, and a per-session task cap. The agent will:
+   Pick a mod (or `ALL`) and a per-session task cap. The agent will:
    - read `agent/queue.yaml`,
    - process pending tasks one at a time,
    - run audits (≥50 games), gate, commit directly to `main` on pass, or revert on regression,

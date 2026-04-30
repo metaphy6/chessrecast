@@ -43,13 +43,9 @@ If — after the pre-flight — there is **no `pending` task in `agent/queue.yam
 4. Append every finding to `agent/queue.yaml` using the *Queue entry schema* in [.github/copilot-instructions.md](../copilot-instructions.md) — `evidence.report` must point at the discovery report file and `evidence.line` at the offending line. If discovery yields zero findings (genuinely clean batch), refresh `agent/baselines/<mod>.json` from the run, log a `discovery_clean` event to `agent/state/log.jsonl`, and exit as `no-op` (still commit the refreshed baseline + report file).
 5. Commit the queue + report + (optional) refreshed baseline as a single `discovery` commit, push it, then **continue the loop with the newly-filed tasks** — do not exit just because the queue was empty when the command started. The discovery commit itself counts toward the per-session task budget as one task.
 
-The discovery step is bounded by the per-task budget (`${input:max_minutes:45}` minutes). If the 50-game batch alone would exceed the budget, run a 25-game batch instead and file a `kind: kpi_regression` task noting the slowdown.
-
 ## Budgets
 
-- Per-task budget: stop the task and revert if it exceeds **${input:max_minutes:45}** minutes wall-clock.
 - Per-session budget: stop the whole loop after **${input:max_tasks:6}** tasks completed (pass or fail).
-- If a single audit batch alone exceeds the per-task budget, file a `kind: kpi_regression` task noting the slowdown and continue.
 
 ## Initiative
 
