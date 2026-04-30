@@ -20,6 +20,31 @@ If `${input:mod}` is `ALL`, walk every `pending` task in `agent/queue.yaml` in o
 
 Otherwise, only process tasks whose `mod` field equals `${input:mod}`.
 
+## Empty-queue auto-discovery (do not stop, discover work)
+
+If — after the pre-flight — there is **no `pending` task in `agent/queue.yaml`** matching `${input:mod}` (or, for `ALL`, no `pending` task at all), do **not** stop. Instead, run a discovery audit and seed the queue, then continue with the loop:
+
+1. Pick the discovery target(s):
+   - For a single mod, target = `${input:mod}`.
+   - For `ALL`, target = every mod whose `agent/baselines/<mod>.json` is missing or older than 7 days; if all baselines are fresh, round-robin one mod (oldest baseline first).
+2. For each target, run a fresh **50-game** discovery batch using the standard env recipe (see *Standard run env* and the per-mod prefixes in [.github/copilot-instructions.md](../copilot-instructions.md)):
+   - openings: the first 50 lines of `agent/openings/<mod>.csv` (fall back to `<MOD>_BATCH_OPENINGS` if the CSV is missing — request user input only as a last resort),
+   - reference preset: depth 6 / 500 ms / skill 4,
+   - `<MOD>_BATCH_LIVE_PROGRESS=1`, `<MOD>_BATCH_REPORT_PATH=agent/reports/<mod>/discovery-<run-id>.txt`,
+   - **no early-stop** (`<MOD>_BATCH_STOP_AT_DELTA` unset or 0) — we want to see *all* issues, not just the first one.
+   - tee output to `/tmp/agent-runs/<mod>-discovery-<run-id>.log`.
+3. After the batch completes, scan the report and the tee'd log for findings using the standard rules from [AGENTS.md](../../AGENTS.md) §9b:
+   - any move with worst-miss ≥ 2.00 cp → one `kind: blunder` queue entry per distinct FEN (collapse duplicates),
+   - any rule violation → `kind: rule_violation / severity: high`,
+   - any crash / abort / segfault → `kind: crash / severity: critical`,
+   - any KPI in `agent/baselines/<mod>.json` worse by >5% → `kind: kpi_regression` with severity per the baseline's threshold field,
+   - opening-principle issues (early king moves, lost castling rights, queen sorties before ply 12) → `kind: opening_principle / phase: opening`,
+   - endgame-conversion misses (won technical positions drawn / lost) → `kind: endgame_conversion / phase: endgame`.
+4. Append every finding to `agent/queue.yaml` using the *Queue entry schema* in [.github/copilot-instructions.md](../copilot-instructions.md) — `evidence.report` must point at the discovery report file and `evidence.line` at the offending line. If discovery yields zero findings (genuinely clean batch), refresh `agent/baselines/<mod>.json` from the run, log a `discovery_clean` event to `agent/state/log.jsonl`, and exit as `no-op` (still commit the refreshed baseline + report file).
+5. Commit the queue + report + (optional) refreshed baseline as a single `discovery` commit, push it, then **continue the loop with the newly-filed tasks** — do not exit just because the queue was empty when the command started. The discovery commit itself counts toward the per-session task budget as one task.
+
+The discovery step is bounded by the per-task budget (`${input:max_minutes:45}` minutes). If the 50-game batch alone would exceed the budget, run a 25-game batch instead and file a `kind: kpi_regression` task noting the slowdown.
+
 ## Budgets
 
 - Per-task budget: stop the task and revert if it exceeds **${input:max_minutes:45}** minutes wall-clock.
@@ -32,7 +57,7 @@ Before claiming the first task, post a one-line plan listing the task ids you in
 
 ## Stop conditions
 
-Halt the loop when: queue is empty for the requested mod, file `agent/STOP` exists, three consecutive tasks ended in `failed`, or the user types `stop`.
+Halt the loop when: file `agent/STOP` exists, three consecutive tasks ended in `failed`, the per-session task budget is exhausted, or the user types `stop`. **An empty queue is no longer a halt condition** — the *Empty-queue auto-discovery* step above will seed new tasks and continue. Halt only if discovery itself yields zero findings *and* there are still no `pending` tasks (genuine `no-op`).
 
 ## Mandatory terminal state — commit and push, no exceptions
 
