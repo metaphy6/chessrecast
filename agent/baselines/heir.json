@@ -1,8 +1,8 @@
 {
   "mod": "heir",
-  "generated_at": "2026-04-21T01:30:12+03:00",
-  "run_id": "20260421-013012",
-  "report_path": "agent/reports/heir/heir-baseline-refresh-20260420.txt",
+  "generated_at": "2026-05-03T17:41:10+03:00",
+  "run_id": "20260503-170800-heir",
+  "report_path": "agent/reports/heir/heir-baseline-refresh-20260503-170800-heir.txt",
   "games": 50,
   "max_plies": 12,
   "engine_preset": {
@@ -17,17 +17,17 @@
     "skill": 4
   },
   "kpi": {
-    "earlyKingMoves": 1,
-    "castlingRightLosses": 1,
+    "earlyKingMoves": 5,
+    "castlingRightLosses": 5,
     "castledByPly_avg": null,
     "castledGames": {
       "white": 0,
       "black": 0
     },
-    "kingExposureIndex_avg": 27.4,
-    "avgWorstMiss_cp": 42,
-    "maxWorstMiss_cp": 115,
-    "blundersGte200cp": 0,
+    "kingExposureIndex_avg": 28.62,
+    "avgWorstMiss_cp": 52,
+    "maxWorstMiss_cp": 299,
+    "blundersGte200cp": 2,
     "blundersGte300cp": 0,
     "ruleViolations": 0,
     "engineCrashes": 0

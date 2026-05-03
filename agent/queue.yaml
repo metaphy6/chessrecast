@@ -916,7 +916,7 @@
 
 - id: mercenary-baseline-refresh-20260430
   mod: mercenary
-  status: in_progress
+  status: pending
   kind: kpi_regression
   phase: strategy
   severity: high
@@ -924,3 +924,25 @@
     report: agent/reports/mercenary/mercenary-baseline-refresh-20260430.txt
   blunder_threshold_cp: 200
   notes: "Scheduled by pre-flight because agent/baselines/mercenary.json was missing. Refresh baseline before ALL-mode queue triage."
+
+- id: friendly_fire-crash-hang-baseline-20260503-175300
+  mod: friendly_fire
+  status: pending
+  kind: crash
+  phase: tactics
+  severity: high
+  evidence:
+    report: /tmp/agent-runs/friendly_fire-baseline-refresh-20260503-175300-friendly_fire.log
+  blunder_threshold_cp: 0
+  notes: "Gate-4 baseline batch stalled at 04:37 +0 with no heartbeat/progress lines for >5 minutes; restart with expanded reporter and isolate the hanging opening."
+
+- id: kings_battle-crash-stream-channel-20260503-174100
+  mod: kings_battle
+  status: pending
+  kind: crash
+  phase: tactics
+  severity: high
+  evidence:
+    report: /tmp/agent-runs/kings_battle-baseline-refresh-20260503-174100-kings_battle.log
+  blunder_threshold_cp: 0
+  notes: "Gate-4 baseline batch aborted with stream_channel shutdown error (Cannot close sink while adding stream); rerun clean in isolated terminal to confirm if harness-only failure."

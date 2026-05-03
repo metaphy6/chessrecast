@@ -9,7 +9,9 @@ agent/
   queue.yaml              # task list (pending/in_progress/done/failed/blocked/example)
   baselines/<mod>.json    # KPI baseline per mod, refreshed weekly
   baselines/<mod>.example.json   # schema reference, never read by the agent
-  openings/<mod>.csv      # 50-line opening sets used by the audit batches
+  openings/<mod>.csv             # FIXED gate slice (50 lines) — used by every audit batch
+  openings/<mod>_discovery.csv   # ROTATING discovery slice (~100 lines) — refresh periodically
+  openings/<mod>_stress.csv      # STRESS slice (~30 lines) — adversarial / failure-prone seeds
   reports/<mod>/*.txt     # raw audit-batch outputs
   state/
     current.json          # the task currently in flight
@@ -60,6 +62,18 @@ If you want truly unattended multi-night operation, switch to the GitHub Copilot
 ## Editing the queue by hand
 
 Append YAML entries matching the schema in `.github/copilot-instructions.md` → *Queue entry schema*. The `triage-audit-report` prompt (`/triage-audit-report`) generates schema-compliant entries from any report file without touching code.
+
+## Opening slices — gate / discovery / stress
+
+Each mod has **three** opening files in `agent/openings/`. They serve different roles:
+
+| File | Size | Purpose | Lifecycle |
+|---|---|---|---|
+| `<mod>.csv` | exactly 50 lines | **Fixed gate slice.** Consumed by every `manual_<mod>_audit_batch_test.dart` gate and by all KPI/baseline computations. Stable on purpose so KPI deltas are comparable across runs. | Treat as a baseline artifact: only revise via an explicit `kind: shared_edit` queue entry, and regenerate every mod's baseline immediately after any change. |
+| `<mod>_discovery.csv` | ~100 lines | **Rotating discovery slice.** Broader structural / role / mod-rule coverage. Used for non-gate exploration runs (e.g. `/improve-mod` may pull a 50-line random sample from here for an extra "discovery batch" alongside the gate batch). | Periodically refresh content; re-shuffle / re-curate without invalidating gate baselines. |
+| `<mod>_stress.csv` | ~30 lines | **Stress slice.** Adversarial seeds (sharp gambits, premature king walks, mod-specific failure modes already observed). Use as the opening source for targeted hunts after a regression / new finding. | Append to it whenever a fresh blunder / rule violation is found; keep verified-fixed lines in for permanent regression coverage. |
+
+The harness still consumes whatever CSV path is fed via `<MOD>_BATCH_OPENINGS=$(cat ...)`. Slices are *file-naming convention* + agent discipline, not a code-level mechanism. Gate runs **must** continue to use the first 50 lines of `<mod>.csv` as required by `.github/copilot-instructions.md` → *Hard rules → 4*.
 
 ## Safety summary (enforced by the chat mode + repo instructions)
 

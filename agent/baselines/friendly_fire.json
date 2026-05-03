@@ -1,8 +1,8 @@
 {
   "mod": "friendly_fire",
-  "generated_at": "2026-04-21T12:34:47+03:00",
-  "run_id": "20260421-123447",
-  "report_path": "agent/reports/friendly_fire/friendly_fire-baseline-refresh-20260421.txt",
+  "generated_at": "2026-05-03T21:28:18+03:00",
+  "run_id": "20260503-183400-friendly_fire",
+  "report_path": "agent/reports/friendly_fire/friendly_fire-baseline-refresh-20260503-183400-friendly_fire.txt",
   "games": 50,
   "max_plies": 24,
   "engine_preset": {
@@ -17,18 +17,18 @@
     "skill": 4
   },
   "kpi": {
-    "earlyKingMoves": 5,
-    "castlingRightLosses": 51,
+    "earlyKingMoves": 12,
+    "castlingRightLosses": 57,
     "castledByPly_avg": null,
     "castledGames": {
       "white": 0,
       "black": 0
     },
-    "kingExposureIndex_avg": 28.2,
-    "avgWorstMiss_cp": 109,
-    "maxWorstMiss_cp": 1144,
-    "blundersGte200cp": 7,
-    "blundersGte300cp": 3,
+    "kingExposureIndex_avg": 28.03,
+    "avgWorstMiss_cp": 15,
+    "maxWorstMiss_cp": 94,
+    "blundersGte200cp": 0,
+    "blundersGte300cp": 0,
     "ruleViolations": 0,
     "engineCrashes": 0
   },

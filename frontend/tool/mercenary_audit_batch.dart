@@ -17,7 +17,7 @@ const List<String> _defaultOpenings = [
 ];
 
 final RegExp _deltaLine = RegExp(
-  r'^1\. ply (\d+) (\w+) delta=(-?M\d+|[+-]?\d+\.\d+) played=(.+) ref=(.+)$',
+  r'^1\. ply (\d+) (\w+) delta=([+-]?M-?\d+|[+-]?\d+\.\d+) played=(.+) ref=(.+)$',
   multiLine: true,
 );
 final RegExp _fenLine = RegExp(r'^\s*FEN: (.+)$', multiLine: true);

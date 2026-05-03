@@ -156,17 +156,21 @@ String runFriendlyFireAudit(List<String> args) {
     );
     analyzed.add(analyzedPly);
 
-    lines.add(
-      'ply ${analyzedPly.ply.toString().padLeft(2)} '
-      '${side.name[0].toUpperCase()} '
-      'played=${_moveLabel(analyzedPly.playedMove)} '
-      'ref=${_moveLabel(analyzedPly.referenceMove)} '
-      'base=${_cp(analyzedPly.baselineScore)} '
-      'ref=${_cp(analyzedPly.referenceScore)} '
-      'ref-move=${_cp(analyzedPly.referenceMoveScore)} '
-      'played=${_cp(analyzedPly.playedScore)} '
-      'delta=${_cp(analyzedPly.delta)}',
-    );
+    final plyLine =
+        'ply ${analyzedPly.ply.toString().padLeft(2)} '
+        '${side.name[0].toUpperCase()} '
+        'played=${_moveLabel(analyzedPly.playedMove)} '
+        'ref=${_moveLabel(analyzedPly.referenceMove)} '
+        'base=${_cp(analyzedPly.baselineScore)} '
+        'ref=${_cp(analyzedPly.referenceScore)} '
+        'ref-move=${_cp(analyzedPly.referenceMoveScore)} '
+        'played=${_cp(analyzedPly.playedScore)} '
+        'delta=${_cp(analyzedPly.delta)}';
+    lines.add(plyLine);
+    if (options.liveProgress) {
+      // Emit a heartbeat for long-running batch probes.
+      print(plyLine);
+    }
 
     board = nextBoard;
     replayPrefix.add(_coordinateLabel(playedMove));
@@ -320,6 +324,7 @@ class _Options {
   final int referenceSkill;
   final int maxPlies;
   final int topCount;
+  final bool liveProgress;
   final String? startingFen;
   final List<String> openingMoves;
 
@@ -332,6 +337,7 @@ class _Options {
     required this.referenceSkill,
     required this.maxPlies,
     required this.topCount,
+    required this.liveProgress,
     required this.startingFen,
     required this.openingMoves,
   });
@@ -358,6 +364,30 @@ class _Options {
       return null;
     }
 
+    bool readBool(String name, bool fallback) {
+      final plain = '--$name';
+      final prefix = '--$name=';
+      for (final arg in args) {
+        if (arg == plain) {
+          return true;
+        }
+        if (arg.startsWith(prefix)) {
+          final raw = arg.substring(prefix.length).trim().toLowerCase();
+          if (raw.isEmpty) {
+            return fallback;
+          }
+          if (raw == '1' || raw == 'true' || raw == 'yes' || raw == 'on') {
+            return true;
+          }
+          if (raw == '0' || raw == 'false' || raw == 'no' || raw == 'off') {
+            return false;
+          }
+          return fallback;
+        }
+      }
+      return fallback;
+    }
+
     final openingArg = readString('moves') ?? '';
     final openingMoves = openingArg.isEmpty
         ? const <String>[]
@@ -372,6 +402,7 @@ class _Options {
       referenceSkill: readInt('reference-skill', 4),
       maxPlies: readInt('max-plies', 24),
       topCount: readInt('top-count', 8),
+      liveProgress: readBool('live-progress', false),
       startingFen: readString('fen'),
       openingMoves: openingMoves,
     );

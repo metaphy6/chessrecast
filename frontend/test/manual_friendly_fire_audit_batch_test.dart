@@ -13,6 +13,8 @@ void main() {
 
       final stopAtDeltaRaw =
           Platform.environment['FRIENDLY_FIRE_BATCH_STOP_AT_DELTA'];
+      final liveProgressRaw =
+          Platform.environment['FRIENDLY_FIRE_BATCH_LIVE_PROGRESS'];
 
       final args = [
         '--baseline-depth=${env('FRIENDLY_FIRE_BATCH_BASELINE_DEPTH', '4')}',
@@ -27,6 +29,9 @@ void main() {
       ];
       if (stopAtDeltaRaw != null && stopAtDeltaRaw.trim().isNotEmpty) {
         args.add('--stop-at-delta=${stopAtDeltaRaw.trim()}');
+      }
+      if (liveProgressRaw != null && liveProgressRaw.trim().isNotEmpty) {
+        args.add('--live-progress=${liveProgressRaw.trim()}');
       }
 
       final report = runFriendlyFireAuditBatch(args);

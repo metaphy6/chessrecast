@@ -25,7 +25,7 @@ const List<String> _defaultBlackReplies = [
 ];
 
 final RegExp _deltaLine = RegExp(
-  r'^1\. ply (\d+) (\w+) delta=(-?M\d+|[+-]?\d+\.\d+) played=(.+) ref=(.+)$',
+  r'^1\. ply (\d+) (\w+) delta=([+-]?M-?\d+|[+-]?\d+\.\d+) played=(.+) ref=(.+)$',
   multiLine: true,
 );
 final RegExp _fenLine = RegExp(r'^\s*FEN: (.+)$', multiLine: true);
@@ -60,6 +60,7 @@ String runFriendlyFireAuditBatch(List<String> args) {
       '--max-plies=${options.maxPlies}',
       '--top-count=${options.topCount}',
       '--moves=$opening',
+      if (options.liveProgress) '--live-progress',
     ]);
 
     final summary = _BatchSummary.fromReport(index + 1, opening, report);
@@ -138,6 +139,7 @@ class _BatchOptions {
   final int referenceSkill;
   final int maxPlies;
   final int topCount;
+  final bool liveProgress;
   final double stopAtDelta;
   final List<String> openings;
 
@@ -150,6 +152,7 @@ class _BatchOptions {
     required this.referenceSkill,
     required this.maxPlies,
     required this.topCount,
+    required this.liveProgress,
     required this.stopAtDelta,
     required this.openings,
   });
@@ -170,6 +173,30 @@ class _BatchOptions {
       for (final arg in args) {
         if (arg.startsWith(prefix)) {
           return double.tryParse(arg.substring(prefix.length)) ?? fallback;
+        }
+      }
+      return fallback;
+    }
+
+    bool readBool(String name, bool fallback) {
+      final plain = '--$name';
+      final prefix = '--$name=';
+      for (final arg in args) {
+        if (arg == plain) {
+          return true;
+        }
+        if (arg.startsWith(prefix)) {
+          final raw = arg.substring(prefix.length).trim().toLowerCase();
+          if (raw.isEmpty) {
+            return fallback;
+          }
+          if (raw == '1' || raw == 'true' || raw == 'yes' || raw == 'on') {
+            return true;
+          }
+          if (raw == '0' || raw == 'false' || raw == 'no' || raw == 'off') {
+            return false;
+          }
+          return fallback;
         }
       }
       return fallback;
@@ -204,6 +231,7 @@ class _BatchOptions {
       referenceSkill: readInt('reference-skill', 4),
       maxPlies: readInt('max-plies', 24),
       topCount: readInt('top-count', 10),
+      liveProgress: readBool('live-progress', false),
       stopAtDelta: readDouble('stop-at-delta', double.infinity),
       openings: openings,
     );
