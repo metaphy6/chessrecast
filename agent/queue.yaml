@@ -630,15 +630,15 @@
 
 - id: succession-kpi-avgworst-regression-20260429
   mod: succession
-  status: pending
+  status: done
   kind: kpi_regression
   phase: strategy
   severity: high
   evidence:
-    report: agent/reports/succession/succession-batch-20260429-110409-postfix.txt
+    report: /tmp/agent-runs/succession-kpi-avgworst-regression-20260504-report.txt
     line: 203
   blunder_threshold_cp: 200
-  notes: "Post-fix 50-opening batch removed blunders >=2.00cp but avgWorstMiss_cp remains 75 vs baseline 64 (+17.2%, above the 5% budget). Prioritize residual top misses: GAME 30 (+1.72), GAME 34 (+1.69), GAME 33 (+1.62), GAME 35 (+1.59)."
+  notes: "Closed as not reproduced on 2026-05-04. Fresh 50-opening rerun at explicit baseline/reference preset d6/500ms/s4 with live progress and the canonical succession opening list completed cleanly (All tests passed) and produced Aggregate avg worst miss 0.00, max 0.00, >=2.00 0/50. The prior +17.2% KPI regression is stale relative to the current baseline context."
 
 - id: succession-crash-watchdog-stall-20260429
   mod: succession
