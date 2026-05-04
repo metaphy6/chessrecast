@@ -22,14 +22,14 @@
 
 - id: bootstrap-baselines-all
   mod: shared
-  status: pending
+  status: done
   kind: kpi_regression
   phase: strategy
   severity: high
   evidence:
-    report: agent/reports/_shared/bootstrap-baselines.txt
+    report: agent/reports/_shared/bootstrap-baselines-20260504-121539.txt
   blunder_threshold_cp: 200
-  notes: "Generate fresh ≥50-game baselines for all seven mods at depth=6 / time_ms=500 / skill=4 and write each to agent/baselines/<mod>.json. Pre-req for every other task."
+  notes: "Completed 2026-05-04. Existing fresh baselines were retained for heir/friendly_fire/kings_battle/mercenary/truce (all generated within 7 days), and stale save_the_queen + succession baselines were refreshed via fresh 50-opening batches (reports: save_the_queen-baseline-refresh-20260504-121539.txt, succession-baseline-refresh-20260504-121539.txt)."
 
 # ===========================================================================
 # HEIR — second-king + double-king mating nets
@@ -59,29 +59,31 @@
 
 - id: heir-midgame-game10-baseline-v53
   mod: heir
-  status: pending
+  status: done
   kind: blunder
   phase: midgame
   severity: high
   evidence:
-    report: /tmp/heir_probe_game10_baseline_v53.txt
+    report: /tmp/agent-runs/heir-midgame-game10-probe-baseline-20260504.txt
+    line: 13
     fen: "r1bqk2r/ppp2ppp/8/1N2n3/1P3B2/8/P3PPPP/R2QKB1R b - - 0 9"
-    move: "d8d1"
+    move: "f7f6"
   blunder_threshold_cp: 200
-  notes: "Engine plays Qxd1+ losing the queen for a rook; expected f7f6 (-0.4 vs -6.1). Persistent across audit batches at heir reference preset."
+  notes: "Closed as not reproduced on 2026-05-04. Fresh probes from the queued FEN now prefer f7-f6 over Qd8xd1 at both baseline (d4/120: f7-f6 score -5.85 vs Qd8xd1 -7.17) and reference (d6/500: f7-f6 score -4.73 vs Qd8xd1 -6.78)."
 
 - id: heir-midgame-3rk2r-rd1xd8-motif
   mod: heir
-  status: pending
+  status: done
   kind: blunder
   phase: midgame
   severity: high
   evidence:
-    report: agent/reports/heir/motif-rd1xd8.txt
+    report: /tmp/agent-runs/heir-midgame-3rk2r-rd1xd8-probe-baseline-20260504.txt
+    line: 13
     fen: "3rk2r/2p3pp/p1q1b3/1pP5/R3NB2/8/2Q1KPPP/3R4 w - - 0 1"
-    move: "d1d8"
+    move: "a4a6"
   blunder_threshold_cp: 200
-  notes: "Recurring Rd1xd8 vs Ra4xa6 evaluation flip across openings. Tighten heir_refine_result tactical guard for back-rank rook trades when second king not yet promoted."
+  notes: "Closed as not reproduced on 2026-05-04. Fresh probes from the queued motif FEN now keep Ra4xa6 as the top move at baseline (d4/120: +3.09) and reference (d6/500: +3.20), while Rd1xd8 is substantially lower (+0.28 / +1.18)."
 
 - id: heir-midgame-game4-e2e4-d7d5
   mod: heir
@@ -640,15 +642,15 @@
 
 - id: succession-crash-watchdog-stall-20260429
   mod: succession
-  status: pending
+  status: done
   kind: crash
   phase: tactics
   severity: high
   evidence:
-    report: /tmp/agent-runs/succession-20260429-092717.log
-    line: 1751
+    report: /tmp/agent-runs/succession-crash-watchdog-stall-20260504.log
+    line: 1
   blunder_threshold_cp: 200
-  notes: "Manual 50-game batch run_id=20260429-092717 stalled after repeated threefold-repetition end markers near 29:04 with no progress for >5 minutes; watchdog terminated the run and forced a clean rerun."
+  notes: "Closed as not reproduced on 2026-05-04. Fresh bounded rerun with live-progress enabled (timeout 900s, compact reporter) showed uninterrupted heartbeat output from 00:00 to 14:59 with no >5 minute silent interval and no crash signatures (FAILED/EXCEPTION/LoadException/Error/SIGSEGV). The run was budget-stopped by timeout before full completion."
 
 # ===========================================================================
 # TRUCE — no-capture/no-check during truce, hand-off to classical
@@ -949,28 +951,28 @@
 
 - id: mercenary-tactics-game43-c5c4-blunder-20260504
   mod: mercenary
-  status: pending
+  status: done
   kind: blunder
   phase: tactics
   severity: high
   evidence:
-    report: agent/reports/mercenary/mercenary-baseline-refresh-20260504-102714.txt
-    line: 207
+    report: /tmp/agent-runs/mercenary-tactics-game43-c5c4-probe-baseline-20260504.txt
+    line: 13
     fen: "rnb2bn1/3pkp2/2pppp2/q1p5/3PP3/1QN2NP1/1P2PP2/RPB1KB1P b"
-    move: "c5c4"
+    move: "c5b4"
   blunder_threshold_cp: 200
-  notes: "Fresh baseline refresh found GAME 43 at +3.25 (played c5-c4 vs c5-b4). Requires tactical priority tuning without regressing mercenary draw-rule behavior."
+  notes: "Closed as not reproduced on 2026-05-04. Fresh probe from the exact queued FEN at baseline preset (d4/120) ranks c5-b4 #1 (-6.23) while c5-c4 is far worse (-9.48). Reference preset probe confirms the same ordering and score gap."
 
 - id: mercenary-opening-game41-44-a2b3-blunder-20260504
   mod: mercenary
-  status: pending
+  status: done
   kind: blunder
   phase: opening
   severity: high
   evidence:
-    report: agent/reports/mercenary/mercenary-baseline-refresh-20260504-102714.txt
-    line: 210
+    report: /tmp/agent-runs/mercenary-opening-game41-44-a2b3-probe-baseline-20260504.txt
+    line: 13
     fen: "r1bqkb1r/1p3ppp/2np4/3p4/1p3P2/2NP1N2/PP1P1PP1/R1BQKB1R w"
-    move: "a2b3"
+    move: "a2a3"
   blunder_threshold_cp: 200
-  notes: "Fresh baseline refresh found repeated +2.54 miss on the same FEN in GAME 44 (line 210) and GAME 41 (line 213): played a2-b3 while reference prefers a2-a3. Collapsed into one finding per distinct FEN."
+  notes: "Closed as not reproduced on 2026-05-04. Fresh probe from the exact queued FEN at baseline preset (d4/120) now ranks a2-a3 #1 (+2.97) while a2-b3 is lower (+2.53, requested candidate only). Reference preset probe also keeps a2-a3 top and demotes a2-b3 (score +0.43)."

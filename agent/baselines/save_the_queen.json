@@ -1,13 +1,13 @@
 {
   "mod": "save_the_queen",
-  "generated_at": "2026-04-23T20:57:11+03:00",
-  "run_id": "20260423-205711",
-  "report_path": "agent/reports/save_the_queen/save_the_queen-baseline-refresh-20260423.txt",
+  "generated_at": "2026-05-04T12:44:08+03:00",
+  "run_id": "20260504-121539",
+  "report_path": "agent/reports/save_the_queen/save_the_queen-baseline-refresh-20260504-121539.txt",
   "games": 50,
   "max_plies": 24,
   "engine_preset": {
-    "depth": 4,
-    "time_ms": 120,
+    "depth": 6,
+    "time_ms": 500,
     "skill": 4,
     "randomness": 0.0
   },
@@ -17,18 +17,18 @@
     "skill": 4
   },
   "kpi": {
-    "earlyKingMoves": 12,
-    "castlingRightLosses": 36,
+    "earlyKingMoves": 11,
+    "castlingRightLosses": 30,
     "castledByPly_avg": null,
     "castledGames": {
       "white": 0,
       "black": 0
     },
-    "kingExposureIndex_avg": 36.15,
-    "avgWorstMiss_cp": 102,
-    "maxWorstMiss_cp": 471,
-    "blundersGte200cp": 3,
-    "blundersGte300cp": 2,
+    "kingExposureIndex_avg": 37.04,
+    "avgWorstMiss_cp": 2,
+    "maxWorstMiss_cp": 46,
+    "blundersGte200cp": 0,
+    "blundersGte300cp": 0,
     "ruleViolations": 0,
     "engineCrashes": 0
   },
