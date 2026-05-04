@@ -48,14 +48,14 @@
 
 - id: heir-opening-castle-by-16
   mod: heir
-  status: pending
+  status: blocked
   kind: opening_principle
   phase: opening
   severity: med
   evidence:
-    report: agent/reports/heir/seed-opening-audit.txt
+    report: agent/reports/_shared/shared-castling-rights-fen-mismatch-20260504.txt
   blunder_threshold_cp: 200
-  notes: "Heir engine must castle by ply ≤16 in ≥ 90% of audit games when castling is legal. Today castledByPly_avg drifts higher in c2c4/g8f6 lines."
+  notes: "Blocked 2026-05-04 after reverted gate-fail attempt. Root-cause evidence shows native root receives FEN without castling metadata in this path, yielding castling rights=0 and no legal castle candidates; requires shared_edit task shared-native-fen-castling-rights-serialization-20260504 before reopening this Heir-specific opening objective."
 
 - id: heir-midgame-game10-baseline-v53
   mod: heir
@@ -297,14 +297,14 @@
 
 - id: mercenary-opening-minor-development
   mod: mercenary
-  status: pending
+  status: blocked
   kind: opening_principle
   phase: opening
   severity: med
   evidence:
-    report: agent/reports/mercenary/opening-minor-dev.txt
+    report: /tmp/agent-runs/mercenary-opening-minor-development-20260504-report.txt
   blunder_threshold_cp: 200
-  notes: "Per repo memory: search/heuristics_mercenary.c rewards minor development; ensure earlyKingMoves stays ≤ 2 and castledByPly_avg ≤ 18 over the 50-game opening set."
+  notes: "Blocked 2026-05-04 after fresh 50-opening rerun at d6/500/s4: earlyKingMoves=20, castlingRightLosses=50, castled[w=0/50,b=0/50]. This objective depends on castling metadata reaching native root; linked blocker is shared-native-fen-castling-rights-serialization-20260504."
 
 - id: mercenary-midgame-king-shield-vs-pawn-push
   mod: mercenary
@@ -739,17 +739,17 @@
 
 - id: truce-opening-e4c5-queen-sortie-vs-b-pawn-20260429
   mod: truce
-  status: pending
+  status: done
   kind: opening_principle
   phase: opening
   severity: low
   evidence:
-    report: agent/reports/truce/truce-batch-20260429-230707-triage50.txt
+    report: agent/reports/truce/truce-opening-e4c5-queen-sortie-replay-probes-20260504.txt
     line: 216
     fen: "r2q1k1r/pp3pp1/2nbbn2/2ppp2p/1P1PP2P/P1NBBN2/2P2PP1/R2Q1K1R b"
     move: "d8b6"
   blunder_threshold_cp: 200
-  notes: "Observed in GAME 2/GAME 42 at +0.29/+0.28: early queen sortie Qd8-b6 trails reference queenside expansion b7-b5 in similar post-truce structures."
+  notes: "Closed as not reproduced on 2026-05-04. Replay-accurate probes for both historical lines (GAME 2 and GAME 42) now rank b7-b5 above Qd8-b6 at reference settings (d6/500/s4), matching the original reference move ordering; see agent/reports/truce/truce-opening-e4c5-queen-sortie-replay-probes-20260504.txt."
 
 - id: truce-opening-e3-dev-bishop-vs-knight-20260429
   mod: truce
@@ -790,6 +790,17 @@
     report: /tmp/agent-runs/kings_battle-discovery-20260430-100557.log
   blunder_threshold_cp: 0
   notes: "Kings Battle 50-game discovery exceeded the 45-minute task budget and required a 25-game fallback; investigate cross-mod runtime knobs/search throughput before re-enabling 50-game discovery under this budget."
+
+- id: shared-native-fen-castling-rights-serialization-20260504
+  mod: shared
+  status: pending
+  kind: shared_edit
+  phase: opening
+  severity: high
+  evidence:
+    report: agent/reports/_shared/shared-castling-rights-fen-mismatch-20260504.txt
+  blunder_threshold_cp: 0
+  notes: "Cross-mod blocker discovered while triaging heir-opening-castle-by-16: Dart native-bound FEN omits castling/en-passant clocks, and C parser defaults castling rights to 0 when the field is absent. This prevents native castling consideration in affected paths. Fix requires shared serialization/interface update plus full re-gate."
 
 # ===========================================================================
 # Reference / examples (status: example — agent skips). Kept here so authors
