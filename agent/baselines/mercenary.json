@@ -1,0 +1,43 @@
+{
+  "mod": "mercenary",
+  "generated_at": "2026-05-04T11:19:49+03:00",
+  "run_id": "20260504-102714",
+  "report_path": "agent/reports/mercenary/mercenary-baseline-refresh-20260504-102714.txt",
+  "games": 50,
+  "max_plies": 24,
+  "engine_preset": {
+    "depth": 4,
+    "time_ms": 120,
+    "skill": 4,
+    "randomness": 0.0
+  },
+  "reference_preset": {
+    "depth": 6,
+    "time_ms": 500,
+    "skill": 4
+  },
+  "kpi": {
+    "earlyKingMoves": 14,
+    "castlingRightLosses": 33,
+    "castledByPly_avg": null,
+    "castledGames": {
+      "white": 0,
+      "black": 0
+    },
+    "kingExposureIndex_avg": 26.57,
+    "avgWorstMiss_cp": 59,
+    "maxWorstMiss_cp": 325,
+    "blundersGte200cp": 3,
+    "blundersGte300cp": 1,
+    "ruleViolations": 0,
+    "engineCrashes": 0
+  },
+  "regression_thresholds": {
+    "_comment": "A patch is rejected if any metric regresses by more than this fraction.",
+    "earlyKingMoves": 0.05,
+    "castlingRightLosses": 0.05,
+    "kingExposureIndex_avg": 0.05,
+    "avgWorstMiss_cp": 0.05,
+    "maxWorstMiss_cp": 0.05
+  }
+}
