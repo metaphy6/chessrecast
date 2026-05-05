@@ -39,7 +39,8 @@ If — after the pre-flight — there is **no `pending` task in `agent/queue.yam
    - any crash / abort / segfault → `kind: crash / severity: critical`,
    - any KPI in `agent/baselines/<mod>.json` worse by >5% → `kind: kpi_regression` with severity per the baseline's threshold field,
    - opening-principle issues (early king moves, lost castling rights, queen sorties before ply 12) → `kind: opening_principle / phase: opening`,
-   - endgame-conversion misses (won technical positions drawn / lost) → `kind: endgame_conversion / phase: endgame`.
+   - endgame-conversion misses (won technical positions drawn / lost) → `kind: endgame_conversion / phase: endgame`,
+   - opening lines that scored zero blunders **and** worst-miss < 0.5 cp across the last 3 batches → `kind: corpus_curation` (demote to `<mod>_discovery.csv`); opening lines that recurringly produce worst-miss ≥ 2.00 cp → `kind: corpus_curation` (promote to `<mod>_stress.csv`). See `.github/copilot-instructions.md` → *KPI → opening-weight feedback loop*.
 4. Append every finding to `agent/queue.yaml` using the *Queue entry schema* in [.github/copilot-instructions.md](../copilot-instructions.md) — `evidence.report` must point at the discovery report file and `evidence.line` at the offending line. If discovery yields zero findings (genuinely clean batch), refresh `agent/baselines/<mod>.json` from the run, log a `discovery_clean` event to `agent/state/log.jsonl`, and exit as `no-op` (still commit the refreshed baseline + report file).
 5. Commit the queue + report + (optional) refreshed baseline as a single `discovery` commit, push it, then **continue the loop with the newly-filed tasks** — do not exit just because the queue was empty when the command started. The discovery commit itself counts toward the per-session task budget as one task.
 

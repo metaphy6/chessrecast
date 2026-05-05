@@ -138,9 +138,11 @@ When you have a free choice of which finding to fix first, weight by these mod-s
 
 ## What you must refuse to do
 
-- Touch files outside the per-mod allow-list without an explicit `kind: shared_edit` task in the queue.
+- Touch files outside the per-mod allow-list without an explicit `kind: shared_edit` (or `kind: opening_book`) task in the queue.
 - Skip the ≥50-game gate to save time. Smaller batches do not count.
 - Tune one mod by copying another mod's heuristics wholesale (per-mod uniqueness rule).
 - Modify `.github/copilot-instructions.md`, this chat mode file, the `.github/prompts/*.prompt.md` files, or the `_audit_batch_test.dart` / `_position_probe_test.dart` skip flags / thresholds.
 - Run the power scripts in `scripts/power/` yourself; only the user runs those.
 - Force-push, rewrite history, or push a commit that did not pass every gate.
+- Edit `agent/openings/<mod>.csv` (gate slice) without a `kind: corpus_curation` task that cites a source report **and** refreshes `agent/baselines/<mod>.json` in the same commit. Quality targets for the gate slice are listed in `.github/copilot-instructions.md` → *Opening corpus & native-book charter*.
+- Touch `frontend/native/engine/book/**` or the bridge book-lookup hook without a `kind: opening_book` task. The book layer is shared engine code; per-mod book *content* (entries derived from `<mod>.csv`) does not require `shared_edit` but still requires a fresh ≥50-game gate for that mod, and must defer to `bridge_king_discipline.c` rather than bypass it.

@@ -67,7 +67,7 @@ A change is acceptable only when it improves at least one of those four buckets 
    - mod-scoped C files: `frontend/native/engine/eval/eval_<mod>.c`, `frontend/native/engine/search/heuristics_<mod>.c`,
    - the mod's own tests under `frontend/test/manual_<mod>_*` and `frontend/test/<mod>_*`.
 
-   Touching shared search/eval code (`frontend/native/engine/search/search.c`, `eval/eval.c`, `bridge.c` outside the `*_refine_result` blocks, `frontend/lib/engine/engine.dart`, `frontend/lib/engine/native.dart`) requires an explicit `kind: shared_edit` task in the queue with severity ≥ high and a written rationale.
+   Touching shared search/eval code (`frontend/native/engine/search/search.c`, `eval/eval.c`, `bridge.c` outside the `*_refine_result` blocks, `frontend/lib/engine/engine.dart`, `frontend/lib/engine/native.dart`) requires an explicit `kind: shared_edit` task in the queue with severity ≥ high and a written rationale. The native opening-book module (`frontend/native/engine/book/**` plus its `bridge.c` hook) is also shared; changes there require a `kind: opening_book` task (see *Opening corpus & native-book charter* below).
 3. **Same algorithm across mods.** Strength gains must come from per-mod evaluation/heuristic tuning, **not** from divergent search algorithms. If you find yourself rewriting alpha-beta / quiescence / move-ordering for one mod only, stop and flag it as `kind: shared_edit`.
 4. **Audit gating before commit.** Every code change must be followed, in order:
    1. mod regression test (`<mod>_engine_regression_test.dart`) — must stay green,
@@ -207,6 +207,60 @@ When the session is over:
 
 See `scripts/power/README.md` for what those scripts touch.
 
+## Opening corpus & native-book charter
+
+The opening files under `agent/openings/` are now **dual-purpose**: they are still the fixed gate slice for KPI batches, *and* they are the source of truth for the upcoming native opening-book layer in C. This shifts them from "static test fixtures" to a learning signal that feeds the engine. The rules below apply to every change in `agent/openings/**`, every new task that touches opening play, and every patch that adds or modifies the book layer.
+
+### Corpus-quality targets (per gate file `agent/openings/<mod>.csv`)
+
+| Property | Target | Rationale |
+|---|---|---|
+| Lines | exactly **50** | KPI comparability with all prior baselines. |
+| Avg depth | **6–8 plies** | Cover the post-development inflection where mod rules start to bite. |
+| Lines ≤ 2 plies | **< 20%** of file | Shallow lines under-test mod-specific motifs. |
+| Cross-mod overlap (5 classical-style mods: heir, friendly_fire, mercenary, save_the_queen, succession) | **< 50%** of lines shared between any pair | Force per-mod stress motifs into the gate, not just generic openings. |
+| Mod-specific stress lines | **≥ 30%** of file | Especially Kings Battle (Phase-1→Phase-2 transition) and Mercenary (pawn-as-minor-piece development). |
+| Duplicates | **0** | Verified via `sort -u | wc -l` == `wc -l`. |
+
+These targets are gate-side; corpus changes are still subject to *Hard rules → 4* (the new corpus must regenerate every affected baseline before any patch lands).
+
+### Native opening-book layer (planned location)
+
+The book lives under `frontend/native/engine/book/`:
+
+- `frontend/native/engine/book/opening_book.h` — `book_lookup(zobrist_key, mod, skill, /*out*/ best_move, weights[])` API.
+- `frontend/native/engine/book/opening_book.c` — per-mod tables compiled from `agent/openings/<mod>.csv` + `<mod>_discovery.csv` weighted by audit feedback.
+- `frontend/native/engine/CMakeLists.txt` — add the new TU.
+- `frontend/native/engine/bridge.c` — single hook **before** `search_think` in the root call. The hook is per-mod and respects `EngineLevel`:
+  - `easy`: weighted-random over the top-N book moves (high temperature),
+  - `medium`: weighted-random over the top-3 (low temperature),
+  - `hard` / `expert` / `maximum`: deterministic strongest-weighted move.
+- Out-of-book: book weights become **move-order priors** — fed into the existing move-order phase, never as a forcing constraint, and integrated with `frontend/native/engine/bridge_king_discipline.c` (do not bypass king-discipline checks).
+
+The book module is **shared engine code** for the purposes of the per-mod allow-list: any change to `book/opening_book.{c,h}`, the CMake hook, or the bridge entry-point requires a `kind: opening_book` queue task (see schema below). Per-mod book *content* (entries derived from `agent/openings/<mod>.csv`) does not require a `shared_edit`, but does require a fresh ≥50-game gate for that mod.
+
+### KPI → opening-weight feedback loop
+
+After every successful audit batch the agent is expected to feed measurable signal back into the corpus:
+
+1. For each opening line in `agent/openings/<mod>.csv`, compute the per-line worst-miss and blunder count from the report.
+2. Down-weight (or move to `<mod>_discovery.csv`) lines that are *too easy* — zero blunders across the last 3 batches and worst-miss < 0.5 cp — they are no longer informative.
+3. Up-weight (or *promote* to `<mod>_stress.csv`) lines that **expose** weak engine behavior — worst-miss ≥ 2.00 cp, recurring across batches, or rule-violation triggers.
+4. Record every promotion / demotion as a `kind: corpus_curation` queue entry citing the source report. The entry is the audit trail; the CSV diff is the action.
+5. Once `book/opening_book.{c,h}` exists, the same weights drive book selection — promotion implicitly raises a line's book weight, demotion lowers it.
+
+This loop is intentionally manual until the `corpus-curation-tool` task (see queue) ships a `frontend/tool/curate_openings.dart` that does steps 1–3 mechanically.
+
+### Discovery & stress slices (recap)
+
+| File | Lines | Role |
+|---|---|---|
+| `agent/openings/<mod>.csv` | exactly 50 | **Gate.** KPI baseline source. Curated, deduped, depth-balanced. |
+| `agent/openings/<mod>_discovery.csv` | ~100 | **Discovery.** Broader role/structure coverage; rotated freely. |
+| `agent/openings/<mod>_stress.csv` | ~30 | **Stress.** Adversarial seeds + verified-fixed regression openings. |
+
+The native book draws from gate + discovery (weighted); stress is reserved for targeted hunts and is *not* fed into the book.
+
 ## Queue entry schema (for the take-initiative rule)
 
 When the agent files a new finding, it appends an entry like this to `agent/queue.yaml`:
@@ -215,7 +269,7 @@ When the agent files a new finding, it appends an entry like this to `agent/queu
 - id: <mod>-<phase>-<short-slug>
   mod: heir | friendly_fire | kings_battle | mercenary | save_the_queen | succession | truce | shared
   status: pending
-  kind: blunder | rule_violation | crash | kpi_regression | strategy | endgame_conversion | opening_principle | shared_edit
+  kind: blunder | rule_violation | crash | kpi_regression | strategy | endgame_conversion | opening_principle | shared_edit | opening_book | corpus_curation
   phase: opening | midgame | endgame | tactics | strategy
   severity: low | med | high | critical
   evidence:
@@ -226,3 +280,7 @@ When the agent files a new finding, it appends an entry like this to `agent/queu
   blunder_threshold_cp: 200
   notes: "<one sentence>"
 ```
+
+`kind` notes:
+- `opening_book` — touches `frontend/native/engine/book/**` or the bridge book hook. Treated as `shared_edit` for allow-list purposes; a written rationale is required.
+- `corpus_curation` — touches only `agent/openings/**`. Must cite a source report and list the lines added / removed / re-weighted; baselines for every affected mod must be refreshed in the same commit.

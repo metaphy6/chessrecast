@@ -987,3 +987,75 @@
     move: "a2a3"
   blunder_threshold_cp: 200
   notes: "Closed as not reproduced on 2026-05-04. Fresh probe from the exact queued FEN at baseline preset (d4/120) now ranks a2-a3 #1 (+2.97) while a2-b3 is lower (+2.53, requested candidate only). Reference preset probe also keeps a2-a3 top and demotes a2-b3 (score +0.43)."
+
+# ===========================================================================
+# Methodology shift (2026-05-05): opening corpus → native book + KPI loop.
+# See .github/copilot-instructions.md → "Opening corpus & native-book charter"
+# and agent/openings/REBALANCE_PROPOSAL_20260505.md.
+# ===========================================================================
+
+- id: shared-corpus-rebalance-validate-20260505
+  mod: shared
+  status: pending
+  kind: corpus_curation
+  phase: opening
+  severity: high
+  evidence:
+    report: agent/openings/REBALANCE_PROPOSAL_20260505.md
+  blunder_threshold_cp: 200
+  notes: "Validate the 2026-05-05 rebalance of all 7 gate CSVs by running fresh 50-game audit batches (start with heir + mercenary), comparing KPI deltas vs agent/baselines/<mod>.json (≤5% threshold), and refreshing every affected baseline in the same commit. Block any kind:opening_book work until heir + mercenary deltas are within bounds."
+
+- id: shared-opening-book-native-scaffold
+  mod: shared
+  status: pending
+  kind: opening_book
+  phase: opening
+  severity: high
+  evidence:
+    report: agent/openings/REBALANCE_PROPOSAL_20260505.md
+  blunder_threshold_cp: 200
+  notes: "Scaffold the native opening-book layer per the charter: frontend/native/engine/book/opening_book.{h,c}, CMakeLists.txt addition, and bridge.c root hook BEFORE search_think. Per-mod, skill-aware (easy: weighted-random top-N; medium: weighted-random top-3; hard/expert/maximum: deterministic strongest weight). Must defer to bridge_king_discipline.c, never bypass it. Ship with a smoke test (native_opening_book_smoke_test.dart) and a skill-variance test (native_opening_book_skill_variance_test.dart). Gate via the seven mod regressions + heir/mercenary 50-game audits before shipping."
+
+- id: shared-opening-book-move-order-priors
+  mod: shared
+  status: pending
+  kind: opening_book
+  phase: opening
+  severity: med
+  evidence:
+    report: agent/openings/REBALANCE_PROPOSAL_20260505.md
+  blunder_threshold_cp: 200
+  notes: "Out-of-book: feed book weights into the existing move-order phase as priors (NOT forcing). Must compose with current move-ordering and king-discipline checks. Depends on shared-opening-book-native-scaffold."
+
+- id: shared-corpus-curation-tool
+  mod: shared
+  status: pending
+  kind: corpus_curation
+  phase: opening
+  severity: med
+  evidence:
+    report: agent/openings/REBALANCE_PROPOSAL_20260505.md
+  blunder_threshold_cp: 200
+  notes: "Add frontend/tool/curate_openings.dart that reads agent/reports/<mod>/*.txt + agent/baselines/<mod>.json and proposes per-line promote/demote actions per the KPI→weight loop in copilot-instructions.md. Output a YAML diff plan; do not auto-edit CSVs. Each proposed change must be filed as its own kind:corpus_curation queue entry."
+
+- id: kings_battle-corpus-stress-phase-transition
+  mod: kings_battle
+  status: pending
+  kind: corpus_curation
+  phase: opening
+  severity: med
+  evidence:
+    report: agent/openings/REBALANCE_PROPOSAL_20260505.md
+  blunder_threshold_cp: 200
+  notes: "Audit kings_battle.csv against the corpus quality targets (≥30% mod-specific stress lines, especially Phase-1→Phase-2 transitions). Promote/demote lines as needed; refresh agent/baselines/kings_battle.json in the same commit."
+
+- id: mercenary-corpus-stress-pawn-development
+  mod: mercenary
+  status: pending
+  kind: corpus_curation
+  phase: opening
+  severity: med
+  evidence:
+    report: agent/openings/REBALANCE_PROPOSAL_20260505.md
+  blunder_threshold_cp: 200
+  notes: "Audit mercenary.csv for pawn-as-minor-piece development motifs (≥30% stress lines per the charter). Promote/demote per the KPI feedback loop and refresh agent/baselines/mercenary.json."

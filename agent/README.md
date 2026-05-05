@@ -69,11 +69,23 @@ Each mod has **three** opening files in `agent/openings/`. They serve different 
 
 | File | Size | Purpose | Lifecycle |
 |---|---|---|---|
-| `<mod>.csv` | exactly 50 lines | **Fixed gate slice.** Consumed by every `manual_<mod>_audit_batch_test.dart` gate and by all KPI/baseline computations. Stable on purpose so KPI deltas are comparable across runs. | Treat as a baseline artifact: only revise via an explicit `kind: shared_edit` queue entry, and regenerate every mod's baseline immediately after any change. |
-| `<mod>_discovery.csv` | ~100 lines | **Rotating discovery slice.** Broader structural / role / mod-rule coverage. Used for non-gate exploration runs (e.g. `/improve-mod` may pull a 50-line random sample from here for an extra "discovery batch" alongside the gate batch). | Periodically refresh content; re-shuffle / re-curate without invalidating gate baselines. |
-| `<mod>_stress.csv` | ~30 lines | **Stress slice.** Adversarial seeds (sharp gambits, premature king walks, mod-specific failure modes already observed). Use as the opening source for targeted hunts after a regression / new finding. | Append to it whenever a fresh blunder / rule violation is found; keep verified-fixed lines in for permanent regression coverage. |
+| `<mod>.csv` | exactly 50 lines | **Fixed gate slice.** Consumed by every `manual_<mod>_audit_batch_test.dart` gate and by all KPI/baseline computations. Stable on purpose so KPI deltas are comparable across runs. | Treat as a baseline artifact: only revise via an explicit `kind: corpus_curation` (or `shared_edit`) queue entry, and regenerate every affected baseline immediately after any change. |
+| `<mod>_discovery.csv` | ~100 lines | **Rotating discovery slice.** Broader structural / role / mod-rule coverage. Used for non-gate exploration runs (e.g. `/improve-mod` may pull a 50-line random sample from here for an extra "discovery batch" alongside the gate batch). Once the native book ships, also one of its weighted source pools. | Periodically refresh content; re-shuffle / re-curate without invalidating gate baselines. |
+| `<mod>_stress.csv` | ~30 lines | **Stress slice.** Adversarial seeds (sharp gambits, premature king walks, mod-specific failure modes already observed). Use as the opening source for targeted hunts after a regression / new finding. **Not** fed into the native book. | Append to it whenever a fresh blunder / rule violation is found; keep verified-fixed lines in for permanent regression coverage. |
 
 The harness still consumes whatever CSV path is fed via `<MOD>_BATCH_OPENINGS=$(cat ...)`. Slices are *file-naming convention* + agent discipline, not a code-level mechanism. Gate runs **must** continue to use the first 50 lines of `<mod>.csv` as required by `.github/copilot-instructions.md` → *Hard rules → 4*.
+
+### Quality targets for `<mod>.csv` (gate slice)
+
+The opening corpus is no longer a static fixture — it is the source of truth for the upcoming native opening-book layer (see `.github/copilot-instructions.md` → *Opening corpus & native-book charter*). Each gate file must satisfy:
+
+- exactly **50** unique lines (no duplicates),
+- average depth **6–8 plies**,
+- lines ≤ 2 plies < **20%** of the file,
+- cross-mod overlap between any two of the five classical-style mods (heir / friendly_fire / mercenary / save_the_queen / succession) < **50%**,
+- mod-specific stress motifs ≥ **30%** of the file (especially Kings Battle Phase-1→2 transitions and Mercenary pawn-as-minor-piece development).
+
+Any change that violates these targets must be filed as a `kind: corpus_curation` task with a source report cited in `evidence.report`, and must refresh `agent/baselines/<mod>.json` in the same commit.
 
 ## Safety summary (enforced by the chat mode + repo instructions)
 
