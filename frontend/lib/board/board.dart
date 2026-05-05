@@ -219,17 +219,26 @@ class ChessBoard extends Equatable {
         ? PieceColor.black
         : PieceColor.white;
 
-    // Parse castling rights (defaults to all allowed if not specified)
+    // Parse castling rights.
+    // Legacy behavior keeps all rights enabled when field is omitted,
+    // but an explicit '-' must disable all rights.
     bool whiteKingside = true;
     bool whiteQueenside = true;
     bool blackKingside = true;
     bool blackQueenside = true;
 
-    if (parts.length > 2 && parts[2] != '-') {
-      whiteKingside = parts[2].contains('K');
-      whiteQueenside = parts[2].contains('Q');
-      blackKingside = parts[2].contains('k');
-      blackQueenside = parts[2].contains('q');
+    if (parts.length > 2) {
+      if (parts[2] == '-') {
+        whiteKingside = false;
+        whiteQueenside = false;
+        blackKingside = false;
+        blackQueenside = false;
+      } else {
+        whiteKingside = parts[2].contains('K');
+        whiteQueenside = parts[2].contains('Q');
+        blackKingside = parts[2].contains('k');
+        blackQueenside = parts[2].contains('q');
+      }
     }
 
     // Parse en passant target (if specified)
@@ -493,5 +502,21 @@ class ChessBoard extends Equatable {
     buffer.write(currentPlayer == PieceColor.white ? 'w' : 'b');
 
     return buffer.toString();
+  }
+
+  /// Converts the board to full FEN for native engine consumption.
+  /// Returns piece placement, active color, castling rights, en-passant,
+  /// halfmove clock and fullmove number.
+  String toNativeFEN() {
+    final castling = StringBuffer();
+    if (whiteCanCastleKingside) castling.write('K');
+    if (whiteCanCastleQueenside) castling.write('Q');
+    if (blackCanCastleKingside) castling.write('k');
+    if (blackCanCastleQueenside) castling.write('q');
+
+    final castlingField = castling.isEmpty ? '-' : castling.toString();
+    final epField = enPassantTarget?.algebraic ?? '-';
+
+    return '${toFEN()} $castlingField $epField $halfMoveClock $fullMoveNumber';
   }
 }

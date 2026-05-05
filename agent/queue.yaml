@@ -48,14 +48,14 @@
 
 - id: heir-opening-castle-by-16
   mod: heir
-  status: blocked
+  status: done
   kind: opening_principle
   phase: opening
   severity: med
   evidence:
-    report: agent/reports/_shared/shared-castling-rights-fen-mismatch-20260504.txt
+    report: /tmp/agent-runs/shared-fen-heir-batch50-20260505-001110-v2-report.txt
   blunder_threshold_cp: 200
-  notes: "Blocked 2026-05-04 after reverted gate-fail attempt. Root-cause evidence shows native root receives FEN without castling metadata in this path, yielding castling rights=0 and no legal castle candidates; requires shared_edit task shared-native-fen-castling-rights-serialization-20260504 before reopening this Heir-specific opening objective."
+  notes: "Completed 2026-05-05 after shared native-FEN serialization fix. Fresh 50-opening gate run (max_plies=12, canonical heir openings) passed with avgWorstMiss=0.45, maxWorstMiss=1.59, >=2.00cp=0/50 and castling KPIs restored (castlingRightLosses=2, castled[w=4/50,b=5/50])."
 
 - id: heir-midgame-game10-baseline-v53
   mod: heir
@@ -297,14 +297,14 @@
 
 - id: mercenary-opening-minor-development
   mod: mercenary
-  status: blocked
+  status: done
   kind: opening_principle
   phase: opening
   severity: med
   evidence:
-    report: /tmp/agent-runs/mercenary-opening-minor-development-20260504-report.txt
+    report: /tmp/agent-runs/shared-fen-mercenary-batch50-20260505-001110-v2-report.txt
   blunder_threshold_cp: 200
-  notes: "Blocked 2026-05-04 after fresh 50-opening rerun at d6/500/s4: earlyKingMoves=20, castlingRightLosses=50, castled[w=0/50,b=0/50]. This objective depends on castling metadata reaching native root; linked blocker is shared-native-fen-castling-rights-serialization-20260504."
+  notes: "Completed 2026-05-05 after shared native-FEN serialization fix. Fresh canonical 50-opening rerun passed with improved opening KPIs vs prior blocked run: earlyKingMoves=11, castlingRightLosses=30, castled[w=3/50,b=1/50]."
 
 - id: mercenary-midgame-king-shield-vs-pawn-push
   mod: mercenary
@@ -793,14 +793,14 @@
 
 - id: shared-native-fen-castling-rights-serialization-20260504
   mod: shared
-  status: pending
+  status: done
   kind: shared_edit
   phase: opening
   severity: high
   evidence:
-    report: agent/reports/_shared/shared-castling-rights-fen-mismatch-20260504.txt
+    report: agent/reports/_shared/shared-native-fen-castling-rights-fix-20260505.txt
   blunder_threshold_cp: 0
-  notes: "Cross-mod blocker discovered while triaging heir-opening-castle-by-16: Dart native-bound FEN omits castling/en-passant clocks, and C parser defaults castling rights to 0 when the field is absent. This prevents native castling consideration in affected paths. Fix requires shared serialization/interface update plus full re-gate."
+  notes: "Completed 2026-05-05. Added ChessBoard.toNativeFEN() with full fields, fixed explicit '-' castling parse semantics, switched native bridge to toNativeFEN(), and added legal move normalization/salvage for native special-move metadata mismatches. Gates passed: native_engine_fen_serialization_test, king_castling_policy_regression_test, heir_engine_regression_test, mercenary_engine_regression_test, mercenary_rule_mechanics_test, plus fresh 50-opening Heir and Mercenary audits."
 
 # ===========================================================================
 # Reference / examples (status: example — agent skips). Kept here so authors

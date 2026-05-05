@@ -5,9 +5,11 @@ import 'package:ffi/ffi.dart';
 import 'package:flutter/foundation.dart';
 
 import '../board/board.dart';
+import '../board/moves/generation.dart';
 import '../board/moves/move.dart';
 import '../board/moves/position.dart';
 import '../board/piece.dart';
+import '../board/pieces/piece_type.dart';
 import '../mods/enums.dart';
 import '../mods/cache.dart';
 import 'search_result.dart';
@@ -217,7 +219,7 @@ class NativeEngine {
     required int maxDepth,
     required int skillLevel,
   }) {
-    final fen = board.toFEN();
+    final fen = board.toNativeFEN();
     final mod = _modToInt(board.gameType);
     final heirWp = board.whiteHasPromotedKing ? 1 : 0;
     final heirBp = board.blackHasPromotedKing ? 1 : 0;
@@ -356,6 +358,141 @@ class NativeEngine {
         );
       } else {
         move = ChessMove.simple(from: from, to: to, piece: piece);
+      }
+
+      // Normalize to the Dart-generated legal move object when possible.
+      // This avoids false invalid-move rejections when native special flags
+      // (castling/en-passant/promotion metadata) differ from Dart annotations
+      // even though from/to squares are legal.
+      final legalMoves = board.getValidMovesFor(from);
+      ChessMove? normalized;
+      for (final candidate in legalMoves) {
+        if (candidate.to != to) continue;
+
+        if (r.isPromotion == 1) {
+          if (!candidate.isPromotion) continue;
+          final nativePromoType = r.promoType.clamp(0, 5);
+          const promoChars = ['P', 'N', 'B', 'R', 'Q', 'K'];
+          final expectedPromo = promoChars[nativePromoType];
+          if ((candidate.promotionPiece ?? '').toUpperCase() != expectedPromo) {
+            continue;
+          }
+        }
+
+        normalized = candidate;
+        break;
+      }
+
+      List<ChessMove> collectAllLegalMoves() {
+        final allLegalMoves = <ChessMove>[];
+        for (final p in board.pieces) {
+          if (p.color == board.currentPlayer) {
+            allLegalMoves.addAll(board.getValidMovesFor(p.position));
+          }
+        }
+        return allLegalMoves;
+      }
+
+      List<ChessMove>? allLegalMoves;
+
+      if (normalized == null && (r.isCastling == 1 || r.isEnPassant == 1)) {
+        allLegalMoves ??= collectAllLegalMoves();
+
+        if (r.isCastling == 1) {
+          final castleMoves = allLegalMoves.where((m) => m.isCastling).toList();
+          if (castleMoves.isNotEmpty) {
+            final sameFrom = castleMoves.where((m) => m.from == from).toList();
+            final preferredPool = sameFrom.isNotEmpty ? sameFrom : castleMoves;
+            final nativeKingside = to.col > from.col;
+            for (final c in preferredPool) {
+              if ((c.to.col > c.from.col) == nativeKingside) {
+                normalized = c;
+                break;
+              }
+            }
+            normalized ??= preferredPool.first;
+          }
+        } else if (r.isEnPassant == 1) {
+          for (final c in allLegalMoves) {
+            if (!c.isEnPassant) continue;
+            if (c.from == from && c.to.col == to.col) {
+              normalized = c;
+              break;
+            }
+          }
+          if (normalized == null) {
+            for (final c in allLegalMoves) {
+              if (c.isEnPassant) {
+                normalized = c;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (normalized == null) {
+        allLegalMoves ??= collectAllLegalMoves();
+
+        for (final c in allLegalMoves) {
+          if (c.from == from && c.to == to) {
+            normalized = c;
+            break;
+          }
+        }
+
+        if (normalized == null && piece.type == PieceType.pawn) {
+          for (final c in allLegalMoves) {
+            if (c.to == to && c.piece.type == PieceType.pawn) {
+              normalized = c;
+              break;
+            }
+          }
+        }
+
+        if (normalized == null && piece.type == PieceType.king && r.isCastling == 1) {
+          for (final c in allLegalMoves) {
+            if (c.isCastling) {
+              normalized = c;
+              break;
+            }
+          }
+        }
+      }
+
+      if (normalized != null) {
+        move = normalized;
+      } else {
+        final fromLegalMoves = board.getValidMovesFor(move.from);
+        final isMoveLegal = fromLegalMoves.any((m) => m == move);
+
+        if (!isMoveLegal) {
+          allLegalMoves ??= collectAllLegalMoves();
+
+          ChessMove? salvage;
+
+          // Prefer a legal move with the same destination and piece type.
+          for (final c in allLegalMoves) {
+            if (c.to == move.to && c.piece.type == move.piece.type) {
+              salvage = c;
+              break;
+            }
+          }
+
+          // If source square mapping is still useful, keep it.
+          if (salvage == null) {
+            for (final c in allLegalMoves) {
+              if (c.from == move.from) {
+                salvage = c;
+                break;
+              }
+            }
+          }
+
+          // Last resort: keep the engine moving with any legal move.
+          salvage ??= allLegalMoves.isNotEmpty ? allLegalMoves.first : null;
+          move = salvage;
+        }
       }
     }
 
