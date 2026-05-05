@@ -73,6 +73,18 @@ else
   dim "checkpoint.json: absent"
 fi
 
+last_failure="$state_dir/last_failure.json"
+if [[ -f "$last_failure" ]]; then
+  resolved="$(grep -o '"resolved"[[:space:]]*:[[:space:]]*\(true\|false\)' "$last_failure" | tail -1 | awk '{print $NF}')"
+  if [[ "$resolved" != "true" ]]; then
+    err "last_failure.json present and UNRESOLVED — a previous command exited non-zero:"
+    sed 's/^/  /' "$last_failure"
+    err "  -> per AGENTS.md §5a: read the .log, diagnose, fix, resume, then set resolved:true (or delete this file)."
+  else
+    dim "last_failure.json present but resolved"
+  fi
+fi
+
 if [[ -f "$logfile" ]]; then
   echo "last 5 log entries:"
   tail -5 "$logfile" | sed 's/^/  /'

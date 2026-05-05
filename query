@@ -1,0 +1,25 @@
+Right now, openings are excellent for consistent benchmarking, but not yet optimized for making the C engine smarter during gameplay.
+The current setup mostly improves evaluation/search through tests, not via a true opening-book policy.
+How To Improve (Highest ROI First)
+
+- Improve opening corpus design quality.
+- Keep each gate file at 50 lines, but target avg depth 6-8 plies.
+- Reduce shallow lines (2 plies or less) to under 20% in each gate file.
+- Lower cross-mod overlap for the five classical-style mods from ~85% toward under 50%.
+- Add mod-specific stress motifs aggressively, especially for Kings Battle and Mercenary opening-phase transitions.
+- Add a real native opening-book layer in C.
+- Implement a lightweight per-mod opening lookup keyed by position hash from board_zobrist.c:54.
+- Hook lookup at root before full search in bridge.c.
+- Keep skill-dependent behavior:
+- easy: higher randomness among top book moves
+- hard/expert: strongest weighted move
+- This gives immediate practical playing strength in first 6-12 plies.
+- Use openings as move-order priors when out of book.
+- If no exact book hit, bias move ordering toward historically strong opening moves instead of hard forcing.
+- Integrate with current king-discipline logic in bridge_king_discipline.c:240, not against it.
+- Close the loop from audit reports to opening weights.
+- After each batch, adjust opening line weights by measured delta and blunder frequency.
+- Promote lines that expose weak engine behavior into stress files.
+- This turns your opening corpus into a learning signal, not just a static test fixture.
+
+In addition to above, we may need to update agent and AI related configs and instruction accordingly since this's a substantial change in tests and their methodology and application

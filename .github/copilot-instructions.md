@@ -112,6 +112,8 @@ A change is acceptable only when it improves at least one of those four buckets 
 
     On 429 / rate-limit / SIGINT mid-task: write `agent/state/checkpoint.json` with the current step, then exit cleanly. Do not attempt destructive cleanup on the way out.
 
+    **Non-zero exit recovery (see [AGENTS.md](../AGENTS.md) §5a).** Wrap risky / long commands with [scripts/agent/safe-run.sh](../scripts/agent/safe-run.sh) so that exit code, full output, and command/env are persisted to `/tmp/agent-runs/<run-id>.{cmd,log,exit}` and a breadcrumb to `agent/state/last_failure.json` even if the chat session or terminal dies. On any non-zero exit (or unresolved `last_failure.json` at session start) the order is fixed: **read the .log → diagnose root cause → fix it → resume the interrupted task → mark `resolved: true` (or delete the marker)**. Never retry the same failing command without first reading its log; never silence a non-zero exit with `|| true` / `set +e` / `> /dev/null` to make a gate appear green.
+
 ## Take-initiative directive
 
 The agent is expected to act, not ask. When investigating a mod:

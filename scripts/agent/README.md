@@ -21,3 +21,23 @@ It prints (and only prints):
 - queue task counts.
 
 If anything is yellow / red, address it before claiming a new task. See [AGENTS.md](../../AGENTS.md) §5 for the recovery checklist.
+
+## `safe-run.sh`
+
+Crash-safe wrapper for any command whose failure would otherwise leave the agent stuck on "Analyzing…" because the terminal died and took its output buffer with it.
+
+```bash
+./scripts/agent/safe-run.sh <tag> -- <command> [args...]
+# example:
+./scripts/agent/safe-run.sh heir-batch -- flutter test test/manual_heir_audit_batch_test.dart
+```
+
+It always writes — *before* the parent shell can lose them:
+
+- `/tmp/agent-runs/<run-id>.cmd` — the exact command, cwd, and env subset,
+- `/tmp/agent-runs/<run-id>.log` — combined stdout + stderr (live `tee`),
+- `/tmp/agent-runs/<run-id>.exit` — the exit code (only present on clean exit; absence ⇒ killed),
+
+and on non-zero exit additionally writes `agent/state/last_failure.json` so the next [session-bootstrap.sh](session-bootstrap.sh) run surfaces the failure at the top of the next session. The wrapper exits with the wrapped command's exit code unchanged, so calling gates still see real failure.
+
+Per [AGENTS.md](../../AGENTS.md) §5a, the agent must wrap risky / long commands (`flutter test`, `cmake`, audit batches, `git push`, etc.) with this script, and on any non-zero exit must follow the order **read .log → diagnose → fix → resume → mark resolved**. Never retry blindly; never silence non-zero exits with `|| true`.

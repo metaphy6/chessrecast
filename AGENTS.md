@@ -103,6 +103,33 @@ VS Code chats can be killed mid-task (window reload, OOM, network blip, user Ctr
 
 On 429 / rate-limit / SIGINT mid-task: write `agent/state/checkpoint.json` with `step`, `mod`, `task_id`, `last_command`, then exit cleanly. Do not attempt destructive cleanup on the way out.
 
+## 5a. Non-zero exit recovery protocol — never get stuck on "Analyzing…"
+
+A recurring failure mode: a terminal command exits non-zero, the parent shell or chat UI loses the buffered output, and the agent freezes on "Analyzing…" with no recoverable context. This is **never** an acceptable terminal state. To prevent it:
+
+1. **Wrap risky / long commands with [scripts/agent/safe-run.sh](scripts/agent/safe-run.sh).** Anything that builds, tests, fetches, or otherwise might fail in a way you'd need to triage later — especially `flutter test`, `cmake`, `flutter pub get`, `git push`, `dart run tool/...`, audit batches — should be invoked as:
+
+   ```bash
+   scripts/agent/safe-run.sh <tag> -- <command...>
+   ```
+
+   The wrapper writes the command, env subset, full combined output, and final exit code to `/tmp/agent-runs/<run-id>.{cmd,log,exit}` *before* the parent shell can lose them, and on non-zero exit also drops `agent/state/last_failure.json` as a recovery breadcrumb.
+
+2. **On every non-zero exit you observe (or that `last_failure.json` reports), the response order is fixed:**
+   1. **Read** the run's `.log` file (`tail -200`, then full file if needed) — never guess at the cause.
+   2. **Diagnose** the root cause: missing native lib, stale symlink, env var unset, syntax error, OOM, real test failure, etc.
+   3. **Fix** that root cause within the rules (per-mod allow-list, no system installs without confirmation, no test-skipping).
+   4. **Resume** the interrupted task. If the failure happened inside a slash command, restart the same slash command from a clean tree (`git status -s`); if it was a multi-step plan, look up the next step from `agent/state/checkpoint.json` and continue from there.
+   5. **Mark resolved**: delete `agent/state/last_failure.json` *or* edit `"resolved": true` once the underlying cause is gone. Leaving a stale marker means the next session will halt to triage it.
+
+3. **Never "retry blindly."** Re-running the same failing command without first reading its log is a hard violation; it wastes the user's time and burns rate-limit budget. If two consecutive identical failures occur, stop, file a queue entry of the appropriate `kind`, and ask only if the failure is genuinely outside the rules' scope.
+
+4. **Never silently swallow a non-zero exit.** Do not pipe through `|| true`, do not wrap in `set +e` to hide it, do not `> /dev/null 2>&1` a command whose failure matters. The only acceptable suppression is documented in code (e.g. "this grep is allowed to return 1 when no match") with the suppression visible in the source.
+
+5. **A killed terminal is a failure, not a no-op.** If `run_in_terminal` returns with no output, an empty exit, or a session-was-restarted indicator, treat it exactly like a non-zero exit: read `last_failure.json` and the latest `/tmp/agent-runs/*.log`, diagnose, fix, resume. Do not assume the work succeeded.
+
+This protocol is enforced by [scripts/agent/session-bootstrap.sh](scripts/agent/session-bootstrap.sh): it surfaces any unresolved `last_failure.json` at the top of every new session so you cannot start fresh work while a previous failure is still un-triaged.
+
 ## 6. Take initiative — be a real engineer
 
 You are expected to act, not ask. When you find evidence of:
