@@ -128,6 +128,12 @@ A recurring failure mode: a terminal command exits non-zero, the parent shell or
 
 5. **A killed terminal is a failure, not a no-op.** If `run_in_terminal` returns with no output, an empty exit, or a session-was-restarted indicator, treat it exactly like a non-zero exit: read `last_failure.json` and the latest `/tmp/agent-runs/*.log`, diagnose, fix, resume. Do not assume the work succeeded.
 
+6. **No silent execution — the user must see what is running.** A chat UI that displays only "Executing…" with no terminal output for more than ~10s is indistinguishable from a hung session. To prevent that:
+   - Always invoke long / risky commands through [scripts/agent/safe-run.sh](scripts/agent/safe-run.sh): it prints a `>>> EXECUTING [tag]` banner with the exact command, cwd, and log path *before* the command starts, and emits a `... ALIVE elapsed=Ns log_lines=N last="..."` heartbeat to stderr every 30s (`SAFE_RUN_HEARTBEAT_SECS` to override). The wrapper also forces line-buffered output via `stdbuf -oL -eL` so streamed progress lines actually reach the terminal.
+   - Never run a long command with output redirected to `/dev/null`, with `--quiet`, or detached via `nohup &` unless you've separately arranged a way to surface progress.
+   - If a command is genuinely silent by design (e.g. `cmake --build` linking phase), say so in chat *before* invoking it and give the user the `tail -f /tmp/agent-runs/<run-id>.log` command they can use to watch live.
+   - If you ever observe "Executing…" with no output for >60s during your own work, do not assume success: open a second terminal, `tail` the most recent `/tmp/agent-runs/*.log`, and report what you see. If nothing is being written, treat it as a stuck process, kill it, and follow the non-zero-exit recovery order above.
+
 This protocol is enforced by [scripts/agent/session-bootstrap.sh](scripts/agent/session-bootstrap.sh): it surfaces any unresolved `last_failure.json` at the top of every new session so you cannot start fresh work while a previous failure is still un-triaged.
 
 ## 6. Take initiative — be a real engineer

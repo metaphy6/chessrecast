@@ -41,3 +41,18 @@ It always writes — *before* the parent shell can lose them:
 and on non-zero exit additionally writes `agent/state/last_failure.json` so the next [session-bootstrap.sh](session-bootstrap.sh) run surfaces the failure at the top of the next session. The wrapper exits with the wrapped command's exit code unchanged, so calling gates still see real failure.
 
 Per [AGENTS.md](../../AGENTS.md) §5a, the agent must wrap risky / long commands (`flutter test`, `cmake`, audit batches, `git push`, etc.) with this script, and on any non-zero exit must follow the order **read .log → diagnose → fix → resume → mark resolved**. Never retry blindly; never silence non-zero exits with `|| true`.
+
+### Visibility guarantees
+
+`safe-run.sh` is also designed to defeat the chat UI's silent-"Executing…" failure mode:
+
+- A loud `>>> EXECUTING [tag]` banner with the exact command, cwd, and log path is printed **before** the command starts, so the chat shows real content immediately.
+- A heartbeat line `... safe-run: ALIVE elapsed=Ns log_lines=N last="..."` is emitted to stderr every 30s (override with `SAFE_RUN_HEARTBEAT_SECS=10`), proving the wrapper is alive even when the inner command is silent.
+- Inner output is line-buffered via `stdbuf -oL -eL` (when available) so progress lines reach the terminal as they are produced rather than getting stuck in stdio buffers.
+- A `<<< DONE [tag] exit=N elapsed=Ns` footer makes completion unambiguous.
+
+If you ever want to watch a live run from a second terminal, the banner gives you the exact command:
+
+```bash
+tail -f /tmp/agent-runs/<run-id>.log
+```

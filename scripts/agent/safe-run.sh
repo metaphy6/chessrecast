@@ -81,18 +81,61 @@ EXIT_FILE="$RUN_DIR/${RUN_ID}.exit"
   done
 } > "$CMD_FILE"
 
-echo "safe-run: tag=$SAFE_TAG run_id=$RUN_ID log=$LOG_FILE" >&2
+# Loud, visible banner so the chat UI's "Executing..." placeholder is
+# immediately followed by something the user can see. Without this, long
+# commands that produce no output for a while look indistinguishable from
+# a hung session.
+printf '\n>>> safe-run: EXECUTING [%s]\n' "$SAFE_TAG"
+printf '>>> cmd : %s\n' "$*"
+printf '>>> cwd : %s\n' "$PWD"
+printf '>>> log : %s\n' "$LOG_FILE"
+printf '>>> tail: tail -f %s    (in another terminal to watch live)\n\n' "$LOG_FILE"
 
-# Run the command, tee'ing combined output to the log file. Use a subshell
-# so we always capture the exit code even on signals.
+# Heartbeat: every HEARTBEAT_SECS (default 30s), print elapsed wall-clock
+# and the last line of the log to stderr. This proves the wrapper is alive
+# and the inner command hasn't silently hung. It runs in the background and
+# is killed cleanly on exit.
+HEARTBEAT_SECS="${SAFE_RUN_HEARTBEAT_SECS:-30}"
+START_TS="$(date +%s)"
+(
+  while sleep "$HEARTBEAT_SECS"; do
+    elapsed=$(( $(date +%s) - START_TS ))
+    last_line=""
+    if [ -f "$LOG_FILE" ]; then
+      last_line="$(tail -n 1 "$LOG_FILE" 2>/dev/null | tr -d '\r' | cut -c1-160)"
+    fi
+    line_count=0
+    if [ -f "$LOG_FILE" ]; then
+      line_count="$(wc -l < "$LOG_FILE" 2>/dev/null | tr -d ' ')"
+    fi
+    printf '... safe-run: ALIVE elapsed=%ss log_lines=%s last="%s"\n' \
+      "$elapsed" "$line_count" "$last_line" >&2
+  done
+) &
+HEARTBEAT_PID=$!
+trap 'kill "$HEARTBEAT_PID" 2>/dev/null || true' EXIT INT TERM
+
+# Force line-buffered output where the inner program supports it, so the
+# user sees output as it's produced rather than only when stdio buffers
+# flush. `stdbuf` is part of GNU coreutils; if missing, fall back gracefully.
 set +e
-( "$@" ) 2>&1 | tee "$LOG_FILE"
+if command -v stdbuf >/dev/null 2>&1; then
+  stdbuf -oL -eL "$@" 2>&1 | tee "$LOG_FILE"
+else
+  ( "$@" ) 2>&1 | tee "$LOG_FILE"
+fi
 # PIPESTATUS[0] is the exit code of the wrapped command (left of the pipe).
 RC="${PIPESTATUS[0]}"
 set -e
 
+# Stop the heartbeat before printing the final status.
+kill "$HEARTBEAT_PID" 2>/dev/null || true
+wait "$HEARTBEAT_PID" 2>/dev/null || true
+
 echo "$RC" > "$EXIT_FILE"
-echo "safe-run: exit=$RC run_id=$RUN_ID" >&2
+elapsed_total=$(( $(date +%s) - START_TS ))
+printf '\n<<< safe-run: DONE [%s] exit=%s elapsed=%ss log=%s\n\n' \
+  "$SAFE_TAG" "$RC" "$elapsed_total" "$LOG_FILE"
 
 if [ "$RC" -ne 0 ]; then
   # Persist a machine-readable failure marker for the next session.
