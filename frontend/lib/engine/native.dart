@@ -450,7 +450,9 @@ class NativeEngine {
           }
         }
 
-        if (normalized == null && piece.type == PieceType.king && r.isCastling == 1) {
+        if (normalized == null &&
+            piece.type == PieceType.king &&
+            r.isCastling == 1) {
           for (final c in allLegalMoves) {
             if (c.isCastling) {
               normalized = c;
