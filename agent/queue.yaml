@@ -87,16 +87,16 @@
 
 - id: heir-midgame-game4-e2e4-d7d5
   mod: heir
-  status: pending
+  status: done
   kind: blunder
   phase: midgame
   severity: med
   evidence:
-    report: agent/reports/heir/full-batch-game4.txt
+    report: /tmp/agent-runs/20260506-224046-heir-game4-baseline.txt
     fen: "2r4r/p4kp1/8/1q1p3p/3P1B1b/P4P2/1P1QK3/R6R w - - 0 1"
     move: "a3a4"
   blunder_threshold_cp: 200
-  notes: "Played a3a4 vs reference Rh1xh4 in e2e4,d7d5 line. Symptom: engine over-values queenside pawn nudges over heavy-piece activity when both kings are exposed."
+  notes: "Closed as not reproduced on 2026-05-07. Fresh baseline probe at d4/120ms on the queued FEN now selects Rh1xh4 as best (+1.82) over a3a4 (+1.44), so the historical blunder move is no longer the root choice. Reference probe (d6/500ms, report: /tmp/agent-runs/20260506-224704-heir-game4-reference.txt) still shows a large gap (Rh1xh4 +2.55 vs a3a4 +0.34), confirming motif severity but no active reproduction at baseline settings."
 
 - id: heir-endgame-double-king-mating-net
   mod: heir
@@ -308,14 +308,14 @@
 
 - id: mercenary-midgame-king-shield-vs-pawn-push
   mod: mercenary
-  status: pending
+  status: done
   kind: strategy
   phase: midgame
   severity: med
   evidence:
-    report: agent/reports/mercenary/king-shield.txt
+    report: /tmp/agent-runs/20260506-225703-merc-kingshield-reference.txt
   blunder_threshold_cp: 200
-  notes: "King-like pawns must not abandon the king's shield in the middlegame. Tune phase-scaled pawn proximity tables in eval_mercenary.c."
+  notes: "Closed as not reproduced on 2026-05-07. Fresh baseline and reference probes on the stable-shell replay now keep active recapture/development moves above king drift: d4xe5 is best at both d4/120 and d6/500, while Ke1-e2 remains a lower-ranked fallback with only ~0.27cp deficit (not a blunder-level miss). Reports: /tmp/agent-runs/20260506-225525-merc-kingshield-baseline.txt and /tmp/agent-runs/20260506-225703-merc-kingshield-reference.txt."
 
 - id: mercenary-endgame-knight-vs-knight-draw
   mod: mercenary
@@ -753,17 +753,16 @@
 
 - id: truce-opening-e3-dev-bishop-vs-knight-20260429
   mod: truce
-  status: pending
+  status: done
   kind: opening_principle
   phase: opening
   severity: low
   evidence:
-    report: agent/reports/truce/truce-batch-20260429-230707-triage50.txt
-    line: 219
+    report: /tmp/agent-runs/20260506-230143-truce-open-reference.txt
     fen: "rnbqkbnr/pp2pppp/8/2pp4/8/2N1P3/PPPP1PPP/R1BQKBNR w"
     move: "f1d3"
   blunder_threshold_cp: 200
-  notes: "Repeated in GAME 37/36/38/39/40 at +0.25 to +0.29: Bf1-d3 underperforms reference Ng1-f3 in low-contact truce openings."
+  notes: "Closed as low-impact on 2026-05-07 after fresh baseline/reference probes on the queued FEN. Baseline (d4/120): Bf1-d3 and Ng1-f3 are tied at +0.34. Reference (d6/500): Ng1-f3 leads Bf1-d3 by only 0.29cp (+0.06 vs -0.23), far below blunder thresholds and consistent with prior note scale. No code change shipped. Reports: /tmp/agent-runs/20260506-230129-truce-open-baseline.txt and /tmp/agent-runs/20260506-230143-truce-open-reference.txt."
 
 # ===========================================================================
 # SHARED — cross-mod issues that require kind: shared_edit approval
@@ -771,25 +770,25 @@
 
 - id: shared-search-quiescence-king-discipline
   mod: shared
-  status: pending
+  status: blocked
   kind: shared_edit
   phase: tactics
   severity: med
   evidence:
     report: agent/reports/_shared/quiescence-king-discipline.txt
   blunder_threshold_cp: 200
-  notes: "Per repo memory: native king_discipline_refine_result was added for Heir/Mercenary/SaveTheQueen/Succession. Decide if this should graduate from per-mod refine into a shared search hook; requires explicit shared-edit approval before any code change."
+  notes: "Blocked on 2026-05-07. Evidence artifact at agent/reports/_shared/quiescence-king-discipline.txt is missing, so no evidence-backed shared-search change can be justified under hard-rule requirements. Re-open with a fresh shared report that isolates quiescence king-discipline misses across >=2 mods."
 
 - id: shared-kings-battle-discovery-runtime-budget-20260430
   mod: shared
-  status: pending
+  status: blocked
   kind: shared_edit
   phase: strategy
   severity: med
   evidence:
     report: /tmp/agent-runs/kings_battle-discovery-20260430-100557.log
   blunder_threshold_cp: 0
-  notes: "Kings Battle 50-game discovery exceeded the 45-minute task budget and required a 25-game fallback; investigate cross-mod runtime knobs/search throughput before re-enabling 50-game discovery under this budget."
+  notes: "Blocked on 2026-05-07. Referenced runtime log (/tmp/agent-runs/kings_battle-discovery-20260430-100557.log) is no longer available, so there is no auditable evidence bundle for a shared runtime/search edit. Re-open once a fresh timed discovery run (50-game attempt + watchdog trace) is captured."
 
 - id: shared-native-fen-castling-rights-serialization-20260504
   mod: shared
@@ -1051,14 +1050,14 @@
 
 - id: mercenary-corpus-stress-pawn-development
   mod: mercenary
-  status: pending
+  status: failed
   kind: corpus_curation
   phase: opening
   severity: med
   evidence:
-    report: agent/openings/REBALANCE_PROPOSAL_20260505.md
+    report: agent/reports/mercenary/mercenary-corpus-curation-gate-rerun-20260506-220407-mercenary.txt
   blunder_threshold_cp: 200
-  notes: "Audit mercenary.csv for pawn-as-minor-piece development motifs (≥30% stress lines per the charter). Promote/demote per the KPI feedback loop and refresh agent/baselines/mercenary.json."
+  notes: "Failed and reverted on 2026-05-07 after two fresh 50-game gates. Latest gate (run_id=20260506-220407-mercenary) kept tactical safety (avg worst miss 0.37, max 1.50, blunders >=2.00cp = 0/50) but exceeded KPI regression thresholds vs baseline: avgWorstMiss_cp 28->37, maxWorstMiss_cp 120->150, earlyKingMoves 15->21, castlingRightLosses 14->20. Reverted mercenary.csv and mercenary_stress.csv; follow-up curation should prioritize castling retention while keeping >=30% stress coverage."
 
 - id: mercenary-batch-stale-terminal-output-20260506
   mod: mercenary
