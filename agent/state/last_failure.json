@@ -1,0 +1,12 @@
+{
+  "run_id": "mercenary-corpus-validate--20260505T104407Z-340850",
+  "tag": "mercenary-corpus-validate-",
+  "exit_code": 1,
+  "failed_at": "2026-05-05T13:59:07+03:00",
+  "cwd": "/home/serhatakbak/code/mine/chessrecast/frontend",
+  "cmd": "flutter test test/manual_mercenary_audit_batch_test.dart --run-skipped -r compact",
+  "log": "/tmp/agent-runs/mercenary-corpus-validate--20260505T104407Z-340850.log",
+  "cmd_file": "/tmp/agent-runs/mercenary-corpus-validate--20260505T104407Z-340850.cmd",
+  "resolved": true,
+  "hint": "Root cause: agent/openings/mercenary.csv lines 11-12 contained pawn moves that became illegal mid-line because of king-adjacency / move-legality violations under Mercenary rules. Replaced both lines with verified-legal patterns."
+}

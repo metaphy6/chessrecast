@@ -8,8 +8,8 @@ d2d3,d7d6,d3c4,d6c5,c4b5,c5b4,b5a6,b4a3
 e2e3,e7e6,e3d4,e6d5,d4e5,d5e4,e5f6,e4f3
 e2e3,e7e6,g1f3,g8f6,f1c4,f8c5,e1g1,e8g8
 e2e3,e7e6,g1f3,g8f6,f1d3,f8d6,b1c3,b8c6
-e2d3,e7f6,d3e4,f6g5,e4f5,g5h4,f5g6,h4h3
-e2e3,e7e6,e1e2,e8e7,e2f3,e7f6,f3g4,f6g5
+d2e3,d7e6,e3f4,e6f5,f4g5,f5g4,g5h6,g4h3
+e2e3,e7e6,d2d3,d7d6,e1d2,e8d7,d2c3,d7c6
 d2e3,d7e6
 d2c3,d7c6
 c2d3,c7d6
