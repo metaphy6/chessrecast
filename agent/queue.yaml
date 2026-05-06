@@ -996,7 +996,7 @@
 
 - id: shared-corpus-rebalance-validate-20260505
   mod: shared
-  status: pending
+  status: in_progress
   kind: corpus_curation
   phase: opening
   severity: high
@@ -1059,3 +1059,14 @@
     report: agent/openings/REBALANCE_PROPOSAL_20260505.md
   blunder_threshold_cp: 200
   notes: "Audit mercenary.csv for pawn-as-minor-piece development motifs (≥30% stress lines per the charter). Promote/demote per the KPI feedback loop and refresh agent/baselines/mercenary.json."
+
+- id: mercenary-batch-stale-terminal-output-20260506
+  mod: mercenary
+  status: done
+  kind: crash
+  phase: opening
+  severity: low
+  evidence:
+    report: ""
+  blunder_threshold_cp: 200
+  notes: "2026-05-06: Mercenary 50-game batch appeared hung at '00:45 +0' across multiple get_terminal_output polls. Root cause: the get_terminal_output tool was returning a stale cached snapshot of terminal output, not live output. The engine was running correctly — a single game (game 1, 12 plies, production params d4/120ms + d6/500ms) completed in ~13 seconds of compute time; 50-game batch takes ~11 minutes. Resolved: killed old terminal, restarted batch in fresh async terminal."
