@@ -1,5 +1,5 @@
 ---
-mode: chess-mod-improver
+mode: agent
 description: Kick off the autonomous improvement loop across the full queue (all mods). No quickpick — sends immediately.
 ---
 

@@ -1,5 +1,5 @@
 ---
-mode: chess-mod-improver
+mode: agent
 description: Kick off the autonomous improvement loop for a single mod (or the full queue). Streams every test, stops on the first error, fixes it, restarts.
 ---
 
