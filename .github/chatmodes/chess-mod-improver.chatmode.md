@@ -1,7 +1,6 @@
 ---
 description: Autonomous loop that improves one chess mod at a time. Streams test output, stops on the first error, fixes, re-runs, and only commits after the full audit gate is green. Run in VS Code Copilot Chat (Agent mode).
 tools: ['codebase', 'editFiles', 'runCommands', 'runTests', 'problems', 'changes', 'terminalLastCommand', 'githubRepo']
-model: GPT-5
 ---
 
 # Chess Mod Improver — Agent Mode

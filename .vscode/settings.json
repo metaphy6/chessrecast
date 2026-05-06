@@ -16,6 +16,19 @@
     },
     "terminal.integrated.enablePersistentSessions": true,
     "terminal.integrated.tabs.enabled": true,
+
+    // Enable repo-local prompt files (.github/prompts/*.prompt.md) and custom
+    // chat modes (.github/chatmodes/*.chatmode.md) as slash commands in Copilot Chat.
+    "chat.promptFiles": true,
+    "chat.promptFilesLocations": {
+        ".github/prompts": true
+    },
+    "chat.modeFilesLocations": {
+        ".github/chatmodes": true
+    },
+    "chat.instructionsFilesLocations": {
+        ".github": true
+    },
     
     // Dart extension will auto-detect Flutter SDK from PATH if not specified.
     // If you need to specify a path, add to your USER settings:
