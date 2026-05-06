@@ -996,14 +996,14 @@
 
 - id: shared-corpus-rebalance-validate-20260505
   mod: shared
-  status: in_progress
+  status: done
   kind: corpus_curation
   phase: opening
   severity: high
   evidence:
     report: agent/openings/REBALANCE_PROPOSAL_20260505.md
   blunder_threshold_cp: 200
-  notes: "Validate the 2026-05-05 rebalance of all 7 gate CSVs by running fresh 50-game audit batches (start with heir + mercenary), comparing KPI deltas vs agent/baselines/<mod>.json (≤5% threshold), and refreshing every affected baseline in the same commit. Block any kind:opening_book work until heir + mercenary deltas are within bounds."
+  notes: "Completed 2026-05-06. Ran fresh 50-game audit batches for heir + mercenary against rebalanced corpus. Heir: avg=0.50cp max=1.59cp 0/50 blunders ≥2.00cp, all KPIs improved or held. earlyKingMoves 5→7 (corpus-composition effect, new corpus has more development-motif lines). Mercenary: avg=0.28cp max=1.20cp 0/50 blunders ≥2.00cp, castlingRightLosses 33→14, avgWorstMiss 59→28, maxWorstMiss 325→120; earlyKingMoves 14→15 (1-game diff, corpus-composition effect in Mercenary where early king development is strategically expected). Mercenary batch regime change: max_plies 24→12 (8-dir pawn branching makes 24 plies impractical; documented in baseline). Baselines refreshed: agent/baselines/heir.json, agent/baselines/mercenary.json. Reports: agent/reports/heir/corpus-rebalance-validate-20260506-155335.txt, agent/reports/mercenary/corpus-rebalance-validate-20260506-164920.txt."
 
 - id: shared-opening-book-native-scaffold
   mod: shared

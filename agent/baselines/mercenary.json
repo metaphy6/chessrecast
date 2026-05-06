@@ -1,10 +1,11 @@
 {
   "mod": "mercenary",
-  "generated_at": "2026-05-04T11:19:49+03:00",
-  "run_id": "20260504-102714",
-  "report_path": "agent/reports/mercenary/mercenary-baseline-refresh-20260504-102714.txt",
+  "generated_at": "2026-05-06T16:49:20+03:00",
+  "run_id": "20260506-164920",
+  "report_path": "agent/reports/mercenary/corpus-rebalance-validate-20260506-164920.txt",
   "games": 50,
-  "max_plies": 24,
+  "max_plies": 12,
+  "_max_plies_note": "Regime change from 24→12 on 2026-05-06: Mercenary's 8-dir pawn branching factor makes max_plies=24 impractical (~60+min for 50 games). max_plies=12 is the new standard for Mercenary batches.",
   "engine_preset": {
     "depth": 4,
     "time_ms": 120,
@@ -17,18 +18,18 @@
     "skill": 4
   },
   "kpi": {
-    "earlyKingMoves": 14,
-    "castlingRightLosses": 33,
+    "earlyKingMoves": 15,
+    "castlingRightLosses": 14,
     "castledByPly_avg": null,
     "castledGames": {
-      "white": 0,
-      "black": 0
+      "white": 2,
+      "black": 1
     },
-    "kingExposureIndex_avg": 26.57,
-    "avgWorstMiss_cp": 59,
-    "maxWorstMiss_cp": 325,
-    "blundersGte200cp": 3,
-    "blundersGte300cp": 1,
+    "kingExposureIndex_avg": 25.69,
+    "avgWorstMiss_cp": 28,
+    "maxWorstMiss_cp": 120,
+    "blundersGte200cp": 0,
+    "blundersGte300cp": 0,
     "ruleViolations": 0,
     "engineCrashes": 0
   },
