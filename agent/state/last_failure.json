@@ -1,12 +1,12 @@
 {
-  "run_id": "opening-book-regressions--20260506T180932Z-44558",
-  "tag": "opening-book-regressions-",
-  "exit_code": 255,
-  "failed_at": "2026-05-06T21:10:44+03:00",
+  "run_id": "kb-opening-legal--20260506T193800Z-185066",
+  "tag": "kb-opening-legal-",
+  "exit_code": 1,
+  "failed_at": "2026-05-06T22:38:03+03:00",
   "cwd": "/home/tech/code/chessrecast/frontend",
-  "cmd": "env CHESSRECAST_NATIVE_ENGINE_LIB=/home/tech/code/chessrecast/frontend/build/native/linux/libchess_engine.so LD_LIBRARY_PATH=/home/tech/code/chessrecast/frontend/build/native/linux:/home/tech/code/chessrecast/frontend flutter test test/native_opening_book_smoke_test.dart test/native_opening_book_skill_variance_test.dart test/king_castling_policy_regression_test.dart test/heir_engine_regression_test.dart test/friendly_fire_engine_regression_test.dart test/kings_battle_engine_regression_test.dart test/mercenary_engine_regression_test.dart test/save_the_queen_engine_regression_test.dart test/succession_engine_regression_test.dart test/truce_engine_regression_test.dart -r compact",
-  "log": "/tmp/agent-runs/opening-book-regressions--20260506T180932Z-44558.log",
-  "cmd_file": "/tmp/agent-runs/opening-book-regressions--20260506T180932Z-44558.cmd",
+  "cmd": "flutter test test/manual_kings_battle_opening_legality_test.dart --run-skipped -r compact",
+  "log": "/tmp/agent-runs/kb-opening-legal--20260506T193800Z-185066.log",
+  "cmd_file": "/tmp/agent-runs/kb-opening-legal--20260506T193800Z-185066.cmd",
   "resolved": true,
-  "hint": "Diagnosed and handled by reverting the failing opening-book scaffold patch; task marked failed in agent/queue.yaml with gate evidence."
+  "hint": "Resolved during kings_battle corpus curation by fixing illegal opening lines (kings_battle.csv / kings_battle_discovery.csv) and re-running a green 50-game batch gate."
 }

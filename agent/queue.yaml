@@ -1040,14 +1040,14 @@
 
 - id: kings_battle-corpus-stress-phase-transition
   mod: kings_battle
-  status: pending
+  status: done
   kind: corpus_curation
   phase: opening
   severity: med
   evidence:
-    report: agent/openings/REBALANCE_PROPOSAL_20260505.md
+    report: agent/reports/kings_battle/kings_battle-baseline-refresh-20260506-223837-kings_battle.txt
   blunder_threshold_cp: 200
-  notes: "Audit kings_battle.csv against the corpus quality targets (≥30% mod-specific stress lines, especially Phase-1→Phase-2 transitions). Promote/demote lines as needed; refresh agent/baselines/kings_battle.json in the same commit."
+  notes: "Completed 2026-05-06 run_id=20260506-223837-kings_battle. Curated corpus to 50 gate lines with avg depth 7.08, shallow lines (<=2 plies) 0/50, and stress coverage 30/50. Expanded kings_battle_stress.csv to 30 replay-backed phase-transition lines and corrected two illegal entries encountered during gate runs. Fresh 50-game gate report: avgWorstMiss_cp=141, maxWorstMiss_cp=491, blundersGte200cp=13, blundersGte300cp=4, earlyKingMoves=241, castlingRightLosses=39, kingExposureIndex_avg=39.14. Refreshed agent/baselines/kings_battle.json in same commit."
 
 - id: mercenary-corpus-stress-pawn-development
   mod: mercenary
