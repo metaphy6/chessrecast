@@ -1007,36 +1007,36 @@
 
 - id: shared-opening-book-native-scaffold
   mod: shared
-  status: pending
+  status: failed
   kind: opening_book
   phase: opening
   severity: high
   evidence:
-    report: agent/openings/REBALANCE_PROPOSAL_20260505.md
+    report: /tmp/agent-runs/opening-book-regressions--20260506T180932Z-44558.log
   blunder_threshold_cp: 200
-  notes: "Scaffold the native opening-book layer per the charter: frontend/native/engine/book/opening_book.{h,c}, CMakeLists.txt addition, and bridge.c root hook BEFORE search_think. Per-mod, skill-aware (easy: weighted-random top-N; medium: weighted-random top-3; hard/expert/maximum: deterministic strongest weight). Must defer to bridge_king_discipline.c, never bypass it. Ship with a smoke test (native_opening_book_smoke_test.dart) and a skill-variance test (native_opening_book_skill_variance_test.dart). Gate via the seven mod regressions + heir/mercenary 50-game audits before shipping."
+  notes: "Attempted 2026-05-06 and reverted after gate failure. Combined regression gate run (opening-book-regressions--20260506T180932Z-44558.log) failed at least three assertions, including Friendly Fire (test/friendly_fire_engine_regression_test.dart:128 expected h2h3, actual g1f3) and Truce regressions (test/truce_engine_regression_test.dart:98 expected c7c6, actual c8f5; line 120 expected h2h3, actual e1g1). Watchdog stop applied (Ctrl-C) after first failure signals."
 
 - id: shared-opening-book-move-order-priors
   mod: shared
-  status: pending
+  status: blocked
   kind: opening_book
   phase: opening
   severity: med
   evidence:
     report: agent/openings/REBALANCE_PROPOSAL_20260505.md
   blunder_threshold_cp: 200
-  notes: "Out-of-book: feed book weights into the existing move-order phase as priors (NOT forcing). Must compose with current move-ordering and king-discipline checks. Depends on shared-opening-book-native-scaffold."
+  notes: "Blocked on 2026-05-06: dependency shared-opening-book-native-scaffold failed gate and was reverted. Do not attempt until scaffold is reintroduced with green seven-mod regression gate."
 
 - id: shared-corpus-curation-tool
   mod: shared
-  status: pending
+  status: done
   kind: corpus_curation
   phase: opening
   severity: med
   evidence:
-    report: agent/openings/REBALANCE_PROPOSAL_20260505.md
+    report: agent/reports/_shared/corpus-curation-plan-20260506-212216.yaml
   blunder_threshold_cp: 200
-  notes: "Add frontend/tool/curate_openings.dart that reads agent/reports/<mod>/*.txt + agent/baselines/<mod>.json and proposes per-line promote/demote actions per the KPI→weight loop in copilot-instructions.md. Output a YAML diff plan; do not auto-edit CSVs. Each proposed change must be filed as its own kind:corpus_curation queue entry."
+  notes: "Completed 2026-05-06. Added frontend/tool/curate_openings.dart plus unit test frontend/test/curate_openings_tool_test.dart. Tool parses GAME/status worst-miss lines across recent report windows, applies promote/demote rules (promote recurring >=2.00; demote only with full 3-report low-miss history), and emits YAML queue-entry proposals without mutating CSVs. Generated artifact: agent/reports/_shared/corpus-curation-plan-20260506-212216.yaml."
 
 - id: kings_battle-corpus-stress-phase-transition
   mod: kings_battle

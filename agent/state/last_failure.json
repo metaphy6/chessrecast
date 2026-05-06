@@ -1,12 +1,12 @@
 {
-  "run_id": "mercenary-corpus-validate--20260505T104407Z-340850",
-  "tag": "mercenary-corpus-validate-",
-  "exit_code": 1,
-  "failed_at": "2026-05-05T13:59:07+03:00",
-  "cwd": "/home/serhatakbak/code/mine/chessrecast/frontend",
-  "cmd": "flutter test test/manual_mercenary_audit_batch_test.dart --run-skipped -r compact",
-  "log": "/tmp/agent-runs/mercenary-corpus-validate--20260505T104407Z-340850.log",
-  "cmd_file": "/tmp/agent-runs/mercenary-corpus-validate--20260505T104407Z-340850.cmd",
+  "run_id": "opening-book-regressions--20260506T180932Z-44558",
+  "tag": "opening-book-regressions-",
+  "exit_code": 255,
+  "failed_at": "2026-05-06T21:10:44+03:00",
+  "cwd": "/home/tech/code/chessrecast/frontend",
+  "cmd": "env CHESSRECAST_NATIVE_ENGINE_LIB=/home/tech/code/chessrecast/frontend/build/native/linux/libchess_engine.so LD_LIBRARY_PATH=/home/tech/code/chessrecast/frontend/build/native/linux:/home/tech/code/chessrecast/frontend flutter test test/native_opening_book_smoke_test.dart test/native_opening_book_skill_variance_test.dart test/king_castling_policy_regression_test.dart test/heir_engine_regression_test.dart test/friendly_fire_engine_regression_test.dart test/kings_battle_engine_regression_test.dart test/mercenary_engine_regression_test.dart test/save_the_queen_engine_regression_test.dart test/succession_engine_regression_test.dart test/truce_engine_regression_test.dart -r compact",
+  "log": "/tmp/agent-runs/opening-book-regressions--20260506T180932Z-44558.log",
+  "cmd_file": "/tmp/agent-runs/opening-book-regressions--20260506T180932Z-44558.cmd",
   "resolved": true,
-  "hint": "Root cause: agent/openings/mercenary.csv lines 11-12 contained pawn moves that became illegal mid-line because of king-adjacency / move-legality violations under Mercenary rules. Replaced both lines with verified-legal patterns."
+  "hint": "Diagnosed and handled by reverting the failing opening-book scaffold patch; task marked failed in agent/queue.yaml with gate evidence."
 }

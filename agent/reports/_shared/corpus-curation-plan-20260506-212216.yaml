@@ -1,0 +1,99 @@
+generated_at: 2026-05-06T21:22:17.214947
+report_window: 3
+rules:
+  demote_worst_lt: 0.50
+  promote_worst_gte: 2.00
+  recurring_reports_required: 2
+mods:
+  - mod: 'heir'
+    baseline: 'agent/baselines/heir.json'
+    warning: 'insufficient_report_history'
+    reports:
+      - 'agent/reports/heir/heir-baseline-refresh-20260503-170800-heir.txt'
+      - 'agent/reports/heir/EXAMPLE-20260419-021500.txt'
+    summary:
+      openings_observed: 50
+      promote_candidates: 0
+      demote_candidates: 0
+    proposals:
+      []
+    queue_entries:
+      []
+  - mod: 'friendly_fire'
+    baseline: 'agent/baselines/friendly_fire.json'
+    warning: 'insufficient_report_history'
+    reports:
+      - 'agent/reports/friendly_fire/friendly_fire-baseline-refresh-20260503-183400-friendly_fire.txt'
+    summary:
+      openings_observed: 50
+      promote_candidates: 0
+      demote_candidates: 0
+    proposals:
+      []
+    queue_entries:
+      []
+  - mod: 'kings_battle'
+    baseline: 'agent/baselines/kings_battle.json'
+    warning: 'insufficient_report_history'
+    reports:
+      - 'agent/reports/kings_battle/kings_battle-baseline-refresh-20260503-183400-kings_battle.txt'
+    summary:
+      openings_observed: 50
+      promote_candidates: 0
+      demote_candidates: 0
+    proposals:
+      []
+    queue_entries:
+      []
+  - mod: 'mercenary'
+    baseline: 'agent/baselines/mercenary.json'
+    warning: 'reports_missing'
+    reports:
+      - '(none)'
+    summary:
+      openings_observed: 0
+      promote_candidates: 0
+      demote_candidates: 0
+    proposals:
+      []
+    queue_entries:
+      []
+  - mod: 'save_the_queen'
+    baseline: 'agent/baselines/save_the_queen.json'
+    warning: 'reports_missing'
+    reports:
+      - '(none)'
+    summary:
+      openings_observed: 0
+      promote_candidates: 0
+      demote_candidates: 0
+    proposals:
+      []
+    queue_entries:
+      []
+  - mod: 'succession'
+    baseline: 'agent/baselines/succession.json'
+    warning: 'reports_missing'
+    reports:
+      - '(none)'
+    summary:
+      openings_observed: 0
+      promote_candidates: 0
+      demote_candidates: 0
+    proposals:
+      []
+    queue_entries:
+      []
+  - mod: 'truce'
+    baseline: 'agent/baselines/truce.json'
+    warning: 'insufficient_report_history'
+    reports:
+      - 'agent/reports/truce/truce-baseline-refresh-20260503-174100-truce.txt'
+    summary:
+      openings_observed: 50
+      promote_candidates: 0
+      demote_candidates: 0
+    proposals:
+      []
+    queue_entries:
+      []
