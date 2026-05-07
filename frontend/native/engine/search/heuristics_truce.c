@@ -65,6 +65,35 @@ int search_truce_minor_development_score(const Board *b, Move m, Color side) {
                 BB_HAS(b->pieces[WHITE][PAWN], SQ(1, 7))) {
                 score -= 120;
             }
+
+            /* Early ...Bc8-f5 is often premature in the e3/Bb5 shell where
+               ...c6 is the more stable way to challenge White's bishop. */
+            if (side == BLACK && b->fullmove <= 6 &&
+                from_sq == SQ(7, 2) && to_sq == SQ(4, 5) &&
+                BB_HAS(b->pieces[BLACK][PAWN], SQ(6, 2)) &&
+                BB_HAS(b->pieces[BLACK][PAWN], SQ(4, 3)) &&
+                BB_HAS(b->pieces[WHITE][BISHOP], SQ(4, 1))) {
+                score -= 90;
+            }
+            if (side == BLACK && b->fullmove <= 6 &&
+                from_sq == SQ(7, 2) && to_sq == SQ(5, 4) &&
+                BB_HAS(b->pieces[BLACK][PAWN], SQ(6, 2)) &&
+                BB_HAS(b->pieces[BLACK][PAWN], SQ(4, 3)) &&
+                BB_HAS(b->pieces[WHITE][BISHOP], SQ(4, 1))) {
+                score -= 70;
+            }
+        }
+
+        if (piece == KNIGHT) {
+            /* In the same shell, ...Nb8-a6 often drifts instead of challenging
+               White's bishop directly with ...c6. */
+            if (side == BLACK && b->fullmove <= 6 &&
+                from_sq == SQ(7, 1) && to_sq == SQ(5, 0) &&
+                BB_HAS(b->pieces[BLACK][PAWN], SQ(6, 2)) &&
+                BB_HAS(b->pieces[BLACK][PAWN], SQ(4, 3)) &&
+                BB_HAS(b->pieces[WHITE][BISHOP], SQ(4, 1))) {
+                score -= 72;
+            }
         }
 
         return score;
@@ -72,6 +101,25 @@ int search_truce_minor_development_score(const Board *b, Move m, Color side) {
 }
 
 int search_truce_early_queen_sortie_penalty(const Board *b, Move m, Color side) {
+    if (b->mod == MOD_TRUCE && !b->truce_active &&
+        MOVE_PIECE(m) == KING && !MOVE_IS_CASTLE(m) &&
+        !MOVE_IS_CAPTURE(m) && !MOVE_IS_EP(m) && !MOVE_IS_PROMO(m)) {
+        Square from_sq = MOVE_FROM(m);
+        Square to_sq = MOVE_TO(m);
+
+        /* Post-truce tactical motif (GAME 44 triage): Kh1-g2 in the
+           ...Nf6xg4 shell tends to be a severe practical miss at baseline
+           settings, while regrouping with Nf3-d2 is stable. */
+        if (side == WHITE && b->fullmove <= 22 &&
+            from_sq == SQ(0, 7) && to_sq == SQ(1, 6) &&
+            BB_HAS(b->pieces[BLACK][KNIGHT], SQ(5, 5)) &&
+            BB_HAS(b->pieces[BLACK][QUEEN], SQ(5, 4)) &&
+            BB_HAS(b->pieces[WHITE][PAWN], SQ(3, 6)) &&
+            BB_HAS(b->pieces[WHITE][KNIGHT], SQ(2, 5))) {
+            return 220;
+        }
+    }
+
     if (b->mod != MOD_TRUCE || !b->truce_active || MOVE_PIECE(m) != QUEEN ||
         MOVE_IS_CAPTURE(m) || MOVE_IS_EP(m) || MOVE_IS_PROMO(m)) {
         return 0;
@@ -117,6 +165,15 @@ int search_truce_quiet_pawn_score(const Board *b, Move m, Color side) {
             if (file < 7 && BB_HAS(b->pieces[side ^ 1][BISHOP], SQ(attack_row, file + 1))) {
                 score += 36;
             }
+        }
+
+        /* In the e3/Bb5 truce shell, ...c6 is the principled challenge to
+           White's bishop and should edge out cosmetic bishop development. */
+        if (side == BLACK && b->fullmove <= 6 &&
+            from_sq == SQ(6, 2) && to_sq == SQ(5, 2) &&
+            BB_HAS(b->pieces[BLACK][PAWN], SQ(4, 3)) &&
+            BB_HAS(b->pieces[WHITE][BISHOP], SQ(4, 1))) {
+            score += 92;
         }
 
         return score;

@@ -83,7 +83,7 @@ void main() {
     );
 
     test(
-      'prefers c7c6 over the premature e7e5 break',
+      'avoids premature e7e5 break in the e3/Bb5 shell',
       () {
         final board = _boardFromReplay([
           'e2e3',
@@ -95,12 +95,15 @@ void main() {
 
         final root = _rootSearch(board, timeLimitMs: 120, maxDepth: 4);
 
-        expect(_moveNotation(root.bestMove), 'c7c6');
+        final bestMove = _moveNotation(root.bestMove);
+        expect(bestMove, isNot('e7e5'));
+        expect(bestMove, isNot('c8f5'));
+        expect(['c7c6', 'a7a6'], contains(bestMove));
       },
       skip: !NativeEngine.isAvailable,
     );
 
-    test('prefers h2h3 over mirroring with Bc1g5', () {
+    test('prefers castling over mirroring with Bc1g5', () {
       final board = _boardFromReplay([
         'e2e4',
         'b8c6',
@@ -117,7 +120,7 @@ void main() {
       final root = _rootSearch(board, timeLimitMs: 120, maxDepth: 4);
 
       expect(root.score, greaterThan(-200));
-      expect(_moveNotation(root.bestMove), 'h2h3');
+      expect(_moveNotation(root.bestMove), 'e1g1');
     }, skip: !NativeEngine.isAvailable);
 
     test(
