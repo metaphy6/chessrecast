@@ -271,6 +271,42 @@ void main() {
     );
 
     test(
+      'prefers d4xc5 in the GAME 22 tactical node',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'g8f6',
+          'c2c4',
+          'c7c5',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), 'd4c5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'prefers Nb1-c3 in the GAME 22 tactical follow-up node',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'g8f6',
+          'c2c4',
+          'c7c5',
+          'd4c5',
+          'b8a6',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), 'b1c3');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
       'avoids Qd1-c2 in the GAME 20 opening-principle node',
       () {
         final board = _boardFromReplay([

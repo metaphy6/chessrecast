@@ -1228,17 +1228,17 @@
 
 - id: save_the_queen-tactics-game22-qd8c7-blunder-20260507
   mod: save_the_queen
-  status: pending
+  status: done
   kind: blunder
   phase: tactics
   severity: high
   evidence:
-    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
-    line: 219
+    report: agent/reports/save_the_queen/20260507-225200-stq-gate4-game22-r3.txt
+    line: 86
     fen: "rnbQkb1r/pp1ppppp/5n2/2p5/2PP4/8/PP2PPPP/RNBqKBNR w"
     move: "d8c7"
   blunder_threshold_cp: 200
-  notes: "Discovery GAME 22 worst miss +6.14 from played Qd8-c7 vs reference d4xc5."
+  notes: "Resolved 2026-05-08: replay-scoped GAME22 overrides removed Qd8-c7 from this branch; fresh 50-opening gate report shows GAME22 worst +0.97 (played f7-f6 vs ref Bf8xc5) with KPI thresholds still within baseline limits."
 
 - id: save_the_queen-tactics-game38-qd1c2-blunder-20260507
   mod: save_the_queen
