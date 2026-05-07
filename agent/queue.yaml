@@ -1111,3 +1111,173 @@
     report: ""
   blunder_threshold_cp: 200
   notes: "2026-05-06: Mercenary 50-game batch appeared hung at '00:45 +0' across multiple get_terminal_output polls. Root cause: the get_terminal_output tool was returning a stale cached snapshot of terminal output, not live output. The engine was running correctly — a single game (game 1, 12 plies, production params d4/120ms + d6/500ms) completed in ~13 seconds of compute time; 50-game batch takes ~11 minutes. Resolved: killed old terminal, restarted batch in fresh async terminal."
+
+# ===========================================================================
+# DISCOVERY SEED (2026-05-07) — SAVE_THE_QUEEN
+# ===========================================================================
+
+- id: save_the_queen-discovery-kpi-regression-20260507
+  mod: save_the_queen
+  status: pending
+  kind: kpi_regression
+  phase: strategy
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
+    line: 203
+  blunder_threshold_cp: 200
+  notes: "Discovery aggregate regressed vs baseline: avgWorstMiss_cp 2.00 -> 3.76 (+88%), maxWorstMiss_cp 46 -> 100 (+117%), and earlyKingMoves 11 -> 12 (+9%)."
+
+- id: save_the_queen-opening-early-queen-sorties-20260507
+  mod: save_the_queen
+  status: pending
+  kind: opening_principle
+  phase: opening
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
+    line: 213
+    fen: "rnbQkb1r/pppp1ppp/4pn2/8/2PP4/5N2/PP2PPPP/RNBqKB1R b"
+    move: "d1c2"
+  blunder_threshold_cp: 200
+  notes: "Worst-list motifs repeatedly show premature queen sorties (Qd1-c2/Qd8-c7/Qd8-e7) before stable development, violating opening-discipline targets."
+
+- id: save_the_queen-tactics-game23-e6d7-blunder-20260507
+  mod: save_the_queen
+  status: pending
+  kind: blunder
+  phase: tactics
+  severity: critical
+  evidence:
+    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
+    line: 207
+    fen: "1rbQ1rk1/ppNnbppp/4P3/8/1q1P4/1P1BP3/P4PPP/R3K1NR w"
+    move: "e6d7"
+  blunder_threshold_cp: 200
+  notes: "Discovery GAME 23 worst miss +100.00 (mate-scale) from played e6xd7 vs reference e6xf7."
+
+- id: save_the_queen-tactics-game34-qd8d7-blunder-20260507
+  mod: save_the_queen
+  status: pending
+  kind: blunder
+  phase: tactics
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
+    line: 210
+    fen: "2rQkb1r/p1p1pppp/5n2/3pNb2/2p2P2/8/PPPPP1PP/R1BqKB1R w"
+    move: "d8d7"
+  blunder_threshold_cp: 200
+  notes: "Discovery GAME 34 worst miss +7.29 from played Qd8-d7 vs reference b2-b3."
+
+- id: save_the_queen-tactics-game20-qd1c2-blunder-20260507
+  mod: save_the_queen
+  status: pending
+  kind: blunder
+  phase: tactics
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
+    line: 213
+    fen: "rnbQkb1r/pppp1ppp/4pn2/8/2PP4/5N2/PP2PPPP/RNBqKB1R b"
+    move: "d1c2"
+  blunder_threshold_cp: 200
+  notes: "Discovery GAME 20 worst miss +6.85 from played Qd1-c2 vs reference Bf8-b4."
+
+- id: save_the_queen-tactics-game18-qd1c2-blunder-20260507
+  mod: save_the_queen
+  status: pending
+  kind: blunder
+  phase: tactics
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
+    line: 216
+    fen: "rnbQkbnr/pp2pppp/2p5/3P4/3P4/8/PP2PPPP/RNBqKBNR b"
+    move: "d1c2"
+  blunder_threshold_cp: 200
+  notes: "Discovery GAME 18 worst miss +6.73 from played Qd1-c2 vs reference c6xd5."
+
+- id: save_the_queen-tactics-game22-qd8c7-blunder-20260507
+  mod: save_the_queen
+  status: pending
+  kind: blunder
+  phase: tactics
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
+    line: 219
+    fen: "rnbQkb1r/pp1ppppp/5n2/2p5/2PP4/8/PP2PPPP/RNBqKBNR w"
+    move: "d8c7"
+  blunder_threshold_cp: 200
+  notes: "Discovery GAME 22 worst miss +6.14 from played Qd8-c7 vs reference d4xc5."
+
+- id: save_the_queen-tactics-game38-qd1c2-blunder-20260507
+  mod: save_the_queen
+  status: pending
+  kind: blunder
+  phase: tactics
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
+    line: 222
+    fen: "r1b1kb1r/p3pppp/1pQ2n2/1np1N3/2p2B2/3P2P1/PP2PPBP/RN1qK2R b"
+    move: "d1c2"
+  blunder_threshold_cp: 200
+  notes: "Discovery GAME 38 worst miss +6.11 from played Qd1-c2 vs reference c4xd3."
+
+- id: save_the_queen-tactics-game29-qd1e2-blunder-20260507
+  mod: save_the_queen
+  status: pending
+  kind: blunder
+  phase: tactics
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
+    line: 225
+    fen: "r1bQkb1r/ppp1pppp/n7/4P3/2B3n1/2N2N2/PP1P1PPP/R1BqK2R b"
+    move: "d1e2"
+  blunder_threshold_cp: 200
+  notes: "Discovery GAME 29 worst miss +5.99 from played Qd1-e2 vs reference Bc8-d7."
+
+- id: save_the_queen-tactics-game50-qd8c7-blunder-20260507
+  mod: save_the_queen
+  status: pending
+  kind: blunder
+  phase: tactics
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
+    line: 228
+    fen: "rnbQk2r/pp2ppbp/3p1np1/2p5/2P5/2N2NP1/PP1PPPBP/R1BqK2R w"
+    move: "d8c7"
+  blunder_threshold_cp: 200
+  notes: "Discovery GAME 50 worst miss +5.98 from played Qd8-c7 vs reference Ke1-g1."
+
+- id: save_the_queen-tactics-game31-qd8e7-blunder-20260507
+  mod: save_the_queen
+  status: pending
+  kind: blunder
+  phase: tactics
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
+    line: 231
+    fen: "r2Qkb1r/pp1b1ppp/5n2/2ppp3/1n6/N2P2P1/PPPNPPBP/R1BqR1K1 w"
+    move: "d8e7"
+  blunder_threshold_cp: 200
+  notes: "Discovery GAME 31 worst miss +5.74 from played Qd8-e7 vs reference Qd8-c7."
+
+- id: save_the_queen-tactics-game15-nc5a6-blunder-20260507
+  mod: save_the_queen
+  status: pending
+  kind: blunder
+  phase: tactics
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
+    line: 234
+    fen: "1r1Q1r2/pp1b1kbp/2n1p1p1/2n5/1PPq4/2N1BN2/P3BPPP/R4RK1 b"
+    move: "c5a6"
+  blunder_threshold_cp: 200
+  notes: "Discovery GAME 15 worst miss +3.15 from played Nc5-a6 vs reference Qd4-e4."
