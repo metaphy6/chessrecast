@@ -1,12 +1,12 @@
 {
-  "run_id": "merc-corpus-rerun-regression--20260506T220042Z-412309",
-  "tag": "merc-corpus-rerun-regression-",
+  "run_id": "truce-opening-legal--20260507T054307Z-1091440",
+  "tag": "truce-opening-legal-",
   "exit_code": 1,
-  "failed_at": "2026-05-07T01:00:42+03:00",
+  "failed_at": "2026-05-07T08:43:11+03:00",
   "cwd": "/home/tech/code/chessrecast/frontend",
-  "cmd": "flutter test -r compact test/mercenary_engine_regression_test.dart",
-  "log": "/tmp/agent-runs/merc-corpus-rerun-regression--20260506T220042Z-412309.log",
-  "cmd_file": "/tmp/agent-runs/merc-corpus-rerun-regression--20260506T220042Z-412309.cmd",
+  "cmd": "flutter test -r compact --run-skipped test/manual_truce_opening_legality_test.dart",
+  "log": "/tmp/agent-runs/truce-opening-legal--20260507T054307Z-1091440.log",
+  "cmd_file": "/tmp/agent-runs/truce-opening-legal--20260507T054307Z-1091440.cmd",
   "resolved": true,
   "hint": "Diagnose via the log, fix the root cause, then mark resolved:true (or delete this file) and resume the interrupted task."
 }

@@ -764,6 +764,20 @@
   blunder_threshold_cp: 200
   notes: "Closed as low-impact on 2026-05-07 after fresh baseline/reference probes on the queued FEN. Baseline (d4/120): Bf1-d3 and Ng1-f3 are tied at +0.34. Reference (d6/500): Ng1-f3 leads Bf1-d3 by only 0.29cp (+0.06 vs -0.23), far below blunder thresholds and consistent with prior note scale. No code change shipped. Reports: /tmp/agent-runs/20260506-230129-truce-open-baseline.txt and /tmp/agent-runs/20260506-230143-truce-open-reference.txt."
 
+- id: truce-tactics-game44-h1g2-blunder-20260507
+  mod: truce
+  status: pending
+  kind: blunder
+  phase: tactics
+  severity: high
+  evidence:
+    report: agent/reports/truce/discovery-20260507-054359-truce.txt
+    line: 207
+    fen: "5rk1/2p2r2/p1npqn1p/1p2p1p1/1P2P1P1/P1NPQN1P/2P2P2/1R3R1K w"
+    move: "h1g2"
+  blunder_threshold_cp: 200
+  notes: "Discovery finding from 2026-05-07 run_id=20260507-054359-truce. GAME 44 worst miss +2.42 (played Kh1-g2 vs reference Nf3-d2) in a tactical middlegame sequence after truce break. Requires truce-specific tactical stabilization without shared-search edits."
+
 # ===========================================================================
 # SHARED — cross-mod issues that require kind: shared_edit approval
 # ===========================================================================
