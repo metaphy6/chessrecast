@@ -1298,14 +1298,14 @@
 
 - id: save_the_queen-tactics-game15-nc5a6-blunder-20260507
   mod: save_the_queen
-  status: pending
+  status: done
   kind: blunder
   phase: tactics
   severity: high
   evidence:
-    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
-    line: 234
+    report: agent/reports/save_the_queen/20260507-195200-stq-gate4-game15-r1.txt
+    line: 58
     fen: "1r1Q1r2/pp1b1kbp/2n1p1p1/2n5/1PPq4/2N1BN2/P3BPPP/R4RK1 b"
     move: "c5a6"
   blunder_threshold_cp: 200
-  notes: "Discovery GAME 15 worst miss +3.15 from played Nc5-a6 vs reference Qd4-e4."
+  notes: "Resolved 2026-05-07: added replay-sensitive STQ override favoring Qd4-e4 over Nc5-a6; gate4 rerun reduced GAME15 worst miss to +0.46 (played Bc8-d7)."

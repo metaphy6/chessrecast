@@ -379,6 +379,52 @@ void main() {
     );
 
     test(
+      'prefers Qd4-e4 in the GAME 15 tactical node',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'g8f6',
+          'c2c4',
+          'g7g6',
+          'b1c3',
+          'f8g7',
+          'e2e4',
+          'd7d6',
+          'g1f3',
+          'e8g8',
+          'e4e5',
+          'd6e5',
+          'd4e5',
+          'f6d7',
+          'c3d5',
+          'b8c6',
+          'd5c7',
+          'a8b8',
+          'e5e6',
+          'd7c5',
+          'e6f7',
+          'g8f7',
+          'c7d5',
+          'd1c2',
+          'f1e2',
+          'c2d3',
+          'c1e3',
+          'd3d4',
+          'e1g1',
+          'e7e6',
+          'd5c3',
+          'c8d7',
+          'b2b4',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), 'd4e4');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
       'prefers Ke1xe2 in the GAME 21 blunder node',
       () {
         final board = _boardFromReplay([
