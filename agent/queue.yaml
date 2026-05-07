@@ -1200,17 +1200,17 @@
 
 - id: save_the_queen-tactics-game20-qd1c2-blunder-20260507
   mod: save_the_queen
-  status: pending
+  status: done
   kind: blunder
   phase: tactics
   severity: high
   evidence:
-    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
-    line: 213
+    report: agent/reports/save_the_queen/20260507-195200-stq-gate4-game15-r1.txt
+    line: 78
     fen: "rnbQkb1r/pppp1ppp/4pn2/8/2PP4/5N2/PP2PPPP/RNBqKB1R b"
     move: "d1c2"
   blunder_threshold_cp: 200
-  notes: "Discovery GAME 20 worst miss +6.85 from played Qd1-c2 vs reference Bf8-b4."
+  notes: "Resolved 2026-05-07: opening-principle fixes removed Qd1-c2 line in this branch; latest gate shows GAME20 worst +1.24 (played Nb8-a6)."
 
 - id: save_the_queen-tactics-game18-qd1c2-blunder-20260507
   mod: save_the_queen
