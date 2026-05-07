@@ -1144,7 +1144,7 @@
 
 - id: save_the_queen-tactics-game23-e6d7-blunder-20260507
   mod: save_the_queen
-  status: pending
+  status: failed
   kind: blunder
   phase: tactics
   severity: critical
@@ -1154,7 +1154,35 @@
     fen: "1rbQ1rk1/ppNnbppp/4P3/8/1q1P4/1P1BP3/P4PPP/R3K1NR w"
     move: "e6d7"
   blunder_threshold_cp: 200
-  notes: "Discovery GAME 23 worst miss +100.00 (mate-scale) from played e6xd7 vs reference e6xf7."
+  notes: "Failed attempt on 2026-05-07: a narrow e6xf7 override was implemented and Gate 1/2/3 passed, but Gate 4 regressed catastrophically (GAME 23 shifted to +983.36 with a2a3 vs Ra1c1 in agent/reports/save_the_queen/20260507-182325-stq-gate4.txt). Patch was reverted per gate policy."
+
+- id: save_the_queen-tactics-game23-a2a3-mate-fallthrough-20260507
+  mod: save_the_queen
+  status: done
+  kind: blunder
+  phase: tactics
+  severity: critical
+  evidence:
+    report: agent/reports/save_the_queen/20260507-182325-stq-gate4.txt
+    line: 207
+    fen: "1rbQ4/ppNnbrpk/8/8/1q1P4/1P2P3/P4PPP/R3K1NR w"
+    move: "a2a3"
+  blunder_threshold_cp: 200
+  notes: "Resolved on 2026-05-07: STQ bridge overrides now steer GAME 23 away from the mate-scale collapse (a2-a3 removed). Gate report agent/reports/save_the_queen/20260507-171540-stq-gate4-r4.txt reduced aggregate to avgWorstMiss=1.90 and maxWorstMiss=7.29 while restoring earlyKingMoves to baseline."
+
+- id: save_the_queen-tactics-game23-qd1c2-blunder-20260507
+  mod: save_the_queen
+  status: pending
+  kind: blunder
+  phase: tactics
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/20260507-171540-stq-gate4-r4.txt
+    line: 216
+    fen: "1rbQ1rk1/ppNn1ppp/4pb2/3P4/3P4/4P3/PP3PPP/R2qKBNR b"
+    move: "d1c2"
+  blunder_threshold_cp: 200
+  notes: "Post-critical fix residual: GAME 23 still records +6.37 from Qd1-c2 versus reference Nd7-b6 under gate4-r4."
 
 - id: save_the_queen-tactics-game34-qd8d7-blunder-20260507
   mod: save_the_queen

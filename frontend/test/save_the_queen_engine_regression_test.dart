@@ -405,6 +405,61 @@ void main() {
       skip: !NativeEngine.isAvailable,
     );
 
+    test(
+      'prefers e6xf7 in the GAME 23 tactical shell',
+      () {
+        final board = ChessBoard.fromFEN(
+          '1rbQ1rk1/ppNnbppp/4P3/8/1q1P4/1P1BP3/P4PPP/R3K1NR w',
+          gameType: ModsEnum.saveTheQueen,
+        );
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), 'e6f7');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'prefers Ra1-c1 over a2-a3 in the GAME 23 follow-up shell',
+      () {
+        final board = ChessBoard.fromFEN(
+          '1rbQ4/ppNnbrpk/8/8/1q1P4/1P2P3/P4PPP/R3K1NR w',
+          gameType: ModsEnum.saveTheQueen,
+        );
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), 'a1c1');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'prefers Nb1xd2 over Ke1xd2 in the GAME 24 recapture shell',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'e7e6',
+          'c2c4',
+          'b7b6',
+          'g1f3',
+          'd1c2',
+          'b2b3',
+          'f8b4',
+          'c1d2',
+          'b8c6',
+          'd4d5',
+          'b4d2',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), 'b1d2');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
     test('prefers a2-a3 in the GAME 42 opening node', () {
       final board = _boardFromReplay([
         'b2b3',
