@@ -1,8 +1,8 @@
 {
   "mod": "truce",
-  "generated_at": "2026-05-03T17:41:50+03:00",
-  "run_id": "20260503-174100-truce",
-  "report_path": "agent/reports/truce/truce-baseline-refresh-20260503-174100-truce.txt",
+  "generated_at": "2026-05-07T12:04:48+03:00",
+  "run_id": "20260507-120448-truce",
+  "report_path": "agent/reports/truce/discovery-20260507-120448-truce.txt",
   "games": 50,
   "max_plies": 24,
   "engine_preset": {
@@ -17,16 +17,16 @@
     "skill": 4
   },
   "kpi": {
-    "earlyKingMoves": 69,
-    "castlingRightLosses": 97,
+    "earlyKingMoves": 0,
+    "castlingRightLosses": 2,
     "castledByPly_avg": null,
     "castledGames": {
-      "white": 0,
-      "black": 0
+      "white": 44,
+      "black": 47
     },
-    "kingExposureIndex_avg": 26.49,
-    "avgWorstMiss_cp": 10,
-    "maxWorstMiss_cp": 27,
+    "kingExposureIndex_avg": 24.92,
+    "avgWorstMiss_cp": 40,
+    "maxWorstMiss_cp": 189,
     "blundersGte200cp": 0,
     "blundersGte300cp": 0,
     "ruleViolations": 0,
