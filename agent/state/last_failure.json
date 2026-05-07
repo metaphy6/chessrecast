@@ -1,12 +1,12 @@
 {
-  "run_id": "save_the_queen-discovery-20260507-170707-20260507T140707Z-345399",
-  "tag": "save_the_queen-discovery-20260507-170707",
+  "run_id": "stq-gate1-regression-r3--20260507T190808Z-661675",
+  "tag": "stq-gate1-regression-r3-",
   "exit_code": 1,
-  "failed_at": "2026-05-07T17:38:40+03:00",
+  "failed_at": "2026-05-07T22:08:16+03:00",
   "cwd": "/home/serhatakbak/code/mine/chessrecast/frontend",
-  "cmd": "env CHESSRECAST_NATIVE_ENGINE_LIB=/home/serhatakbak/code/mine/chessrecast/frontend/build/native/linux/libchess_engine.so LD_LIBRARY_PATH=/home/serhatakbak/code/mine/chessrecast/frontend/build/native/linux:/home/serhatakbak/code/mine/chessrecast/frontend STQ_BATCH_OPENINGS=e2e4,e7e5,g1f3,b8c6;e2e4,e7e5,g1f3,g8f6;e2e4,e7e5,b1c3,g8f6;e2e4,e7e5,f2f4;e2e4,e7e5,d2d4;e2e4,c7c5,g1f3,d7d6;e2e4,c7c5,g1f3,b8c6;d2d4,d7d5,c2c4,d5c4,g1f3,g8f6,e2e3,e7e6,f1c4,c7c5,e1g1,a7a6;e2e4,c7c5,c2c3;e2e4,e7e6,d2d4,d7d5;e2e4,c7c6,d2d4,d7d5;e2e4,e7e5,g1f3,b8c6,f1b5,a7a6,b5a4,g8f6,e1g1,f8e7,f1e1,b7b5;e2e4,d7d6,d2d4,g8f6;e2e4,g7g6,d2d4,f8g7;d2d4,g8f6,c2c4,g7g6,b1c3,f8g7,e2e4,d7d6,g1f3,e8g8;d2d4,d7d5,c2c4;d2d4,d7d5,c2c4,e7e6;d2d4,d7d5,c2c4,c7c6;d2d4,d7d5,g1f3,g8f6;d2d4,g8f6,c2c4,e7e6;d2d4,g8f6,c2c4,g7g6;d2d4,g8f6,c2c4,c7c5;d2d4,d7d5,c2c4,e7e6,b1c3,g8f6,c1g5,f8e7,e2e3,e8g8;d2d4,e7e6,c2c4,b7b6;c2c4,c7c5,g2g3,g7g6,f1g2,f8g7,b1c3,b8c6,a1b1,a7a5;g1f3,g8f6,g2g3,d7d5,f1g2,c7c6,e1g1,c8g4;c2c4,e7e6,g1f3,g8f6,b1c3,d7d5;c2c4,g8f6,b1c3,e7e6;g1f3,d7d5,c2c4;g1f3,g8f6,c2c4,c7c5;g1f3,d7d5,g2g3,c7c5,f1g2,b8c6,e1g1;b2b3,e7e5,c1b2,b8c6,e2e3;g2g3,e7e5,f1g2,d7d5,d2d3,b8c6;f2f4,d7d5;f2f4,e7e5;b1c3,d7d5;c2c4,e7e5,b1c3,g8f6,g1f3,b8c6;d2d3,d7d5,g1f3,g8f6,g2g3,c7c5;e2e4,e7e5,g1f3,b8c6,f1c4,f8c5;e2e4,e7e5,g1f3,b8c6,f1b5;d2d4,d7d5,c2c4,e7e6,b1c3,g8f6;e2e4,c7c5,g1f3,d7d6,d2d4,c5d4;e2e4,e7e6,d2d4,d7d5,b1c3,f8b4;g1f3,d7d5,d2d4,g8f6,c2c4,e7e6;e2e4,e7e5,d2d3,d7d6,g1f3,g8f6,c2c3,b8c6;c2c4,c7c5,d2d3,d7d6,b1c3,b8c6,g1f3,g8f6;d2d3,d7d6,c1e3,c8e6,b1c3,b8c6,g1f3,g8f6;g1f3,g8f6,c2c4,c7c5,b1c3,b8c6,d2d3,d7d6,e2e4,e7e5;b2b3,b7b6,c1b2,c8b7,g2g3,g7g6,f1g2,f8g7;g1f3,g8f6,g2g3,g7g6,f1g2,f8g7,c2c4,d7d6,b1c3,c7c5 STQ_BATCH_REFERENCE_DEPTH=6 STQ_BATCH_REFERENCE_MS=500 STQ_BATCH_REFERENCE_SKILL=4 STQ_BATCH_LIVE_PROGRESS=1 STQ_BATCH_REPORT_PATH=../agent/reports/save_the_queen/discovery-20260507-170707-stq.txt flutter test test/manual_save_the_queen_audit_batch_test.dart --run-skipped -r compact",
-  "log": "/tmp/agent-runs/save_the_queen-discovery-20260507-170707-20260507T140707Z-345399.log",
-  "cmd_file": "/tmp/agent-runs/save_the_queen-discovery-20260507-170707-20260507T140707Z-345399.cmd",
+  "cmd": "env CHESSRECAST_NATIVE_ENGINE_LIB=/home/serhatakbak/code/mine/chessrecast/frontend/build/native/linux/libchess_engine.so LD_LIBRARY_PATH=/home/serhatakbak/code/mine/chessrecast/frontend/build/native/linux:/home/serhatakbak/code/mine/chessrecast/frontend flutter test test/save_the_queen_engine_regression_test.dart -r compact",
+  "log": "/tmp/agent-runs/stq-gate1-regression-r3--20260507T190808Z-661675.log",
+  "cmd_file": "/tmp/agent-runs/stq-gate1-regression-r3--20260507T190808Z-661675.cmd",
   "resolved": true,
   "hint": "Diagnose via the log, fix the root cause, then mark resolved:true (or delete this file) and resume the interrupted task."
 }

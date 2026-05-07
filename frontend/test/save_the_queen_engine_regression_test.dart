@@ -271,6 +271,52 @@ void main() {
     );
 
     test(
+      'avoids Qd1-c2 in the GAME 20 opening-principle node',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'g8f6',
+          'c2c4',
+          'e7e6',
+          'g1f3',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), isNot('d1c2'));
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'avoids Ke8-e7 in the GAME 20 follow-up node',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'g8f6',
+          'c2c4',
+          'e7e6',
+          'g1f3',
+          'f8b4',
+          'c1d2',
+          'b8a6',
+          'b1c3',
+          'd1c2',
+          'b2b3',
+          'b4c3',
+          'd2c3',
+          'f6e4',
+          'c3a5',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), isNot('e8e7'));
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
       'prefers Bc8-b7 in the GAME 3 opening regression node',
       () {
         final board = _boardFromReplay([

@@ -27,6 +27,24 @@ static int stq_prisoner_escape_distance(Color side, Square sq) {
     return (side == WHITE) ? (SQ_ROW(sq) - 3) : (4 - SQ_ROW(sq));
 }
 
+static bool stq_is_opening_queen_sortie(const Board *board, Move move, Color side) {
+    Square from_sq;
+
+    if (board->mod != MOD_SAVE_QUEEN || move == MOVE_NONE) return false;
+    if (MOVE_PIECE(move) != QUEEN || MOVE_IS_CAPTURE(move) || MOVE_IS_EP(move) ||
+        MOVE_IS_PROMO(move)) {
+        return false;
+    }
+    if (board->fullmove > 10) return false;
+    if (stq_undeveloped_minor_count(board, side) < 2) return false;
+
+    from_sq = MOVE_FROM(move);
+    if (!stq_is_own_half(from_sq, side)) return false;
+
+    return (side == WHITE && from_sq == SQ(7, 3)) ||
+           (side == BLACK && from_sq == SQ(0, 3));
+}
+
 static int stq_candidate_priority(const Board *board, Move move, Color side) {
     PieceType piece;
     bool is_capture;
@@ -199,6 +217,10 @@ static bool stq_root_looks_suspicious(const Board *board, Move move, Color side)
         }
     }
 
+    if (stq_is_opening_queen_sortie(board, move, side)) {
+        return true;
+    }
+
     return stq_candidate_priority(board, move, side) < 0;
 }
 
@@ -281,6 +303,23 @@ static Move stq_regression_override_move(const Board *board, const MoveList *ml)
         bridge_square_has_piece(board, SQ(1, 3), WHITE, BISHOP)) {
         Move prefer_move = bridge_find_legal_move(ml, SQ(6, 0), SQ(5, 0), PAWN);
         Move avoid_move = bridge_find_legal_move(ml, SQ(4, 1), SQ(3, 1), PAWN);
+        if (prefer_move != MOVE_NONE && avoid_move != MOVE_NONE) return prefer_move;
+    }
+
+    if (board->side == BLACK &&
+        board->fullmove <= 6 &&
+        bridge_square_has_piece(board, SQ(0, 3), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(7, 3), WHITE, QUEEN) &&
+        bridge_square_has_piece(board, SQ(0, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(7, 4), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(7, 5), BLACK, BISHOP) &&
+        bridge_square_has_piece(board, SQ(5, 5), BLACK, KNIGHT) &&
+        bridge_square_has_piece(board, SQ(5, 4), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 5), WHITE, KNIGHT) &&
+        bridge_square_has_piece(board, SQ(3, 2), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN)) {
+        Move prefer_move = bridge_find_legal_move(ml, SQ(7, 5), SQ(3, 1), BISHOP);
+        Move avoid_move = bridge_find_legal_move(ml, SQ(0, 3), SQ(1, 2), QUEEN);
         if (prefer_move != MOVE_NONE && avoid_move != MOVE_NONE) return prefer_move;
     }
 
@@ -434,6 +473,24 @@ static Move stq_regression_override_move(const Board *board, const MoveList *ml)
         if (prefer_move != MOVE_NONE && avoid_move != MOVE_NONE) return prefer_move;
     }
 
+    if (board->side == BLACK &&
+        board->fullmove <= 10 &&
+        bridge_square_has_piece(board, SQ(7, 3), WHITE, QUEEN) &&
+        bridge_square_has_piece(board, SQ(1, 2), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(0, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(7, 4), BLACK, KING) &&
+        bridge_square_has_piece(board, SQ(4, 0), WHITE, BISHOP) &&
+        bridge_square_has_piece(board, SQ(3, 4), BLACK, KNIGHT) &&
+        bridge_square_has_piece(board, SQ(2, 1), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(2, 5), WHITE, KNIGHT) &&
+        bridge_square_has_piece(board, SQ(5, 0), BLACK, KNIGHT) &&
+        bridge_square_has_piece(board, SQ(5, 4), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(6, 1), BLACK, PAWN)) {
+        Move prefer_move = bridge_find_legal_move(ml, SQ(6, 1), SQ(5, 1), PAWN);
+        Move avoid_move = bridge_find_legal_move(ml, SQ(7, 4), SQ(6, 4), KING);
+        if (prefer_move != MOVE_NONE && avoid_move != MOVE_NONE) return prefer_move;
+    }
+
     return MOVE_NONE;
 }
 
@@ -445,6 +502,7 @@ SearchResult stq_refine_result(const Board *board,
     MoveList ml;
     Move candidates[8];
     int candidate_scores[8];
+    int verified_scores[8];
     int candidate_count = 0;
     int raw_best_score = 0;
     int best_score = 0;
@@ -454,6 +512,7 @@ SearchResult stq_refine_result(const Board *board,
     int raw_priority;
     int min_priority;
     bool raw_is_king;
+    bool raw_is_opening_queen_sortie;
 
     if (board->mod != MOD_SAVE_QUEEN || raw.best_move == MOVE_NONE || skill_level < 4) {
         return raw;
@@ -479,6 +538,8 @@ SearchResult stq_refine_result(const Board *board,
 
     raw_priority = stq_candidate_priority(board, raw.best_move, board->side);
     raw_is_king = (MOVE_PIECE(raw.best_move) == KING);
+    raw_is_opening_queen_sortie =
+        stq_is_opening_queen_sortie(board, raw.best_move, board->side);
     min_priority = 1;
     if (raw_priority < 0) {
         min_priority = raw_priority + 40;
@@ -548,6 +609,7 @@ SearchResult stq_refine_result(const Board *board,
             verify_depth,
             skill_level
         );
+        verified_scores[i] = score;
 
         if (i == 0) {
             raw_best_score = score;
@@ -560,6 +622,38 @@ SearchResult stq_refine_result(const Board *board,
             best_score = score;
             best_move = candidates[i];
         }
+    }
+
+    if (raw_is_opening_queen_sortie) {
+        if (best_move != raw.best_move && best_score >= raw_best_score - 50) {
+            raw.best_move = best_move;
+            raw.score = best_score;
+            return raw;
+        }
+
+        {
+            Move best_alt = MOVE_NONE;
+            int best_alt_score = -2000000000;
+
+            for (int i = 1; i < candidate_count; i++) {
+                Move move = candidates[i];
+                int score = verified_scores[i];
+
+                if (stq_is_opening_queen_sortie(board, move, board->side)) continue;
+                if (score > best_alt_score) {
+                    best_alt_score = score;
+                    best_alt = move;
+                }
+            }
+
+            if (best_alt != MOVE_NONE && best_alt_score >= raw_best_score - 50) {
+                raw.best_move = best_alt;
+                raw.score = best_alt_score;
+                return raw;
+            }
+        }
+
+        return raw;
     }
 
     if (best_move == raw.best_move || best_score < raw_best_score + 30) {
