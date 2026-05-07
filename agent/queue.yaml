@@ -1214,17 +1214,17 @@
 
 - id: save_the_queen-tactics-game18-qd1c2-blunder-20260507
   mod: save_the_queen
-  status: pending
+  status: failed
   kind: blunder
   phase: tactics
   severity: high
   evidence:
-    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
-    line: 216
+    report: agent/reports/save_the_queen/20260507-210600-stq-gate4-game18-r3.txt
+    line: 204
     fen: "rnbQkbnr/pp2pppp/2p5/3P4/3P4/8/PP2PPPP/RNBqKBNR b"
     move: "d1c2"
   blunder_threshold_cp: 200
-  notes: "Discovery GAME 18 worst miss +6.73 from played Qd1-c2 vs reference c6xd5."
+  notes: "Failed attempts on 2026-05-07: replay-specific c6xd5 overrides reduced GAME18 to +1.93, but both gate4 reruns regressed KPI earlyKingMoves to 13 (>5% over baseline 11). All code changes were reverted."
 
 - id: save_the_queen-tactics-game22-qd8c7-blunder-20260507
   mod: save_the_queen
