@@ -103,25 +103,29 @@ void main() {
       skip: !NativeEngine.isAvailable,
     );
 
-    test('prefers castling over mirroring with Bc1g5', () {
-      final board = _boardFromReplay([
-        'e2e4',
-        'b8c6',
-        'b1c3',
-        'd7d5',
-        'f1b5',
-        'g8f6',
-        'g1f3',
-        'c8g4',
-        'd2d4',
-        'e7e5',
-      ]);
+    test(
+      'prefers castling over mirroring with Bc1g5',
+      () {
+        final board = _boardFromReplay([
+          'e2e4',
+          'b8c6',
+          'b1c3',
+          'd7d5',
+          'f1b5',
+          'g8f6',
+          'g1f3',
+          'c8g4',
+          'd2d4',
+          'e7e5',
+        ]);
 
-      final root = _rootSearch(board, timeLimitMs: 120, maxDepth: 4);
+        final root = _rootSearch(board, timeLimitMs: 120, maxDepth: 4);
 
-      expect(root.score, greaterThan(-200));
-      expect(_moveNotation(root.bestMove), 'e1g1');
-    }, skip: !NativeEngine.isAvailable);
+        expect(root.score, greaterThan(-200));
+        expect(_moveNotation(root.bestMove), 'e1g1');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
 
     test(
       'prefers Ng1f3 over an early h-pawn shove in restrained e3-c6 structures',
