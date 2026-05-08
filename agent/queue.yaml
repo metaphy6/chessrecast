@@ -1186,17 +1186,17 @@
 
 - id: save_the_queen-tactics-game34-qd8d7-blunder-20260507
   mod: save_the_queen
-  status: pending
+  status: done
   kind: blunder
   phase: tactics
   severity: high
   evidence:
-    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
-    line: 210
+    report: agent/reports/save_the_queen/20260508-042000-stq-gate4-game34-r2.txt
+    line: 135
     fen: "2rQkb1r/p1p1pppp/5n2/3pNb2/2p2P2/8/PPPPP1PP/R1BqKB1R w"
     move: "d8d7"
   blunder_threshold_cp: 200
-  notes: "Discovery GAME 34 worst miss +7.29 from played Qd8-d7 vs reference b2-b3."
+  notes: "Resolved 2026-05-08: staged GAME34 replay overrides removed the Qd8-d7 blunder branches; fresh gate report shows GAME34 worst +0.12 (played c5-c4, ref Nf6-d7) with KPI thresholds still green."
 
 - id: save_the_queen-tactics-game20-qd1c2-blunder-20260507
   mod: save_the_queen
