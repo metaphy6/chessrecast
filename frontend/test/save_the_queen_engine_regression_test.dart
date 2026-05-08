@@ -340,6 +340,35 @@ void main() {
     );
 
     test(
+      'prefers Qd8-c7 over Qd8-e7 in the GAME 31 tactical node',
+      () {
+        final board = _boardFromReplay([
+          'g1f3',
+          'd7d5',
+          'g2g3',
+          'c7c5',
+          'f1g2',
+          'b8c6',
+          'e1g1',
+          'g8f6',
+          'f1e1',
+          'e7e5',
+          'd2d3',
+          'c6b4',
+          'b1a3',
+          'd1d2',
+          'f3d2',
+          'c8d7',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), 'd8c7');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
       'treats reaching opponent prison with escaped queen as immediate win',
       () {
         final board = ChessBoard.fromFEN(

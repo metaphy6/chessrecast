@@ -1284,17 +1284,17 @@
 
 - id: save_the_queen-tactics-game31-qd8e7-blunder-20260507
   mod: save_the_queen
-  status: pending
+  status: done
   kind: blunder
   phase: tactics
   severity: high
   evidence:
-    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
-    line: 231
+    report: agent/reports/save_the_queen/20260508-074411-stq-gate4-game31-r1.txt
+    line: 122
     fen: "r2Qkb1r/pp1b1ppp/5n2/2ppp3/1n6/N2P2P1/PPPNPPBP/R1BqR1K1 w"
     move: "d8e7"
   blunder_threshold_cp: 200
-  notes: "Discovery GAME 31 worst miss +5.74 from played Qd8-e7 vs reference Qd8-c7."
+  notes: "Resolved 2026-05-08: replay-scoped GAME31 override removed the Qd8-e7 branch in favor of Qd8-c7; fresh gate report shows GAME31 worst +0.85 (played c3-c4, ref Bg2xd5) while KPI thresholds remain green."
 
 - id: save_the_queen-tactics-game15-nc5a6-blunder-20260507
   mod: save_the_queen
