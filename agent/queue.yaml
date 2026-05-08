@@ -1226,6 +1226,20 @@
   blunder_threshold_cp: 200
   notes: "Failed attempts on 2026-05-07: replay-specific c6xd5 overrides reduced GAME18 to +1.93, but both gate4 reruns regressed KPI earlyKingMoves to 13 (>5% over baseline 11). All code changes were reverted."
 
+- id: save_the_queen-tactics-game18-qd1c2-rediscovery-20260508
+  mod: save_the_queen
+  status: pending
+  kind: blunder
+  phase: tactics
+  severity: high
+  evidence:
+    report: agent/reports/save_the_queen/discovery-20260508-082031.txt
+    line: 207
+    fen: "rnbQkbnr/pp2pppp/2p5/3P4/3P4/8/PP2PPPP/RNBqKBNR b"
+    move: "d1c2"
+  blunder_threshold_cp: 200
+  notes: "Fresh discovery rerun (2026-05-08) still shows GAME18 at +6.73 with played Qd1-c2 vs c6xd5; revisit with a narrower replay signature that avoids earlyKingMoves regression."
+
 - id: save_the_queen-tactics-game22-qd8c7-blunder-20260507
   mod: save_the_queen
   status: done
