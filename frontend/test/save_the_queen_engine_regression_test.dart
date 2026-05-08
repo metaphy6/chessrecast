@@ -217,6 +217,36 @@ void main() {
     );
 
     test(
+      'prefers c4xd3 over Qd1-c2 in the GAME 38 tactical node',
+      () {
+        final board = _boardFromReplay([
+          'd2d3',
+          'd7d5',
+          'g1f3',
+          'g8f6',
+          'g2g3',
+          'c7c5',
+          'd8c7',
+          'b7b6',
+          'f3e5',
+          'b8a6',
+          'c7c6',
+          'a6c7',
+          'c1f4',
+          'c7b5',
+          'c2c4',
+          'd5c4',
+          'f1g2',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), 'c4d3');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
       'treats reaching opponent prison with escaped queen as immediate win',
       () {
         final board = ChessBoard.fromFEN(

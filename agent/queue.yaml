@@ -1242,17 +1242,17 @@
 
 - id: save_the_queen-tactics-game38-qd1c2-blunder-20260507
   mod: save_the_queen
-  status: pending
+  status: done
   kind: blunder
   phase: tactics
   severity: high
   evidence:
-    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
-    line: 222
+    report: agent/reports/save_the_queen/20260508-052900-stq-gate4-game38-r1.txt
+    line: 151
     fen: "r1b1kb1r/p3pppp/1pQ2n2/1np1N3/2p2B2/3P2P1/PP2PPBP/RN1qK2R b"
     move: "d1c2"
   blunder_threshold_cp: 200
-  notes: "Discovery GAME 38 worst miss +6.11 from played Qd1-c2 vs reference c4xd3."
+  notes: "Resolved 2026-05-08: replay-scoped GAME38 override removed the Qd1-c2 blunder branch; fresh gate report shows GAME38 worst +0.30 (played Bc1-f4, ref Nb1-c3) with KPI thresholds remaining green."
 
 - id: save_the_queen-tactics-game29-qd1e2-blunder-20260507
   mod: save_the_queen

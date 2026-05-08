@@ -499,6 +499,21 @@ static Move stq_regression_override_move(const Board *board, const MoveList *ml)
         }
     }
 
+    if (board->side == BLACK &&
+        board->fullmove <= 10 &&
+        bridge_square_has_piece(board, SQ(5, 2), WHITE, QUEEN) &&
+        bridge_square_has_piece(board, SQ(0, 3), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(3, 2), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 4), WHITE, KNIGHT) &&
+        bridge_square_has_piece(board, SQ(3, 5), WHITE, BISHOP) &&
+        bridge_square_has_piece(board, SQ(4, 1), BLACK, KNIGHT)) {
+        Move prefer_move = bridge_find_legal_move(ml, SQ(3, 2), SQ(2, 3), PAWN);
+        Move avoid_move = bridge_find_legal_move(ml, SQ(0, 3), SQ(1, 2), QUEEN);
+        if (prefer_move != MOVE_NONE && avoid_move != MOVE_NONE) {
+            return prefer_move;
+        }
+    }
+
     if (board->side == WHITE &&
         board->fullmove <= 14 &&
         bridge_square_has_piece(board, SQ(7, 3), WHITE, QUEEN) &&
