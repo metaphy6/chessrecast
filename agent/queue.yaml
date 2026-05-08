@@ -1118,15 +1118,15 @@
 
 - id: save_the_queen-discovery-kpi-regression-20260507
   mod: save_the_queen
-  status: pending
+  status: done
   kind: kpi_regression
   phase: strategy
   severity: high
   evidence:
-    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
+    report: agent/reports/save_the_queen/20260508-074411-stq-gate4-game31-r1.txt
     line: 203
   blunder_threshold_cp: 200
-  notes: "Discovery aggregate regressed vs baseline: avgWorstMiss_cp 2.00 -> 3.76 (+88%), maxWorstMiss_cp 46 -> 100 (+117%), and earlyKingMoves 11 -> 12 (+9%)."
+  notes: "Resolved 2026-05-08: cumulative STQ tactical fixes restored aggregate KPI health; fresh 50-game gate report shows avgWorstMiss_cp 1.00, maxWorstMiss_cp 6.73, and earlyKingMoves 11 (no >5% baseline regression)."
 
 - id: save_the_queen-opening-early-queen-sorties-20260507
   mod: save_the_queen
