@@ -307,6 +307,70 @@ void main() {
     );
 
     test(
+      'prefers Nd7-b6 in the GAME 23 tactical node',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'd7d5',
+          'c2c4',
+          'e7e6',
+          'b1c3',
+          'g8f6',
+          'c1g5',
+          'f8e7',
+          'e2e3',
+          'e8g8',
+          'g5f6',
+          'e7f6',
+          'c4d5',
+          'b8d7',
+          'c3b5',
+          'a8b8',
+          'b5c7',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), 'd7b6');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'prefers Nb6-c8 in the GAME 23 tactical follow-up node',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'd7d5',
+          'c2c4',
+          'e7e6',
+          'b1c3',
+          'g8f6',
+          'c1g5',
+          'f8e7',
+          'e2e3',
+          'e8g8',
+          'g5f6',
+          'e7f6',
+          'c4d5',
+          'b8d7',
+          'c3b5',
+          'a8b8',
+          'b5c7',
+          'd7b6',
+          'd5d6',
+          'c8d7',
+          'f1d3',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), 'b6c8');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
       'avoids Qd1-c2 in the GAME 20 opening-principle node',
       () {
         final board = _boardFromReplay([

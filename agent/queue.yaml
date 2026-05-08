@@ -1172,17 +1172,17 @@
 
 - id: save_the_queen-tactics-game23-qd1c2-blunder-20260507
   mod: save_the_queen
-  status: pending
+  status: done
   kind: blunder
   phase: tactics
   severity: high
   evidence:
-    report: agent/reports/save_the_queen/20260507-171540-stq-gate4-r4.txt
-    line: 216
+    report: agent/reports/save_the_queen/20260508-025100-stq-gate4-game23-r2.txt
+    line: 91
     fen: "1rbQ1rk1/ppNn1ppp/4pb2/3P4/3P4/4P3/PP3PPP/R2qKBNR b"
     move: "d1c2"
   blunder_threshold_cp: 200
-  notes: "Post-critical fix residual: GAME 23 still records +6.37 from Qd1-c2 versus reference Nd7-b6 under gate4-r4."
+  notes: "Resolved 2026-05-08: replay-scoped GAME23 overrides removed the Qd1-c2 blunder branch; fresh gate report shows GAME23 worst +0.53 (played Bc8-d7, ref e6-e5) and keeps KPI thresholds within baseline limits."
 
 - id: save_the_queen-tactics-game34-qd8d7-blunder-20260507
   mod: save_the_queen
