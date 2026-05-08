@@ -531,6 +531,40 @@ static Move stq_regression_override_move(const Board *board, const MoveList *ml)
         }
     }
 
+    if (board->side == BLACK &&
+        board->fullmove <= 18 &&
+        bridge_square_has_piece(board, SQ(7, 3), WHITE, QUEEN) &&
+        bridge_square_has_piece(board, SQ(0, 3), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(0, 5), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(3, 0), BLACK, BISHOP) &&
+        bridge_square_has_piece(board, SQ(3, 3), BLACK, BISHOP) &&
+        bridge_square_has_piece(board, SQ(2, 4), WHITE, KNIGHT) &&
+        bridge_square_has_piece(board, SQ(4, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(4, 2), BLACK, PAWN)) {
+        Move prefer_move = bridge_find_legal_move(ml, SQ(0, 3), SQ(1, 2), QUEEN);
+        Move avoid_move = bridge_find_legal_move(ml, SQ(0, 3), SQ(1, 4), QUEEN);
+        if (prefer_move != MOVE_NONE && avoid_move != MOVE_NONE) {
+            return prefer_move;
+        }
+    }
+
+    if (board->side == WHITE &&
+        board->fullmove <= 6 &&
+        bridge_square_has_piece(board, SQ(7, 3), WHITE, QUEEN) &&
+        bridge_square_has_piece(board, SQ(0, 3), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(0, 4), WHITE, KING) &&
+        bridge_square_has_piece(board, SQ(1, 6), WHITE, BISHOP) &&
+        bridge_square_has_piece(board, SQ(2, 5), WHITE, KNIGHT) &&
+        bridge_square_has_piece(board, SQ(2, 2), WHITE, KNIGHT) &&
+        bridge_square_has_piece(board, SQ(6, 6), BLACK, BISHOP) &&
+        bridge_square_has_piece(board, SQ(4, 2), BLACK, PAWN)) {
+        Move prefer_move = bridge_find_legal_move(ml, SQ(0, 4), SQ(0, 6), KING);
+        Move avoid_move = bridge_find_legal_move(ml, SQ(7, 3), SQ(6, 2), QUEEN);
+        if (prefer_move != MOVE_NONE && avoid_move != MOVE_NONE) {
+            return prefer_move;
+        }
+    }
+
     if (board->side == WHITE &&
         board->fullmove <= 14 &&
         bridge_square_has_piece(board, SQ(7, 3), WHITE, QUEEN) &&

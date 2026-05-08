@@ -271,6 +271,75 @@ void main() {
     );
 
     test(
+      'prefers Ke1-g1 over Qd8-c7 in the GAME 50 opening node',
+      () {
+        final board = _boardFromReplay([
+          'g1f3',
+          'g8f6',
+          'g2g3',
+          'g7g6',
+          'f1g2',
+          'f8g7',
+          'c2c4',
+          'd7d6',
+          'b1c3',
+          'c7c5',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), 'e1g1');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'prefers Qd1-c2 over Qd1-e2 in the GAME 50 follow-up node',
+      () {
+        final board = _boardFromReplay([
+          'g1f3',
+          'g8f6',
+          'g2g3',
+          'g7g6',
+          'f1g2',
+          'f8g7',
+          'c2c4',
+          'd7d6',
+          'b1c3',
+          'c7c5',
+          'e1g1',
+          'b8a6',
+          'f3e1',
+          'a6c7',
+          'e1c2',
+          'f6g4',
+          'f2f3',
+          'g4f6',
+          'f1e1',
+          'c8f5',
+          'e2e4',
+          'f5d7',
+          'g3g4',
+          'g6g5',
+          'c3d5',
+          'f6d5',
+          'e4d5',
+          'a8c8',
+          'g1f2',
+          'd7a4',
+          'c2e3',
+          'g7d4',
+          'f2f1',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), 'd1c2');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
       'treats reaching opponent prison with escaped queen as immediate win',
       () {
         final board = ChessBoard.fromFEN(

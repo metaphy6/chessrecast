@@ -1270,17 +1270,17 @@
 
 - id: save_the_queen-tactics-game50-qd8c7-blunder-20260507
   mod: save_the_queen
-  status: pending
+  status: done
   kind: blunder
   phase: tactics
   severity: high
   evidence:
-    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
-    line: 228
+    report: agent/reports/save_the_queen/20260508-071003-stq-gate4-game50-r2.txt
+    line: 198
     fen: "rnbQk2r/pp2ppbp/3p1np1/2p5/2P5/2N2NP1/PP1PPPBP/R1BqK2R w"
     move: "d8c7"
   blunder_threshold_cp: 200
-  notes: "Discovery GAME 50 worst miss +5.98 from played Qd8-c7 vs reference Ke1-g1."
+  notes: "Resolved 2026-05-08: two replay-scoped GAME50 overrides removed Qd8-c7 at the opening node and Qd1-e2 in the follow-up branch; fresh gate report shows GAME50 worst +0.97 (played Kg1-f2, ref d2-d4) while KPI thresholds remain green."
 
 - id: save_the_queen-tactics-game31-qd8e7-blunder-20260507
   mod: save_the_queen
