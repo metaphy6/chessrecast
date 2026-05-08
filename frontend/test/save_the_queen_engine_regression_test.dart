@@ -247,6 +247,30 @@ void main() {
     );
 
     test(
+      'prefers Bc8-d7 over Qd1-e2 in the GAME 29 tactical node',
+      () {
+        final board = _boardFromReplay([
+          'g1f3',
+          'd7d5',
+          'c2c4',
+          'd5c4',
+          'e2e4',
+          'g8f6',
+          'b1c3',
+          'b8a6',
+          'e4e5',
+          'f6g4',
+          'f1c4',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), 'c8d7');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
       'treats reaching opponent prison with escaped queen as immediate win',
       () {
         final board = ChessBoard.fromFEN(

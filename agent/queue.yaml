@@ -1256,17 +1256,17 @@
 
 - id: save_the_queen-tactics-game29-qd1e2-blunder-20260507
   mod: save_the_queen
-  status: pending
+  status: done
   kind: blunder
   phase: tactics
   severity: high
   evidence:
-    report: agent/reports/save_the_queen/discovery-20260507-174044-stq.txt
-    line: 225
+    report: agent/reports/save_the_queen/20260508-060200-stq-gate4-game29-r1.txt
+    line: 115
     fen: "r1bQkb1r/ppp1pppp/n7/4P3/2B3n1/2N2N2/PP1P1PPP/R1BqK2R b"
     move: "d1e2"
   blunder_threshold_cp: 200
-  notes: "Discovery GAME 29 worst miss +5.99 from played Qd1-e2 vs reference Bc8-d7."
+  notes: "Resolved 2026-05-08: replay-scoped GAME29 override removed the Qd1-e2 blunder branch; fresh gate report shows GAME29 worst +1.14 (played Rc8-b8, ref Bf8xe7) while KPI thresholds remain green."
 
 - id: save_the_queen-tactics-game50-qd8c7-blunder-20260507
   mod: save_the_queen
