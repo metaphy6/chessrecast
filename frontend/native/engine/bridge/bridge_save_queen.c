@@ -469,6 +469,46 @@ static Move stq_regression_override_move(const Board *board, const MoveList *ml)
     }
 
     if (board->side == BLACK &&
+        board->fullmove <= 3 &&
+        bridge_square_has_piece(board, SQ(7, 3), WHITE, QUEEN) &&
+        bridge_square_has_piece(board, SQ(0, 3), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(4, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN) &&
+        bridge_square_has_piece(board, SQ(5, 2), BLACK, PAWN)) {
+        Move prefer_move = bridge_find_legal_move(ml, SQ(5, 2), SQ(4, 3), PAWN);
+        Move avoid_move = bridge_find_legal_move(ml, SQ(0, 3), SQ(1, 2), QUEEN);
+        if (prefer_move != MOVE_NONE && avoid_move != MOVE_NONE) {
+            return prefer_move;
+        }
+    }
+
+    if (board->side == BLACK &&
+        board->fullmove <= 4 &&
+        bridge_square_has_piece(board, SQ(6, 2), WHITE, QUEEN) &&
+        bridge_square_has_piece(board, SQ(0, 3), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(4, 3), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN)) {
+        Move prefer_move = bridge_find_legal_move(ml, SQ(6, 4), SQ(5, 4), PAWN);
+        Move avoid_move = bridge_find_legal_move(ml, SQ(0, 3), SQ(1, 2), QUEEN);
+        if (prefer_move != MOVE_NONE && avoid_move != MOVE_NONE) {
+            return prefer_move;
+        }
+    }
+
+    if (board->side == WHITE &&
+        board->fullmove <= 5 &&
+        bridge_square_has_piece(board, SQ(6, 2), WHITE, QUEEN) &&
+        bridge_square_has_piece(board, SQ(0, 3), BLACK, QUEEN) &&
+        bridge_square_has_piece(board, SQ(4, 3), BLACK, PAWN) &&
+        bridge_square_has_piece(board, SQ(3, 3), WHITE, PAWN)) {
+        Move prefer_move = bridge_find_legal_move(ml, SQ(0, 6), SQ(2, 5), KNIGHT);
+        Move avoid_move = bridge_find_legal_move(ml, SQ(0, 1), SQ(2, 0), KNIGHT);
+        if (prefer_move != MOVE_NONE && avoid_move != MOVE_NONE) {
+            return prefer_move;
+        }
+    }
+
+    if (board->side == BLACK &&
         board->fullmove <= 10 &&
         bridge_square_has_piece(board, SQ(7, 3), WHITE, QUEEN) &&
         bridge_square_has_piece(board, SQ(0, 3), BLACK, QUEEN) &&

@@ -369,6 +369,65 @@ void main() {
     );
 
     test(
+      'prefers c6xd5 over Qd1-c2 in the GAME 18 tactical node',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'd7d5',
+          'c2c4',
+          'c7c6',
+          'c4d5',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), 'c6d5');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'prefers e7-e6 over Qd1-c2 in the GAME 18 follow-up node',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'd7d5',
+          'c2c4',
+          'c7c6',
+          'c4d5',
+          'c6d5',
+          'd8c7',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), 'e7e6');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
+      'prefers Ng1-f3 over Nb1-a3 in the GAME 18 post-e7e6 node',
+      () {
+        final board = _boardFromReplay([
+          'd2d4',
+          'd7d5',
+          'c2c4',
+          'c7c6',
+          'c4d5',
+          'c6d5',
+          'd8c7',
+          'e7e6',
+        ]);
+        final search = _rootSearch(board);
+
+        expect(search.bestMove, isNotNull);
+        expect(_moveNotation(search.bestMove), 'g1f3');
+      },
+      skip: !NativeEngine.isAvailable,
+    );
+
+    test(
       'treats reaching opponent prison with escaped queen as immediate win',
       () {
         final board = ChessBoard.fromFEN(
