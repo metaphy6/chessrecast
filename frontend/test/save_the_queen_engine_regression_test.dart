@@ -552,12 +552,7 @@ void main() {
     test(
       'prefers d4xc5 in the GAME 22 tactical node',
       () {
-        final board = _boardFromReplay([
-          'd2d4',
-          'g8f6',
-          'c2c4',
-          'c7c5',
-        ]);
+        final board = _boardFromReplay(['d2d4', 'g8f6', 'c2c4', 'c7c5']);
         final search = _rootSearch(board);
 
         expect(search.bestMove, isNotNull);

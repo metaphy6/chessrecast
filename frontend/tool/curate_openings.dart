@@ -404,8 +404,9 @@ String renderYamlPlan(List<ModPlan> plans, CurateOptions options) {
 
 String _relPath(String root, String path) {
   final rootWithSlash = root.endsWith('/') ? root : '$root/';
-  if (path.startsWith(rootWithSlash))
+  if (path.startsWith(rootWithSlash)) {
     return path.substring(rootWithSlash.length);
+  }
   return path;
 }
 
