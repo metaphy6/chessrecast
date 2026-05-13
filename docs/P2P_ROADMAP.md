@@ -17,6 +17,7 @@
 > 10. 📊 **KPI tables per phase** (not only Phase 5) with thresholds wired into the same baselines/queue mechanism the engine uses, so a `kind: p2p_regression` task is filed automatically.
 > 11. 🌍 **Hosting / region / disaster-recovery section** added. Single-region beta is fine, but the protocol must be region-agnostic from day 1 to avoid migration pain later.
 > 12. 🔐 **GDPR / data-subject deletion**, store-policy disclosures, kill-switch & forced-upgrade flows added.
+> 13. 🪪 **Lightweight stats-recovery account** added in Phase 2 (revised v2.1). The original "no central account ever" stance was wrong: losing a phone meant losing ELO, W/L/D, and game history. The protocol now ships an *opt-in but recommended* server-side account holding only the **bare-minimum stats blob** (per-mod ELO, played/wins/losses/draws, account age, last-seen, optional cosmetic handle) keyed by `device_id_pub`, with two recovery paths — **always-issued recovery codes** + **optional verified email** — neither of which gives the server access to game content, private keys, or move logs.
 
 ---
 
@@ -33,7 +34,7 @@ Ship **two-player online play** for all seven Chess Recast mods with:
   - Inter-region or TURN-relayed: `p50 ≤ 180 ms`, `p95 ≤ 400 ms` (UI must surface a "relayed" badge here).
   - Hard ceiling for *acceptable* play at any tier: `p99 ≤ 600 ms` one-way; above that we flag the game as `degraded` and offer a draw.
 - 🛡️ **Security by default** — DTLS 1.2+ on the data channel, every move signed (Ed25519), hash-chained log, replay-resistant by `(game_id, ply)` uniqueness + nonce cache, signed handshake pinning of opponent pubkey.
-- 👤 **Pseudonymous, P2P-leaning identity** — ephemeral device keypair per install, optional handle, user-controlled encrypted backup. No email, no password, no central account store on day 1.
+- 👤 **Pseudonymous, P2P-leaning identity** — per-install Ed25519 device keypair (sole signing authority for moves) **plus** an *opt-in but recommended* lightweight server-side **stats-recovery account** that holds only ELO, W/L/D, played count, account age, last-seen, and the user's cosmetic handle. Two recovery paths: **always-issued one-time recovery codes** (offline-capable) + **optional verified email** (network-capable). The server **never** holds private keys, move logs, or anything that could let it impersonate a player in-game (§2.2).
 - 🧪 **Reproducible local sim** — two Android emulators on one workstation playing a clean rated game across **all 7 mods**, verifiable in CI, with chaos-net injected (loss / latency / disconnect / NAT-rebind).
 - 📵 **Survives a flaky phone** — mid-game suspend, network swap, app-kill-and-relaunch all resume cleanly within 30 s or hand off to a deterministic adjudication.
 
@@ -43,7 +44,7 @@ Ship **two-player online play** for all seven Chess Recast mods with:
 
 1. 🥇 **Engine-quality bar carries over.** Every gate in [.github/copilot-instructions.md](../.github/copilot-instructions.md) → *Hard rules → 4* still applies. Multiplayer code lives under `frontend/lib/services/p2p/**` and `frontend/test/p2p/**` (per-area allow-list update in §0.5).
 2. 🪶 **Server is replaceable.** The signaling server is a thin, mostly-stateless HTTP+WebSocket service. If it dies for an hour, in-progress games keep playing (data channel is direct). New games and reconnect-via-restart need it; in-game moves do not.
-3. 🔐 **Trust the cryptography, not the server.** Moves are signed with the player's per-device key; the server never sees move content. Even malicious servers cannot rewrite a game.
+3. 🔐 **Trust the cryptography, not the server.** Moves are signed with the player's per-device key; the server never sees move content. Even malicious servers cannot rewrite a game. The stats-recovery account (§2.2) is a *separate, smaller* trust boundary: a compromised server could falsify stats but **cannot** sign moves, decrypt game logs, or impersonate a player in a live lobby.
 4. 🧱 **Deterministic, versioned protocol.** Move envelopes are versioned, schema-validated, canonicalized via [RFC 8785 JCS](https://www.rfc-editor.org/rfc/rfc8785) before signing, and replayable from the on-disk game log — same harness as `agent/reports/`. Wire format is **CBOR (RFC 8949)** with a JSON debug shadow; the JSON shadow is gated behind a debug flag and never affects the signature.
 5. 🧮 **Clocks are first-class.** Wall clocks lie; monotonic clocks drift; only the synchronized exchange of both, anchored by an authenticated handshake, can be trusted. Any disagreement must have a deterministic resolution that *cannot benefit a cheater*.
 6. 🎮 **Every mod is on the wire from day 1.** No mod is "added later" — the protocol's mod-message catalog (§1.4) covers all 7 from v1, even if the UI for some is built incrementally.
@@ -322,51 +323,194 @@ After ICE-restart success, both peers exchange `prev_hash` of their last sent an
 
 ---
 
-## 🪪 Phase 2 — Identity, key management & attestation 🔐
+## 🪪 Phase 2 — Identity, recovery account, key management & attestation 🔐
 
-> **Goal:** Players can prove "this move came from the same device that started the game" — without a central account — and we can revoke compromised keys.
+> **Goal:** Players can prove "this move came from the same device that started the game" *and* recover their stats / handle / friends list when the phone is lost or wiped — without giving the server the power to impersonate them in-game.
 
-### 2.1 🆔 Identity model
+### 2.0 🧭 Two-layer identity model (rewritten in v2.1)
+
+The original draft conflated two things: the cryptographic identity that signs moves and the long-lived identity that owns stats. We now separate them.
+
+| Layer                    | Lives on…                       | Owns…                                                                          | Lost when…                              | Recovers via…                                              |
+|--------------------------|---------------------------------|--------------------------------------------------------------------------------|-----------------------------------------|------------------------------------------------------------|
+| **Device key** (§2.1)    | Device only (hardware keystore) | Move signing, lobby pairing, opponent pubkey pin                               | Phone is lost, wiped, or factory-reset  | **Cannot be recovered** by design — a new key is minted; the **account** (below) re-binds it. |
+| **Stats account** (§2.2) | Server (encrypted, minimal)     | ELO, W/L/D, played count, handle, account age, last-seen, friends list (§7)    | Never, as long as the user has *one* of: recovery codes, verified email, or any device still bound | Recovery codes (always) **or** verified email magic-link (if user opted in) |
+
+The **device key signs moves**. The **account holds stats**. The two are linked by a signed binding stored on the server (§2.2.4). Losing the phone loses the *device key* but not the *account*; recovery rebinds a fresh device key to the existing account, and the user's stats / handle / friends survive intact.
+
+### 2.1 🆔 Device key (the move-signing layer)
 
 - On first launch the app generates an **Ed25519 keypair** (`device_id_pub`, `device_id_priv`) using a CSPRNG (`Random.secure`).
 - Private key is stored in `flutter_secure_storage` (Android Keystore / iOS Keychain backed). On Android the key is wrapped by a hardware-backed key when available (`StrongBox` if present).
-- 🪪 Public key fingerprint → **`PlayerId`** (e.g. `pid_4f3a…b2`). Optional **display handle** (3–24 chars, NFKC-normalized, validated client-side, cosmetic only) is stored locally and broadcast in the lobby; **never authoritative**.
-- 🔁 **Recovery / backup:**
-  - User can export an **encrypted backup blob** (passphrase-protected, Argon2id-derived key, libsodium `secretbox`).
-  - The blob also contains the user's display handle, settings, and game-history index — *not* game logs themselves (those are too large; separate backup mechanism).
-  - No server-side reset path; losing the passphrase = new identity. Documented prominently in-app **and** in the App Store description.
+- 🪪 Public key fingerprint → **`DeviceId`** (e.g. `dev_4f3a…b2`). The legacy term `PlayerId` is now reserved for the *account-level* identifier (§2.2.1).
+- Optional **display handle** (3–24 chars, NFKC-normalized, validated client-side, cosmetic only) is stored both locally and in the account; broadcast in the lobby; **never authoritative**.
+- 🔁 **Local encrypted backup blob** (still supported): passphrase-protected, Argon2id-derived key, libsodium `secretbox`. Contains the device private key + handle + settings + game-history index. This is now the *power-user* recovery path (offline, server-independent). The *normal* recovery path is the account flow in §2.2.
 - 🔁 **Key rotation:**
-  - User can mint a new keypair at any time. The old keypair signs a `key_rotation` certificate naming the new pubkey; both keys are accepted for in-flight games until those games end.
+  - User can mint a new device keypair at any time. The old keypair signs a `key_rotation` certificate naming the new pubkey; both keys are accepted for in-flight games until those games end.
+  - Rotation is also issued automatically every time a fresh device is bound to an existing account (§2.2.4) — the account always points at exactly one *active* device key, with up to 4 historical keys retained for the in-flight overlap window.
   - Old games remain attributed to the old key (immutable history).
 - 📛 **Revocation:**
   - User can publish a `key_revoked` certificate, signed by the old key, optionally counter-signed by the new key. The signaling server publishes the revocation list (`/v1/revocations`); peers refuse new lobbies from revoked keys.
-  - If the private key is *lost* (no signing possible), the user can mark a key revoked from a recovery-blob session; this case is best-effort (a key thief could still create lobbies until other peers refresh the list).
+  - If the private key is *lost* (no signing possible), the user authenticates to their **account** (§2.2) and triggers a server-mediated revocation: the account marks the lost device key revoked and binds a fresh one, signed by the new device. A key thief still has a small window — see §2.2.5 for mitigation.
 
-### 2.2 🤝 Pairing & handshake
+### 2.2 🪪 Stats-recovery account (new in v2.1)
+
+> **Design principle:** the smallest possible server-held record that lets a user keep their ELO and stats across phones, with zero ability for the server (or anyone who steals its database) to forge moves, read game content, or impersonate a player in a live lobby.
+
+#### 2.2.1 What the server stores (the **bare minimum**)
+
+One row per account, in the signaling server's SQLite store, schema versioned:
+
+```sql
+CREATE TABLE accounts (
+  player_id            BLOB PRIMARY KEY,        -- 16 B random; the durable account ID
+  active_device_pub    BLOB NOT NULL,           -- current device Ed25519 pubkey (32 B)
+  prior_device_pubs    BLOB,                    -- CBOR array of up to 4 historical pubkeys
+  handle               TEXT,                    -- cosmetic, NFKC-normalized, ≤ 24 chars
+  created_at           INTEGER NOT NULL,        -- unix seconds
+  last_seen_at         INTEGER NOT NULL,
+  recovery_email_hash  BLOB,                    -- nullable; HMAC-SHA256(server_pepper, lower(email))
+  recovery_email_verified_at INTEGER,           -- nullable
+  recovery_code_hashes BLOB NOT NULL,           -- CBOR array of 10 × Argon2id hashes
+  recovery_codes_used  INTEGER NOT NULL DEFAULT 0,
+  binding_sig          BLOB NOT NULL,           -- Ed25519 sig of (player_id || active_device_pub) by active device key
+  schema_v             INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE account_stats (
+  player_id  BLOB NOT NULL,
+  mod        TEXT NOT NULL,                     -- one of the 7 mods, or 'overall'
+  elo        INTEGER NOT NULL DEFAULT 1200,     -- Glicko-2 rating ×1; rd/sigma in separate cols
+  rd         INTEGER NOT NULL DEFAULT 350,      -- Glicko-2 rating deviation
+  sigma_e6   INTEGER NOT NULL DEFAULT 60000,    -- Glicko-2 volatility ×1e6
+  played     INTEGER NOT NULL DEFAULT 0,
+  wins       INTEGER NOT NULL DEFAULT 0,
+  losses     INTEGER NOT NULL DEFAULT 0,
+  draws      INTEGER NOT NULL DEFAULT 0,
+  forfeits   INTEGER NOT NULL DEFAULT 0,        -- separate from losses for fairness analytics
+  last_played_at INTEGER,
+  PRIMARY KEY (player_id, mod)
+);
+```
+
+**That is the entire account record.** Specifically, the server does **not** store: move content, PGNs, opening choice, opponent identity per game (only aggregates), private keys, anything about the user's device beyond the pubkey, or anything that lets it answer the question "what did this user play in their last game?".
+
+*Why Glicko-2 not classic ELO?* Same compute cost, much better at handling sporadic players (typical mobile audience). The schema is identical in shape to ELO — just with `rd` and `sigma_e6` columns the rating engine uses.
+
+#### 2.2.2 Account creation
+
+- New install ⇒ device key minted (§2.1) ⇒ app shows a **3-screen onboarding**:
+  1. *"Want to keep your stats if you switch phones?"* (Yes / Skip — Skip = no account, device-only mode).
+  2. *"Save these 10 recovery codes."* — 10 × 6-char Crockford-base32 codes (`AB12-CD34`-style, ≈ 30 bits each). The user is prompted to screenshot **or** print **or** copy to a password manager. The first code must be re-entered on the next screen to prove the user actually saved them.
+  3. *"Add a recovery email? (optional, recommended)"* — if entered, the server sends a magic-link verification; account is usable immediately, recovery via email is gated on verification.
+- Server-side, on `POST /v1/accounts`:
+  - Body: `{ device_pub, handle?, email_optin?, recovery_code_hashes[10], binding_sig }`.
+  - Server generates `player_id`, persists row, returns `{player_id, recovery_codes_remaining: 10}`.
+  - Server **never sees the recovery codes themselves**, only their Argon2id hashes (`m=64MB, t=3, p=1`).
+  - Email, if provided, is hashed with a server-side pepper before storage; the plaintext email is held only in a verification queue with a 24-hour TTL, then dropped.
+
+#### 2.2.3 Stats updates
+
+- After every completed game (resign / mate / flag / agreed draw), each peer calls `POST /v1/stats/update` with a **co-signed game-result envelope**:
+  ```
+  { player_id_a, player_id_b, mod, time_control, result: "a_wins"|"b_wins"|"draw",
+    final_ply, game_id, sig_a, sig_b }
+  ```
+- The server updates Glicko-2 ratings only when **both peers** submit the *same* envelope (signatures match, both signed the same `result`). One-sided submissions are queued for 30 minutes; if the other side never submits, the result is dropped (no ELO change). This makes it impossible for one peer to fake a win.
+- Disconnect-adjudicated outcomes (§1.7 grace expiry) are signed by the surviving peer **and** by the signaling server's witness key (the server saw the disconnect on the lobby side); two sigs ≥ one peer sig.
+- Spam mitigation: per-pubkey rate limit on stats submissions (max 60 per hour, generous; bullet-spam counter tracked separately).
+
+#### 2.2.4 Binding a fresh device to an existing account (the recovery flow)
+
+**Path A — recovery codes (works offline-capable, no email needed):**
+
+1. User taps *"I have an account, restore it"* on a fresh install.
+2. Enters their player handle (or `player_id` from a screenshot) **plus one unused recovery code**.
+3. App generates a new device keypair locally and signs a `device_rebind` request:
+   ```
+   { player_id, recovery_code, new_device_pub, new_device_sig }
+   ```
+4. Server: looks up account, Argon2id-verifies the code against `recovery_code_hashes`, marks that code consumed (`recovery_codes_used++`), rotates `active_device_pub` ← `new_device_pub` (old key moved to `prior_device_pubs`), publishes a `key_rotation` cert to `/v1/revocations`, returns the account row.
+5. User is in. Stats restored. Old device key revoked.
+
+**Path B — verified email (requires the user opted in at creation):**
+
+1. User enters their email address.
+2. Server sends a magic link (`https://signaling/v1/recover?token=…`, 15-min TTL, single-use).
+3. Tapping the link in the app proves possession of the email; same `device_rebind` flow as above runs.
+
+**Recovery codes regenerate** automatically once `recovery_codes_used ≥ 8` (next time the user is online); the app shows the new codes and asks the user to re-save. We never run a user out of codes silently.
+
+**Path C — power-user (offline, server-down):** the local encrypted backup blob (§2.1) restores the device key directly without contacting the server. Stats sync resumes when the server is reachable again.
+
+#### 2.2.5 Stolen-phone race & mitigation
+
+The attack: phone stolen, thief unlocks it, *then* you wipe-and-restore on a new phone. There is a window where two devices both think they're "active".
+
+Mitigations, in order of strength:
+
+- **Hardware-backed keystore** (the default on modern Android/iOS): the thief cannot extract the device private key without bypassing the OS lock screen. This is the front line.
+- **Account-level lock** via *"Mark phone lost"* in the in-app web flow (`/v1/accounts/lock`, requires recovery code or email) — sets `active_device_pub = NULL` on the account; in-flight games are paused, no new games can start until a fresh device binds.
+- **Last-seen alert**: when a device rebinds, the previously active device receives an `account_rebound` notification (via push and on next app foreground) showing the timestamp / approx-region of the new bind. If the user did not initiate it, they can lock the account from the new device or from any other signed-in device.
+- **Per-bind cooldown**: after a `device_rebind`, the new device cannot trigger another rebind for 24 hours unless the user enters a *second* recovery code.
+
+#### 2.2.6 What the server still does **not** see, even with an account
+
+- Move content, PGNs, opening choice (still strictly P2P).
+- Per-game opponent identity (only the co-signed result envelope, which is intentionally aggregable but not browseable per-user).
+- Email plaintext after verification (only a peppered hash).
+- Recovery code plaintext (only Argon2id hashes).
+- Device location beyond IP (and IPs are still purged after 7 days per §3.3).
+
+A server-side breach reveals: pubkeys, handles, peppered email hashes, Argon2id'd recovery code hashes, ELO/W/L/D. **It does not reveal:** any move played, any ability to sign moves, any ability to read a user's email, or any ability to brute-force recovery codes in a usable timeframe (Argon2id m=64MB, t=3 over a 30-bit code = years of GPU-time per account at offline-attack rates).
+
+#### 2.2.7 Server endpoints (added to §3.2)
+
+| Method | Path                       | Purpose                                                          |
+|--------|----------------------------|------------------------------------------------------------------|
+| `POST` | `/v1/accounts`             | Create account (body in §2.2.2)                                  |
+| `GET`  | `/v1/accounts/me`          | Fetch own account row (auth: signature by active device key)     |
+| `POST` | `/v1/accounts/rebind`      | Bind fresh device via recovery code or verified-email magic link |
+| `POST` | `/v1/accounts/lock`        | Mark phone lost; clears `active_device_pub`                      |
+| `POST` | `/v1/accounts/email`       | Add or change recovery email (re-verification required)          |
+| `DELETE` | `/v1/accounts/me`        | GDPR delete (drops account row + stats; pubkeys retained on game-result envelopes for 90 d for dispute window, then anonymized) |
+| `POST` | `/v1/stats/update`         | Co-signed game-result envelope (§2.2.3)                          |
+| `GET`  | `/v1/stats/me`             | Fetch own per-mod stats                                          |
+| `GET`  | `/v1/stats/lookup`         | Fetch a *single* opponent's per-mod ELO + played count *only* (handle + ELO + played; nothing else) — used in the lobby to show "Opponent rating" |
+| `POST` | `/v1/accounts/recovery-codes/regenerate` | Mint a fresh batch of 10; old hashes invalidated immediately |
+
+All of the above require a signed nonce challenge by the `active_device_pub` **or** an unconsumed recovery code (rebind / lock paths only).
+
+### 2.3 🤝 Pairing & handshake
 
 1. Player A creates a lobby → server returns short **invite code** (Crockford-base32, 6 chars + 2-char checksum, ~30 bits effective entropy, single-use, 5 min TTL). A QR code is also generated.
-2. Player B enters the code (or scans the QR) → both peers exchange **public keys + SDP offers** through the signaling server.
+2. Player B enters the code (or scans the QR) → both peers exchange **public keys + SDP offers** through the signaling server. If both peers have stats accounts (§2.2), the server attaches each peer's `{handle, per-mod ELO, played}` row from `/v1/stats/lookup` so the lobby UI can show "Opponent rating" before the game starts.
 3. Each peer **verifies the opponent's first SDP message is signed by the pubkey advertised at lobby join**. MITM by the signaling server is detected here. A failed verification aborts pairing with `PAIRING_PUBKEY_MISMATCH`.
 4. After ICE connection, the **first data-channel message is the `hello` handshake** (§1.5).
 5. Optional **out-of-band fingerprint check**: both apps display a 6-word **PGP-style fingerprint** of the pinned opponent key. Users who care can verify out-of-band (in person, on a call).
 
-### 2.3 🛡️ Server-side trust boundary
+### 2.4 🛡️ Server-side trust boundary (revised)
 
-- The signaling server learns: `device_id_pub`, **IP** (necessarily, for ICE), invite code activity, lobby presence, push tokens (only if user enables push), feedback/issue payloads.
-- The server does **not** learn: move content, time-control progression, game outcome, mod played (unless the player opts in via *Submit game for review*, §6.4).
-- 📜 Privacy notice in-app (`docs/signaling/PRIVACY.md`) enumerates exactly the above and is linked from the in-app *About* + the App Store privacy declaration.
+- The signaling server learns:
+  - `device_id_pub` and (for accounts) `player_id`, `handle`, peppered `recovery_email_hash`, Argon2id'd `recovery_code_hashes`, per-mod `{elo, played, wins, losses, draws}`, account `created_at` / `last_seen_at`.
+  - **IP** (necessarily, for ICE), invite code activity, lobby presence, push tokens (only if user enables push), feedback/issue payloads.
+  - Co-signed game-*result* envelopes (winner / draw / mod / time-control / final-ply / game_id) — see §2.2.3.
+- The server does **not** learn: move content, individual move times, opening choice, PGN, per-game opponent (only aggregated), private keys, recovery code plaintext, email plaintext after verification, mod played per game (only that *some* game on mod X happened).
+- 📜 Privacy notice (`docs/signaling/PRIVACY.md`) enumerates exactly the above and is linked from in-app *About* + the App Store privacy declaration.
 
-### 2.4 🚦 Rate limiting & abuse
+### 2.5 🚦 Rate limiting & abuse
 
 - Server enforces token buckets at three independent scopes (CGNAT-aware):
-  - per-`device_id_pub` (tight),
+  - per-`device_id_pub` and per-`player_id` (tight),
   - per-IP (medium),
   - per-/24 IPv4 or /48 IPv6 (loose).
 - Why three? Because mobile carriers route many legitimate users through a single IP (CGNAT). A per-IP-only limiter would lock out an entire neighborhood after one abuser.
 - 3 strikes (invalid signatures, spam, malformed payloads) → exponential backoff (1 m → 5 m → 1 h → 24 h), persisted in server SQLite.
-- 🚫 No account creation = no email harvesting / no password leak risk.
+- **Recovery-code brute-force lockout:** 5 wrong codes against the same `player_id` within 1 h ⇒ recovery via codes is locked for 24 h (email path still works); 20 within 24 h ⇒ account is auto-locked and the owner is notified by email if available.
+- **Email-recovery flood guard:** max 3 magic-link sends per `recovery_email_hash` per hour.
+- 🚫 No password storage anywhere — recovery is by code or magic link only, so there is no password-leak surface area.
 
-### 2.5 🛡️ Attestation lite (new in v2)
+### 2.6 🛡️ Attestation lite (new in v2)
 
 We can't cryptographically prove the running APK is unmodified (this is OSS), but we can make modification *visible*:
 
@@ -375,19 +519,53 @@ We can't cryptographically prove the running APK is unmodified (this is OSS), bu
 - Mismatch ⇒ a yellow "modified-build opponent" badge in the UI. Game proceeds; the user decides.
 - This is **not** anti-cheat; it's a trust-but-verify signal.
 
-### 2.6 🧪 Phase 2 proof tests
+### 2.7 🧪 Phase 2 proof tests
+
+Device-key layer:
 
 - `frontend/test/p2p/identity/keypair_lifecycle_test.dart` — generate, sign, verify, persist across app restart.
 - `frontend/test/p2p/identity/backup_restore_test.dart` — round-trip encrypted backup with passphrase, including wrong-passphrase rejection.
 - `frontend/test/p2p/identity/key_rotation_test.dart` — old/new key both accepted during overlap, old key rejected after rotation cert is acknowledged.
 - `frontend/test/p2p/identity/revocation_test.dart` — revoked key cannot start a new lobby.
-- `frontend/test/p2p/identity/cross_platform_backup_test.dart` — Android-generated backup restores on iOS sim and vice versa (run on CI matrix).
+- `frontend/test/p2p/identity/cross_platform_backup_test.dart` — Android-generated backup restores on iOS sim and vice versa (CI matrix).
 
-### 2.7 ✅ Definition of done for Phase 2
+Account layer (new in v2.1):
 
-- All §2.6 tests green on Android + iOS sim + Linux desktop.
-- Threat-model checklist (§9) reviewed and signed off.
-- `docs/signaling/PRIVACY.md` first draft committed.
+- `frontend/test/p2p/account/create_account_test.dart` — onboarding generates 10 codes, server stores only Argon2id hashes; raw codes never appear in any persisted log.
+- `frontend/test/p2p/account/rebind_with_code_test.dart` — fresh install + recovery code restores stats; old device key is revoked; consumed code cannot be reused.
+- `frontend/test/p2p/account/rebind_with_email_test.dart` — magic-link flow on Android + iOS sim, including expired-token rejection and replay rejection.
+- `frontend/test/p2p/account/cooldown_test.dart` — second rebind within 24 h requires a *second* code.
+- `frontend/test/p2p/account/stats_cosign_test.dart` — stats only update when both peers submit matching result envelopes; one-sided submissions expire.
+- `frontend/test/p2p/account/lost_phone_lock_test.dart` — `/v1/accounts/lock` pauses in-flight games and blocks new lobby creation until rebind.
+- `frontend/test/p2p/account/recovery_code_lockout_test.dart` — 5 wrong codes locks the code path for 24 h; email path still works.
+- `frontend/test/p2p/account/regenerate_codes_test.dart` — codes regenerate at usage ≥ 8; old hashes invalidated immediately.
+- `frontend/test/p2p/account/gdpr_delete_test.dart` — `DELETE /v1/accounts/me` clears the account + stats; pubkey retained on co-signed result envelopes for 90 d then anonymized.
+- `frontend/test/p2p/account/server_breach_simulation_test.dart` — given a leaked DB dump, assert recovery codes cannot be brute-forced under a fixed compute budget within target time.
+- `signaling/internal/accounts/*_test.go` — server-side unit + integration coverage of all `/v1/accounts/**` endpoints.
+
+### 2.8 📊 Phase 2 KPIs (`agent/baselines/p2p.json`)
+
+```jsonc
+{
+  "phase2": {
+    "account_create_p95_ms":           { "value": null, "threshold": 400  },
+    "rebind_with_code_p95_ms":         { "value": null, "threshold": 800  },
+    "stats_update_p95_ms":             { "value": null, "threshold": 250  },
+    "recovery_code_argon2id_ms":       { "value": null, "threshold": 350  }, // tuned target on a 2 vCPU server
+    "account_table_size_bytes_p99":    { "value": null, "threshold": 2048 },
+    "recovery_codes_loss_pct_30d":     { "value": null, "threshold": 2.0  }, // % of accounts that exhausted all codes without regenerating
+    "orphaned_account_pct_30d":        { "value": null, "threshold": 5.0  }  // % of accounts with no `last_seen_at` update in 30 d (helps tune retention)
+  }
+}
+```
+
+### 2.9 ✅ Definition of done for Phase 2
+
+- All §2.7 device-key tests + account tests green on Android + iOS sim + Linux desktop.
+- Threat-model checklist (§9, including the new account-layer entries) reviewed and signed off.
+- `docs/signaling/PRIVACY.md` first draft committed, with explicit *"What is in your account"* and *"What is **not** in your account"* sections.
+- Phase-2 KPIs measured on a staging server and committed to `agent/baselines/p2p.json`.
+- Recovery-flow UX walked through end-to-end on a real Android *and* a real iOS device by at least two reviewers (one of whom should *not* be the implementer).
 
 ---
 
@@ -398,7 +576,7 @@ We can't cryptographically prove the running APK is unmodified (this is OSS), bu
 ### 3.1 🧱 Tech choice
 
 - **Language:** **Go** (preferred — fits prior backend experience; tiny single-binary; great net stack). TypeScript is a fallback only if the team's bandwidth shifts.
-- **Storage:** **SQLite (WAL mode)** for: lobbies, invite codes, rate-limit buckets, feedback, issue reports, revocation list, push tokens. Move to PostgreSQL only when DAU > 5 k (formal trigger; not a guess).
+- **Storage:** **SQLite (WAL mode)** for: lobbies, invite codes, rate-limit buckets, feedback, issue reports, revocation list, push tokens, **accounts + stats + recovery hashes** (§2.2.1). Move to PostgreSQL only when DAU > 5 k (formal trigger; not a guess) **or** when account-table row count > 250 k (whichever first).
 - **Hosting:** single VPS or a managed container (Fly.io / Render / Hetzner). HTTPS via Caddy/Traefik with auto-cert. **At least one warm standby** in the same region from day 1; multi-region pushed to Phase 7 but **the protocol is region-agnostic from day 1**.
 - **Observability:** structured JSON logs → file + stdout; Prometheus `/metrics` endpoint; uptime ping; OpenTelemetry traces optional.
 - **Secrets:** read at boot from env vars *or* a `secrets/*.age` directory; never committed. Rotation procedure documented in `docs/signaling/RUNBOOK.md`.
@@ -419,6 +597,16 @@ We can't cryptographically prove the running APK is unmodified (this is OSS), bu
 | `GET`  | `/v1/revocations`          | Revocation list (delta + full snapshot, ETag)                   | none (public)                   |
 | `POST` | `/v1/report-player`        | Abuse / cheat report (signed, rate-limited, requires evidence)  | signed envelope                 |
 | `POST` | `/v1/engine-corr-submit`   | Opt-in post-game PGN for engine-correlation analysis (§6.4)     | signed envelope                 |
+| `POST` | `/v1/accounts`             | Create stats-recovery account (§2.2.2)                          | signed envelope                 |
+| `GET`  | `/v1/accounts/me`          | Fetch own account row                                            | signed envelope by active device |
+| `POST` | `/v1/accounts/rebind`      | Bind fresh device via recovery code or magic link (§2.2.4)      | recovery code OR magic-link token |
+| `POST` | `/v1/accounts/lock`        | Mark phone lost; clears `active_device_pub` (§2.2.5)            | recovery code OR signed envelope |
+| `POST` | `/v1/accounts/email`       | Add / change recovery email (re-verification required)          | signed envelope                 |
+| `DELETE` | `/v1/accounts/me`        | GDPR delete                                                      | signed envelope                 |
+| `POST` | `/v1/accounts/recovery-codes/regenerate` | Mint fresh batch of 10 codes                       | signed envelope                 |
+| `POST` | `/v1/stats/update`         | Co-signed game-result envelope (§2.2.3)                          | both-peer signatures            |
+| `GET`  | `/v1/stats/me`             | Fetch own per-mod stats                                         | signed envelope                 |
+| `GET`  | `/v1/stats/lookup`         | Single-opponent `{handle, ELO, played}` lookup                  | signed envelope                 |
 | `GET`  | `/v1/leaderboard`          | (Phase 7) optional opt-in stats                                 | signed envelope                 |
 
 ### 3.3 🔐 Server hardening checklist
@@ -434,8 +622,10 @@ We can't cryptographically prove the running APK is unmodified (this is OSS), bu
 - [ ] **Graceful drain on SIGTERM:** stop accepting new lobbies, hand off active lobbies to standby via state replication or invalidate them with a clear error code (`LOBBY_DRAINING`, client retries on standby).
 - [ ] **Blue/green deploys** with traffic shift via the load balancer; never deploy by replacing the live container in place.
 - [ ] **Idempotent invite redemption:** redeeming the same code twice from the same `device_id_pub` returns the same lobby state; from a different pubkey returns `INVITE_TAKEN`.
-- [ ] **Server-side fuzz harness** for the WS protocol (`go-fuzz` on every PR).
+- [ ] **Server-side fuzz harness** for the WS protocol *and* all `/v1/accounts/**` + `/v1/stats/**` handlers (`go-fuzz` on every PR).
 - [ ] **Chaos tests** on the server (kill the DB mid-request, drop network mid-WS) — see §5.5.
+- [ ] **Account-table at-rest encryption**: SQLite database file lives on a per-host LUKS-encrypted volume; backups are encrypted with `age` before leaving the host. Recovery code hashes are Argon2id (m=64MB, t=3, p=1); email hashes are HMAC-SHA256 with a server-side pepper rotated yearly.
+- [ ] **Recovery-code pepper + Argon2id parameters** version-stamped per account row so we can rotate parameters without invalidating existing codes.
 
 ### 3.4 📁 Repo layout
 
@@ -816,7 +1006,7 @@ A new top-level script set under `scripts/p2p/`:
 - 🏆 Optional **ELO / Glicko-2 ratings** (opt-in; published only with consent; per-mod separate ratings).
 - 🎫 **Tournament brackets** (server-managed pairing only; play stays P2P).
 - 👀 **Spectator mode** — signed read-only relay through the ops server, with a 30-s delay to discourage live coaching.
-- 🤝 **Friends list** backed by exchanged public keys (still no central account).
+- 🤝 **Friends list** backed by exchanged public keys, attached to the optional stats account (§2.2) so it survives device loss; for users without an account, the list lives only in the local encrypted backup blob.
 - 🔄 **Cross-device identity migration** via QR code + signed transfer envelope.
 - 🤖 **Open matchmaking** queues (with moderation surface — careful, this is a chunky scope).
 - 🧠 **Automated engine-correlation flagging** with human-in-the-loop review.
@@ -846,8 +1036,16 @@ A new top-level script set under `scripts/p2p/`:
 | 16 | Game-log exfiltration from a stolen unlocked phone   | Logs encrypted at rest under device-key-derived subkey.                                                    |
 | 17 | Symmetric-NAT / CGNAT preventing direct connection   | TURN relay fallback; clearly badged in UI; not treated as failure.                                         |
 | 18 | iOS background suspension mid-move                   | Persist + push-resume; ICE restart on foreground; grace window protects the suspended player.             |
-| 19 | Lost-passphrase, lost-key recovery                   | No server-side reset; user is told this loud and clear; new identity is the documented path.              |
-| 20 | Compromised maintainer publishes malicious build     | Reproducible-build effort tracked as a Phase-7 stretch; APK hash gossip alerts users to unexpected hash.  |
+| 19 | Lost-passphrase, lost-key recovery (account opted in)| Recovery codes (always issued) + optional verified email (§2.2.4); device key revoked on rebind.          |
+| 20 | Lost-passphrase, lost-key recovery (no account)      | No server-side reset; user is told this loud and clear; new identity is the documented path.              |
+| 21 | Compromised maintainer publishes malicious build     | Reproducible-build effort tracked as a Phase-7 stretch; APK hash gossip alerts users to unexpected hash.  |
+| 22 | Server-side breach leaks account DB                  | Recovery codes Argon2id-hashed (m=64MB, t=3); emails peppered + HMAC'd; ELO/W/L/D leak is acceptable but no impersonation possible (no private keys stored). On detection: rotate pepper, force email re-verification, post advisory. |
+| 23 | Stolen phone, then user wipes-and-restores           | Hardware-backed keystore + `/v1/accounts/lock` + per-bind 24-h cooldown + `account_rebound` push notice (§2.2.5). |
+| 24 | Recovery-code brute force                            | Argon2id at 64 MB / t=3 raises offline cost; server-side 5-wrong-in-1-h lockout for online attempts; account auto-lock at 20 wrong / 24 h. |
+| 25 | Magic-link interception (email account compromise)   | Magic-link tokens are 15-min single-use; rebind triggers a `key_rotation` cert + push notice to any prior active device; user can lock the account from the prior device if they still have it. |
+| 26 | Stats forgery (one peer claims a fake win)           | `/v1/stats/update` requires **both** peers' signatures over the same result envelope; disconnect adjudication co-signed by the server's witness key. |
+| 27 | Reuse of consumed recovery code                      | `recovery_codes_used` counter + per-code consumption flag; verification rejects consumed codes; codes regenerate at ≥ 8 used. |
+| 28 | Server lies about a peer's ELO in `/v1/stats/lookup` | Lookup is advisory UX only ("Opponent rating: 1480"); no in-game decision depends on it. Future Phase-7: each stats row is signed by the server's long-term key + a sliding Merkle root the user can verify. |
 
 ---
 
@@ -875,6 +1073,17 @@ Every failure has a code, a UI string, and a recovery action. Codes are stable (
 | `REVOKED_KEY`                     | Lobby create        | Generate new identity                     |
 | `MIN_CLIENT_BUILD`                | Any                 | Forced upgrade dialog                     |
 | `P2P_DISABLED_BY_FLAG`            | App start           | Read-only mode + notice                   |
+| `ACCOUNT_NOT_FOUND`               | Account lookup      | Offer create-account flow                 |
+| `ACCOUNT_LOCKED`                  | Any account op      | Show recovery flow (code or email)        |
+| `RECOVERY_CODE_INVALID`           | Rebind              | Try a different code; if 5 wrong → wait 24 h |
+| `RECOVERY_CODE_LOCKOUT`           | Rebind              | Use email magic link or wait 24 h         |
+| `RECOVERY_CODES_EXHAUSTED`        | Rebind              | Use email magic link; if no email → cannot recover |
+| `RECOVERY_EMAIL_NOT_VERIFIED`     | Rebind              | Verify email first                        |
+| `MAGIC_LINK_EXPIRED`              | Rebind              | Re-request magic link                     |
+| `MAGIC_LINK_REUSED`               | Rebind              | Re-request; previous link is consumed     |
+| `REBIND_COOLDOWN_ACTIVE`          | Rebind              | Wait 24 h or enter a second recovery code |
+| `STATS_RESULT_MISMATCH`           | `/v1/stats/update`  | Both peers must submit matching envelopes; auto-retry on next foreground |
+| `STATS_SUBMIT_RATE_LIMITED`       | `/v1/stats/update`  | Backoff per `Retry-After`                 |
 
 ---
 
