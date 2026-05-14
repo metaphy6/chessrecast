@@ -42,8 +42,8 @@ Run, in order, aborting on the first failure:
 
 ## Terminal state (mandatory)
 
-- **`pushed`** — gates green, working tree dirty: commit with message `feat(<area>): ${input:summary} [<run-id>]`, `git push origin main`, report SHA. **No exceptions** — see [AGENTS.md](../../AGENTS.md) §2.
-- **`reverted`** — any gate failed: `git restore .`, file a queue entry, no push.
+- **`committed`** — gates green, working tree dirty: commit with message `feat(<area>): ${input:summary} [<run-id>]`, report local SHA. **Do not push** — push accumulates for `make git`. **No exceptions** — see [AGENTS.md](../../AGENTS.md) §2.
+- **`reverted`** — any gate failed: `git restore .`, file a queue entry, no commit.
 - **`blocked`** — change requires shared-engine edits or a system-level change; write `agent/state/checkpoint.json`, file a queue entry, stop.
 - **`no-op`** — never expected for this command (the user asked to add a feature). If you find yourself here, you misread the request — clarify.
 

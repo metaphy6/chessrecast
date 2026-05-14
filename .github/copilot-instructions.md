@@ -59,7 +59,7 @@ A change is acceptable only when it improves at least one of those four buckets 
 
 ## Hard rules (do not violate)
 
-1. **Main branch is allowed.** The agent may commit and push directly to `main` *only after* all gates in rule 4 pass. Still forbidden: `git push --force`, `git push --force-with-lease`, `git reset --hard` on already-pushed commits, `--no-verify`, rewriting published history, deleting `main`. On any gate failure the agent must `git restore .` (or `git reset --hard HEAD` if nothing has been committed yet) and never push the failing change.
+1. **Main branch is allowed.** The agent may commit directly to `main` *only after* all gates in rule 4 pass. **Pushing is done by the user via `make git`** — agents never call `git push` directly. Still forbidden: `git push --force`, `git push --force-with-lease`, `git reset --hard` on already-pushed commits, `--no-verify`, rewriting published history, deleting `main`. On any gate failure the agent must `git restore .` (or `git reset --hard HEAD` if nothing has been committed yet) and never commit the failing change.
 2. **Per-mod isolation.** When fixing a single mod, only edit:
    - `frontend/lib/mods/<mod>.dart` (and any `frontend/lib/mods/<mod>/**` subtree),
    - `frontend/lib/engine/<mod>_*.dart` (if present),
@@ -80,13 +80,13 @@ A change is acceptable only when it improves at least one of those four buckets 
 5. **Rate-limit hygiene.** If a tool call returns 429 / "rate limit" / "quota": stop the current task, write progress to `agent/state/checkpoint.json`, and pause for the cooldown the response specifies (or 5 minutes if unspecified) before resuming. Never retry tighter than exponential backoff.
 6. **Findings must be evidence-backed.** A "blunder" or "rule violation" is only a finding if it appears in a generated audit report file under `/tmp/` or `agent/reports/`. No edits based on guessed positions.
 7. **Never edit the `_audit_batch_test.dart` / `_position_probe_test.dart` skip flags or thresholds to make a run pass.** Those tests are the gate.
-8. **Mandatory commit & push after every slash command.** Any `/<name>` command (`/improve-mod`, `/triage-audit-report`, future commands) **must end** with the agent committing and pushing to `origin/main` if — and only if — every gate in rule 4 passed and the working tree contains real changes. The agent is **forbidden** from inventing reasons to defer the commit ("for the user to review", "needs verification", "out of scope") when gates are green. The acceptable terminal states of a slash command are exactly:
-   - **`pushed`** — gates green, `git push origin main` exit 0, commit SHA reported in chat.
-   - **`reverted`** — at least one gate failed; `git restore .` (or `git reset --hard HEAD` if local-only), no push, finding filed in `agent/queue.yaml`.
+8. **Mandatory commit after every slash command.** Any `/<name>` command (`/improve-mod`, `/triage-audit-report`, future commands) **must end** with the agent committing (not pushing) to `main` if — and only if — every gate in rule 4 passed and the working tree contains real changes. Push is done by the user via `make git` (see [AGENTS.md](../AGENTS.md) §2). The agent is **forbidden** from inventing reasons to defer the commit ("for the user to review", "needs verification", "out of scope") when gates are green. The acceptable terminal states of a slash command are exactly:
+   - **`committed`** — gates green, `git add -A && git commit -m "auto(<scope>): …"` exit 0, local commit SHA reported in chat. **Never `git push` directly.**
+   - **`reverted`** — at least one gate failed; `git restore .` (or `git reset --hard HEAD` if local-only), no commit, finding filed in `agent/queue.yaml`.
    - **`no-op`** — `git status -s` was already clean before any edit; nothing to commit.
-   - **`blocked`** — non-fast-forward push that did not pass a re-gate after rebase, or a `kind: shared_edit` requirement was discovered mid-task. State must be written to `agent/state/checkpoint.json`.
+   - **`blocked`** — rebase needed and it did not pass a re-gate, or a `kind: shared_edit` requirement was discovered mid-task. State must be written to `agent/state/checkpoint.json`.
 
-   "I'll let you review and commit yourself" is **not** an acceptable terminal state. If commit/push is genuinely undesired (e.g. user says "dry run"), the user must say so explicitly *before* the slash command runs.
+   "I'll let you review and commit yourself" is **not** an acceptable terminal state. If commit is genuinely undesired (e.g. user says "dry run"), the user must say so explicitly *before* the slash command runs.
 9. **System-level change guardrails.** The agent may change the repo, the Flutter SDK cache (`flutter pub get`), and the local native build directory (`frontend/build/native/`). The agent **must not**, without an explicit one-shot user confirmation in chat:
    - install / upgrade / remove OS packages (`apt`, `dnf`, `pacman`, `brew`, `snap`, `flatpak`),
    - modify systemd units, cron, login shells, `/etc/**`, kernel modules, firewall, SELinux/AppArmor profiles,
@@ -151,15 +151,15 @@ Run from `frontend/`. Build the native lib first if missing (`cmake --build buil
 
 ### Per-mod env-var prefixes (real names, not placeholders)
 
-| Mod              | Batch prefix              | Probe prefix              | Regression test                           |
-|------------------|---------------------------|---------------------------|-------------------------------------------|
-| heir             | `HEIR_BATCH_*`            | `HEIR_PROBE_*`            | `heir_engine_regression_test.dart`        |
-| friendly_fire    | `FRIENDLY_FIRE_BATCH_*`   | `FRIENDLY_FIRE_PROBE_*`   | `friendly_fire_engine_regression_test.dart` |
-| kings_battle     | `KB_BATCH_*`              | `KB_PROBE_*`              | `kings_battle_engine_regression_test.dart` |
-| mercenary        | `MERC_BATCH_*`            | `MERC_PROBE_*`            | `mercenary_engine_regression_test.dart`   |
+| Mod              | Batch prefix              | Probe prefix              | Regression test                              |
+|------------------|---------------------------|---------------------------|----------------------------------------------|
+| heir             | `HEIR_BATCH_*`            | `HEIR_PROBE_*`            | `heir_engine_regression_test.dart`           |
+| friendly_fire    | `FRIENDLY_FIRE_BATCH_*`   | `FRIENDLY_FIRE_PROBE_*`   | `friendly_fire_engine_regression_test.dart`  |
+| kings_battle     | `KB_BATCH_*`              | `KB_PROBE_*`              | `kings_battle_engine_regression_test.dart`   |
+| mercenary        | `MERC_BATCH_*`            | `MERC_PROBE_*`            | `mercenary_engine_regression_test.dart`      |
 | save_the_queen   | `STQ_BATCH_*`             | `STQ_PROBE_*`             | `save_the_queen_engine_regression_test.dart` |
-| succession       | `SUCCESSION_BATCH_*`      | `SUCCESSION_PROBE_*`      | `succession_engine_regression_test.dart`  |
-| truce            | `TRUCE_BATCH_*`           | `TRUCE_PROBE_*`           | `truce_engine_regression_test.dart`       |
+| succession       | `SUCCESSION_BATCH_*`      | `SUCCESSION_PROBE_*`      | `succession_engine_regression_test.dart`     |
+| truce            | `TRUCE_BATCH_*`           | `TRUCE_PROBE_*`           | `truce_engine_regression_test.dart`          |
 
 Common suffixes: `_BATCH_OPENINGS` (CSV of opening UCI sequences, one per game — use ≥50 lines for a real batch), `_BATCH_MAX_PLIES`, `_BATCH_REPORT_PATH`, `_BATCH_STOP_AT_DELTA` (cp), `_BATCH_LIVE_PROGRESS=1`. Probes additionally accept `_PROBE_FEN`, `_PROBE_DEPTH`, `_PROBE_TIME_MS`, `_PROBE_SKILL`, `_PROBE_CANDIDATES`, `_PROBE_REPORT_PATH`.
 

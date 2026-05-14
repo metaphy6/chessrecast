@@ -70,14 +70,14 @@ The user's exact requirement: *"misimplementations and drifts so take actions to
 
 ## Mandatory terminal state
 
-Per [AGENTS.md](../../AGENTS.md) §2 and chatmode §6, end in exactly one of `pushed` / `reverted` / `no-op` / `blocked`. Report:
+Per [AGENTS.md](../../AGENTS.md) §2 and chatmode §6, end in exactly one of `committed` / `reverted` / `no-op` / `blocked`. Report:
 
 - `run_id`,
 - selected vs. completed leaf count,
-- list of commit SHAs pushed,
+- list of local commit SHAs (push is deferred to `make git`),
 - any `blocked` leaf with its checkpoint reason.
 
-Forbidden terminal phrases: "I'll let you review and commit yourself", "this seems out of scope", "you might want to verify". If gates were green and code changed, **you push.**
+Forbidden terminal phrases: "I'll let you review and commit yourself", "this seems out of scope", "you might want to verify". If gates were green and code changed, **you commit.**
 
 ## DRY_RUN behaviour
 

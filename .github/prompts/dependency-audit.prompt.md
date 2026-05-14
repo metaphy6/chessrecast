@@ -21,10 +21,10 @@ description: Weekly Flutter dependency + secrets audit. Read-only for code; writ
 
 Same contract as every other slash command (see [AGENTS.md](../../AGENTS.md) §2). Acceptable terminal states:
 
-- `pushed` — queue entries and/or reports were added; commit + `git push origin main`; report SHA.
+- `committed` — queue entries and/or reports were added; commit with message `auto(deps): <summary>`; report local SHA. **Do not push** — push is via `make git`.
 - `no-op` — clean audit, nothing to commit.
 - `reverted` — the audit itself crashed (parse error, missing tool); revert any partial state.
-- `blocked` — non-fast-forward push that did not survive a re-gate after rebase.
+- `blocked` — a required change touches shared-engine code or system-level paths; write checkpoint.
 
 ## Forbidden in this command
 

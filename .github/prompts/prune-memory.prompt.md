@@ -32,4 +32,4 @@ This command writes only to memory, not to git. Acceptable end states:
 - **`done`** — memory pruned, count of notes-before vs notes-after reported per mod.
 - **`no-op`** — every mod's notes were already current.
 
-No commit is required for memory-only changes (memory is not in git). If queue entries were filed, treat that as a separate `pushed` action — `git add agent/queue.yaml && git commit -m "auto(memory): file follow-ups from prune-memory" && git push origin main`.
+No commit is required for memory-only changes (memory is not in git). If queue entries were filed, treat that as a separate `committed` action — `git add agent/queue.yaml && git commit -m "auto(memory): file follow-ups from prune-memory"`. Push accumulates for `make git`.

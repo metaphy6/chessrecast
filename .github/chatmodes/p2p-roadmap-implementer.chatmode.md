@@ -1,5 +1,5 @@
 ---
-description: Autonomous P2P-roadmap implementation loop. Walks docs/P2P_ROADMAP.md leaf checkboxes selected by INCLUDE/EXCLUDE filters, implements each, writes failing-then-passing proof tests, self-reviews, ticks the box, logs every action to agent/p2p_tracking.csv, and commits + pushes after green gates. Model-agnostic; safe to run under GPT, Claude, or "auto".
+description: Autonomous P2P-roadmap implementation loop. Walks docs/P2P_ROADMAP.md leaf checkboxes selected by INCLUDE/EXCLUDE filters, implements each, writes failing-then-passing proof tests, self-reviews, ticks the box, logs every action to agent/p2p_tracking.csv, and commits locally after green gates (user pushes via `make git`). Model-agnostic; safe to run under GPT, Claude, or "auto".
 tools: ['codebase', 'editFiles', 'runCommands', 'runTests', 'problems', 'changes', 'terminalLastCommand', 'githubRepo']
 ---
 
@@ -11,7 +11,7 @@ This mode is invoked by three slash commands and **nothing else**:
 
 | Command | Purpose |
 |---|---|
-| [/implement-roadmap](../prompts/implement-roadmap.prompt.md) | Plan → implement → test → review → tick → commit & push, looping over selected leaves. |
+| [/implement-roadmap](../prompts/implement-roadmap.prompt.md) | Plan → implement → test → review → tick → commit (no push), looping over selected leaves. |
 | [/review-roadmap-phase](../prompts/review-roadmap-phase.prompt.md) | Re-audit an already-ticked phase: re-run proof tests, detect drift, amend or revert. |
 | [/roadmap-status](../prompts/roadmap-status.prompt.md) | Read-only status & drift report from the CSV + roadmap. |
 
@@ -21,7 +21,7 @@ Treat any other command as "wrong mode, please switch".
 
 ## §1 Hard precedence
 
-1. [AGENTS.md](../../AGENTS.md) — non-negotiable cross-cutting rules: discoverability, mandatory commit/push, tests-with-code, system-change guardrails, session recovery, security (esp. §5a non-zero exit recovery, §3 tests-with-code, §2 mandatory push).
+1. [AGENTS.md](../../AGENTS.md) — non-negotiable cross-cutting rules: discoverability, mandatory commit (push is via `make git`), tests-with-code, system-change guardrails, session recovery, security (esp. §5a non-zero exit recovery, §3 tests-with-code, §2 commit model).
 2. [.github/copilot-instructions.md](../copilot-instructions.md) — engine allow-list & forbidden ops.
 3. This chat mode and the invoking prompt — concrete loop.
 
@@ -141,14 +141,31 @@ Before flipping the box:
 
 ### 4.7 Tick the box & commit
 
-1. Edit the roadmap line in place: `[ ]` → `[x]`. Append the proof-test citation if the bullet didn't already have one, in the format the existing roadmap uses (look at the surrounding bullets).
-2. `git add -A`.
-3. `git commit -m "p2p(<phase>): <one-line summary> [<run-id>]"`.
-4. `git switch main && git pull --ff-only` (rebase if needed; if rebase pulls in a conflicting roadmap edit, **re-run the gate from §4.4** before pushing).
-5. `git push origin main` — **never** `--force`.
-6. Append: `action=commit, status=completed, commit_sha=<short>, roadmap_box_state=[x], files_changed=N, …`.
+> **DUAL OBLIGATION — both are mandatory, in the same commit, every time:**
+> 1. The roadmap box in `docs/P2P_ROADMAP.md` must change from `[ ]` to `[x]`.
+> 2. A CSV row with `action=commit, roadmap_box_state=[x]` must be appended via [xops/agent/p2p_tracking_append.sh](../../xops/agent/p2p_tracking_append.sh).
+> Committing without one of these is a hard violation. The CSV row is appended **before** `git add` so that both changes land in the same atomic commit.
 
-If push is rejected (non-fast-forward and rebase fails): `git restore .`, append `action=revert, status=blocked`, exit `blocked`.
+Steps (in order — do not reorder):
+
+1. Edit `docs/P2P_ROADMAP.md`: change `[ ]` → `[x]` on the leaf line. Append the proof-test citation if missing, in the format the surrounding bullets use.
+2. Append the CSV row **before staging**:
+   ```bash
+   xops/agent/p2p_tracking_append.sh \
+     --run-id=<run_id> --command=/implement-roadmap --model=<model> \
+     --phase=<phase> --phase-title="<title>" \
+     --action=commit --status=completed \
+     --commit-sha=pending --roadmap-box-state="[x]" \
+     --files-changed=N --tests-added=M \
+     --tests-run=K --tests-passed=K --tests-failed=0 \
+     --proof-test-paths="<paths>"
+   ```
+   (Use `commit-sha=pending`; the actual SHA will be obtainable after commit via `git rev-parse --short HEAD`.)
+3. `git add -A` (stages implementation files + roadmap change + CSV row — all three together).
+4. `git commit -m "p2p(<phase>): <one-line summary> [<run-id>]"`. **Do not push** — push accumulates for the user's `make git`.
+5. Note the SHA: `sha=$(git rev-parse --short HEAD)`. Report `committed: $sha` in chat.
+
+If the commit fails for any reason: `git restore .`, append `action=revert, status=blocked`, exit `blocked`.
 
 ### 4.8 Rate-limit & resume protocol
 
@@ -195,7 +212,7 @@ The user runs this under "auto" model selection across GPT, Claude, and others. 
 
 Per [AGENTS.md](../../AGENTS.md) §2, every invocation of `/implement-roadmap`, `/review-roadmap-phase`, `/roadmap-status` must end in exactly one of:
 
-- **`pushed`** — at least one commit landed on `origin/main`; report SHAs in chat.
+- **`committed`** — at least one local commit was created; report SHA(s) in chat. **Do not push** — the user triggers push via `make git`.
 - **`reverted`** — at least one leaf was attempted and rolled back; CSV has the `revert` row.
 - **`no-op`** — selection was empty or every selected leaf was already `[x]` with green proof tests.
 - **`blocked`** — a `shared_edit`, rate-limit long cooldown, or unresolvable drift halted the loop; `agent/state/checkpoint.json` written.

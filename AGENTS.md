@@ -35,22 +35,31 @@ Before creating any new file (config, doc, script, test helper), confirm it does
 
 If you cannot find the file but its purpose seems generic, search the workspace with `grep_search` / `file_search` **before** creating a new one. Recreating an existing config under a slightly different path is a recurring failure mode and is forbidden.
 
-## 2. Mandatory commit & push after every slash command
+## 2. Mandatory commit after every slash command — push via `make git`
+
+**Push model (changed):** Agents commit locally after each completed task. Commits accumulate. The user pushes whenever ready via:
+
+```bash
+make git      # push all pending local commits to origin/main
+make git.dry  # preview what would be pushed (read-only)
+```
+
+`make git` stages any remaining uncommitted changes, auto-commits them, then pushes. Logic lives in `xops/makefile/git_ops.py` — no hardcoded git commands in the Makefile.
 
 Every `/<name>` command (`/improve-mod`, `/triage-audit-report`, and any future commands) must terminate in **exactly one** of these states:
 
 | Terminal state | When | What you must do |
 |---|---|---|
-| `pushed` | All gates green AND working tree had real changes | `git add -A && git commit -m "auto(<scope>): <summary> [<run-id>]" && git push origin main` — report the SHA in chat. |
-| `reverted` | Any gate failed | `git restore .` (or `git reset --hard HEAD` if local-only); file the finding in [agent/queue.yaml](agent/queue.yaml); no push. |
+| `committed` | All gates green AND working tree had real changes | `git add -A && git commit -m "auto(<scope>): <summary> [<run-id>]"` — **do not push**; report the local SHA in chat. The commit will be pushed by the user via `make git`. |
+| `reverted` | Any gate failed | `git restore .` (or `git reset --hard HEAD` if local-only); file the finding in [agent/queue.yaml](agent/queue.yaml); no commit. |
 | `no-op` | `git status -s` was already clean and no edits were needed | Say so in one line; no commit. |
-| `blocked` | Non-fast-forward push that did not survive a re-gate after rebase, OR mid-task you discovered the change requires `kind: shared_edit` | Write `agent/state/checkpoint.json`; report; do not push. |
+| `blocked` | A rebase is needed before the commit can land, OR mid-task you discovered the change requires `kind: shared_edit` | Write `agent/state/checkpoint.json`; report; do not commit. |
 
-You are **forbidden** from inventing a fifth state ("I'll let you review and commit it yourself", "this seems out of scope", "you might want to verify"). If gates are green and the diff is real, **you commit and you push**. If the user wants a dry run they will say so explicitly *before* the slash command starts.
+You are **forbidden** from inventing a fifth state ("I'll let you review and commit it yourself", "this seems out of scope", "you might want to verify"). If gates are green and the diff is real, **you commit** (do not push — that is the user's trigger via `make git`). If the user wants a dry run they will say so explicitly *before* the slash command starts.
 
-The same rule applies to non-slash work driven through Copilot Chat once the user has explicitly asked you to ship a change: gates pass → commit and push → report SHA. The exception is *exploratory* questions ("how does X work?") where no edits are intended.
+The same rule applies to non-slash work driven through Copilot Chat once the user has explicitly asked you to ship a change: gates pass → commit (no push) → report local SHA.
 
-Forbidden git operations under all circumstances: `--force`, `--force-with-lease`, `git reset --hard` on already-pushed commits, `--no-verify`, rewriting published history, deleting `main`.
+Forbidden git operations under all circumstances: `--force`, `--force-with-lease`, `git reset --hard` on already-pushed commits, `--no-verify`, rewriting published history, deleting `main`, and `git push` without being explicitly instructed by the user or by `make git`.
 
 ## 3. Tests move with code — no exceptions
 

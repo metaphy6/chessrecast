@@ -70,21 +70,21 @@ For each leaf, append at minimum:
 3. Zero or more `action=amend, status=passed|failed, files_changed=N` rows.
 4. One terminal `action=review, status=passed|failed|completed, roadmap_box_state=<final>` row.
 
-## Commit & push
+## Commit
 
 If any auto-amend produced changes:
 
 1. `git add -A`
 2. `git commit -m "p2p(<phase>): review fixes [<run-id>]"`
-3. `git switch main && git pull --ff-only`; rebase if needed.
-4. `git push origin main` — never `--force`.
-5. Append `action=commit, status=completed, commit_sha=<short>`.
+3. Append `action=commit, status=completed, commit_sha=<short>`.
+
+**Do not push** — commits accumulate for `make git`.
 
 If no amend was needed and every leaf's `action=review` is `passed` → exit `no-op`.
 
 ## Mandatory terminal state
 
-Per [AGENTS.md](../../AGENTS.md) §2: `pushed` / `reverted` / `no-op` / `blocked`. Report:
+Per [AGENTS.md](../../AGENTS.md) §2: `committed` / `reverted` / `no-op` / `blocked`. Report:
 
 - phase id,
 - count of leaves audited / drift kinds found / auto-fixed / queued,

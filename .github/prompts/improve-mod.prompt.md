@@ -65,12 +65,11 @@ Concretely, the **last action** of this command, if at least one task ended with
 ```bash
 git add -A
 git commit -m "auto(<mod>): <one-line summary> [<run-id>]"
-git switch main && git pull --ff-only   # rebase if needed; re-run the gate
-git push origin main                    # normal push, never --force
+# Do NOT push — commits accumulate; user pushes via: make git
 ```
 
-Then report the commit SHA in chat. The agent is **forbidden** from ending with phrases like "I'll let you review and commit yourself", "this seems out of scope to push", "I'll leave this uncommitted for now". If the user wanted a dry run they would have said so before invoking the slash command.
+Then report the local commit SHA in chat. The agent is **forbidden** from ending with phrases like "I'll let you review and commit yourself", "this seems out of scope", "I'll leave this uncommitted for now". If the user wanted a dry run they would have said so before invoking the slash command.
 
-If gates failed, the terminal action is `git restore .` (or `git reset --hard HEAD` if local-only) plus a fresh queue entry; never push the failing change.
+If gates failed, the terminal action is `git restore .` (or `git reset --hard HEAD` if local-only) plus a fresh queue entry; never commit the failing change.
 
 If the diff was empty (`git status -s` clean), say so in one line and exit; that is a `no-op`, not a problem.
