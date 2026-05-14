@@ -11,8 +11,7 @@ Operate per the `chess-mod-improver` chat mode and `.github/copilot-instructions
 
 1. Confirm `frontend/build/native/linux/libchess_engine.so` exists and is newer than the C sources; rebuild via the **`Frontend: Rebuild Native Engine`** VS Code task if not.
 2. Confirm `git status -s` is clean and `main` is up to date (`git switch main && git pull --ff-only`). If dirty, stop and report.
-3. Remind the user once: "If this is an overnight run, please run `./xops/power/agent-session-start.sh` now and `./xops/power/agent-session-stop.sh` when you're done."
-4. If `agent/baselines/${input:mod}.json` (or any of the seven for `ALL`) is missing or older than 7 days, schedule a baseline-refresh batch as the first task before triaging the queue.
+3. If `agent/baselines/${input:mod}.json` (or any of the seven for `ALL`) is missing or older than 7 days, schedule a baseline-refresh batch as the first task before triaging the queue.
 
 ## Task selection
 

@@ -230,8 +230,7 @@ cd frontend && cmake --build build/native/linux
 emulator -avd Pixel9ProXL
 # 4. Run Flutter app
 cd frontend && flutter run
-# 5. (Optional) overnight agent session
-./xops/power/agent-session-start.sh
+
 ```
 
 ---

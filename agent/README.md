@@ -24,20 +24,8 @@ agent/
 ## How to run a session
 
 1. Open this repo in VS Code with the GitHub Copilot Chat extension installed and signed in (Pro or Business plan; Agent mode enabled in settings).
-2. **Keep the workstation awake:**
-
-   ```bash
-   ./xops/power/agent-session-start.sh   # disables auto-suspend + auto-logout, screen blank 2h
-   ```
-
-   Restore defaults when you are done:
-
-   ```bash
-   ./xops/power/agent-session-stop.sh    # 3h logout, 5h suspend, 5min screen blank
-   ```
-
-3. Open Copilot Chat, switch to **Agent** mode, then select the **chess-mod-improver** chat mode from the mode dropdown.
-4. Run the slash prompt:
+2. Open Copilot Chat, switch to **Agent** mode, then select the **chess-mod-improver** chat mode from the mode dropdown.
+3. Run the slash prompt:
 
    ```
    /improve-mod

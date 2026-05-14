@@ -44,17 +44,51 @@ def _dirty() -> str:
     return _out(["git", "status", "--short"])
 
 
+def _conv_type(files: list[str]) -> str:
+    """Infer conventional-commit type from the list of changed file paths."""
+    paths = [f.lower() for f in files]
+    if all(p.startswith("docs/") or p.endswith(".md") for p in paths):
+        return "docs"
+    if all(p.startswith("frontend/test/") or "test" in p for p in paths):
+        return "test"
+    if all(p.startswith("agent/") or p.startswith("xops/") or p.startswith(".github/") for p in paths):
+        return "chore"
+    if all(p.startswith("frontend/native/") for p in paths):
+        return "perf"
+    if all(p.startswith("backend/") for p in paths):
+        return "feat"
+    return "chore"
+
+
+def _conv_scope(files: list[str]) -> str:
+    """Infer a short conventional-commit scope from the changed file paths."""
+    if not files:
+        return "workspace"
+    prefixes = {f.split("/")[0] for f in files}
+    if len(prefixes) == 1:
+        top = prefixes.pop()
+        # one level deeper for common top-level dirs
+        if top in ("frontend", "backend", "agent", "xops", "docs"):
+            second = {f.split("/")[1] for f in files if len(f.split("/")) > 1}
+            if len(second) == 1:
+                return second.pop()
+        return top
+    return "workspace"
+
+
 def _auto_message() -> str:
-    """Build a commit message from the staged diff stat."""
+    """Build a conventional-commit message from the staged diff stat."""
     names = _out(["git", "diff", "--cached", "--name-only"])
     files = [l.strip() for l in names.splitlines() if l.strip()]
     if not files:
         return "chore(workspace): sync workspace [auto]"
-    summary = ", ".join(files[:4])
-    if len(files) > 4:
-        summary += f" (+{len(files) - 4} more)"
+    ctype = _conv_type(files)
+    scope = _conv_scope(files)
+    summary = ", ".join(files[:3])
+    if len(files) > 3:
+        summary += f" (+{len(files) - 3} more)"
     ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    return f"chore(workspace): {summary} [auto-{ts}]"
+    return f"{ctype}({scope}): {summary} [auto-{ts}]"
 
 
 # ---------------------------------------------------------------------------

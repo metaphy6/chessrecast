@@ -26,7 +26,6 @@ Before creating any new config / doc / script, **first check whether it already 
 | Native engine build / artifacts | [docs/code/BUILD_ARTIFACTS_MANAGEMENT.md](../docs/code/BUILD_ARTIFACTS_MANAGEMENT.md), [docs/code/NATIVE_ENGINE_PLATFORM_AUDIT.md](../docs/code/NATIVE_ENGINE_PLATFORM_AUDIT.md) |
 | Test tooling notes | [docs/code/TEST_TOOL_IMPROVEMENTS.md](../docs/code/TEST_TOOL_IMPROVEMENTS.md), [docs/code/TEST_TOOL_ALGORITHM_IMPROVEMENT_MAP.md](../docs/code/TEST_TOOL_ALGORITHM_IMPROVEMENT_MAP.md) |
 | Agent loop state / queue / reports | [agent/README.md](../agent/README.md), [agent/queue.yaml](../agent/queue.yaml), [agent/baselines/](../agent/baselines), [agent/reports/](../agent/reports), [agent/state/](../agent/state) |
-| Power / wake-lock scripts | [xops/power/README.md](../xops/power/README.md) |
 | Native CMake | [frontend/CMakeLists.txt](../frontend/CMakeLists.txt), [frontend/native/engine/](../frontend/native/engine), build output `frontend/build/native/linux/` |
 | Per-mod source allow-list | see *Hard rules → 2* below |
 | Per-mod tests | `frontend/test/<mod>_*` and `frontend/test/manual_<mod>_*` |
@@ -40,7 +39,8 @@ Before creating any new config / doc / script, **first check whether it already 
 - `frontend/native/engine/` — C engine (`bridge.c`, per-mod heuristics, eval, search) used by the Flutter app via FFI.
 - `backend/` — Go services (out of scope for engine-strength work).
 - `agent/` — autonomous-loop state, queue, baselines, reports (see `agent/README.md`).
-- `xops/power/` — start/stop scripts that keep the workstation awake during long agent sessions.
+- `xops/agent/` — agent tooling scripts (safe-run, session-bootstrap, run-test-with-retry, p2p_tracking_append).
+- `xops/makefile/` — Python ops scripts invoked by the root `Makefile`.
 - Seven chess mods under active improvement: **heir, friendly_fire, kings_battle, mercenary, save_the_queen, succession, truce**.
 
 ## Game-quality charter (the bar every mod must meet)
@@ -87,12 +87,13 @@ A change is acceptable only when it improves at least one of those four buckets 
    - **`blocked`** — rebase needed and it did not pass a re-gate, or a `kind: shared_edit` requirement was discovered mid-task. State must be written to `agent/state/checkpoint.json`.
 
    "I'll let you review and commit yourself" is **not** an acceptable terminal state. If commit is genuinely undesired (e.g. user says "dry run"), the user must say so explicitly *before* the slash command runs.
+
+   **Commit message format:** every commit **must** follow [Conventional Commits](https://www.conventionalcommits.org/) — `type(scope): description [<run-id>]`. For engine-mod work the type is `auto` (e.g. `auto(heir): fix castling heuristic [abc123]`). For P2P work use `p2p(<phase>)`. For tooling use `chore(<area>)`. Auto-commits created by `make git` also follow this format.
 9. **System-level change guardrails.** The agent may change the repo, the Flutter SDK cache (`flutter pub get`), and the local native build directory (`frontend/build/native/`). The agent **must not**, without an explicit one-shot user confirmation in chat:
    - install / upgrade / remove OS packages (`apt`, `dnf`, `pacman`, `brew`, `snap`, `flatpak`),
    - modify systemd units, cron, login shells, `/etc/**`, kernel modules, firewall, SELinux/AppArmor profiles,
    - change global git config, global SSH config, GPG keyrings, or credential stores,
-   - touch any path outside this workspace except: `/tmp/agent-runs/**` (allowed; created on demand), `~/.cache/flutter/**` and `~/.pub-cache/**` (allowed via `flutter`/`dart` tooling only),
-   - run the [xops/power/](../xops/power) wake-lock scripts (those are user-initiated only — see *Long-session ergonomics*).
+   - touch any path outside this workspace except: `/tmp/agent-runs/**` (allowed; created on demand), `~/.cache/flutter/**` and `~/.pub-cache/**` (allowed via `flutter`/`dart` tooling only).
 
    System-level changes that are required for the project (e.g. a missing native dependency that breaks the build) **may** be requested, but the agent must propose the exact command in chat first, justify why a per-project alternative does not exist, and wait for the user's "go". Stability and security come before convenience: if a system change could harm the user's workstation or expose secrets, refuse and report.
 10. **Tests move with code (no exceptions).** Any code change must be accompanied — *in the same commit* — by the corresponding test work:
@@ -173,7 +174,7 @@ The per-mod allow-list above (Hard rules → 2) governs *engine strength* tasks.
 | `ui`       | `frontend/lib/ui/**`, `frontend/lib/board/**`, `frontend/lib/main.dart`, `frontend/lib/routes.dart`, `frontend/test/ui/**`, `frontend/test/info_panel_overflow_test.dart`, `frontend/test/widget_test.dart`, `frontend/assets/**`. |
 | `network`  | `frontend/lib/services/**` (when P2P / multiplayer modules exist), `backend/internal/**`, `backend/cmd/**`, `backend/config/**`, the matching tests under `frontend/test/network/**` and `backend/internal/**/_test.go`. |
 | `security` | `frontend/tool/scan_secrets.dart`, `frontend/analysis_options.yaml` (lints only), `backend/internal/**` (auth-touching code only), the matching tests. |
-| `tooling`  | `frontend/tool/**`, `xops/agent/**`, `xops/power/**` (read/edit; never run the power scripts), `.github/**`, `docs/coding/ai/**`, [agent/README.md](../agent/README.md). |
+| `tooling`  | `frontend/tool/**`, `xops/agent/**`, `xops/makefile/**`, `.github/**`, `docs/coding/ai/**`, [agent/README.md](../agent/README.md). |
 
 Forbidden in every area without a `kind: shared_edit` queue entry: `frontend/native/engine/search/search.c`, `frontend/native/engine/eval/eval.c`, `frontend/native/engine/bridge.c` outside `*_refine_result` blocks, `frontend/lib/engine/engine.dart`, `frontend/lib/engine/native.dart`, the chat mode file, the slash-command prompts, the `_audit_batch_test.dart` skip flags.
 
@@ -190,22 +191,6 @@ The engine exposes five tiers in `frontend/lib/engine/engine.dart` (`EngineLevel
 | `maximum` | 64    | 5000    | 4     | none       | 2800+ Elo     |
 
 `maximum` is the only tier targeted at 2800+ Elo opposition; lower tiers must remain weaker by construction (lower depth/skill, added move noise), not by being broken. Audit batches always run at the **reference** preset (depth 6 / 500 ms / skill 4) so KPIs are comparable across runs.
-
-## Long-session ergonomics
-
-Before kicking off `/improve-mod ALL` for an overnight run:
-
-```bash
-./xops/power/agent-session-start.sh   # disables auto-suspend + auto-logout, screen blank 2h
-```
-
-When the session is over:
-
-```bash
-./xops/power/agent-session-stop.sh    # restores: 3h logout, 5h suspend, 5min screen blank
-```
-
-See `xops/power/README.md` for what those scripts touch.
 
 ## Opening corpus & native-book charter
 

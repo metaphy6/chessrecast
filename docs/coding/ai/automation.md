@@ -20,7 +20,6 @@ Working today:
 - Per-mod allow-list and audit-batch + KPI gating via [.github/copilot-instructions.md](../../../.github/copilot-instructions.md).
 - Autonomous improvement loop ([.github/chatmodes/chess-mod-improver.chatmode.md](../../../.github/chatmodes/chess-mod-improver.chatmode.md)) driven by [agent/queue.yaml](../../../agent/queue.yaml).
 - Watchdog stop-tokens, baseline refresh, take-initiative directive, queue schema.
-- Long-session ergonomics via [xops/power/](../../../xops/power/).
 - Slash commands `/improve-mod` and `/triage-audit-report`.
 - `/memories/repo/*_notes.md` as long-lived per-mod memory.
 

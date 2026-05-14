@@ -61,6 +61,8 @@ The same rule applies to non-slash work driven through Copilot Chat once the use
 
 Forbidden git operations under all circumstances: `--force`, `--force-with-lease`, `git reset --hard` on already-pushed commits, `--no-verify`, rewriting published history, deleting `main`, and `git push` without being explicitly instructed by the user or by `make git`.
 
+**Commit message format:** every commit (manual or auto-generated) **must** follow [Conventional Commits](https://www.conventionalcommits.org/) — `type(scope): description`. Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`, `build`. Auto-commits by `make git` use type `chore`; engine-mod commits use `auto(<mod>)` or `feat(p2p)` etc. Never write a commit message that does not match `type(scope): …`.
+
 ## 3. Tests move with code — no exceptions
 
 Every behavior-changing commit must include the matching test work in the same commit:
@@ -90,8 +92,7 @@ You may **not**, without an explicit per-occurrence "go" from the user in chat:
 - install / upgrade / remove OS packages (`apt`, `dnf`, `pacman`, `brew`, `snap`, `flatpak`, `pip --user`, `npm -g`, …),
 - modify systemd units, cron, login shells, `/etc/**`, kernel modules, firewall rules, SELinux / AppArmor profiles,
 - change global git config (`git config --global ...`), global SSH / GPG / credential stores,
-- write outside the workspace except the explicitly-allowed paths above,
-- run [xops/power/agent-session-start.sh](xops/power/agent-session-start.sh) or [xops/power/agent-session-stop.sh](xops/power/agent-session-stop.sh) — these are user-initiated only.
+- write outside the workspace except the explicitly-allowed paths above.
 
 If a system change is genuinely required for the project (e.g. a missing native dependency blocks the build):
 1. propose the exact command(s) in chat,
