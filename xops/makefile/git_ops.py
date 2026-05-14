@@ -93,10 +93,19 @@ def _pending_csv() -> list[dict]:
 # ── CSV: derive commit message ──────────────────────────────────────────────────
 def _msg_from_csv(row: dict) -> str:
     """
-    Derive a conventional commit message from a p2p_tracking.csv row.
-    Format: p2p(<scope>): <phase_title> [<run_id>]
-    Validates that phase, phase_title, and run_id are non-empty.
+    Return the commit message for this CSV row.
+
+    If the row has a non-empty `commit_message` column that looks like a
+    conventional commit, use it directly — no derivation needed.
+
+    Otherwise fall back to assembling:  p2p(<scope>): <phase_title> [<run_id>]
+    with validation warnings for missing fields.
     """
+    explicit = (row.get("commit_message") or "").strip()
+    if explicit:
+        return explicit
+
+    # ── fallback: derive from phase / phase_title / run_id ──────────────────
     phase  = (row.get("phase")       or "").strip()
     title  = (row.get("phase_title") or "").strip()
     run_id = (row.get("run_id")      or "").strip()

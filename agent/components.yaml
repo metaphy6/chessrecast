@@ -1,0 +1,85 @@
+# agent/components.yaml — centralized component version registry
+#
+# Single source of truth for the current version of every tracked component.
+# Agents read this file when writing `component` + `component_version` columns
+# to agent/p2p_tracking.csv.
+#
+# Version bump rules:
+#   - patch (0.0.x): bug fix or non-functional change in a component
+#   - minor (0.x.0): new capability within the component (new phase leaf shipped)
+#   - major (x.0.0): breaking interface change (API shape, protocol change, etc.)
+#
+# To bump: edit the `version` field and commit with:
+#   chore(components): bump <component> to <version>
+
+components:
+
+  # ── P2P / networking layer ───────────────────────────────────────────────
+  p2p/signaling:
+    version: "0.1.0"
+    path: backend/cmd/api/
+    description: Go WebSocket / WebRTC signaling server
+
+  p2p/peer-connection:
+    version: "0.1.0"
+    path: frontend/lib/services/
+    description: Flutter WebRTC peer-connection + ICE negotiation
+
+  p2p/frontend:
+    version: "0.1.0"
+    path: frontend/lib/
+    description: Flutter P2P UI, lobby, and game session screens
+
+  # ── Chess engine mods ────────────────────────────────────────────────────
+  engine/heir:
+    version: "1.0.0"
+    path: frontend/native/engine/eval/eval_heir.c
+    description: Heir mod — dual-king eval and heuristics
+
+  engine/friendly_fire:
+    version: "1.0.0"
+    path: frontend/native/engine/eval/eval_friendly_fire.c
+    description: Friendly Fire mod eval and heuristics
+
+  engine/kings_battle:
+    version: "1.0.0"
+    path: frontend/native/engine/eval/eval_kings_battle.c
+    description: Kings Battle mod eval and heuristics
+
+  engine/mercenary:
+    version: "1.0.0"
+    path: frontend/native/engine/eval/eval_mercenary.c
+    description: Mercenary mod eval and heuristics
+
+  engine/save_the_queen:
+    version: "1.0.0"
+    path: frontend/native/engine/eval/eval_save_the_queen.c
+    description: Save the Queen mod eval and heuristics
+
+  engine/succession:
+    version: "1.0.0"
+    path: frontend/native/engine/eval/eval_succession.c
+    description: Succession mod eval and heuristics
+
+  engine/truce:
+    version: "1.0.0"
+    path: frontend/native/engine/eval/eval_truce.c
+    description: Truce mod eval and heuristics
+
+  # ── Shared engine ────────────────────────────────────────────────────────
+  engine/core:
+    version: "1.0.0"
+    path: frontend/native/engine/
+    description: Shared alpha-beta search, quiescence, move ordering
+
+  # ── Backend services ─────────────────────────────────────────────────────
+  backend/api:
+    version: "0.1.0"
+    path: backend/cmd/api/
+    description: Go REST/WS API gateway
+
+  # ── Agent tooling ────────────────────────────────────────────────────────
+  tooling/xops:
+    version: "1.0.0"
+    path: xops/
+    description: Agent scripts, Makefile automation, git_ops.py

@@ -159,8 +159,12 @@ Steps (in order — do not reorder):
      --commit-sha=pending --roadmap-box-state="[x]" \
      --files-changed=N --tests-added=M \
      --tests-run=K --tests-passed=K --tests-failed=0 \
-     --proof-test-paths="<paths>"
+     --proof-test-paths="<paths>" \
+     --component=<component> --component-version=<version> \
+     --commit-message="p2p(<scope>): <phase_title> [<run_id>]"
    ```
+   Read `component` and `component_version` from [agent/components.yaml](../../agent/components.yaml).
+   Write the exact conventional commit message into `--commit-message`; `make git` reads it directly.
 3. `git add -A` (stages implementation files + roadmap change + CSV row — all three together).
 4. **Do not commit.** `make git` will:
    - pop the tracking CSV from staging,

@@ -13,10 +13,11 @@
 #   xops/agent/p2p_tracking_append.sh \
 #     --run-id=<slug> --command=/implement-roadmap --model=<m> \
 #     --phase=<p> --phase-title="<t>" --action=<a> --status=<s> \
-#     [--commit-sha=<sha>] [--files-changed=N] [--tests-added=N] \
+#     [--commit-sha=pending|<sha>] [--files-changed=N] [--tests-added=N] \
 #     [--tests-run=N] [--tests-passed=N] [--tests-failed=N] \
 #     [--proof-test-paths="a;b"] [--roadmap-box-state="[ ]|[~]|[x]"] \
-#     [--drift-kind=<k>] [--evidence-path=<p>] [--notes="..."]
+#     [--drift-kind=<k>] [--evidence-path=<p>] [--notes="..."] \
+#     [--component=<c>] [--component-version=<v>] [--commit-message="..."]
 #
 # Defaults: counts → 0, drift-kind → none, box-state → "[ ]", others → "".
 # Exit non-zero on any invariant violation; the row is NOT appended.
@@ -33,6 +34,7 @@ action=""; status=""; commit_sha=""
 files_changed=0; tests_added=0; tests_run=0; tests_passed=0; tests_failed=0
 proof_test_paths=""; roadmap_box_state="[ ]"; drift_kind="none"
 evidence_path=""; notes=""
+component=""; component_version=""; commit_message=""
 
 # --- arg parsing -----------------------------------------------------------
 for arg in "$@"; do
@@ -55,6 +57,9 @@ for arg in "$@"; do
     --drift-kind=*)        drift_kind="${arg#*=}" ;;
     --evidence-path=*)     evidence_path="${arg#*=}" ;;
     --notes=*)             notes="${arg#*=}" ;;
+    --component=*)         component="${arg#*=}" ;;
+    --component-version=*) component_version="${arg#*=}" ;;
+    --commit-message=*)    commit_message="${arg#*=}" ;;
     *) echo "unknown arg: $arg" >&2; exit 64 ;;
   esac
 done
@@ -109,9 +114,14 @@ if [[ "$roadmap_box_state" == "[x]" ]]; then
 fi
 
 # --- commit_sha invariant --------------------------------------------------
-if [[ "$action" == "commit" || "$action" == "revert" ]]; then
+if [[ "$action" == "commit" ]]; then
+  # Accept 'pending' (written by agent before make git commits) or a real hex SHA
+  if [[ "$commit_sha" != "pending" ]] && ! [[ "$commit_sha" =~ ^[0-9a-f]{7,40}$ ]]; then
+    echo "action=commit requires --commit-sha=pending or --commit-sha=<7-40 hex>" >&2; exit 65
+  fi
+elif [[ "$action" == "revert" ]]; then
   [[ "$commit_sha" =~ ^[0-9a-f]{7,40}$ ]] || {
-    echo "action=$action requires --commit-sha=<7-40 hex>" >&2; exit 65; }
+    echo "action=revert requires --commit-sha=<7-40 hex>" >&2; exit 65; }
 else
   [[ -z "$commit_sha" ]] || {
     echo "--commit-sha forbidden for action=$action" >&2; exit 65; }
@@ -133,7 +143,8 @@ for v in \
   "$ts_utc" "$run_id" "$command" "$model" "$phase" "$phase_title" \
   "$action" "$status" "$commit_sha" "$files_changed" "$tests_added" \
   "$tests_run" "$tests_passed" "$tests_failed" "$proof_test_paths" \
-  "$roadmap_box_state" "$drift_kind" "$evidence_path" "$notes"; do
+  "$roadmap_box_state" "$drift_kind" "$evidence_path" "$notes" \
+  "$component" "$component_version" "$commit_message"; do
   row+="$(csv_escape "$v"),"
 done
 row="${row%,}"

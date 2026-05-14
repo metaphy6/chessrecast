@@ -80,8 +80,11 @@ If any auto-amend produced changes:
      --run-id=<run_id> --command=/review-roadmap-phase --model=<model> \
      --phase=<phase> --phase-title="<phase> review fixes" \
      --action=commit --status=completed \
-     --commit-sha=pending --roadmap-box-state="[x]"
+     --commit-sha=pending --roadmap-box-state="[x]" \
+     --component=<component> --component-version=<version> \
+     --commit-message="p2p(<scope>): <phase> review fixes [<run_id>]"
    ```
+   Read `component` and `component_version` from [agent/components.yaml](../../agent/components.yaml).
 2. `git add -A` (stages all amend changes + CSV row).
 3. **Do not commit.** `make git` reads the `commit_sha=pending` row, derives the message (`p2p(<scope>): <phase> review fixes [<run_id>]`), and commits.
 

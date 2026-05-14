@@ -33,6 +33,9 @@
 | 17 | `drift_kind` | enum | yes | `none` \| `spec_mismatch` \| `missing_test` \| `stale_box` \| `extra_change` \| `test_skipped` \| `assertion_weakened` \| `csv_tamper` \| `roadmap_edit_outside_p2p`. |
 | 18 | `evidence_path` | string | no | Path to a generated report / log under `agent/reports/p2p/` or `/tmp/agent-runs/`. |
 | 19 | `notes` | string ≤ 280 chars | no | One-sentence rationale; quoted. |
+| 20 | `component` | string | no | Logical sub-system this action belongs to (e.g. `p2p/signaling`, `p2p/peer-connection`, `p2p/frontend`, `engine/heir`). See [agent/components.yaml](components.yaml) for the canonical list and current versions. |
+| 21 | `component_version` | semver or empty | no | Version of the component from [agent/components.yaml](components.yaml) at the time of this action (e.g. `0.1.0`). Agents read the registry file to fill this in. |
+| 22 | `commit_message` | string | no | **The exact conventional commit message for this action when `action=commit`.** `make git` reads this column directly — no derivation is needed. Leave empty for non-commit rows. Must follow `type(scope): description [run_id]` format. When empty on a `commit` row, `make git` falls back to deriving the message from `phase`, `phase_title`, and `run_id`. |
 
 ## Drift definitions
 
@@ -52,9 +55,12 @@ The agent **must** auto-amend drift on detection (re-run the gate, re-toggle the
 ## Invariants the appender script enforces
 
 1. Header line is byte-for-byte the line above.
-2. Every row has exactly 19 columns.
+2. Every row has exactly **22 columns**.
 3. `ts_utc` strictly ≥ the previous row's `ts_utc` (monotone non-decreasing).
 4. `tests_passed + tests_failed == tests_run`.
 5. `roadmap_box_state == "[x]"` **only** if `tests_failed == 0` AND (`action ∈ {commit, review}`).
-6. `commit_sha` non-empty **iff** `action ∈ {commit, revert}`.
+6. `commit_sha` rules by action:
+   - `action=commit` → `commit_sha` must be `pending` (written by agent before `make git` commits) **or** a 7–40 hex SHA (after `make git` has updated the row).
+   - `action=revert` → `commit_sha` must be a 7–40 hex SHA (revert happens after an existing commit).
+   - all other actions → `commit_sha` must be empty.
 7. Atomic write via `flock` + temp-file rename so concurrent agent runs cannot interleave.
