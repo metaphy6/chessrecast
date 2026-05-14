@@ -42,7 +42,7 @@ You may freely create / edit:
 - `signaling/**` (entire new Go module under repo root)
 - `docs/P2P_ROADMAP.md` — but **only** to flip a single checkbox state and append the proof citation; never reword existing prose without a `kind: roadmap_edit` rationale row in the CSV.
 - `docs/P2P_*.md` — companion notes the roadmap explicitly creates.
-- `agent/p2p_tracking.csv` — exclusively via [xops/agent/p2p_tracking_append.sh](../../xops/agent/p2p_tracking_append.sh).
+- `agent/tracking.csv` — exclusively via [xops/agent/tracking_append.sh](../../xops/agent/tracking_append.sh).
 - `agent/baselines/p2p_*.json` — for Phase 6/17 KPI baselines.
 - `agent/reports/p2p/**` — proof artefacts (created on demand).
 - `.github/workflows/p2p-*.yml` — Phase 5 CI files only.
@@ -143,7 +143,7 @@ Before flipping the box:
 
 > **DUAL OBLIGATION — both are mandatory, staged together, every time:**
 > 1. The roadmap box in `docs/P2P_ROADMAP.md` must change from `[ ]` to `[x]`.
-> 2. A CSV row with `action=commit, roadmap_box_state=[x], commit_sha=pending` must be appended via [xops/agent/p2p_tracking_append.sh](../../xops/agent/p2p_tracking_append.sh).
+> 2. A CSV row with `action=commit, roadmap_box_state=[x], commit_sha=pending` must be appended via [xops/agent/tracking_append.sh](../../xops/agent/tracking_append.sh).
 >
 > **The agent does NOT call `git commit`.** `make git` reads the CSV row, derives the conventional commit message, commits the implementation, then writes the real SHA back to the CSV in a follow-up commit.
 
@@ -152,7 +152,7 @@ Steps (in order — do not reorder):
 1. Edit `docs/P2P_ROADMAP.md`: change `[ ]` → `[x]` on the leaf line. Append the proof-test citation if missing, in the format the surrounding bullets use.
 2. Append the CSV row **before staging**:
    ```bash
-   xops/agent/p2p_tracking_append.sh \
+   xops/agent/tracking_append.sh \
      --run-id=<run_id> --command=/implement-roadmap --model=<model> \
      --phase=<phase> --phase-title="<title>" \
      --action=commit --status=completed \

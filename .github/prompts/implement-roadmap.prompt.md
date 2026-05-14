@@ -33,7 +33,7 @@ If the user passes any unrecognised argument, **stop immediately** and ask for c
 1. Run [xops/agent/session-bootstrap.sh](../../xops/agent/session-bootstrap.sh). Triage any unresolved `agent/state/last_failure.json` first.
 2. `git switch main && git pull --ff-only`. Stop if dirty.
 3. Verify [agent/p2p_tracking.csv](../../agent/p2p_tracking.csv) header is intact (chatmode §4.1 step 3). On mismatch → `drift_kind=csv_tamper`, exit `blocked`.
-4. Verify [xops/agent/p2p_tracking_append.sh](../../xops/agent/p2p_tracking_append.sh) is executable (`chmod +x` if not — this is in-repo, allowed).
+4. Verify [xops/agent/tracking_append.sh](../../xops/agent/tracking_append.sh) is executable (`chmod +x` if not — this is in-repo, allowed).
 5. Resolve INCLUDE/EXCLUDE into a flat ordered leaf list. Post the count + first 5 leaves to chat. If the count is `0`, exit `no-op`.
 6. Generate one `run_id` (`p2p-$(date -u +%Y%m%d-%H%M%S)-$RANDOM`, matching the chat-mode convention). Reuse for every CSV row this session.
 7. Detect the active model name from the conversation context. If unknown, write `auto`. Reuse for every row.

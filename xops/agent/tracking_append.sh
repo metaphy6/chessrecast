@@ -24,7 +24,7 @@
 
 set -euo pipefail
 
-CSV="agent/p2p_tracking.csv"
+CSV="agent/tracking.csv"
 LOCK_FD=9
 
 # --- defaults --------------------------------------------------------------
@@ -67,15 +67,14 @@ done
 # --- required fields -------------------------------------------------------
 for var in run_id command model phase phase_title action status; do
   if [[ -z "${!var}" ]]; then
-    echo "p2p_tracking_append: --${var//_/-} is required" >&2; exit 65
+    echo "tracking_append: --${var//_/-} is required" >&2; exit 65
   fi
 done
 
 # --- enum validation -------------------------------------------------------
-case "$command" in
-  /implement-roadmap|/review-roadmap-phase|/roadmap-status) ;;
-  *) echo "invalid --command: $command" >&2; exit 65 ;;
-esac
+# Accept any /slash-command or bare identifier as the command string.
+[[ "$command" =~ ^/[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)*$|^[a-zA-Z0-9_-]+$ ]] || {
+  echo "invalid --command: '$command' (must start with / or be an identifier)" >&2; exit 65; }
 case "$action" in
   plan|implement|test|review|amend|skip|gate_fail|drift_detected|commit|revert) ;;
   *) echo "invalid --action: $action" >&2; exit 65 ;;
@@ -85,7 +84,7 @@ case "$status" in
   *) echo "invalid --status: $status" >&2; exit 65 ;;
 esac
 case "$drift_kind" in
-  none|spec_mismatch|missing_test|stale_box|extra_change|test_skipped|assertion_weakened|csv_tamper|roadmap_edit_outside_p2p) ;;
+  none|spec_mismatch|missing_test|stale_box|extra_change|test_skipped|assertion_weakened|csv_tamper|edit_outside_scope) ;;
   *) echo "invalid --drift-kind: $drift_kind" >&2; exit 65 ;;
 esac
 case "$roadmap_box_state" in

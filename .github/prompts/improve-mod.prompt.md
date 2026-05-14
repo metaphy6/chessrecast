@@ -55,20 +55,28 @@ Before claiming the first task, post a one-line plan listing the task ids you in
 
 Halt the loop when: file `agent/STOP` exists, three consecutive tasks ended in `failed`, the per-session task budget is exhausted, or the user types `stop`. **An empty queue is no longer a halt condition** — the *Empty-queue auto-discovery* step above will seed new tasks and continue. Halt only if discovery itself yields zero findings *and* there are still no `pending` tasks (genuine `no-op`).
 
-## Mandatory terminal state — commit and push, no exceptions
+## Mandatory terminal state — stage and wait for `make git`
 
-This slash command **must** end with the agent in one of the four terminal states defined in [.github/copilot-instructions.md](../copilot-instructions.md) → *Hard rules → 8* (`pushed` / `reverted` / `no-op` / `blocked`) and equivalently in [AGENTS.md](../../AGENTS.md) → *§2 Mandatory commit & push*.
+This slash command **must** end with the agent in one of the four terminal states defined in [.github/copilot-instructions.md](../copilot-instructions.md) → *Hard rules → 8* (`staged` / `reverted` / `no-op` / `blocked`) and equivalently in [AGENTS.md](../../AGENTS.md) → *§2 Mandatory tracking entry + stage*.
 
 Concretely, the **last action** of this command, if at least one task ended with `result: pass` and the working tree is dirty, is:
 
-```bash
-git add -A
-git commit -m "auto(<mod>): <one-line summary> [<run-id>]"
-# Do NOT push — commits accumulate; user pushes via: make git
-```
+1. Append a tracking row:
+   ```bash
+   xops/agent/tracking_append.sh \
+     --run-id=<run_id> --command=/improve-mod --model=<model> \
+     --phase=<mod> --phase-title="<one-line summary>" \
+     --action=commit --status=completed \
+     --commit-sha=pending --roadmap-box-state="[ ]" \
+     --component=engine/<mod> --component-version=<version> \
+     --commit-message="auto(<mod>): <one-line summary> [<run_id>]"
+   ```
+2. `git add -A`
+3. Report `staged: <list of staged files>, pending run_id: <run_id>` in chat.
+   **Do NOT call `git commit` or `git push`** — the user commits via `make git`.
 
-Then report the local commit SHA in chat. The agent is **forbidden** from ending with phrases like "I'll let you review and commit yourself", "this seems out of scope", "I'll leave this uncommitted for now". If the user wanted a dry run they would have said so before invoking the slash command.
+The agent is **forbidden** from ending with phrases like "I'll let you review and commit yourself", "this seems out of scope", "I'll leave this uncommitted for now". If the user wanted a dry run they would have said so before invoking the slash command.
 
-If gates failed, the terminal action is `git restore .` (or `git reset --hard HEAD` if local-only) plus a fresh queue entry; never commit the failing change.
+If gates failed, the terminal action is `git restore .` (or `git reset --hard HEAD` if local-only) plus a fresh queue entry; never stage the failing change.
 
 If the diff was empty (`git status -s` clean), say so in one line and exit; that is a `no-op`, not a problem.

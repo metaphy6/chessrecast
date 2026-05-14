@@ -2,14 +2,16 @@
 """
 git_ops.py — ChessRecast workspace git automation.
 
-Commit messages are derived from agent/p2p_tracking.csv when pending rows
-are present, guaranteeing conventional commits come from structured agent
-data rather than AI free-form text.
+Commit messages are derived from agent/tracking.csv when pending rows are
+present, guaranteeing conventional commits come from structured agent data
+rather than AI free-form text.  Agents NEVER call `git commit`; they append
+rows to tracking.csv and stage files.  This script is the sole commit
+ordinator — run via `make git` (push) or `make git.dry` (preview only).
 
 Commands:
-  dry   Preview staged changes, derived commit message, and push queue.
-  push  Commit staged changes (message from CSV or auto-derived), write
-        the real SHA back to the CSV, then push to origin/main.
+  dry   Preview staged changes, derived commit messages, and push queue.
+  push  Commit staged changes (messages from CSV rows), write real SHAs
+        back to tracking.csv, then push to origin/main.
 """
 
 import csv
@@ -19,8 +21,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CSV_FILE  = REPO_ROOT / "agent" / "p2p_tracking.csv"
-CSV_REL   = "agent/p2p_tracking.csv"
+CSV_FILE  = REPO_ROOT / "agent" / "tracking.csv"
+CSV_REL   = "agent/tracking.csv"
 
 # ── emoji constants ────────────────────────────────────────────────────────────
 FILES  = "📂"
@@ -69,10 +71,11 @@ def _pending_log() -> list[str]:
 # ── CSV: read pending rows ──────────────────────────────────────────────────────
 def _pending_csv() -> list[dict]:
     """
-    Return rows from p2p_tracking.csv where:
+    Return rows from tracking.csv where:
       commit_sha == 'pending'  AND
       action     == 'commit'   AND
       status     == 'completed'
+    Results are ordered by ts_utc (file order = append order).
     """
     if not CSV_FILE.exists():
         return []
@@ -213,7 +216,7 @@ def _file_line(path: str) -> None:
 
 # ── commands ───────────────────────────────────────────────────────────────────
 def dry():
-    """Read-only preview: staged changes, derived message, push queue."""
+    """Read-only preview: staged changes, derived commit messages, push queue."""
     dirty_list  = _dirty()
     staged_list = _staged()
     csv_rows    = _pending_csv()
@@ -227,14 +230,16 @@ def dry():
     else:
         print(f"\n{NONE}  No uncommitted changes")
 
-    # — commit message preview —
+    # — commit message preview — show all pending rows —
     if csv_rows:
-        _section(CSV_E, f"Commit message  (p2p_tracking.csv — {len(csv_rows)} pending row(s))")
-        print(f"   {ARROW}  {_msg_from_csv(csv_rows[0])}")
-        for r in csv_rows:
-            print(f"      run_id={r.get('run_id','')}  "
-                  f"phase={r.get('phase','')}  "
-                  f"phase_title={r.get('phase_title','')}")
+        _section(CSV_E, f"Pending commits (tracking.csv — {len(csv_rows)} row(s))")
+        for i, r in enumerate(csv_rows, start=1):
+            msg = _msg_from_csv(r)
+            label = "(all staged files)" if i == 1 else "(tracking update)"
+            print(f"   {ARROW}  [{i}] {msg}  {label}")
+            print(f"         run_id={r.get('run_id','')}  "
+                  f"component={r.get('component','')}  "
+                  f"phase={r.get('phase','')}")
     elif staged_list:
         _section(FILE, "Commit message  (auto-derived — no pending CSV rows)")
         print(f"   {ARROW}  {_auto_msg(staged_list)}")
@@ -250,18 +255,18 @@ def dry():
 
 def push():
     """
-    Commit staged changes (message from CSV or auto-derived), write the real
-    SHA back to the CSV in a follow-up commit, then push to origin/main.
+    Commit staged changes (messages from tracking.csv rows), write real SHAs
+    back to tracking.csv in a follow-up commit, then push to origin/main.
 
-    P2P mode  (CSV pending rows present):
-      1. Stage all unstaged changes.
-      2. Pop the tracking CSV from staging.
-      3. Commit implementation files with message derived from CSV row.
-      4. Write real SHA into CSV; stage + commit the update.
+    Tracked mode  (CSV pending rows present):
+      For each pending row (in append order):
+        - Row 1: commit all implementation files with that row's message.
+        - Rows 2+: no new impl files; each gets its own commit (tracking entry
+          + message from its CSV row) once the SHA from row 1 is resolved.
+      Finally: commit the tracking.csv SHA updates.
 
     Fallback mode  (no pending CSV rows):
-      1. Stage all unstaged changes.
-      2. Commit everything with an auto-derived conventional message.
+      Stage all changes, commit with an auto-derived conventional message.
     """
     dirty_list  = _dirty()
     staged_list = _staged()
@@ -275,17 +280,18 @@ def push():
         csv_rows = _pending_csv()
 
         if csv_rows:
-            # ── P2P mode ────────────────────────────────────────────────────────
-            msg = _msg_from_csv(csv_rows[0])
-            _section(CSV_E, "Commit message  (from p2p_tracking.csv)")
-            print(f"   {ARROW}  {msg}")
-
-            # Remove tracking CSV from staging — it gets its own commit with the real SHA
+            # ── Tracked mode ────────────────────────────────────────────────
+            # Remove tracking CSV from staging — it gets its own commit
             if CSV_REL in staged_list:
                 _run(["git", "restore", "--staged", CSV_REL])
 
             impl_files = [f for f in staged_list if f != CSV_REL]
-            sha = _out(["git", "rev-parse", "--short", "HEAD"])  # current HEAD (pre-commit)
+
+            # Row 1: commit all implementation files
+            first_row = csv_rows[0]
+            msg       = _msg_from_csv(first_row)
+            _section(CSV_E, f"Commit 1/{len(csv_rows)}  (tracking.csv row 1)")
+            print(f"   {ARROW}  {msg}")
 
             if impl_files:
                 _section(FILES, "Files in this commit")
@@ -300,20 +306,36 @@ def push():
                 sha = _out(["git", "rev-parse", "--short", "HEAD"])
                 print(f"\n{SHA}  SHA: {sha}")
             else:
-                print(f"{WARN} Nothing to commit outside the tracking CSV.")
+                sha = _out(["git", "rev-parse", "--short", "HEAD"])
+                print(f"{WARN} No implementation files staged; only updating tracking.csv.")
 
-            # Write SHA back and commit just the CSV
-            run_ids = {r["run_id"] for r in csv_rows}
-            if _write_sha(run_ids, sha):
+            _write_sha({first_row["run_id"]}, sha)
+
+            # Rows 2+: each gets its own commit with its message (no new impl files)
+            for i, row in enumerate(csv_rows[1:], start=2):
+                row_msg = _msg_from_csv(row)
+                _section(CSV_E, f"Commit {i}/{len(csv_rows)}  (tracking.csv row {i})")
+                print(f"   {ARROW}  {row_msg}")
+                _write_sha({row["run_id"]}, sha)   # same sha — these rows share the impl commit
                 _run(["git", "add", CSV_REL])
-                run_id_label = csv_rows[0].get("run_id", "auto")
-                csv_msg = f"chore(p2p): tracking sha update [{run_id_label}]"
-                _run(["git", "commit", "-m", csv_msg])
+                r = _run(["git", "commit", "-m", row_msg])
+                if r.returncode != 0:
+                    print(f"\n{ERR}  Tracking commit {i} failed.")
+                    sys.exit(r.returncode)
+                sha = _out(["git", "rev-parse", "--short", "HEAD"])
+                print(f"   {SHA}  {sha}")
+
+            # Final: commit remaining tracking.csv SHA updates
+            _run(["git", "add", CSV_REL])
+            run_id_label = first_row.get("run_id", "auto")
+            csv_msg = f"chore(tracking): sha update [{run_id_label}]"
+            r = _run(["git", "commit", "-m", csv_msg])
+            if r.returncode == 0:
                 sha2 = _out(["git", "rev-parse", "--short", "HEAD"])
-                print(f"{SHA}  CSV update: {sha2}  — {csv_msg}")
+                print(f"\n{SHA}  CSV update: {sha2}  — {csv_msg}")
 
         else:
-            # ── Fallback mode ────────────────────────────────────────────────────
+            # ── Fallback mode ────────────────────────────────────────────────
             msg = _auto_msg(staged_list)
             _section(FILE, "Commit message  (auto-derived — no pending CSV rows)")
             print(f"   {ARROW}  {msg}")

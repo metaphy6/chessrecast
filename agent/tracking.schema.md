@@ -1,14 +1,14 @@
-# `agent/p2p_tracking.csv` — schema
+# `agent/tracking.csv` — schema
 
-> Single source of truth for **P2P-roadmap implementation progress, drift, and review activity**. Written **only** by agents executing the `/implement-roadmap`, `/review-roadmap-phase`, and `/roadmap-status` slash commands. **No human edits, no other slash commands, no other code paths write to this file.** Tampering = treat as drift and revert per [AGENTS.md](../AGENTS.md) §3.
+> Single source of truth for **all agent-driven changes in this repository**: feature implementation, bug fixes, engine improvements, chores, refactors, and review activity. Written by any agent or slash command that makes a change. **Agents never call `git commit`; they append rows here and stage files. The human commits and pushes via `make git`.**
 
 ## File location & format
 
-- Path: [agent/p2p_tracking.csv](p2p_tracking.csv).
+- Path: [agent/tracking.csv](tracking.csv).
 - Encoding: UTF-8, LF line endings, no BOM.
 - Format: RFC 4180 CSV. Header is the first line and is fixed (see below). Fields containing `,`, `"`, or LF MUST be double-quoted; literal `"` inside quoted fields is doubled (`""`).
 - Append-only. Existing rows are immutable; corrections land as a *new* row with `action=amend` referencing the prior row's `run_id` + `phase` in `notes`.
-- Use [xops/agent/p2p_tracking_append.sh](../xops/agent/p2p_tracking_append.sh) to append rows; it enforces column count, escaping, and atomic writes.
+- Use [xops/agent/tracking_append.sh](../xops/agent/tracking_append.sh) to append rows; it enforces column count, escaping, and atomic writes.
 
 ## Columns (in order)
 
@@ -16,10 +16,10 @@
 |---|---|---|---|---|
 | 1 | `ts_utc` | ISO-8601 UTC, `YYYY-MM-DDTHH:MM:SSZ` | yes | Wall clock at row write. |
 | 2 | `run_id` | `[a-z0-9-]{6,40}` | yes | Stable id for the slash-command invocation. Reused across every row from the same run. |
-| 3 | `command` | enum | yes | `/implement-roadmap` \| `/review-roadmap-phase` \| `/roadmap-status`. |
+| 3 | `command` | string | yes | The slash command or agent action that produced this row (e.g. `/implement-roadmap`, `/improve-mod`, `/triage-audit-report`, `/review-roadmap-phase`). Must start with `/` or be a valid identifier. |
 | 4 | `model` | string | yes | The model the agent reports it is running under (e.g. `claude-opus-4.7`, `gpt-5`, `auto`). When unknown, write `unknown`. |
-| 5 | `phase` | string | yes | Phase identifier — `0`, `3`, `3.3`, `7.9`, or `3.3.bullet-2` for sub-bullet granularity. Top-level phases are `0`–`19`. |
-| 6 | `phase_title` | string | yes | First ≤ 80 chars of the roadmap heading; quoted. |
+| 5 | `phase` | string | yes | Identifier for the work unit — a roadmap phase (`0`–`19`, `3.3`, `7.9.bullet-2`), a mod name (`heir`), a chore slug (`ops-rename`), or any short stable token. |
+| 6 | `phase_title` | string | yes | Human-readable description of the work unit (≤ 80 chars); quoted. |
 | 7 | `action` | enum | yes | `plan` \| `implement` \| `test` \| `review` \| `amend` \| `skip` \| `gate_fail` \| `drift_detected` \| `commit` \| `revert`. |
 | 8 | `status` | enum | yes | `started` \| `in_progress` \| `passed` \| `failed` \| `reverted` \| `blocked` \| `completed`. |
 | 9 | `commit_sha` | 7–40 hex chars or empty | no | Set on `action=commit` / `revert`; otherwise empty. |
@@ -42,15 +42,13 @@
 A drift row (`action=drift_detected`, non-`none` `drift_kind`) MUST be filed whenever the agent observes any of:
 
 - **`spec_mismatch`** — a checkbox on `[x]` whose proof test does not exist or fails on a fresh checkout.
-- **`missing_test`** — a checkbox on `[x]` or `[~]` for a bullet whose `**Proof:**` clause references a path that doesn't exist in `frontend/test/p2p/**` or `signaling/internal/**`.
-- **`stale_box`** — code that fulfils a bullet exists on `main`, but the box is still `[ ]`.
-- **`extra_change`** — files outside the per-area allow-list (see chatmode) were modified by a prior P2P run.
-- **`test_skipped`** — a P2P proof test was added with `@Skip` / `skip:` / `markTestSkipped(`.
-- **`assertion_weakened`** — a P2P proof test was edited to remove or relax `expect(`.
-- **`csv_tamper`** — `agent/p2p_tracking.csv` has rows whose `tests_failed > 0` followed by `roadmap_box_state=[x]`, or any non-monotone `ts_utc`, or any row not appended via [xops/agent/p2p_tracking_append.sh](../xops/agent/p2p_tracking_append.sh) (verifiable by the per-row trailing newline + RFC 4180 quoting check the script enforces).
-- **`roadmap_edit_outside_p2p`** — a recent commit changed [docs/P2P_ROADMAP.md](../docs/P2P_ROADMAP.md) without a matching `commit` row in this CSV.
-
-The agent **must** auto-amend drift on detection (re-run the gate, re-toggle the box, file a `revert` row if a commit must be backed out).
+- **`missing_test`** — a behavior-change commit has no matching test (violates AGENTS.md §3).
+- **`stale_box`** — code that fulfils a roadmap bullet exists on `main`, but the box is still `[ ]`.
+- **`extra_change`** — files outside the per-area allow-list were modified by a prior run.
+- **`test_skipped`** — a proof test was added with `@Skip` / `skip:` / `markTestSkipped(`.
+- **`assertion_weakened`** — a test was edited to remove or relax `expect(`.
+- **`csv_tamper`** — `agent/tracking.csv` has rows whose `tests_failed > 0` followed by `roadmap_box_state=[x]`, any non-monotone `ts_utc`, or any row not appended via [xops/agent/tracking_append.sh](../xops/agent/tracking_append.sh).
+- **`edit_outside_scope`** — a commit changed files outside the task's allowed paths without a `shared_edit` queue entry.
 
 ## Invariants the appender script enforces
 

@@ -35,33 +35,34 @@ Before creating any new file (config, doc, script, test helper), confirm it does
 
 If you cannot find the file but its purpose seems generic, search the workspace with `grep_search` / `file_search` **before** creating a new one. Recreating an existing config under a slightly different path is a recurring failure mode and is forbidden.
 
-## 2. Mandatory commit after every slash command — push via `make git`
+## 2. Mandatory tracking entry + stage after every slash command — human pushes via `make git`
 
-**Push model (changed):** Agents commit locally after each completed task. Commits accumulate. The user pushes whenever ready via:
+**Commit model:** Agents **never** call `git commit` or `git push`. After completing a task, agents:
+1. Append a row to [agent/tracking.csv](agent/tracking.csv) via [xops/agent/tracking_append.sh](xops/agent/tracking_append.sh) with `action=commit, commit_sha=pending, commit_message="<type>(<scope>): <desc> [<run-id>]"`.
+2. Stage all changed files with `git add`.
+3. Stop. The user commits and pushes whenever ready via:
 
 ```bash
-make git      # push all pending local commits to origin/main
-make git.dry  # preview what would be pushed (read-only)
+make git      # commit all staged changes (messages from tracking.csv) then push
+make git.dry  # preview what would be committed and pushed (read-only)
 ```
 
-`make git` stages any remaining uncommitted changes, auto-commits them, then pushes. Logic lives in `xops/makefile/git_ops.py` — no hardcoded git commands in the Makefile.
+`make git` reads pending rows from `tracking.csv`, creates one conventional commit per row (all implementation files go into the first commit), writes real SHAs back into the CSV, then pushes. Logic lives in `xops/makefile/git_ops.py`.
 
-Every `/<name>` command (`/improve-mod`, `/triage-audit-report`, and any future commands) must terminate in **exactly one** of these states:
+Every `/<name>` command must terminate in **exactly one** of these states:
 
 | Terminal state | When | What you must do |
 |---|---|---|
-| `committed` | All gates green AND working tree had real changes | `git add -A && git commit -m "auto(<scope>): <summary> [<run-id>]"` — **do not push**; report the local SHA in chat. The commit will be pushed by the user via `make git`. |
-| `reverted` | Any gate failed | `git restore .` (or `git reset --hard HEAD` if local-only); file the finding in [agent/queue.yaml](agent/queue.yaml); no commit. |
-| `no-op` | `git status -s` was already clean and no edits were needed | Say so in one line; no commit. |
-| `blocked` | A rebase is needed before the commit can land, OR mid-task you discovered the change requires `kind: shared_edit` | Write `agent/state/checkpoint.json`; report; do not commit. |
+| `staged` | All gates green AND working tree had real changes | Append tracking row with `commit_sha=pending`, then `git add -A`; report staged files and pending `run_id` in chat. **Never `git commit` or `git push`.** |
+| `reverted` | Any gate failed | `git restore .` (or `git reset --hard HEAD` if local-only); file the finding in [agent/queue.yaml](agent/queue.yaml); no staging. |
+| `no-op` | `git status -s` was already clean and no edits were needed | Say so in one line; nothing to stage. |
+| `blocked` | A rebase is needed before the work can land, OR mid-task you discovered the change requires `kind: shared_edit` | Write `agent/state/checkpoint.json`; report; do not stage. |
 
-You are **forbidden** from inventing a fifth state ("I'll let you review and commit it yourself", "this seems out of scope", "you might want to verify"). If gates are green and the diff is real, **you commit** (do not push — that is the user's trigger via `make git`). If the user wants a dry run they will say so explicitly *before* the slash command starts.
+You are **forbidden** from inventing a fifth state. If gates are green and the diff is real, **you stage** (append tracking row + `git add`). The user commits via `make git`.
 
-The same rule applies to non-slash work driven through Copilot Chat once the user has explicitly asked you to ship a change: gates pass → commit (no push) → report local SHA.
+Forbidden git operations under all circumstances: `git commit`, `git push`, `--force`, `--force-with-lease`, `git reset --hard` on already-pushed commits, `--no-verify`, rewriting published history, deleting `main`.
 
-Forbidden git operations under all circumstances: `--force`, `--force-with-lease`, `git reset --hard` on already-pushed commits, `--no-verify`, rewriting published history, deleting `main`, and `git push` without being explicitly instructed by the user or by `make git`.
-
-**Commit message format:** every commit (manual or auto-generated) **must** follow [Conventional Commits](https://www.conventionalcommits.org/) — `type(scope): description`. Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`, `build`. Auto-commits by `make git` use type `chore`; engine-mod commits use `auto(<mod>)` or `feat(p2p)` etc. Never write a commit message that does not match `type(scope): …`.
+**Commit message format:** every `commit_message` field in tracking.csv **must** follow [Conventional Commits](https://www.conventionalcommits.org/) — `type(scope): description [run_id]`. Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`, `build`, `auto`. Engine-mod work uses `auto(<mod>)`; P2P work uses `p2p(<phase>)`; tooling uses `chore(<area>)`.
 
 ## 3. Tests move with code — no exceptions
 

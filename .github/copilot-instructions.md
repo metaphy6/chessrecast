@@ -39,7 +39,7 @@ Before creating any new config / doc / script, **first check whether it already 
 - `frontend/native/engine/` — C engine (`bridge.c`, per-mod heuristics, eval, search) used by the Flutter app via FFI.
 - `backend/` — Go services (out of scope for engine-strength work).
 - `agent/` — autonomous-loop state, queue, baselines, reports (see `agent/README.md`).
-- `xops/agent/` — agent tooling scripts (safe-run, session-bootstrap, run-test-with-retry, p2p_tracking_append).
+- `xops/agent/` — agent tooling scripts (safe-run, session-bootstrap, run-test-with-retry, tracking_append).
 - `xops/makefile/` — Python ops scripts invoked by the root `Makefile`.
 - Seven chess mods under active improvement: **heir, friendly_fire, kings_battle, mercenary, save_the_queen, succession, truce**.
 
@@ -59,7 +59,7 @@ A change is acceptable only when it improves at least one of those four buckets 
 
 ## Hard rules (do not violate)
 
-1. **Main branch is allowed.** The agent may commit directly to `main` *only after* all gates in rule 4 pass. **Pushing is done by the user via `make git`** — agents never call `git push` directly. Still forbidden: `git push --force`, `git push --force-with-lease`, `git reset --hard` on already-pushed commits, `--no-verify`, rewriting published history, deleting `main`. On any gate failure the agent must `git restore .` (or `git reset --hard HEAD` if nothing has been committed yet) and never commit the failing change.
+1. **Agents never commit or push.** Make changes, append a row to `agent/tracking.csv` via [xops/agent/tracking_append.sh](../xops/agent/tracking_append.sh) with `action=commit, commit_sha=pending`, stage all files with `git add`, then stop. The user commits and pushes via `make git`. Forbidden under all circumstances: `git commit`, `git push`, `git push --force`, `git push --force-with-lease`, `git reset --hard` on already-pushed commits, `--no-verify`, rewriting published history, deleting `main`. On any gate failure the agent must `git restore .` (unstage and discard) and never stage the failing change.
 2. **Per-mod isolation.** When fixing a single mod, only edit:
    - `frontend/lib/mods/<mod>.dart` (and any `frontend/lib/mods/<mod>/**` subtree),
    - `frontend/lib/engine/<mod>_*.dart` (if present),
@@ -80,15 +80,15 @@ A change is acceptable only when it improves at least one of those four buckets 
 5. **Rate-limit hygiene.** If a tool call returns 429 / "rate limit" / "quota": stop the current task, write progress to `agent/state/checkpoint.json`, and pause for the cooldown the response specifies (or 5 minutes if unspecified) before resuming. Never retry tighter than exponential backoff.
 6. **Findings must be evidence-backed.** A "blunder" or "rule violation" is only a finding if it appears in a generated audit report file under `/tmp/` or `agent/reports/`. No edits based on guessed positions.
 7. **Never edit the `_audit_batch_test.dart` / `_position_probe_test.dart` skip flags or thresholds to make a run pass.** Those tests are the gate.
-8. **Mandatory commit after every slash command.** Any `/<name>` command (`/improve-mod`, `/triage-audit-report`, future commands) **must end** with the agent committing (not pushing) to `main` if — and only if — every gate in rule 4 passed and the working tree contains real changes. Push is done by the user via `make git` (see [AGENTS.md](../AGENTS.md) §2). The agent is **forbidden** from inventing reasons to defer the commit ("for the user to review", "needs verification", "out of scope") when gates are green. The acceptable terminal states of a slash command are exactly:
-   - **`committed`** — gates green, `git add -A && git commit -m "auto(<scope>): …"` exit 0, local commit SHA reported in chat. **Never `git push` directly.**
-   - **`reverted`** — at least one gate failed; `git restore .` (or `git reset --hard HEAD` if local-only), no commit, finding filed in `agent/queue.yaml`.
-   - **`no-op`** — `git status -s` was already clean before any edit; nothing to commit.
-   - **`blocked`** — rebase needed and it did not pass a re-gate, or a `kind: shared_edit` requirement was discovered mid-task. State must be written to `agent/state/checkpoint.json`.
+8. **Mandatory tracking entry + stage after every slash command.** Any `/<name>` command **must end** by appending a row to `agent/tracking.csv` with `action=commit, commit_sha=pending` and `commit_message` set to the exact conventional commit message, then running `git add -A`. The acceptable terminal states of a slash command are exactly:
+   - **`staged`** — gates green, tracking row appended, `git add -A` clean, staged file list reported in chat. **Never `git commit` or `git push` directly.**
+   - **`reverted`** — at least one gate failed; `git restore .` (or `git reset --hard HEAD` if local-only), no staging, finding filed in `agent/queue.yaml`.
+   - **`no-op`** — `git status -s` was already clean before any edit; nothing to stage.
+   - **`blocked`** — rebase needed, or a `kind: shared_edit` requirement was discovered mid-task. State must be written to `agent/state/checkpoint.json`.
 
-   "I'll let you review and commit yourself" is **not** an acceptable terminal state. If commit is genuinely undesired (e.g. user says "dry run"), the user must say so explicitly *before* the slash command runs.
+   "I'll let you review and commit yourself" is **not** an acceptable terminal state. If gates are green and the diff is real, **you stage** (append tracking row + `git add`). The user commits via `make git`.
 
-   **Commit message format:** every commit **must** follow [Conventional Commits](https://www.conventionalcommits.org/) — `type(scope): description [<run-id>]`. For engine-mod work the type is `auto` (e.g. `auto(heir): fix castling heuristic [abc123]`). For P2P work use `p2p(<phase>)`. For tooling use `chore(<area>)`. Auto-commits created by `make git` also follow this format.
+   **Commit message format:** every `commit_message` field **must** follow [Conventional Commits](https://www.conventionalcommits.org/) — `type(scope): description [<run-id>]`. For engine-mod work the type is `auto` (e.g. `auto(heir): fix castling heuristic [abc123]`). For P2P work use `p2p(<phase>)`. For tooling use `chore(<area>)`. `make git` reads this column and commits with it verbatim.
 9. **System-level change guardrails.** The agent may change the repo, the Flutter SDK cache (`flutter pub get`), and the local native build directory (`frontend/build/native/`). The agent **must not**, without an explicit one-shot user confirmation in chat:
    - install / upgrade / remove OS packages (`apt`, `dnf`, `pacman`, `brew`, `snap`, `flatpak`),
    - modify systemd units, cron, login shells, `/etc/**`, kernel modules, firewall, SELinux/AppArmor profiles,

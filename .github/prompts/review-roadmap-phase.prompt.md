@@ -76,7 +76,7 @@ If any auto-amend produced changes:
 
 1. Append the CSV row **before staging**:
    ```bash
-   xops/agent/p2p_tracking_append.sh \
+   xops/agent/tracking_append.sh \
      --run-id=<run_id> --command=/review-roadmap-phase --model=<model> \
      --phase=<phase> --phase-title="<phase> review fixes" \
      --action=commit --status=completed \
