@@ -26,7 +26,7 @@ Before creating any new config / doc / script, **first check whether it already 
 | Native engine build / artifacts | [docs/code/BUILD_ARTIFACTS_MANAGEMENT.md](../docs/code/BUILD_ARTIFACTS_MANAGEMENT.md), [docs/code/NATIVE_ENGINE_PLATFORM_AUDIT.md](../docs/code/NATIVE_ENGINE_PLATFORM_AUDIT.md) |
 | Test tooling notes | [docs/code/TEST_TOOL_IMPROVEMENTS.md](../docs/code/TEST_TOOL_IMPROVEMENTS.md), [docs/code/TEST_TOOL_ALGORITHM_IMPROVEMENT_MAP.md](../docs/code/TEST_TOOL_ALGORITHM_IMPROVEMENT_MAP.md) |
 | Agent loop state / queue / reports | [agent/README.md](../agent/README.md), [agent/queue.yaml](../agent/queue.yaml), [agent/baselines/](../agent/baselines), [agent/reports/](../agent/reports), [agent/state/](../agent/state) |
-| Power / wake-lock scripts | [scripts/power/README.md](../scripts/power/README.md) |
+| Power / wake-lock scripts | [xops/power/README.md](../xops/power/README.md) |
 | Native CMake | [frontend/CMakeLists.txt](../frontend/CMakeLists.txt), [frontend/native/engine/](../frontend/native/engine), build output `frontend/build/native/linux/` |
 | Per-mod source allow-list | see *Hard rules → 2* below |
 | Per-mod tests | `frontend/test/<mod>_*` and `frontend/test/manual_<mod>_*` |
@@ -40,7 +40,7 @@ Before creating any new config / doc / script, **first check whether it already 
 - `frontend/native/engine/` — C engine (`bridge.c`, per-mod heuristics, eval, search) used by the Flutter app via FFI.
 - `backend/` — Go services (out of scope for engine-strength work).
 - `agent/` — autonomous-loop state, queue, baselines, reports (see `agent/README.md`).
-- `scripts/power/` — start/stop scripts that keep the workstation awake during long agent sessions.
+- `xops/power/` — start/stop scripts that keep the workstation awake during long agent sessions.
 - Seven chess mods under active improvement: **heir, friendly_fire, kings_battle, mercenary, save_the_queen, succession, truce**.
 
 ## Game-quality charter (the bar every mod must meet)
@@ -92,7 +92,7 @@ A change is acceptable only when it improves at least one of those four buckets 
    - modify systemd units, cron, login shells, `/etc/**`, kernel modules, firewall, SELinux/AppArmor profiles,
    - change global git config, global SSH config, GPG keyrings, or credential stores,
    - touch any path outside this workspace except: `/tmp/agent-runs/**` (allowed; created on demand), `~/.cache/flutter/**` and `~/.pub-cache/**` (allowed via `flutter`/`dart` tooling only),
-   - run the [scripts/power/](../scripts/power) wake-lock scripts (those are user-initiated only — see *Long-session ergonomics*).
+   - run the [xops/power/](../xops/power) wake-lock scripts (those are user-initiated only — see *Long-session ergonomics*).
 
    System-level changes that are required for the project (e.g. a missing native dependency that breaks the build) **may** be requested, but the agent must propose the exact command in chat first, justify why a per-project alternative does not exist, and wait for the user's "go". Stability and security come before convenience: if a system change could harm the user's workstation or expose secrets, refuse and report.
 10. **Tests move with code (no exceptions).** Any code change must be accompanied — *in the same commit* — by the corresponding test work:
@@ -112,7 +112,7 @@ A change is acceptable only when it improves at least one of those four buckets 
 
     On 429 / rate-limit / SIGINT mid-task: write `agent/state/checkpoint.json` with the current step, then exit cleanly. Do not attempt destructive cleanup on the way out.
 
-    **Non-zero exit recovery (see [AGENTS.md](../AGENTS.md) §5a).** Wrap risky / long commands with [scripts/agent/safe-run.sh](../scripts/agent/safe-run.sh) so that exit code, full output, and command/env are persisted to `/tmp/agent-runs/<run-id>.{cmd,log,exit}` and a breadcrumb to `agent/state/last_failure.json` even if the chat session or terminal dies. On any non-zero exit (or unresolved `last_failure.json` at session start) the order is fixed: **read the .log → diagnose root cause → fix it → resume the interrupted task → mark `resolved: true` (or delete the marker)**. Never retry the same failing command without first reading its log; never silence a non-zero exit with `|| true` / `set +e` / `> /dev/null` to make a gate appear green.
+    **Non-zero exit recovery (see [AGENTS.md](../AGENTS.md) §5a).** Wrap risky / long commands with [xops/agent/safe-run.sh](../xops/agent/safe-run.sh) so that exit code, full output, and command/env are persisted to `/tmp/agent-runs/<run-id>.{cmd,log,exit}` and a breadcrumb to `agent/state/last_failure.json` even if the chat session or terminal dies. On any non-zero exit (or unresolved `last_failure.json` at session start) the order is fixed: **read the .log → diagnose root cause → fix it → resume the interrupted task → mark `resolved: true` (or delete the marker)**. Never retry the same failing command without first reading its log; never silence a non-zero exit with `|| true` / `set +e` / `> /dev/null` to make a gate appear green.
 
 ## Take-initiative directive
 
@@ -173,7 +173,7 @@ The per-mod allow-list above (Hard rules → 2) governs *engine strength* tasks.
 | `ui`       | `frontend/lib/ui/**`, `frontend/lib/board/**`, `frontend/lib/main.dart`, `frontend/lib/routes.dart`, `frontend/test/ui/**`, `frontend/test/info_panel_overflow_test.dart`, `frontend/test/widget_test.dart`, `frontend/assets/**`. |
 | `network`  | `frontend/lib/services/**` (when P2P / multiplayer modules exist), `backend/internal/**`, `backend/cmd/**`, `backend/config/**`, the matching tests under `frontend/test/network/**` and `backend/internal/**/_test.go`. |
 | `security` | `frontend/tool/scan_secrets.dart`, `frontend/analysis_options.yaml` (lints only), `backend/internal/**` (auth-touching code only), the matching tests. |
-| `tooling`  | `frontend/tool/**`, `scripts/agent/**`, `scripts/power/**` (read/edit; never run the power scripts), `.github/**`, `docs/coding/ai/**`, [agent/README.md](../agent/README.md). |
+| `tooling`  | `frontend/tool/**`, `xops/agent/**`, `xops/power/**` (read/edit; never run the power scripts), `.github/**`, `docs/coding/ai/**`, [agent/README.md](../agent/README.md). |
 
 Forbidden in every area without a `kind: shared_edit` queue entry: `frontend/native/engine/search/search.c`, `frontend/native/engine/eval/eval.c`, `frontend/native/engine/bridge.c` outside `*_refine_result` blocks, `frontend/lib/engine/engine.dart`, `frontend/lib/engine/native.dart`, the chat mode file, the slash-command prompts, the `_audit_batch_test.dart` skip flags.
 
@@ -196,16 +196,16 @@ The engine exposes five tiers in `frontend/lib/engine/engine.dart` (`EngineLevel
 Before kicking off `/improve-mod ALL` for an overnight run:
 
 ```bash
-./scripts/power/agent-session-start.sh   # disables auto-suspend + auto-logout, screen blank 2h
+./xops/power/agent-session-start.sh   # disables auto-suspend + auto-logout, screen blank 2h
 ```
 
 When the session is over:
 
 ```bash
-./scripts/power/agent-session-stop.sh    # restores: 3h logout, 5h suspend, 5min screen blank
+./xops/power/agent-session-stop.sh    # restores: 3h logout, 5h suspend, 5min screen blank
 ```
 
-See `scripts/power/README.md` for what those scripts touch.
+See `xops/power/README.md` for what those scripts touch.
 
 ## Opening corpus & native-book charter
 

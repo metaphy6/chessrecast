@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/agent/safe-run.sh
+# xops/agent/safe-run.sh
 #
 # Crash-safe command wrapper. Use this for any command whose failure would
 # otherwise leave the agent stuck (terminal died, output lost, "Analyzing..."
@@ -24,10 +24,10 @@
 # the same code the wrapped command did, so calling gates still see failure.
 #
 # Usage:
-#   scripts/agent/safe-run.sh <tag> -- <command> [args...]
+#   xops/agent/safe-run.sh <tag> -- <command> [args...]
 #
 # Example:
-#   scripts/agent/safe-run.sh heir-batch -- flutter test test/manual_heir_audit_batch_test.dart
+#   xops/agent/safe-run.sh heir-batch -- flutter test test/manual_heir_audit_batch_test.dart
 #
 # <tag> is a short slug (a-z0-9_-) used in the run-id. Keep it descriptive
 # (e.g. "heir-batch", "rebuild-native", "merc-probe-fen").

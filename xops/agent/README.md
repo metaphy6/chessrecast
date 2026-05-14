@@ -1,4 +1,4 @@
-# `scripts/agent/`
+# `xops/agent/`
 
 Helpers the AI assistant runs **inside** the workspace. Read-only by design — these scripts never install OS packages, never touch `/etc`, and never modify global git config (per [AGENTS.md](../../AGENTS.md) §4).
 
@@ -7,7 +7,7 @@ Helpers the AI assistant runs **inside** the workspace. Read-only by design — 
 Run **first thing** in every new Copilot Chat / Claude / Cursor session:
 
 ```bash
-./scripts/agent/session-bootstrap.sh
+./xops/agent/session-bootstrap.sh
 ```
 
 It prints (and only prints):
@@ -27,9 +27,9 @@ If anything is yellow / red, address it before claiming a new task. See [AGENTS.
 Crash-safe wrapper for any command whose failure would otherwise leave the agent stuck on "Analyzing…" because the terminal died and took its output buffer with it.
 
 ```bash
-./scripts/agent/safe-run.sh <tag> -- <command> [args...]
+./xops/agent/safe-run.sh <tag> -- <command> [args...]
 # example:
-./scripts/agent/safe-run.sh heir-batch -- flutter test test/manual_heir_audit_batch_test.dart
+./xops/agent/safe-run.sh heir-batch -- flutter test test/manual_heir_audit_batch_test.dart
 ```
 
 It always writes — *before* the parent shell can lose them:

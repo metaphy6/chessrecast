@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/agent/session-bootstrap.sh
+# xops/agent/session-bootstrap.sh
 #
 # Run this at the start of every Copilot Chat / Claude / Cursor agent session.
 # It prints the minimum context the agent needs to avoid disorientation after

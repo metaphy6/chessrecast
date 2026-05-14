@@ -82,7 +82,7 @@ You may **not**, without an explicit per-occurrence "go" from the user in chat:
 - modify systemd units, cron, login shells, `/etc/**`, kernel modules, firewall rules, SELinux / AppArmor profiles,
 - change global git config (`git config --global ...`), global SSH / GPG / credential stores,
 - write outside the workspace except the explicitly-allowed paths above,
-- run [scripts/power/agent-session-start.sh](scripts/power/agent-session-start.sh) or [scripts/power/agent-session-stop.sh](scripts/power/agent-session-stop.sh) — these are user-initiated only.
+- run [xops/power/agent-session-start.sh](xops/power/agent-session-start.sh) or [xops/power/agent-session-stop.sh](xops/power/agent-session-stop.sh) — these are user-initiated only.
 
 If a system change is genuinely required for the project (e.g. a missing native dependency blocks the build):
 1. propose the exact command(s) in chat,
@@ -107,10 +107,10 @@ On 429 / rate-limit / SIGINT mid-task: write `agent/state/checkpoint.json` with 
 
 A recurring failure mode: a terminal command exits non-zero, the parent shell or chat UI loses the buffered output, and the agent freezes on "Analyzing…" with no recoverable context. This is **never** an acceptable terminal state. To prevent it:
 
-1. **Wrap risky / long commands with [scripts/agent/safe-run.sh](scripts/agent/safe-run.sh).** Anything that builds, tests, fetches, or otherwise might fail in a way you'd need to triage later — especially `flutter test`, `cmake`, `flutter pub get`, `git push`, `dart run tool/...`, audit batches — should be invoked as:
+1. **Wrap risky / long commands with [xops/agent/safe-run.sh](xops/agent/safe-run.sh).** Anything that builds, tests, fetches, or otherwise might fail in a way you'd need to triage later — especially `flutter test`, `cmake`, `flutter pub get`, `git push`, `dart run tool/...`, audit batches — should be invoked as:
 
    ```bash
-   scripts/agent/safe-run.sh <tag> -- <command...>
+   xops/agent/safe-run.sh <tag> -- <command...>
    ```
 
    The wrapper writes the command, env subset, full combined output, and final exit code to `/tmp/agent-runs/<run-id>.{cmd,log,exit}` *before* the parent shell can lose them, and on non-zero exit also drops `agent/state/last_failure.json` as a recovery breadcrumb.
@@ -129,12 +129,12 @@ A recurring failure mode: a terminal command exits non-zero, the parent shell or
 5. **A killed terminal is a failure, not a no-op.** If `run_in_terminal` returns with no output, an empty exit, or a session-was-restarted indicator, treat it exactly like a non-zero exit: read `last_failure.json` and the latest `/tmp/agent-runs/*.log`, diagnose, fix, resume. Do not assume the work succeeded.
 
 6. **No silent execution — the user must see what is running.** A chat UI that displays only "Executing…" with no terminal output for more than ~10s is indistinguishable from a hung session. To prevent that:
-   - Always invoke long / risky commands through [scripts/agent/safe-run.sh](scripts/agent/safe-run.sh): it prints a `>>> EXECUTING [tag]` banner with the exact command, cwd, and log path *before* the command starts, and emits a `... ALIVE elapsed=Ns log_lines=N last="..."` heartbeat to stderr every 30s (`SAFE_RUN_HEARTBEAT_SECS` to override). The wrapper also forces line-buffered output via `stdbuf -oL -eL` so streamed progress lines actually reach the terminal.
+   - Always invoke long / risky commands through [xops/agent/safe-run.sh](xops/agent/safe-run.sh): it prints a `>>> EXECUTING [tag]` banner with the exact command, cwd, and log path *before* the command starts, and emits a `... ALIVE elapsed=Ns log_lines=N last="..."` heartbeat to stderr every 30s (`SAFE_RUN_HEARTBEAT_SECS` to override). The wrapper also forces line-buffered output via `stdbuf -oL -eL` so streamed progress lines actually reach the terminal.
    - Never run a long command with output redirected to `/dev/null`, with `--quiet`, or detached via `nohup &` unless you've separately arranged a way to surface progress.
    - If a command is genuinely silent by design (e.g. `cmake --build` linking phase), say so in chat *before* invoking it and give the user the `tail -f /tmp/agent-runs/<run-id>.log` command they can use to watch live.
    - If you ever observe "Executing…" with no output for >60s during your own work, do not assume success: open a second terminal, `tail` the most recent `/tmp/agent-runs/*.log`, and report what you see. If nothing is being written, treat it as a stuck process, kill it, and follow the non-zero-exit recovery order above.
 
-This protocol is enforced by [scripts/agent/session-bootstrap.sh](scripts/agent/session-bootstrap.sh): it surfaces any unresolved `last_failure.json` at the top of every new session so you cannot start fresh work while a previous failure is still un-triaged.
+This protocol is enforced by [xops/agent/session-bootstrap.sh](xops/agent/session-bootstrap.sh): it surfaces any unresolved `last_failure.json` at the top of every new session so you cannot start fresh work while a previous failure is still un-triaged.
 
 ## 6. Take initiative — be a real engineer
 
@@ -208,7 +208,7 @@ You **must** start the current task over from scratch when any of the following 
 2. A KPI dashboard cell flipped from `ok` to `bad` since the session started → triage that regression first.
 3. A new finding lands in `agent/queue.yaml` at `severity: critical` → drop the current task, address the critical, then resume.
 4. Upstream `main` moved while you were working (`git fetch && git merge-base --is-ancestor origin/main HEAD` returns false) → `git pull --rebase`, re-run the gate from a clean tree.
-5. A test that was green is now red on a re-run with no source change → flake; run via [scripts/agent/run-test-with-retry.sh](scripts/agent/run-test-with-retry.sh) and let the wrapper log it.
+5. A test that was green is now red on a re-run with no source change → flake; run via [xops/agent/run-test-with-retry.sh](xops/agent/run-test-with-retry.sh) and let the wrapper log it.
 
 A clean restart is always cheaper than shipping a quietly-broken commit.
 

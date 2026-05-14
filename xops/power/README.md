@@ -1,4 +1,4 @@
-# `scripts/power/` — keep the workstation awake during agent sessions
+# `xops/power/` — keep the workstation awake during agent sessions
 
 Two helpers for GNOME (Ubuntu 24+ / Fedora Workstation):
 
@@ -12,13 +12,13 @@ Two helpers for GNOME (Ubuntu 24+ / Fedora Workstation):
 Before kicking off `/improve-mod ALL` in Copilot Chat:
 
 ```bash
-./scripts/power/agent-session-start.sh
+./xops/power/agent-session-start.sh
 ```
 
 When you're done (next morning, end of week, etc.):
 
 ```bash
-./scripts/power/agent-session-stop.sh
+./xops/power/agent-session-stop.sh
 ```
 
 The chess-mod-improver chat mode also reminds you to run these in its

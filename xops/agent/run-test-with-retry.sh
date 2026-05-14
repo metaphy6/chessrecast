@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/agent/run-test-with-retry.sh
+# xops/agent/run-test-with-retry.sh
 #
 # Flake-quarantine wrapper: run a flutter test once. If it fails, retry once.
 # - Both fail -> exit with the second exit code (real failure).
@@ -8,7 +8,7 @@
 #   then exit 0 so the calling gate proceeds.
 #
 # Usage:
-#   scripts/agent/run-test-with-retry.sh <test-file> [-- <extra flutter test args...>]
+#   xops/agent/run-test-with-retry.sh <test-file> [-- <extra flutter test args...>]
 #
 # Run from the repo root or from frontend/. Standard env-var prefixes
 # (CHESSRECAST_NATIVE_ENGINE_LIB, LD_LIBRARY_PATH, *_BATCH_*) must already be

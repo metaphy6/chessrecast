@@ -9,7 +9,7 @@ Operate per [AGENTS.md](../../AGENTS.md). Goal: catch regressions that slipped p
 
 ## Pre-flight
 
-1. Run [scripts/agent/session-bootstrap.sh](../../scripts/agent/session-bootstrap.sh).
+1. Run [xops/agent/session-bootstrap.sh](../../xops/agent/session-bootstrap.sh).
 2. `git switch main && git pull --ff-only`. Stop if dirty.
 
 ## Sweep

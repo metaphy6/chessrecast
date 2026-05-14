@@ -27,13 +27,13 @@ agent/
 2. **Keep the workstation awake:**
 
    ```bash
-   ./scripts/power/agent-session-start.sh   # disables auto-suspend + auto-logout, screen blank 2h
+   ./xops/power/agent-session-start.sh   # disables auto-suspend + auto-logout, screen blank 2h
    ```
 
    Restore defaults when you are done:
 
    ```bash
-   ./scripts/power/agent-session-stop.sh    # 3h logout, 5h suspend, 5min screen blank
+   ./xops/power/agent-session-stop.sh    # 3h logout, 5h suspend, 5min screen blank
    ```
 
 3. Open Copilot Chat, switch to **Agent** mode, then select the **chess-mod-improver** chat mode from the mode dropdown.

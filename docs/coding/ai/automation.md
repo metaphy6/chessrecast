@@ -20,7 +20,7 @@ Working today:
 - Per-mod allow-list and audit-batch + KPI gating via [.github/copilot-instructions.md](../../../.github/copilot-instructions.md).
 - Autonomous improvement loop ([.github/chatmodes/chess-mod-improver.chatmode.md](../../../.github/chatmodes/chess-mod-improver.chatmode.md)) driven by [agent/queue.yaml](../../../agent/queue.yaml).
 - Watchdog stop-tokens, baseline refresh, take-initiative directive, queue schema.
-- Long-session ergonomics via [scripts/power/](../../../scripts/power/).
+- Long-session ergonomics via [xops/power/](../../../xops/power/).
 - Slash commands `/improve-mod` and `/triage-audit-report`.
 - `/memories/repo/*_notes.md` as long-lived per-mod memory.
 
@@ -37,7 +37,7 @@ Known pain points the rest of this roadmap targets:
 Goal: make the existing loop stop wasting time on the recurring failures above. **Most of this is already shipped via the AGENTS.md / CLAUDE.md / Copilot-instructions update.**
 
 Remaining work:
-- [x] Add a one-shot **session-bootstrap script** the agent runs first thing in any new chat: prints `pwd`, last entries of `agent/state/log.jsonl`, status of `agent/state/current.json`, last commit SHA, and whether `frontend/build/native/linux/libchess_engine.so` is up-to-date. Shipped as [scripts/agent/session-bootstrap.sh](../../../scripts/agent/session-bootstrap.sh).
+- [x] Add a one-shot **session-bootstrap script** the agent runs first thing in any new chat: prints `pwd`, last entries of `agent/state/log.jsonl`, status of `agent/state/current.json`, last commit SHA, and whether `frontend/build/native/linux/libchess_engine.so` is up-to-date. Shipped as [xops/agent/session-bootstrap.sh](../../../xops/agent/session-bootstrap.sh).
 - ~~Pre-push git hook + test-diff lint~~ — **dropped**. The user does not want pre-push scripting. The agent enforces the same discipline behaviorally per [AGENTS.md](../../../AGENTS.md) §3 (tests-with-code) and §9 (vigilance charter); the gate is the agent's judgement plus mod regression tests, not a git hook.
 - [ ] Refresh `/memories/repo/*_notes.md` discipline: every commit message that touches a mod must trigger an entry append (the agent does this manually today).
 
@@ -48,7 +48,7 @@ Goal: the agent should *know* when something has regressed without a human runni
 - [x] **Continuous-audit cron prompt**: a `/nightly-audit` slash command that runs the 50-game audit batch for one mod per night (round-robin), diffs KPIs against the baseline, and either auto-files a queue entry on regression or no-ops on green. The agent never edits code in this command — it only files findings. Shipped as [.github/prompts/nightly-audit.prompt.md](../../../.github/prompts/nightly-audit.prompt.md).
 - [x] **Crash & illegal-move telemetry**: post-run scanner [frontend/tool/scan_runtime_telemetry.dart](../../../frontend/tool/scan_runtime_telemetry.dart) sweeps `/tmp/agent-runs/*.log` for `ILLEGAL_MOVE`, `ASSERT_FAIL`, `SIGSEGV`, `SIGABRT`, `Aborted`, `assertion failed`, ASan/UB tokens and writes structured findings to `agent/reports/_runtime/<run-id>.txt`. The agent invokes it after every test run (see AGENTS.md §9a).
 - [x] **KPI dashboard**: [frontend/tool/kpi_dashboard.dart](../../../frontend/tool/kpi_dashboard.dart) reads every `agent/baselines/<mod>.json` plus the latest report and prints a markdown table per mod (current vs baseline, delta, color). The agent posts this once per session start.
-- [x] **Flake quarantine**: [scripts/agent/run-test-with-retry.sh](../../../scripts/agent/run-test-with-retry.sh) runs a flutter test once, retries on failure, and on first-fail-then-pass logs to `agent/state/flakes.jsonl` and appends a `kind: kpi_regression / phase: tactics / severity: low` queue entry.
+- [x] **Flake quarantine**: [xops/agent/run-test-with-retry.sh](../../../xops/agent/run-test-with-retry.sh) runs a flutter test once, retries on failure, and on first-fail-then-pass logs to `agent/state/flakes.jsonl` and appends a `kind: kpi_regression / phase: tactics / severity: low` queue entry.
 
 ## Phase 3 — feature growth, not just fixes
 

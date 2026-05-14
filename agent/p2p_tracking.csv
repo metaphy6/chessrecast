@@ -1,0 +1,1 @@
+ts_utc,run_id,command,model,phase,phase_title,action,status,commit_sha,files_changed,tests_added,tests_run,tests_passed,tests_failed,proof_test_paths,roadmap_box_state,drift_kind,evidence_path,notes

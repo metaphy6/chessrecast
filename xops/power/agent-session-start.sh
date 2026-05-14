@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/power/agent-session-start.sh
+# xops/power/agent-session-start.sh
 #
 # Keep this Linux/GNOME workstation awake and logged-in for the duration of
 # a long Copilot agent session (e.g. an overnight `/improve-mod ALL` run).
@@ -17,11 +17,11 @@
 #     change the per-user GNOME settings, so other users are unaffected.
 #
 # Idempotent: safe to run multiple times. Saves the previous values to
-# scripts/power/.power-backup.env so agent-session-stop.sh can restore them
+# xops/power/.power-backup.env so agent-session-stop.sh can restore them
 # (the stop script also has hard-coded fallbacks if the backup is missing).
 #
 # Usage:
-#   ./scripts/power/agent-session-start.sh
+#   ./xops/power/agent-session-start.sh
 #
 # Requires: gsettings (GNOME). On non-GNOME desktops the script prints a
 # warning and exits 0 without changing anything.
@@ -70,4 +70,4 @@ echo "  gsettings get org.gnome.desktop.session idle-delay"
 echo "  gsettings get org.gnome.settings-daemon.plugins.power sleep-inactive-ac-type"
 echo "  gsettings get org.gnome.desktop.screensaver logout-enabled"
 echo
-echo "[agent-session-start] Run scripts/power/agent-session-stop.sh to restore defaults."
+echo "[agent-session-start] Run xops/power/agent-session-stop.sh to restore defaults."

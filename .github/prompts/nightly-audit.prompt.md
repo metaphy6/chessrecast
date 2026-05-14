@@ -9,7 +9,7 @@ Operate per [.github/copilot-instructions.md](../copilot-instructions.md) and [A
 
 ## Pre-flight
 
-1. Run [scripts/agent/session-bootstrap.sh](../../scripts/agent/session-bootstrap.sh) and post the summary in chat.
+1. Run [xops/agent/session-bootstrap.sh](../../xops/agent/session-bootstrap.sh) and post the summary in chat.
 2. If `${input:mod}` is `AUTO`, pick the mod whose latest report under `agent/reports/<mod>/` is **oldest** (round-robin). Tie-break alphabetically.
 3. Confirm `git status -s` is clean. If dirty, **stop** and report — never push someone else's WIP.
 

@@ -9,7 +9,7 @@ Operate per [AGENTS.md](../../AGENTS.md), [.github/copilot-instructions.md](../c
 
 ## Pre-flight
 
-1. Run [scripts/agent/session-bootstrap.sh](../../scripts/agent/session-bootstrap.sh).
+1. Run [xops/agent/session-bootstrap.sh](../../xops/agent/session-bootstrap.sh).
 2. `git switch main && git pull --ff-only`. Stop if dirty.
 3. Confirm the area allow-list — only those paths may be edited in this command. If the change escapes the allow-list, stop and file a `kind: shared_edit` queue entry instead.
 

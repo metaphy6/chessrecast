@@ -19,7 +19,7 @@ ChessRecast reinvents chess with creative rule variants like Mercenary (king-lik
 | **Save the Queen** | 🛡️ | Queens start as prisoners on enemy side | ✅ Active |
 | **Succession** | 🏰 | Two queens, race to promote pawn to King | ✅ Active |
 
-> See [docs/project/GAME_MODS_DOCUMENTATION.md](docs/project/GAME_MODS_DOCUMENTATION.md) for full rules.
+> See [docs/game/GAME_MODS_DOCUMENTATION.md](docs/game/GAME_MODS_DOCUMENTATION.md) for full rules.
 
 ---
 
@@ -28,8 +28,14 @@ ChessRecast reinvents chess with creative rule variants like Mercenary (king-lik
 ```
 chessrecast/
 ├── 📱 frontend/          Flutter mobile app (Android / iOS / Web)
-│   └── lib/engine/        Native-engine bridge and async wrapper
-├── 🖥️  backend/           Go API server + PostgreSQL + Redis
+│   ├── lib/engine/        Native-engine bridge and async wrapper
+│   └── native/engine/     C engine (alpha-beta, eval, heuristics)
+├── 🖥️  backend/           Go API server + PostgreSQL + Redis (legacy)
+├── 🌐 signaling/          Go P2P signalling server (in progress)
+├── 🤖 agent/              Autonomous-loop state, queue, baselines, reports
+├── 🔧 xops/               Operational scripts
+│   ├── agent/             Safe-run, bootstrap, retry, p2p-tracking helpers
+│   └── power/             Wake-lock scripts for overnight agent runs
 └── 📚 docs/              Project documentation
 ```
 
@@ -59,14 +65,14 @@ Short note: Flutter runtime engine search is native-only. There is no Dart searc
 
 ### 📱 1. Flutter App
 
-```powershell
+```bash
 cd frontend
 flutter pub get
 flutter run
 ```
 
 **Run on Android emulator** (VS Code task available):
-```powershell
+```bash
 # Start emulator (or use VS Code task: start-emulator-Pixel9ProXL)
 emulator -avd Pixel9ProXL
 
@@ -76,7 +82,7 @@ flutter run
 ```
 
 **Build APK:**
-```powershell
+```bash
 cd frontend
 flutter build apk --release
 ```
@@ -87,7 +93,7 @@ flutter build apk --release
 
 The backend runs via Docker Compose — PostgreSQL, Redis, and the API server all start together:
 
-```powershell
+```bash
 cd backend
 docker compose up -d --build
 ```
@@ -100,7 +106,7 @@ This starts:
 - **Redis** → `localhost:6379`
 
 **Stop everything:**
-```powershell
+```bash
 cd backend
 docker compose down
 ```
@@ -187,12 +193,14 @@ backend/
 
 | Document | Description |
 |----------|-------------|
-| [docs/project/GAME_MODS_DOCUMENTATION.md](docs/project/GAME_MODS_DOCUMENTATION.md) | Full rules for all 8 game mods |
-| [docs/project/MASTER_IMPLEMENTATION_PLAN.md](docs/project/MASTER_IMPLEMENTATION_PLAN.md) | Project roadmap & phases |
-| [docs/project/BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md](docs/project/BLOCKCHAIN_IMPLEMENTATION_ROADMAP_V2.md) | MOT blockchain roadmap |
-| [docs/project/BLOCKCHAIN_MOT_IMPLEMENTATION.md](docs/project/BLOCKCHAIN_MOT_IMPLEMENTATION.md) | MOT blockchain technical spec |
-| [docs/project/roadmap.md](docs/project/roadmap.md) | P2P architecture design |
-| [docs/project/roadmap_nft.md](docs/project/roadmap_nft.md) | NFT system design |
+| [docs/game/GAME_MODS_DOCUMENTATION.md](docs/game/GAME_MODS_DOCUMENTATION.md) | Full rules for all 8 game mods |
+| [docs/game/DRAW_RULES.md](docs/game/DRAW_RULES.md) | Draw rules (50-move, stalemate, Mercenary variant) |
+| [docs/P2P_ROADMAP.md](docs/P2P_ROADMAP.md) | P2P GameNet implementation roadmap (20 phases) |
+| [docs/coding/ai/p2p_implementation.md](docs/coding/ai/p2p_implementation.md) | AI agent harness for P2P implementation |
+| [docs/coding/ai/automation.md](docs/coding/ai/automation.md) | AI automation roadmap |
+| [docs/code/BUILD_ARTIFACTS_MANAGEMENT.md](docs/code/BUILD_ARTIFACTS_MANAGEMENT.md) | Native engine build & artifact management |
+| [docs/code/NATIVE_ENGINE_PLATFORM_AUDIT.md](docs/code/NATIVE_ENGINE_PLATFORM_AUDIT.md) | Platform support audit for the native C engine |
+| [AGENTS.md](AGENTS.md) | AI coding assistant rulebook |
 
 ---
 
@@ -207,16 +215,23 @@ Pre-configured tasks in `.vscode/tasks.json`:
 | `Backend: Stop Docker Compose` | Stop backend services |
 | `Backend: Restart Docker Compose` | Restart backend services |
 | `Backend: View Docker Logs` | Tail backend logs |
+| `Frontend: Rebuild Native Engine` | Rebuild the native C engine (`cmake --build build/native/linux`) |
 
 ---
 
 ## 🛠️ Development Workflow
 
-```
-1.  Start backend          →  cd backend && docker compose up -d --build
-2.  Start emulator         →  VS Code task or: emulator -avd Pixel9ProXL
-3.  Run Flutter app        →  cd frontend && flutter run
-4.  (Optional) Engine Lab  →  In app: Play Options → Watch Engine Play
+```bash
+# 1. Start backend
+cd backend && docker compose up -d --build
+# 2. Build native C engine
+cd frontend && cmake --build build/native/linux
+# 3. Start emulator (or use VS Code task: start-emulator-Pixel9ProXL)
+emulator -avd Pixel9ProXL
+# 4. Run Flutter app
+cd frontend && flutter run
+# 5. (Optional) overnight agent session
+./xops/power/agent-session-start.sh
 ```
 
 ---
@@ -225,15 +240,14 @@ Pre-configured tasks in `.vscode/tasks.json`:
 
 - [x] 8 active game mods with full Dart logic
 - [x] Go backend with PostgreSQL, Redis, WebSocket
-- [x] Native runtime chess engine with Dart FFI bridge
+- [x] Native runtime C chess engine with Dart FFI bridge
 - [x] 5 engine difficulty levels (Easy → Maximum)
 - [x] Engine Lab UI (watch engine self-play with live stats)
-- [ ] P2P distributed network (GameNet)
+- [x] AI agent harness (`agent/`, `xops/agent/`) for autonomous engine improvement
+- [ ] P2P distributed network (GameNet) — see [docs/P2P_ROADMAP.md](docs/P2P_ROADMAP.md)
 - [ ] Quantum-resistant blockchain (MOT) for validation
 - [ ] NFT system for game replays
 - [ ] Token economics with play-to-earn rewards
-
-> See [docs/project/MASTER_IMPLEMENTATION_PLAN.md](docs/project/MASTER_IMPLEMENTATION_PLAN.md) for the full timeline.
 
 ---
 

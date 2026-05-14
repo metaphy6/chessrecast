@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scripts/power/agent-session-stop.sh
+# xops/power/agent-session-stop.sh
 #
 # Restore Linux/GNOME power-management settings to the defaults requested
 # by the project owner:
@@ -9,12 +9,12 @@
 #   • Screen blank        : default (5 minutes — GNOME factory default)
 #   • Lid-close on AC     : suspend
 #
-# If scripts/power/.power-backup.env exists (written by agent-session-start.sh)
+# If xops/power/.power-backup.env exists (written by agent-session-start.sh)
 # it is removed at the end, so the next start script call captures a fresh
 # pre-agent baseline.
 #
 # Usage:
-#   ./scripts/power/agent-session-stop.sh
+#   ./xops/power/agent-session-stop.sh
 #
 # Requires: gsettings (GNOME).
 

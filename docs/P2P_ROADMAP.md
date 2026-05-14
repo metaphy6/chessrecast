@@ -186,7 +186,7 @@ v0–v9 grew the spec **wide** (more cryptography, more phases, more failure mod
 - [ ] **Latency budget tree (new [§17.2](#172-performance-budgets)).** v9's "P99 < 2 ms move round-trip" (§1.4) was a single number on a synthetic mock. v10 decomposes the user-visible **move RTT P99 ≤ 250 ms over LTE** into: tap → encode (≤ 1 ms) → encrypt + AAD (≤ 0.3 ms) → SCTP send + ACK (≤ 50 ms median + 200 ms tail) → decrypt + AAD verify (≤ 0.3 ms) → engine validate (≤ 1 ms) → apply + state-hash (≤ 0.5 ms, atomic per §1.12) → render (≤ 16 ms = one frame) → emit `MOVE_ACK` (same return path). Each leg has a **separate** proof test and is profiled per-platform per-CI release. Regression > 10% on any leg → `kind: p2p_latency_regression`. The `engine_replay_version` golden test now also asserts engine-validate latency stability across rule-bumps.
 - [ ] **Stability budget tree (new [§17.4](#174-stability-budgets)).** Beyond memory: ANR / frame-jank ≤ 0.05% of frames during active P2P play, isolate-restart rate ≤ 1 / 10⁶ sessions, deadlock budget = **zero** (any reachable deadlock = critical bug, not a budget). Crash-free rate ≥ 99.95% for the P2P-on cohort over a 7-day rolling window (tighter than v9's 99.9% because the budget-tree forces the work). **Proof:** [frontend/test/p2p/perf/anr_jank_budget_test.dart](../frontend/test/p2p/perf/anr_jank_budget_test.dart) + Crashlytics / Sentry dashboard alert at the 99.95% threshold.
 - [ ] **Reliability budget tree (new [§17.5](#175-reliability-budgets)).** MTBF for `MISMATCH` ≥ 10⁶ moves over the rollout cohort (tighter than v9's "0 in 10⁵"); ICE re-establishment success ≥ 99.5% within the 10 s budget; push-wake redemption success ≥ 95% within 90 s on a non-Doze device, ≥ 80% on a Doze device. Each cap is a Phase 6.2 KPI alarm with auto-halt-rollout on breach.
-- [ ] **Integrity budget tree (new [§17.6](#176-integrity-budgets)).** Every released artefact (APK, IPA, signaling binary, native lib) MUST: (a) be reproducible (single SHA across three independent clean rebuilds — Android + Linux server; iOS best-effort per §8.4), (b) carry an in-toto attestation chain through Sigstore Rekor (T-X-007), (c) match its SBOM bit-for-bit (no unattested dependency ever ships), (d) bind its `engine_replay_version` to a per-arch golden hash (§12.5), (e) bind its `wire_version` to the protocol-spec commit SHA in [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md). Any single breach blocks release. **Proof:** [scripts/p2p/release-integrity-gate.sh](../scripts/p2p/release-integrity-gate.sh) — runs all six checks in a hermetic container; CI gates the release tag.
+- [ ] **Integrity budget tree (new [§17.6](#176-integrity-budgets)).** Every released artefact (APK, IPA, signaling binary, native lib) MUST: (a) be reproducible (single SHA across three independent clean rebuilds — Android + Linux server; iOS best-effort per §8.4), (b) carry an in-toto attestation chain through Sigstore Rekor (T-X-007), (c) match its SBOM bit-for-bit (no unattested dependency ever ships), (d) bind its `engine_replay_version` to a per-arch golden hash (§12.5), (e) bind its `wire_version` to the protocol-spec commit SHA in [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md). Any single breach blocks release. **Proof:** [xops/p2p/release-integrity-gate.sh](../xops/p2p/release-integrity-gate.sh) — runs all six checks in a hermetic container; CI gates the release tag.
 - [ ] **Engine-binding fuzz hardening (folded into [§1.13](#113-spec)).** v8's nightly 10M-iteration FFI fuzz catches divergence and ASAN findings. v10 adds: (a) **structure-aware fuzz** that mutates *valid* CBOR mod-state shapes (libFuzzer with a custom mutator that respects the per-mod schema) so the fuzzer spends time on semantically interesting inputs rather than 99.99% rejected garbage; (b) **differential fuzz** that runs the same input through the production engine *and* a slow-path Dart-side reference implementation (where one exists) and asserts identical `state_hash`; (c) **per-mod corpus seeding** from `agent/openings/<mod>.csv` plus the discovery / stress slices, so the fuzz starts from real game positions and explores their neighbourhood. **Proof:** [frontend/test/p2p/engine/structure_aware_ffi_fuzz_test.dart](../frontend/test/p2p/engine/structure_aware_ffi_fuzz_test.dart) + [frontend/native/engine/test/engine_ffi_diff_harness.c](../frontend/native/engine/test/engine_ffi_diff_harness.c).
 - [ ] **Mid-session app-update collision specified (new [§4.12](#412-spec)).** v9 was silent on the case where one peer's app updates *during* a live game (foreground transition triggers a hot-restart on Flutter). The session is currently torn down with no clean resume. v10 specifies: (a) a graceful `BYE { reason: client_updating, resumable_until_ts }` is sent before the restart if the OS provides ≥ 1 s notice; (b) on the post-update relaunch, the client polls `/v1/offers` for a `RESUME_HINT { session_id }` left by the opponent and offers a "your last game can be resumed" UX; (c) if the post-update binary's `engine_replay_version` differs from the pre-update one, the resume is refused with `ENGINE_VERSION_MISMATCH` and the partial transcript is preserved as a study artefact. **Proof:** [frontend/test/p2p/transport/mid_session_app_update_test.dart](../frontend/test/p2p/transport/mid_session_app_update_test.dart).
 - [ ] **Native-engine crash forensics (folded into [§1.2](#12-implementation)).** v9 wrote a forensic bundle on `MISMATCH` only. v10 extends: any native-engine crash (SIGSEGV / SIGBUS / SIGABRT / ASAN finding) during a live session preserves the in-flight transcript fragment, the last 64 frames in/out, the engine state snapshot, the OS stack trace (where collectable), and the SHA of `libchess_engine.so` to a sealed-bundle that survives the crash via a parent-process watchdog. The bundle is offered to the user on next launch via the existing diag-bundle UX. **Proof:** [frontend/test/p2p/protocol/engine_crash_forensics_test.dart](../frontend/test/p2p/protocol/engine_crash_forensics_test.dart) + [frontend/native/engine/test/crash_watchdog_test.c](../frontend/native/engine/test/crash_watchdog_test.c).
@@ -715,7 +715,7 @@ The 9 layers, smallest-fastest at the top:
 ### 5.1 CI wiring
 
 - [ ] GitHub Actions matrix: per-OS, per-platform, per-mod. Cache pub + cargo + go modules + the native engine `.so/.dylib/.dll`. **Proof:** `.github/workflows/p2p-ci.yml` exists and is green.
-- [ ] Hermetic builds: pinned Flutter / Dart / Go versions in `.tool-versions` + `mise` (or asdf) onboarding script. **Proof:** `scripts/p2p/bootstrap-dev.sh` builds from a clean Ubuntu image in CI.
+- [ ] Hermetic builds: pinned Flutter / Dart / Go versions in `.tool-versions` + `mise` (or asdf) onboarding script. **Proof:** `xops/p2p/bootstrap-dev.sh` builds from a clean Ubuntu image in CI.
 - [ ] Artefact retention: load-test + chaos reports kept ≥30 d under `agent/reports/p2p/<run-id>/`.
 
 ### 5.2 KPI baselines
@@ -796,7 +796,7 @@ The sequencing graph cites "Phase 5 §5.1 (CI wiring + fake transports)" but v6 
   - **Total target: $0.008 / MAU; ceiling $0.01 / MAU.** Above ceiling → queue entry `kind: p2p_cost_overrun`. **Proof:** monthly cost report committed to `agent/reports/p2p/cost-<yyyy-mm>.md`.
 - [ ] **Stability:** 7-day rolling crash-free rate ≥ 99.9% for the P2P-flag-on cohort.
 - [ ] **Reliability:** No `MISMATCH` event in production over the rollout window; if any, automatic halt + forensic bundle uploaded (with consent).
-- [ ] **Integrity:** Every released APK / IPA build is reproducible from source; SBOM published per release. **Proof:** `scripts/p2p/verify-reproducible-build.sh` + release-asset attestation.
+- [ ] **Integrity:** Every released APK / IPA build is reproducible from source; SBOM published per release. **Proof:** `xops/p2p/verify-reproducible-build.sh` + release-asset attestation.
 
 ### 6.6 Acceptance gate
 
@@ -888,10 +888,10 @@ v6 specified a signaling protocol but never said how a human convinces another h
 ### 8.4 Supply chain & provenance
 
 - [ ] SBOM generated per build (CycloneDX) for client and signaling server. **Proof:** CI artefact `sbom-*.cdx.json`.
-- [ ] Dependency confusion guard: pin all direct deps; CI fails on resolution that pulls a higher-numbered same-name package from a non-allow-listed registry. **Proof:** `scripts/p2p/check-deps.sh`.
-- [ ] License audit: libsodium (ISC), coturn (BSD), litestream (Apache-2.0), `package:cryptography` (Apache-2.0), Go stdlib (BSD), Valkey (BSD). Compatible with project licence. Documented in [docs/P2P_LICENSES.md](P2P_LICENSES.md). **Proof:** `scripts/p2p/check-licenses.sh` in CI.
+- [ ] Dependency confusion guard: pin all direct deps; CI fails on resolution that pulls a higher-numbered same-name package from a non-allow-listed registry. **Proof:** `xops/p2p/check-deps.sh`.
+- [ ] License audit: libsodium (ISC), coturn (BSD), litestream (Apache-2.0), `package:cryptography` (Apache-2.0), Go stdlib (BSD), Valkey (BSD). Compatible with project licence. Documented in [docs/P2P_LICENSES.md](P2P_LICENSES.md). **Proof:** `xops/p2p/check-licenses.sh` in CI.
 - [ ] **Reproducible builds — specific technique** (corrects v4 hand-wave):
-  - **Server (Go):** `CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags='-buildid= -s -w' -o signaling-server ./cmd/signaling-server`. Pin Go version in `.tool-versions`. **Proof:** `scripts/p2p/verify-reproducible-build.sh` rebuilds three times and asserts `sha256sum` identical.
+  - **Server (Go):** `CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags='-buildid= -s -w' -o signaling-server ./cmd/signaling-server`. Pin Go version in `.tool-versions`. **Proof:** `xops/p2p/verify-reproducible-build.sh` rebuilds three times and asserts `sha256sum` identical.
   - **Client Android:** `flutter build apk --release --no-tree-shake-icons` with `SOURCE_DATE_EPOCH` exported, `--build-mode release`, R8 single-threaded (`android.r8.maxThreads=1`), post-pass with [`strip-nondeterminism`](https://salsa.debian.org/reproducible-builds/strip-nondeterminism) on the APK to normalise ZIP entry order and timestamps. **Proof:** same script.
   - **Client iOS:** **best-effort only.** Documented in [docs/P2P_LICENSES.md](P2P_LICENSES.md) why — Apple toolchain (codesign, dSYM, build timestamps) does not currently support deterministic builds. Mitigation: per-release SHA published; SBOM published; users on F-Droid-equivalent path get the Android reproducible build.
   - **Native engine:** built with `SOURCE_DATE_EPOCH=$(git log -1 --format=%ct HEAD frontend/native/engine/) cmake ... && cmake --build ...`; CI asserts the produced `.so/.dylib/.dll` is byte-identical across two runs.
@@ -920,7 +920,7 @@ v6 specified a signaling protocol but never said how a human convinces another h
 - [ ] **Ownership declaration:** name (or pseudonym) and role of each operator who can promote a standby region, rotate a KMS key, or trigger the kill-switch is committed to [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md). For a solo-maintained deployment, this MUST acknowledge the bus factor of 1 and define a degraded-mode default (see below).
 - [ ] **Degraded-mode default for solo / sleeping operators:** if the on-call cannot acknowledge an alert within `T_ack` (default 60 minutes for solo deployments), the alerting system automatically sets `kEnableP2P=false` via the signed-config endpoint and surfaces a maintenance message to clients. Better to fail closed than to ship a brittle service overnight. **Proof:** `signaling/internal/admin/auto_killswitch_test.go`.
 - [ ] **Runbook coverage:** [docs/P2P_SIGNALING_RUNBOOK.md](P2P_SIGNALING_RUNBOOK.md) MUST cover: standby promotion, KMS rotation, push-provider revocation (compromised FCM/APNs key), kill-switch toggle, restoring from litestream cold backup, scaling out coturn, rotating TURN HMAC secret. Each runbook step has a **drill date** column; drills run quarterly. **Proof:** `docs/P2P_OPERATIONS_DRILL_LOG.md` updated.
-- [ ] **Secret hygiene:** all server secrets (TURN HMAC secret, KMS key, push provider keys, signed-config signing key) live in a sealed-secrets / SOPS-encrypted store committed to the repo, decryptable only by operator keys. No secret in plain text in CI logs, env files, or container layers. **Proof:** `scripts/p2p/audit-secrets.sh` + CI gate.
+- [ ] **Secret hygiene:** all server secrets (TURN HMAC secret, KMS key, push provider keys, signed-config signing key) live in a sealed-secrets / SOPS-encrypted store committed to the repo, decryptable only by operator keys. No secret in plain text in CI logs, env files, or container layers. **Proof:** `xops/p2p/audit-secrets.sh` + CI gate.
 - [ ] **Signed-config rotation:** the signing key for `kEnableP2P` and other remote-config flags is rotated annually; clients ship with the current key + a one-step-back trust window. **Proof:** `frontend/test/p2p/config/signing_key_rotation_test.dart`.
 
 ---
@@ -1650,7 +1650,7 @@ chessrecast.p2p
 - [ ] **17.3.1 Battery** caps measured on a Pixel 4a / iPhone XR baseline; CI re-measures monthly. **Proof:** [frontend/test/p2p/perf/battery_budget_test.dart](../frontend/test/p2p/perf/battery_budget_test.dart).
 - [ ] **17.3.2 Thermal** caps via `ProcessInfo.thermalState` (iOS) and `BatteryManager.temperature` (Android); over `40 °C` chassis triggers spectator/chat shed and a one-time toast. **Proof:** [frontend/test/p2p/perf/thermal_budget_test.dart](../frontend/test/p2p/perf/thermal_budget_test.dart).
 - [ ] **17.3.3 Bandwidth** caps separated by sub-channel: chess + clock + per-spectator. Over budget on chess → end session as `BACKPRESSURE_DROP`; over budget on chat → forced slow-mode. **Proof:** [frontend/test/p2p/perf/bandwidth_budget_test.dart](../frontend/test/p2p/perf/bandwidth_budget_test.dart).
-- [ ] **17.3.4 APK / IPA size** caps verified by CI on every release. Over budget → `kind: p2p_artefact_size_breach`. **Proof:** [scripts/p2p/check-artefact-size.sh](../scripts/p2p/check-artefact-size.sh).
+- [ ] **17.3.4 APK / IPA size** caps verified by CI on every release. Over budget → `kind: p2p_artefact_size_breach`. **Proof:** [xops/p2p/check-artefact-size.sh](../xops/p2p/check-artefact-size.sh).
 - [ ] **17.3.5 TURN egress** cap (≤ 0.018 GB/MAU) cross-checks the §6.5 cost target by binding cost to a measurable physical quantity. **Proof:** monthly [agent/reports/p2p/cost-<yyyy-mm>.md](../agent/reports/p2p/) cross-references the egress observed at the TURN box.
 - [ ] **17.3.6 Energy / CO₂ footprint (informational only)** — server-side energy mix per region surfaced in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md). Not a gate; transparency.
 
@@ -1674,11 +1674,11 @@ chessrecast.p2p
 
 ### 17.6 Integrity budgets
 
-- [ ] **17.6.1 Reproducible build** SHA matches across 3 independent clean rebuilds, Android + Linux server (iOS best-effort per §8.4). **Proof:** [scripts/p2p/verify-reproducible-build.sh](../scripts/p2p/verify-reproducible-build.sh).
-- [ ] **17.6.2 SBOM-to-artefact byte match** — every dependency in the SBOM appears bit-for-bit in the binary; nothing in the binary is missing from the SBOM. **Proof:** [scripts/p2p/sbom-artefact-diff.sh](../scripts/p2p/sbom-artefact-diff.sh).
+- [ ] **17.6.1 Reproducible build** SHA matches across 3 independent clean rebuilds, Android + Linux server (iOS best-effort per §8.4). **Proof:** [xops/p2p/verify-reproducible-build.sh](../xops/p2p/verify-reproducible-build.sh).
+- [ ] **17.6.2 SBOM-to-artefact byte match** — every dependency in the SBOM appears bit-for-bit in the binary; nothing in the binary is missing from the SBOM. **Proof:** [xops/p2p/sbom-artefact-diff.sh](../xops/p2p/sbom-artefact-diff.sh).
 - [ ] **17.6.3 Sigstore attestation chain** valid root-to-leaf via `cosign verify-blob`. **Proof:** release workflow gate.
 - [ ] **17.6.4 Engine-replay-version per-arch parity** — the §12.5 cross-arch golden test must pass on every architecture in the release matrix.
-- [ ] **17.6.5 Wire-version pinned to protocol-doc commit SHA** — the running binary's `wire_version` MUST resolve to a commit SHA in [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md)'s history. Prevents shipping a wire format that disagrees with the published spec. **Proof:** [scripts/p2p/wire-version-pin-check.sh](../scripts/p2p/wire-version-pin-check.sh).
+- [ ] **17.6.5 Wire-version pinned to protocol-doc commit SHA** — the running binary's `wire_version` MUST resolve to a commit SHA in [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md)'s history. Prevents shipping a wire format that disagrees with the published spec. **Proof:** [xops/p2p/wire-version-pin-check.sh](../xops/p2p/wire-version-pin-check.sh).
 - [ ] **17.6.6 KAT vector pass count** = total — every Known-Answer Test ([agent/baselines/p2p_kdf_kat.json](../agent/baselines/p2p_kdf_kat.json), AEAD KATs, signature KATs) must pass; partial pass is a release-block.
 
 ### 17.7 Quality attributes
@@ -1719,7 +1719,7 @@ A line item in [docs/P2P_PRIVACY.md](P2P_PRIVACY.md) for **every byte the user p
 | Diag bundle (opt-in) | 90 d | operator KMS | operator KMS | operator (debug) | 90 d auto-purge |
 | Forensic bundle | until upload + 90 d | local then operator | SQLCipher then KMS | operator (debug) | 90 d auto-purge |
 
-- [ ] CI gate: a **bytes-uncovered** test enumerates every `INSERT` / `WRITE` / network egress in P2P-tagged code and asserts each one maps to a row in the inventory. New writes without a row → CI fail. **Proof:** [scripts/p2p/data-flow-completeness-check.sh](../scripts/p2p/data-flow-completeness-check.sh) + [frontend/test/p2p/privacy/data_flow_completeness_test.dart](../frontend/test/p2p/privacy/data_flow_completeness_test.dart).
+- [ ] CI gate: a **bytes-uncovered** test enumerates every `INSERT` / `WRITE` / network egress in P2P-tagged code and asserts each one maps to a row in the inventory. New writes without a row → CI fail. **Proof:** [xops/p2p/data-flow-completeness-check.sh](../xops/p2p/data-flow-completeness-check.sh) + [frontend/test/p2p/privacy/data_flow_completeness_test.dart](../frontend/test/p2p/privacy/data_flow_completeness_test.dart).
 
 ### 18.2 Privacy threat model (T-PRIV-*)
 
@@ -1779,14 +1779,14 @@ v9's Phase 16 owned CVE response and key rotation but was silent on the *deliver
 
 - [ ] **Channels:** internal (CI, pre-release testers, ≤ 50 accounts) → canary (1% of opted-in beta MAU) → 10% → 50% → 100%. Bake times: internal ≥ 24 h, canary ≥ 24 h, 1% ≥ 48 h, 10% ≥ 72 h, 50% ≥ 72 h. Total bake floor: ~ 11 d.
 - [ ] **Auto-halt** on any of: budget-tree leaf regression > 5%, crash-free rate < 99.95%, `MISMATCH` rate > baseline + 3σ, kill-switch engaged, security advisory acknowledged. Halt → `kind: p2p_rollout_halt` queue entry, on-call paged.
-- [ ] **Proof:** [scripts/p2p/staged-rollout-controller.sh](../scripts/p2p/staged-rollout-controller.sh) + [signaling/internal/rollout/calendar_test.go](../signaling/internal/rollout/calendar_test.go).
+- [ ] **Proof:** [xops/p2p/staged-rollout-controller.sh](../xops/p2p/staged-rollout-controller.sh) + [signaling/internal/rollout/calendar_test.go](../signaling/internal/rollout/calendar_test.go).
 
 ### 19.2 Hot-fix lane
 
 - [ ] **Trigger:** P0/P1 protocol bug, unpatched CVE in critical-path dependency, security audit finding rated critical/high.
 - [ ] **Compressed bake:** internal ≥ 4 h, canary ≥ 4 h, 1% ≥ 8 h, 10% ≥ 12 h, 50% ≥ 12 h, 100%. Total bake floor: ~ 40 h. May be further compressed by on-call decision with a queue entry of `kind: p2p_hotfix_bake_compressed`.
 - [ ] **Mandatory:** the fix MUST land with a regression test (per AGENTS.md §3) AND the §17.6 release-integrity gate MUST pass. Skipping integrity is forbidden even for hot-fix.
-- [ ] **Proof:** [scripts/p2p/hotfix-lane-controller.sh](../scripts/p2p/hotfix-lane-controller.sh) + a hot-fix drill at least twice a year, logged at [docs/P2P_OPERATIONS_DRILL_LOG.md](P2P_OPERATIONS_DRILL_LOG.md).
+- [ ] **Proof:** [xops/p2p/hotfix-lane-controller.sh](../xops/p2p/hotfix-lane-controller.sh) + a hot-fix drill at least twice a year, logged at [docs/P2P_OPERATIONS_DRILL_LOG.md](P2P_OPERATIONS_DRILL_LOG.md).
 
 ### 19.3 Server-side staged-rollout enforcement
 
@@ -1796,7 +1796,7 @@ v9's Phase 16 owned CVE response and key rotation but was silent on the *deliver
 
 - [ ] If a new build's KPI cohort regresses on any budget-tree leaf by > 5% during bake, OR the crash-free rate drops below 99.9% (looser than the steady-state 99.95% — no brand-new build is perfect), the rollout controller automatically rolls the cohort window *backward* (e.g. 10% → 1% → canary → halt). Surfaces as `STAGED_ROLLOUT_AUTO_HALT` (§10.6).
 - [ ] If the regression is on a *security* leaf (§17.6 integrity, KAT vectors, SBOM match), the rollback is **immediate** to canary regardless of bake position.
-- [ ] **Proof:** [scripts/p2p/auto-rollback-test.sh](../scripts/p2p/auto-rollback-test.sh) + a quarterly auto-rollback drill.
+- [ ] **Proof:** [xops/p2p/auto-rollback-test.sh](../xops/p2p/auto-rollback-test.sh) + a quarterly auto-rollback drill.
 
 ### 19.5 Kill-switch by version
 
