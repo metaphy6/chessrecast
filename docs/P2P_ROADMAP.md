@@ -172,6 +172,34 @@ v9 promotes **live spectating with chat** from a v8 stretch-bullet (§7.6 back-f
 - [ ] **Open questions OQ-41 through OQ-48 added.** Enumerated below (anonymous spectators, chat persistence, tournament chat policy, spectator-of-spectator chain rumour, etc.).
 - [ ] **Sequencing-graph correction (v9).** Spectator features (§7.8 / §7.9 / §7.10) are **NOT** prerequisites for the Phase 6 beta-open gate (live games can launch without them) but ARE prerequisites for the Phase 6 §6.4 GA-rollout gate's **"feature-complete" claim**. The §7.10 perf-isolation tests are hard prerequisites for shipping spectator features — without them, the chess-quality charter (no frame-budget regression) cannot be honoured. The §7.9.5 mute/kick/ban primitives and §7.9.7 report path are hard prerequisites for *enabling* spectator chat in any release that exposes the join UI.
 
+## What changed in v10 vs v9
+
+v0–v9 grew the spec **wide** (more cryptography, more phases, more failure modes). v10 grows it **deep**: it makes the five quality dimensions the project promises — **performance, efficiency, stability, reliability, integrity** — *measurably enforceable* across every phase by introducing (a) a single end-to-end **budget tree** that allocates each user-visible quality target down to per-component caps with a proof test attached to every leaf, (b) a **privacy-engineering** owner that consolidates DP, anonymisation, residency, DSAR, and right-to-portability into one auditable phase, and (c) a **release & hot-fix delivery** owner that closes the gap between "we noticed a P0" and "the patch is on the user's device." It also closes nine concrete holes in v9 that would have bitten us between beta and GA. Every bullet below either fixes a real bug, adds a missing-but-load-bearing sub-system, or replaces a vague "should be fast" with a measurable bound and a proof.
+
+- [ ] **End-to-end budget tree (new [Phase 17](#phase-17--end-to-end-budget-tree-performance-efficiency-stability-reliability-integrity)).** v0–v9 sprinkled latency caps, memory caps, frame-size caps, cost caps, and crash-rate caps across two dozen sub-sections with no single owner. v10 hangs every numeric promise off a tree rooted at user-visible KPIs (P50/P99 move RTT, frame budget, MAU cost, crash-free rate, MTBF for `MISMATCH`) and decomposes each into per-component sub-budgets (encode → encrypt → SCTP → decrypt → validate → apply → render → ack). Every leaf carries a numeric ceiling, an owning sub-section, and a proof test that fails CI on regression. Drift on any leaf opens `kind: p2p_budget_breach`. **Proof:** [agent/baselines/p2p_budgets.json](../agent/baselines/p2p_budgets.json) holds the canonical tree; [frontend/test/p2p/perf/budget_tree_kpi_test.dart](../frontend/test/p2p/perf/budget_tree_kpi_test.dart) walks the tree and asserts every leaf has a live test reference.
+- [ ] **Privacy-engineering phase (new [Phase 18](#phase-18--privacy-engineering)).** v9 had DP for telemetry (§8.11), anonymisation for abuse reports (§14.3), data residency (§8.5), DSAR (§8.5), and a half-promised right-to-portability scattered across the document. v10 consolidates them under a single owner with a **privacy threat model** (T-PRIV-* series), a **data-flow inventory** (every byte the user produces — identity, transcript, chat, telemetry, abuse-report, push-token, secure-storage shadow — labelled with its lifetime, residency, encryption-at-rest state, who can read it, and how it is purged), an **export-my-data** flow (GDPR Right to Portability — produces a signed, app-importable archive), and a **privacy-impact assessment** as a hard prerequisite for the Phase 6 beta-open gate.
+- [ ] **Release & hot-fix delivery phase (new [Phase 19](#phase-19--release--hot-fix-delivery)).** Phase 16 owns CVE response and key rotation; v9 was silent on the *delivery* side — once a fix is committed, how does it reach the user fast enough to matter? v10 specifies: a staged-rollout calendar (canary → 1% → 10% → 50% → 100% with bake times per channel), a "hot-fix lane" with compressed bake times for P0/P1 protocol bugs, **client-side staged-rollout enforcement** (the signed-config blob carries an `eligible_cohort: [u8]` bitmap so the server can authoritatively delay an install from upgrading), an **auto-rollback** trigger if the new build's KPI cohort regresses on the budget-tree by > 5% during bake, and a **kill-switch-by-version** so a known-bad shipped build can be told to refuse P2P even before the user updates. Out-of-store sideload paths are documented as best-effort.
+- [ ] **Feature-flag governance (new [§8.13](#813-feature-flag-governance-v10)).** v9 referenced `kEnableP2P`, `kEnableP2PWeb`, the v10-introduced `kEnableSpectatorChat`, and a dozen ad-hoc booleans. v10 mandates a flag registry ([frontend/lib/services/p2p/flags/registry.dart](../frontend/lib/services/p2p/flags/registry.dart)) where every flag declares: scope (compile-time / runtime / signed-config), default, owner, sunset date, and the proof tests that exercise both states. CI grep gate fails any new `bool kEnable*` literal not in the registry. Stale flags (sunset date elapsed) auto-open `kind: p2p_flag_cleanup`. **Proof:** [frontend/test/p2p/flags/registry_completeness_test.dart](../frontend/test/p2p/flags/registry_completeness_test.dart).
+- [ ] **A/B experiment infrastructure (new [§8.14](#814-ab-experimentation-infrastructure-v10)).** v9's "default off, opt-in" decisions for premove (OQ-30), slow-mode interval (§7.9.4), spectator capacity ceiling (§7.8.2), KCI MAC inclusion threshold, and several others were chosen by intuition. v10 specifies a thin, **privacy-budget-respecting** A/B framework: cohort assignment via `HKDF(account_pubkey, info="chessrecast/p2p/v1/ab/<exp_id>", L=2)` (deterministic, server cannot enumerate cohorts, opt-out honoured by treating opted-out users as control), telemetry buckets bound to the §8.11 DP budget, *no* cross-experiment correlation. Experiments are signed-config-driven and have a max duration of 30 d before requiring a re-decision queue entry. **Proof:** [frontend/test/p2p/experiments/cohort_assignment_test.dart](../frontend/test/p2p/experiments/cohort_assignment_test.dart) + [frontend/test/p2p/experiments/dp_budget_respect_test.dart](../frontend/test/p2p/experiments/dp_budget_respect_test.dart).
+- [ ] **Battery & thermal budgets folded into the tree (formerly hand-waved).** v4–v9 mentioned battery in passing (§4.8 metered networks, §7.10.4 chat-firehose battery drain, Phase 8 cross-cutting). v10 specifies measurable caps: ≤ **3.0% battery / hour** of active blitz play on a 2-year-old mid-tier device, ≤ **0.4% / hour** while waiting for an opponent move on a correspondence game, ≤ **40 °C** chassis temperature at 30-min steady-state. Over budget → spectator features auto-shed first (§7.10.2 LIFO), then chat fan-out (§7.9.4 forced slow-mode), then a one-time toast and graceful end. **Proof:** [frontend/test/p2p/perf/battery_budget_test.dart](../frontend/test/p2p/perf/battery_budget_test.dart) (uses the platform battery historian on Android; iOS uses `ProcessInfo.thermalState` snapshots). Caps are leaves under [Phase 17 §17.3](#173-efficiency-budgets) (Efficiency).
+- [ ] **Memory budget tree (new [§17.4](#174-stability-budgets)).** v9 specified a 4 MB transcript ring (§v6 §1.4) and a 256 KB diag-log ring (§8.3) but no holistic per-process memory ceiling. v10 sets: P2P-owned RSS ≤ **80 MB** at steady state, ≤ **140 MB** at handshake (Argon2 transient), with per-isolate sub-caps (UI ≤ 24 MB, `p2p` ≤ 32 MB, `engine` ≤ 16 MB, transcript spill ≤ 8 MB). Over budget → defensive eviction by isolate, with a `kind: p2p_memory_breach` queue entry on any single sample exceeding the hard cap. Long-running leak detection: a 4-hour soak with continuous match cycling must show zero net RSS growth (≤ 1 MB drift). **Proof:** [frontend/test/p2p/perf/memory_budget_test.dart](../frontend/test/p2p/perf/memory_budget_test.dart) + [frontend/test/p2p/perf/memory_leak_soak_test.dart](../frontend/test/p2p/perf/memory_leak_soak_test.dart) (nightly).
+- [ ] **Latency budget tree (new [§17.2](#172-performance-budgets)).** v9's "P99 < 2 ms move round-trip" (§1.4) was a single number on a synthetic mock. v10 decomposes the user-visible **move RTT P99 ≤ 250 ms over LTE** into: tap → encode (≤ 1 ms) → encrypt + AAD (≤ 0.3 ms) → SCTP send + ACK (≤ 50 ms median + 200 ms tail) → decrypt + AAD verify (≤ 0.3 ms) → engine validate (≤ 1 ms) → apply + state-hash (≤ 0.5 ms, atomic per §1.12) → render (≤ 16 ms = one frame) → emit `MOVE_ACK` (same return path). Each leg has a **separate** proof test and is profiled per-platform per-CI release. Regression > 10% on any leg → `kind: p2p_latency_regression`. The `engine_replay_version` golden test now also asserts engine-validate latency stability across rule-bumps.
+- [ ] **Stability budget tree (new [§17.4](#174-stability-budgets)).** Beyond memory: ANR / frame-jank ≤ 0.05% of frames during active P2P play, isolate-restart rate ≤ 1 / 10⁶ sessions, deadlock budget = **zero** (any reachable deadlock = critical bug, not a budget). Crash-free rate ≥ 99.95% for the P2P-on cohort over a 7-day rolling window (tighter than v9's 99.9% because the budget-tree forces the work). **Proof:** [frontend/test/p2p/perf/anr_jank_budget_test.dart](../frontend/test/p2p/perf/anr_jank_budget_test.dart) + Crashlytics / Sentry dashboard alert at the 99.95% threshold.
+- [ ] **Reliability budget tree (new [§17.5](#175-reliability-budgets)).** MTBF for `MISMATCH` ≥ 10⁶ moves over the rollout cohort (tighter than v9's "0 in 10⁵"); ICE re-establishment success ≥ 99.5% within the 10 s budget; push-wake redemption success ≥ 95% within 90 s on a non-Doze device, ≥ 80% on a Doze device. Each cap is a Phase 6.2 KPI alarm with auto-halt-rollout on breach.
+- [ ] **Integrity budget tree (new [§17.6](#176-integrity-budgets)).** Every released artefact (APK, IPA, signaling binary, native lib) MUST: (a) be reproducible (single SHA across three independent clean rebuilds — Android + Linux server; iOS best-effort per §8.4), (b) carry an in-toto attestation chain through Sigstore Rekor (T-X-007), (c) match its SBOM bit-for-bit (no unattested dependency ever ships), (d) bind its `engine_replay_version` to a per-arch golden hash (§12.5), (e) bind its `wire_version` to the protocol-spec commit SHA in [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md). Any single breach blocks release. **Proof:** [scripts/p2p/release-integrity-gate.sh](../scripts/p2p/release-integrity-gate.sh) — runs all six checks in a hermetic container; CI gates the release tag.
+- [ ] **Engine-binding fuzz hardening (folded into [§1.13](#113-spec)).** v8's nightly 10M-iteration FFI fuzz catches divergence and ASAN findings. v10 adds: (a) **structure-aware fuzz** that mutates *valid* CBOR mod-state shapes (libFuzzer with a custom mutator that respects the per-mod schema) so the fuzzer spends time on semantically interesting inputs rather than 99.99% rejected garbage; (b) **differential fuzz** that runs the same input through the production engine *and* a slow-path Dart-side reference implementation (where one exists) and asserts identical `state_hash`; (c) **per-mod corpus seeding** from `agent/openings/<mod>.csv` plus the discovery / stress slices, so the fuzz starts from real game positions and explores their neighbourhood. **Proof:** [frontend/test/p2p/engine/structure_aware_ffi_fuzz_test.dart](../frontend/test/p2p/engine/structure_aware_ffi_fuzz_test.dart) + [frontend/native/engine/test/engine_ffi_diff_harness.c](../frontend/native/engine/test/engine_ffi_diff_harness.c).
+- [ ] **Mid-session app-update collision specified (new [§4.12](#412-spec)).** v9 was silent on the case where one peer's app updates *during* a live game (foreground transition triggers a hot-restart on Flutter). The session is currently torn down with no clean resume. v10 specifies: (a) a graceful `BYE { reason: client_updating, resumable_until_ts }` is sent before the restart if the OS provides ≥ 1 s notice; (b) on the post-update relaunch, the client polls `/v1/offers` for a `RESUME_HINT { session_id }` left by the opponent and offers a "your last game can be resumed" UX; (c) if the post-update binary's `engine_replay_version` differs from the pre-update one, the resume is refused with `ENGINE_VERSION_MISMATCH` and the partial transcript is preserved as a study artefact. **Proof:** [frontend/test/p2p/transport/mid_session_app_update_test.dart](../frontend/test/p2p/transport/mid_session_app_update_test.dart).
+- [ ] **Native-engine crash forensics (folded into [§1.2](#12-implementation)).** v9 wrote a forensic bundle on `MISMATCH` only. v10 extends: any native-engine crash (SIGSEGV / SIGBUS / SIGABRT / ASAN finding) during a live session preserves the in-flight transcript fragment, the last 64 frames in/out, the engine state snapshot, the OS stack trace (where collectable), and the SHA of `libchess_engine.so` to a sealed-bundle that survives the crash via a parent-process watchdog. The bundle is offered to the user on next launch via the existing diag-bundle UX. **Proof:** [frontend/test/p2p/protocol/engine_crash_forensics_test.dart](../frontend/test/p2p/protocol/engine_crash_forensics_test.dart) + [frontend/native/engine/test/crash_watchdog_test.c](../frontend/native/engine/test/crash_watchdog_test.c).
+- [ ] **Cross-version transcript replay (new [§12.6](#126-cross-version-transcript-replay-v10)).** v9 §12.5 enforces version pinning at handshake; transcripts pin the version at write. v10 specifies the **read** side: a current-version client opening a transcript written under an older `engine_replay_version` MUST either (a) load the historical version's rule semantics from a vendored archive (`frontend/native/engine/historical/<version>/`), validating every move against the historical rules, or (b) refuse to load with `TRANSCRIPT_VERSION_UNSUPPORTED` and offer a "view as PGN only" fallback. The vendored archive policy: the **last 4 minor versions** are kept hot; older ones are archive-only and require a one-time download. **Proof:** [frontend/test/p2p/protocol/cross_version_transcript_replay_test.dart](../frontend/test/p2p/protocol/cross_version_transcript_replay_test.dart) + [frontend/test/p2p/study/historical_engine_archive_test.dart](../frontend/test/p2p/study/historical_engine_archive_test.dart).
+- [ ] **High-water-mark anti-tamper (folded into [§12.5](#125-anti-rollback-enforcement-v7)).** v7 stored `seen_max_engine_replay_version` in the SQLCipher `meta` table. A user with root and the `install_seal_key` could rewrite it to suppress the downgrade warning and play their own friend on an older buggy build. v10 adds: the high-water-mark is *also* attested server-side — every successful handshake reports `(account_pubkey, seen_version)` to the signaling server (signed) and the server returns the maximum it has ever observed for that account. Local value < server-observed value → `OPPONENT_FINGERPRINT_DOWNGRADE_DETECTED` (§10.3) is raised even if the local DB was tampered with. The server-side store is privacy-minimised (only the max value, no per-session detail). **Proof:** [signaling/internal/accounts/version_high_water_mark_test.go](../signaling/internal/accounts/version_high_water_mark_test.go) + [frontend/test/p2p/protocol/anti_rollback_server_attest_test.dart](../frontend/test/p2p/protocol/anti_rollback_server_attest_test.dart).
+- [ ] **Recovery-code rotation flow (new [§2.11](#211-recovery-code-rotation-v10)).** v9 specified the recovery code as a write-once artefact for the lifetime of the account. Real users compromise their recovery code (photo on phone, written on whiteboard) and need to rotate it without losing their account. v10 specifies: in-app "rotate recovery code" → user confirms current device biometric + types current recovery words → app generates fresh 16-word code (BIP-39 checksum verified) → re-wraps the account key under the new Argon2id KEK with the latest `kdf_version` → uploads the fresh wrapped blob (signed under the existing account key, replacing the old one atomically server-side) → user enters fresh words to confirm → the old wrapped blob is overwritten and the old recovery code is permanently invalid. Failure modes: rotation aborted mid-flow → old code remains valid (atomicity guaranteed by server-side compare-and-swap on `wrapped_blob_revision`); server returns `REBIND_RACE_LOST` → rotation refused, user must reconcile from another device first. **Proof:** [frontend/test/p2p/identity/recovery_rotation_test.dart](../frontend/test/p2p/identity/recovery_rotation_test.dart) + [signaling/internal/recovery/cas_rotation_test.go](../signaling/internal/recovery/cas_rotation_test.go).
+- [ ] **iCloud Private Relay / NEXT-Hop interaction (new [§4.13](#413-spec)).** v9 was silent on iOS 15+ iCloud Private Relay and Apple Network Privacy. Both can opaque the public IP that ICE sees and may inject latency that shoves the §11.2 NTP estimator past its desync budget. v10 specifies: detect Private Relay via `nw_path_status` introspection at session start; if active, surface a one-time toast "iCloud Private Relay is active — connection may be slower" and *raise* the §11.2 desync budget to 750 ms for the duration of the session. The clock-protocol fairness still holds because the budget raise is symmetric. **Proof:** [frontend/test/p2p/transport/icloud_private_relay_detection_test.dart](../frontend/test/p2p/transport/icloud_private_relay_detection_test.dart) (mocked).
+- [ ] **Hostile-network detection bundle (new [§4.14](#414-spec)).** v9 had captive-portal detection (F-NET-005) and TURNS fallback (§4.10). v10 consolidates: a single per-session network-quality classifier that fingerprints the local network as one of `{open, captive_portal, dpi_filtered, vpn_only, ipv6_only_pmtu_blocked, metered_high_cost}`. The classifier runs once at session start (≤ 800 ms budget) and exposes its verdict to UI ("you're on a network that may interfere with chess play") and to the connection logic (skip direct ICE on `dpi_filtered`, skip TURN allocation on `ipv6_only_pmtu_blocked` until clamp succeeds, etc.). **Proof:** [frontend/test/p2p/transport/network_quality_classifier_test.dart](../frontend/test/p2p/transport/network_quality_classifier_test.dart).
+- [ ] **Failure-mode catalog grew from ≥175 to ≥200 codes.** New §10.6 codes (full list below in §10.6): `BUDGET_BREACH_LATENCY`, `BUDGET_BREACH_MEMORY`, `BUDGET_BREACH_BATTERY`, `BUDGET_BREACH_THERMAL`, `BUDGET_BREACH_BANDWIDTH`, `LEAK_SOAK_DRIFT_DETECTED`, `MID_SESSION_APP_UPDATE_RESUMED`, `MID_SESSION_APP_UPDATE_REFUSED_VERSION_BUMP`, `ENGINE_NATIVE_CRASH_FORENSIC_WRITTEN`, `TRANSCRIPT_HISTORICAL_ENGINE_ARCHIVE_MISSING`, `TRANSCRIPT_HISTORICAL_ENGINE_ARCHIVE_DOWNLOAD_FAIL`, `ANTI_ROLLBACK_LOCAL_TAMPER_DETECTED`, `RECOVERY_ROTATION_CAS_LOST`, `RECOVERY_ROTATION_ABORTED_BIOMETRIC`, `ICLOUD_PRIVATE_RELAY_DETECTED`, `NETWORK_CLASSIFIER_HOSTILE_VERDICT`, `FLAG_REGISTRY_STALE`, `EXPERIMENT_OPT_OUT_HONOURED`, `EXPERIMENT_DURATION_EXCEEDED`, `PRIVACY_DATA_FLOW_AUDIT_FAILED`, `PORTABILITY_EXPORT_VERIFY_FAILED`, `STAGED_ROLLOUT_AUTO_HALT`, `HOTFIX_LANE_BAKE_FAILED`, `HOTFIX_LANE_AUTO_ROLLBACK`, `KILL_SWITCH_BY_VERSION_ENGAGED`.
+- [ ] **Threat model grew with v10 entries.** Added: T-PRIV-001 cross-session linkage via constant-display-name (mitigation: §14.9 v7 fingerprint-always-visible already; v10 adds local linkability score in the verified-contacts UI); T-PRIV-002 traffic-analysis on signaling endpoints distinguishes "starting game" from "polling" (mitigation: padding to nearest 256 B + jittered long-poll wakeup); T-PRIV-003 spectator-presence inference via TURN allocation patterns (mitigation: §7.10.3 separate-allocation already obscures the count from the players); T-PRIV-004 export-my-data archive used as social-engineering vector to extract chat/transcript from a victim (mitigation: archive is encrypted under a fresh user-chosen passphrase + 5-minute cooldown between exports); T-OPS-004 stale feature flag silently re-enables a deprecated code path on auto-rollout (mitigation: §8.13 sunset enforcement); T-OPS-005 staged-rollout config tampering at signing-key compromise (mitigation: §16.2 signed-config-key calendar already covers; v10 adds independent dual-signature on rollout-control config); T-DEV-001 attacker rolls back local high-water-mark (mitigation: §12.5 v10 server-side attestation); T-NET-014 iCloud Private Relay used to bypass per-IP rate limit (mitigation: per-account quota dominates; documented residual); T-EXP-001 A/B cohort assignment used to fingerprint users (mitigation: §8.14 deterministic-but-private cohort + DP budget binding); T-X-010 dependency on a JS-side polyfill that ships with malicious code in a transitive update (mitigation: web build is opt-in flag and out-of-scope for crypto critical path until OQ-1 GA).
+- [ ] **Open questions OQ-49 through OQ-58 added.** Enumerated below in §OQ-v10.
+- [ ] **Sequencing-graph correction (v10).** [Phase 17](#phase-17--end-to-end-budget-tree-performance-efficiency-stability-reliability-integrity) (budget tree) is a hard prerequisite for the Phase 6 §6.4 GA-rollout gate — without measurable budgets, "no regressions" is unfalsifiable. [Phase 18](#phase-18--privacy-engineering) (privacy engineering) is a hard prerequisite for the Phase 6 beta-open gate — shipping a P2P beta without a complete data-flow inventory + DSAR + portability path violates GDPR / CCPA on day one. [Phase 19](#phase-19--release--hot-fix-delivery) (hot-fix delivery) is a hard prerequisite for the Phase 6 §6.4 GA-rollout gate — without a documented and drilled hot-fix lane, the operator commitment under Phase 16 cannot be honoured for a P0 protocol bug surfacing post-GA. The §17.4 memory-leak soak (4-hour) and §17.6 release-integrity gate are hard prerequisites for *any* release tag, beta or GA. The §2.11 recovery-rotation flow is a hard prerequisite for the Phase 6 beta-open gate — without it, every social-engineering recovery-code leak in beta becomes a permanent account loss.
+
 ## Mission
 
 Replace the current single-player + legacy backend matchmaking with **direct, end-to-end-encrypted, peer-to-peer multiplayer** that:
@@ -1545,6 +1573,285 @@ Even a solo-operator deployment needs a continuity story:
 
 ---
 
+## Phase 17 — End-to-end budget tree (performance, efficiency, stability, reliability, integrity)
+
+**Goal:** Convert every quality promise the project makes into a measurable cap with a proof test, organised in a single hierarchical tree so no leaf is forgotten and no leaf can silently regress. *0% complete. Hard prerequisite for the Phase 6 §6.4 GA-rollout gate.*
+
+v0–v9 sprinkled numeric caps across two dozen sub-sections — latency caps in §1.4, frame-budget caps in §7.10.2, cost caps in §6.5, crash-rate caps in §6.5, memory caps in §1.4, frame-size caps in §1.1, and many more. They had no single owner and no single proof harness. Phase 17 hangs every numeric promise off **one tree**, [agent/baselines/p2p_budgets.json](../agent/baselines/p2p_budgets.json), with the structure below. Every leaf is `{ id, cap, units, owning_section, proof_test, baseline, last_measured_ts }`. Drift on any leaf opens `kind: p2p_budget_breach`.
+
+### 17.1 The tree
+
+```
+chessrecast.p2p
+├── performance
+│   ├── handshake_to_first_move_p99_ms          ≤ 5000  (§17.2.1)
+│   ├── move_rtt_lte_p50_ms                     ≤ 120   (§17.2.2)
+│   ├── move_rtt_lte_p99_ms                     ≤ 250   (§17.2.2)
+│   ├── move_rtt_wifi_p99_ms                    ≤ 80    (§17.2.2)
+│   ├── encode_p99_us                           ≤ 1000  (§17.2.3)
+│   ├── encrypt_aad_p99_us                      ≤ 300   (§17.2.3)
+│   ├── decrypt_verify_p99_us                   ≤ 300   (§17.2.3)
+│   ├── engine_validate_p99_us                  ≤ 1000  (§17.2.3)
+│   ├── apply_state_hash_p99_us                 ≤ 500   (§17.2.3)
+│   ├── render_frame_p99_ms                     ≤ 16    (§17.2.4)
+│   └── spectator_chat_decode_per_frame_ms      ≤ 2     (§7.10.2 + §17.2.5)
+├── efficiency
+│   ├── battery_active_blitz_pct_per_hour       ≤ 3.0   (§17.3.1)
+│   ├── battery_correspondence_idle_pct_per_h   ≤ 0.4   (§17.3.1)
+│   ├── thermal_chassis_max_c                   ≤ 40    (§17.3.2)
+│   ├── bandwidth_chess_kbps_steady             ≤ 8     (§17.3.3)
+│   ├── bandwidth_clock_kbps_steady             ≤ 1     (§17.3.3)
+│   ├── bandwidth_per_spectator_kbps_steady     ≤ 16    (§17.3.3)
+│   ├── apk_size_increase_mb                    ≤ 6     (§17.3.4 + OQ-9)
+│   ├── ipa_size_increase_mb                    ≤ 9     (§17.3.4 + OQ-9)
+│   ├── server_cost_usd_per_mau                 ≤ 0.01  (§6.5)
+│   └── turn_egress_gb_per_mau                  ≤ 0.018 (§17.3.5 + §3.13)
+├── stability
+│   ├── rss_steady_mb                           ≤ 80    (§17.4.1)
+│   ├── rss_handshake_mb                        ≤ 140   (§17.4.1)
+│   ├── rss_ui_isolate_mb                       ≤ 24    (§17.4.1)
+│   ├── rss_p2p_isolate_mb                      ≤ 32    (§17.4.1)
+│   ├── rss_engine_isolate_mb                   ≤ 16    (§17.4.1)
+│   ├── leak_drift_4h_soak_mb                   ≤ 1     (§17.4.2)
+│   ├── anr_pct_of_frames                       ≤ 0.05  (§17.4.3)
+│   ├── isolate_restart_per_million_sessions    ≤ 1     (§17.4.4)
+│   ├── crash_free_pct_7d                       ≥ 99.95 (§17.4.5)
+│   └── deadlock_count                          = 0     (§17.4.6)
+├── reliability
+│   ├── mismatch_per_million_moves              ≤ 1     (§17.5.1)
+│   ├── ice_reestablish_success_pct_within_10s  ≥ 99.5  (§17.5.2)
+│   ├── push_wake_success_pct_non_doze_90s      ≥ 95    (§17.5.3)
+│   ├── push_wake_success_pct_doze_90s          ≥ 80    (§17.5.3)
+│   ├── transcript_signature_verify_success_pct ≥ 99.99 (§17.5.4)
+│   ├── recovery_unwrap_success_pct             ≥ 99.5  (§17.5.5)
+│   └── kill_switch_propagation_p99_minutes     ≤ 10    (§6.3 + §17.5.6)
+└── integrity
+    ├── reproducible_build_sha_match_runs       = 3/3   (§17.6.1 Android+server)
+    ├── sbom_to_artefact_byte_match             = true  (§17.6.2)
+    ├── sigstore_attestation_chain_valid        = true  (§17.6.3)
+    ├── engine_replay_version_per_arch_match    = true  (§12.5 + §17.6.4)
+    ├── wire_version_to_protocol_doc_pinned     = true  (§17.6.5)
+    └── kat_vector_pass_count                   ≥ all   (§17.6.6)
+```
+
+- [ ] The tree is the single source of truth. Removing a leaf requires a `kind: p2p_budget_change` queue entry with a written rationale and a release-notes entry. Adding a leaf requires the same plus a proof test landing in the same commit.
+- [ ] **Proof:** [frontend/test/p2p/perf/budget_tree_kpi_test.dart](../frontend/test/p2p/perf/budget_tree_kpi_test.dart) parses [agent/baselines/p2p_budgets.json](../agent/baselines/p2p_budgets.json) and asserts every leaf has a live test reference and a measured baseline ≤ 30 d old (60 d for cost / battery leaves which need bigger samples).
+
+### 17.2 Performance budgets
+
+- [ ] **17.2.1 Handshake-to-first-move P99 ≤ 5 s** on LTE. Decomposed: ICE gather (≤ 2 s P99), DTLS handshake (≤ 800 ms), `HELLO` exchange (≤ 200 ms), `HELLO_ACK` + colour-flip (≤ 200 ms), engine warm-up (≤ 100 ms). **Proof:** [frontend/test/p2p/perf/handshake_to_first_move_test.dart](../frontend/test/p2p/perf/handshake_to_first_move_test.dart).
+- [ ] **17.2.2 Move RTT** P50 / P99 broken out by transport (LTE direct, LTE TURN, WiFi direct, WiFi TURN). Caps in the tree above. **Proof:** [frontend/test/p2p/perf/move_rtt_per_transport_test.dart](../frontend/test/p2p/perf/move_rtt_per_transport_test.dart).
+- [ ] **17.2.3 Per-leg latency** with separate proof tests so a regression localises to the offending leg. **Proof:** [frontend/test/p2p/perf/per_leg_latency_test.dart](../frontend/test/p2p/perf/per_leg_latency_test.dart).
+- [ ] **17.2.4 Render frame P99 ≤ 16 ms** during P2P play (60 fps target; 90 / 120 fps not budgeted in v1 — OQ-49). **Proof:** [frontend/test/p2p/perf/render_frame_budget_test.dart](../frontend/test/p2p/perf/render_frame_budget_test.dart).
+- [ ] **17.2.5 Spectator-chat decode** ≤ 2 ms per UI frame on the issuing peer (matches §7.10.2). **Proof:** existing [§7.10.2 test](#710-spectator-perf-isolation--chess-always-wins-v9).
+
+### 17.3 Efficiency budgets
+
+- [ ] **17.3.1 Battery** caps measured on a Pixel 4a / iPhone XR baseline; CI re-measures monthly. **Proof:** [frontend/test/p2p/perf/battery_budget_test.dart](../frontend/test/p2p/perf/battery_budget_test.dart).
+- [ ] **17.3.2 Thermal** caps via `ProcessInfo.thermalState` (iOS) and `BatteryManager.temperature` (Android); over `40 °C` chassis triggers spectator/chat shed and a one-time toast. **Proof:** [frontend/test/p2p/perf/thermal_budget_test.dart](../frontend/test/p2p/perf/thermal_budget_test.dart).
+- [ ] **17.3.3 Bandwidth** caps separated by sub-channel: chess + clock + per-spectator. Over budget on chess → end session as `BACKPRESSURE_DROP`; over budget on chat → forced slow-mode. **Proof:** [frontend/test/p2p/perf/bandwidth_budget_test.dart](../frontend/test/p2p/perf/bandwidth_budget_test.dart).
+- [ ] **17.3.4 APK / IPA size** caps verified by CI on every release. Over budget → `kind: p2p_artefact_size_breach`. **Proof:** [scripts/p2p/check-artefact-size.sh](../scripts/p2p/check-artefact-size.sh).
+- [ ] **17.3.5 TURN egress** cap (≤ 0.018 GB/MAU) cross-checks the §6.5 cost target by binding cost to a measurable physical quantity. **Proof:** monthly [agent/reports/p2p/cost-<yyyy-mm>.md](../agent/reports/p2p/) cross-references the egress observed at the TURN box.
+- [ ] **17.3.6 Energy / CO₂ footprint (informational only)** — server-side energy mix per region surfaced in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md). Not a gate; transparency.
+
+### 17.4 Stability budgets
+
+- [ ] **17.4.1 RSS** caps with per-isolate sub-budgets. Over hard cap on a single sample → `BUDGET_BREACH_MEMORY` (§10.6) + defensive eviction. **Proof:** [frontend/test/p2p/perf/memory_budget_test.dart](../frontend/test/p2p/perf/memory_budget_test.dart).
+- [ ] **17.4.2 Leak detection** via 4-hour soak of continuous match cycling on a real device in CI. ≤ 1 MB net RSS drift. **Proof:** [frontend/test/p2p/perf/memory_leak_soak_test.dart](../frontend/test/p2p/perf/memory_leak_soak_test.dart) (nightly).
+- [ ] **17.4.3 ANR / frame-jank** ≤ 0.05% of frames. **Proof:** [frontend/test/p2p/perf/anr_jank_budget_test.dart](../frontend/test/p2p/perf/anr_jank_budget_test.dart).
+- [ ] **17.4.4 Isolate restart** rate ≤ 1 / 10⁶ sessions over a 30-day rolling window. Above → `kind: p2p_stability_regression`.
+- [ ] **17.4.5 Crash-free rate** ≥ 99.95% over 7-day rolling window for the P2P-on cohort (tighter than v9 §6.5).
+- [ ] **17.4.6 Deadlock budget = 0.** Any reachable deadlock is a critical bug, never a budget. Static-analysis gate via Dart `deadlock_lint` and Go `golangci-lint` deadlock-detector. **Proof:** [.github/workflows/deadlock-static-analysis.yml](../.github/workflows/deadlock-static-analysis.yml).
+
+### 17.5 Reliability budgets
+
+- [ ] **17.5.1 MTBF for `MISMATCH`** ≥ 10⁶ moves (tighter than v9 §1.4's 0/10⁵).
+- [ ] **17.5.2 ICE re-establishment success** ≥ 99.5% within the 10 s budget. **Proof:** [frontend/test/p2p/transport/ice_reestablish_success_rate_test.dart](../frontend/test/p2p/transport/ice_reestablish_success_rate_test.dart) (chaos suite).
+- [ ] **17.5.3 Push-wake redemption success** broken by Doze / non-Doze cohorts.
+- [ ] **17.5.4 Transcript signature verify** success ≥ 99.99% — failures mean device-key drift or transcript corruption, both critical.
+- [ ] **17.5.5 Recovery unwrap success** ≥ 99.5% — Argon2 transient failures + biometric flakiness budget.
+- [ ] **17.5.6 Kill-switch propagation P99 ≤ 10 minutes** — already in §6.3, hoisted here for tree completeness.
+
+### 17.6 Integrity budgets
+
+- [ ] **17.6.1 Reproducible build** SHA matches across 3 independent clean rebuilds, Android + Linux server (iOS best-effort per §8.4). **Proof:** [scripts/p2p/verify-reproducible-build.sh](../scripts/p2p/verify-reproducible-build.sh).
+- [ ] **17.6.2 SBOM-to-artefact byte match** — every dependency in the SBOM appears bit-for-bit in the binary; nothing in the binary is missing from the SBOM. **Proof:** [scripts/p2p/sbom-artefact-diff.sh](../scripts/p2p/sbom-artefact-diff.sh).
+- [ ] **17.6.3 Sigstore attestation chain** valid root-to-leaf via `cosign verify-blob`. **Proof:** release workflow gate.
+- [ ] **17.6.4 Engine-replay-version per-arch parity** — the §12.5 cross-arch golden test must pass on every architecture in the release matrix.
+- [ ] **17.6.5 Wire-version pinned to protocol-doc commit SHA** — the running binary's `wire_version` MUST resolve to a commit SHA in [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md)'s history. Prevents shipping a wire format that disagrees with the published spec. **Proof:** [scripts/p2p/wire-version-pin-check.sh](../scripts/p2p/wire-version-pin-check.sh).
+- [ ] **17.6.6 KAT vector pass count** = total — every Known-Answer Test ([agent/baselines/p2p_kdf_kat.json](../agent/baselines/p2p_kdf_kat.json), AEAD KATs, signature KATs) must pass; partial pass is a release-block.
+
+### 17.7 Quality attributes
+
+- [ ] **Performance:** the budget-tree harness itself runs in ≤ 30 s (so it can run on every PR). Heavy soaks (4-h leak, 1k-game chaos) are nightly.
+- [ ] **Efficiency:** the harness runs in CI on the same fixed-spec runner so per-release deltas are meaningful.
+- [ ] **Stability:** the harness fails closed — a missing leaf measurement counts as a breach.
+- [ ] **Reliability:** baselines refresh weekly; stale baselines (> 30 d) auto-open `kind: p2p_baseline_refresh`.
+- [ ] **Integrity:** the budget-tree JSON is signed under the same key as `engine_replay_version`; tampering between commit and CI is detected.
+
+### 17.8 Acceptance gate
+
+- [ ] All §17.1–§17.7 ticked, every leaf has a live proof test, the [agent/baselines/p2p_budgets.json](../agent/baselines/p2p_budgets.json) baseline file exists with measured values for every leaf, the budget-tree harness gates every PR.
+
+---
+
+## Phase 18 — Privacy engineering
+
+**Goal:** Consolidate every privacy-relevant decision the project makes — what data exists, who can read it, how long it lives, where it lives, how it leaves — under a single owner with auditable artefacts. *0% complete. Hard prerequisite for the Phase 6 beta-open gate.*
+
+v9 had privacy hooks scattered across §8.5 (residency), §8.11 (DP telemetry), §14.3 (anonymisation), and Phase 9 (threat model). v10 makes privacy a first-class phase because shipping a P2P beta without a complete data-flow inventory + DSAR + portability path violates GDPR / CCPA on day one regardless of how good the cryptography is.
+
+### 18.1 Data-flow inventory
+
+A line item in [docs/P2P_PRIVACY.md](P2P_PRIVACY.md) for **every byte the user produces**:
+
+| Data class | Lifetime | Residency | At-rest encryption | Readable by | Purge trigger |
+|---|---|---|---|---|---|
+| Account pubkey | account lifetime | server (region per §8.5) | server KMS | operator (DSAR) | DSAR delete |
+| Device pubkey | device lifetime | local + server hash | local SecureStorage / server KMS | local + DSAR | rebind / DSAR |
+| Wrapped recovery blob | account lifetime | server | Argon2id + AEAD | nobody (without code) | DSAR delete |
+| Transcript | game lifetime | local-only (default) | SQLCipher | local | retention cap (§0.6) |
+| Chat history (player) | game lifetime | local-only | SQLCipher | local | retention cap |
+| Chat history (spectator) | game lifetime | RAM-only | RAM | local | game end / leave |
+| Push token | rotation cycle | server | server KMS | operator (rate-limit) | rotation / DSAR |
+| Telemetry batch | DP-budget window | server | server KMS | operator (aggregate) | window expiry |
+| Abuse report bundle | 90 d | operator KMS | operator KMS | operator (review) | 90 d auto-purge |
+| Diag bundle (opt-in) | 90 d | operator KMS | operator KMS | operator (debug) | 90 d auto-purge |
+| Forensic bundle | until upload + 90 d | local then operator | SQLCipher then KMS | operator (debug) | 90 d auto-purge |
+
+- [ ] CI gate: a **bytes-uncovered** test enumerates every `INSERT` / `WRITE` / network egress in P2P-tagged code and asserts each one maps to a row in the inventory. New writes without a row → CI fail. **Proof:** [scripts/p2p/data-flow-completeness-check.sh](../scripts/p2p/data-flow-completeness-check.sh) + [frontend/test/p2p/privacy/data_flow_completeness_test.dart](../frontend/test/p2p/privacy/data_flow_completeness_test.dart).
+
+### 18.2 Privacy threat model (T-PRIV-*)
+
+- [ ] **T-PRIV-001** Cross-session linkage via stable account fingerprint (already documented in §9.5 T-M-004 v5; folded here for completeness). *Mitigation:* user can rotate recovery code (§2.11 v10) → fresh account.
+- [ ] **T-PRIV-002** Traffic analysis on signaling endpoints distinguishes "starting game" from "polling". *Mitigation:* request padding to nearest 256 B + jittered long-poll wakeup. **Proof:** [signaling/internal/privacy/traffic_padding_test.go](../signaling/internal/privacy/traffic_padding_test.go).
+- [ ] **T-PRIV-003** Spectator-presence inference via TURN allocation patterns. *Mitigation:* §7.10.3 separate-allocation already obscures count from players. *Documented residual:* operator can see allocation count.
+- [ ] **T-PRIV-004** Export-my-data archive used as social-engineering vector. *Mitigation:* §18.4 export requires fresh user-chosen passphrase + 5-min cooldown between exports + biometric re-confirm.
+- [ ] **T-PRIV-005** Telemetry cross-correlation across DP windows. *Mitigation:* per-window rerandomised salt + budget enforcement (§8.11).
+- [ ] **T-PRIV-006** Push-token reuse across account rotations enables provider-side linkage. *Mitigation:* token is rotated on every account rotation (§2.11) and the old token is revoked at the provider.
+
+### 18.3 DSAR (Right to Access)
+
+- [ ] Already specified in §8.5; v10 adds: response within 30 d (statutory), in machine-readable JSON, scoped to the requesting account pubkey. Per-region routing honoured. **Proof:** [signaling/internal/dsar/dsar_test.go](../signaling/internal/dsar/dsar_test.go) (existing).
+
+### 18.4 Right to Portability (export-my-data)
+
+- [ ] In-app "Export my data" → app generates an encrypted archive `chessrecast-export-<account_short_id>-<yyyy-mm-dd>.cbor.aead` containing: account pubkey, device pubkey list, transcript list (signed by both peers), local block-list, local display-name overrides, settings, **never** the wrapped recovery blob (out of scope for portability — security boundary).
+- [ ] **Encryption:** archive is AEAD-encrypted under a fresh user-chosen passphrase via Argon2id (same KDF parameters as recovery, §2.2). User must enter the passphrase to import on a new install.
+- [ ] **Importable on the same app on a fresh install** as a "study archive" — read-only view of historical transcripts. Does NOT restore the account (account restoration requires the recovery code, by design).
+- [ ] **Cooldown:** 5 minutes between exports (anti-social-engineering, T-PRIV-004); requires biometric re-confirm.
+- [ ] **Verification:** the import side runs every transcript through the §12.6 cross-version replay before accepting. Bad signatures or missing historical-engine archive → load as "unverified PGN view only".
+- [ ] **Proof:** [frontend/test/p2p/privacy/export_my_data_test.dart](../frontend/test/p2p/privacy/export_my_data_test.dart) + [frontend/test/p2p/privacy/export_import_round_trip_test.dart](../frontend/test/p2p/privacy/export_import_round_trip_test.dart).
+
+### 18.5 Right to Erasure (delete-my-data)
+
+- [ ] In-app "Delete my account" → app uploads a signed deletion request → server purges all server-side state (account row, push tokens, wrapped recovery blob, telemetry buckets, abuse reports filed *by* this account; abuse reports filed *against* this account are anonymised but retained for safety per §14.3). Litestream snapshots ≤ 30 d.
+- [ ] Local: app wipes SQLCipher, SecureStorage, all caches.
+- [ ] Confirmation screen explains irreversibility; recovery code becomes permanently invalid.
+- [ ] **Proof:** [signaling/internal/dsar/delete_test.go](../signaling/internal/dsar/delete_test.go) + [frontend/test/p2p/privacy/delete_account_test.dart](../frontend/test/p2p/privacy/delete_account_test.dart).
+
+### 18.6 Privacy Impact Assessment
+
+- [ ] [docs/P2P_PRIVACY_PIA.md](P2P_PRIVACY_PIA.md) published before beta opens. Template covers: lawful basis (consent + legitimate interest for abuse reporting), data categories, recipients, retention, transfers (residency), DPO contact, user rights (access / portability / erasure / objection), DPIA risk ratings, mitigations.
+- [ ] Reviewed by a qualified privacy reviewer (operator may self-attest for solo deployment, with that disclosure in the document).
+
+### 18.7 Quality attributes
+
+- [ ] **Performance:** export-my-data archive generation ≤ 30 s for a typical account (≤ 100 transcripts).
+- [ ] **Efficiency:** archive ≤ 10 MB compressed for typical account; ceiling 100 MB (over → progressive download).
+- [ ] **Stability:** export runs on the `p2p` isolate; UI never blocks.
+- [ ] **Reliability:** export resumable across app launch (intermediate state in SQLCipher); failed export → user sees "retry export".
+- [ ] **Integrity:** export archive carries an in-archive manifest signed under the device key; tampering between export and import is detected at import time.
+
+### 18.8 Acceptance gate
+
+- [ ] All §18.1–§18.7 ticked, [docs/P2P_PRIVACY.md](P2P_PRIVACY.md) + [docs/P2P_PRIVACY_PIA.md](P2P_PRIVACY_PIA.md) published, DSAR + portability + erasure flows live and tested in a third-party staging environment, data-flow-completeness CI gate live.
+
+---
+
+## Phase 19 — Release & hot-fix delivery
+
+**Goal:** Once a fix is committed to `main`, get it onto the user's device fast enough to matter, without breaking the staged-rollout safety net. *0% complete. Hard prerequisite for the Phase 6 §6.4 GA-rollout gate.*
+
+v9's Phase 16 owned CVE response and key rotation but was silent on the *delivery* side: how does a P0 protocol bug actually reach the user? Phase 19 fills the gap with a documented hot-fix lane, server-side rollout enforcement, and auto-rollback.
+
+### 19.1 Standard staged-rollout calendar
+
+- [ ] **Channels:** internal (CI, pre-release testers, ≤ 50 accounts) → canary (1% of opted-in beta MAU) → 10% → 50% → 100%. Bake times: internal ≥ 24 h, canary ≥ 24 h, 1% ≥ 48 h, 10% ≥ 72 h, 50% ≥ 72 h. Total bake floor: ~ 11 d.
+- [ ] **Auto-halt** on any of: budget-tree leaf regression > 5%, crash-free rate < 99.95%, `MISMATCH` rate > baseline + 3σ, kill-switch engaged, security advisory acknowledged. Halt → `kind: p2p_rollout_halt` queue entry, on-call paged.
+- [ ] **Proof:** [scripts/p2p/staged-rollout-controller.sh](../scripts/p2p/staged-rollout-controller.sh) + [signaling/internal/rollout/calendar_test.go](../signaling/internal/rollout/calendar_test.go).
+
+### 19.2 Hot-fix lane
+
+- [ ] **Trigger:** P0/P1 protocol bug, unpatched CVE in critical-path dependency, security audit finding rated critical/high.
+- [ ] **Compressed bake:** internal ≥ 4 h, canary ≥ 4 h, 1% ≥ 8 h, 10% ≥ 12 h, 50% ≥ 12 h, 100%. Total bake floor: ~ 40 h. May be further compressed by on-call decision with a queue entry of `kind: p2p_hotfix_bake_compressed`.
+- [ ] **Mandatory:** the fix MUST land with a regression test (per AGENTS.md §3) AND the §17.6 release-integrity gate MUST pass. Skipping integrity is forbidden even for hot-fix.
+- [ ] **Proof:** [scripts/p2p/hotfix-lane-controller.sh](../scripts/p2p/hotfix-lane-controller.sh) + a hot-fix drill at least twice a year, logged at [docs/P2P_OPERATIONS_DRILL_LOG.md](P2P_OPERATIONS_DRILL_LOG.md).
+
+### 19.3 Server-side staged-rollout enforcement
+
+- [ ] The signed-config blob (§8.8 v6 + §16.5) carries `eligible_cohorts: [u8]` (bitmap of 256 cohorts) and a `min_app_version`. Each install computes its cohort = `HKDF(install_id, info="chessrecast/p2p/v1/cohort", L=1)[0]` and refuses to enable P2P features outside its cohort window. Lets the server hold an install on the previous version even if the user manually side-loaded the newer one. **Proof:** [frontend/test/p2p/rollout/cohort_eligibility_test.dart](../frontend/test/p2p/rollout/cohort_eligibility_test.dart) + [signaling/internal/rollout/cohort_enforcement_test.go](../signaling/internal/rollout/cohort_enforcement_test.go).
+
+### 19.4 Auto-rollback
+
+- [ ] If a new build's KPI cohort regresses on any budget-tree leaf by > 5% during bake, OR the crash-free rate drops below 99.9% (looser than the steady-state 99.95% — no brand-new build is perfect), the rollout controller automatically rolls the cohort window *backward* (e.g. 10% → 1% → canary → halt). Surfaces as `STAGED_ROLLOUT_AUTO_HALT` (§10.6).
+- [ ] If the regression is on a *security* leaf (§17.6 integrity, KAT vectors, SBOM match), the rollback is **immediate** to canary regardless of bake position.
+- [ ] **Proof:** [scripts/p2p/auto-rollback-test.sh](../scripts/p2p/auto-rollback-test.sh) + a quarterly auto-rollback drill.
+
+### 19.5 Kill-switch by version
+
+- [ ] Beyond the global `kEnableP2P=false` (§6.3), the signed config also carries a `disabled_versions: [u32]` list. A shipped build whose `wire_version` is in the list refuses to enable P2P even if the user updates *to* that version (e.g. a sideloaded build outside the staged-rollout cohort). UI surfaces "this version is known-bad — please update from the official store". `KILL_SWITCH_BY_VERSION_ENGAGED` (§10.6). **Proof:** [frontend/test/p2p/config/kill_switch_by_version_test.dart](../frontend/test/p2p/config/kill_switch_by_version_test.dart).
+
+### 19.6 Out-of-store sideload paths
+
+- [ ] **Best-effort only.** Documented in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md): F-Droid-equivalent reproducible-build downloads can verify the SHA matches the published release, but cannot benefit from the staged-rollout cohort (those installs report `install_id` so the server still knows their cohort, but the user can sideload any version). `KILL_SWITCH_BY_VERSION_ENGAGED` is the only protection against a known-bad sideloaded build.
+
+### 19.7 Quality attributes
+
+- [ ] **Performance:** rollout-controller decisions made within 60 s of metric arrival.
+- [ ] **Efficiency:** signed-config blob ≤ 4 KB (cohort bitmap is the largest field).
+- [ ] **Stability:** the rollout controller runs in a separate process; its crash never affects user-facing signaling.
+- [ ] **Reliability:** every rollout state transition is logged + signed; rollback is idempotent.
+- [ ] **Integrity:** rollout-control config is dual-signed (rollout-key + signing-key) per T-OPS-005 v10; single-key compromise cannot rush a rollout.
+
+### 19.8 Acceptance gate
+
+- [ ] All §19.1–§19.7 ticked, the staged-rollout controller and hot-fix lane have each been drilled at least once (logged in [docs/P2P_OPERATIONS_DRILL_LOG.md](P2P_OPERATIONS_DRILL_LOG.md)), and an auto-rollback drill has succeeded in staging.
+
+---
+
+### 10.6 v10 additions to the catalog (budgets, hot-fix lane, privacy, recovery rotation)
+
+> Codes added by v10. Numbering continues; do not renumber the v5–v9 entries above.
+
+- [ ] **F-BUDGET-001** `BUDGET_BREACH_LATENCY` — §17.2 latency leaf exceeded its cap on a release-blocking sample. *Recovery:* CI-only; opens `kind: p2p_budget_breach`.
+- [ ] **F-BUDGET-002** `BUDGET_BREACH_MEMORY` — §17.4.1 RSS sample over hard cap. *Recovery:* defensive isolate eviction; user-visible toast on repeat.
+- [ ] **F-BUDGET-003** `BUDGET_BREACH_BATTERY` — §17.3.1 battery cap exceeded over a 1 h window. *Recovery:* spectator + chat shed; user toast.
+- [ ] **F-BUDGET-004** `BUDGET_BREACH_THERMAL` — §17.3.2 thermal cap exceeded. *Recovery:* same shed cascade as battery.
+- [ ] **F-BUDGET-005** `BUDGET_BREACH_BANDWIDTH` — §17.3.3 chess-channel bandwidth exceeded. *Recovery:* end session as `BACKPRESSURE_DROP` with friendly UX.
+- [ ] **F-BUDGET-006** `LEAK_SOAK_DRIFT_DETECTED` — §17.4.2 4-h soak detected RSS drift > 1 MB. *Recovery:* CI-only; opens `kind: p2p_leak`.
+- [ ] **F-LIFE-006** `MID_SESSION_APP_UPDATE_RESUMED` — §4.12 v10 resume succeeded post-update. *Recovery:* informational only.
+- [ ] **F-LIFE-007** `MID_SESSION_APP_UPDATE_REFUSED_VERSION_BUMP` — §4.12 v10 resume refused because the post-update binary's `engine_replay_version` differs. *Recovery:* surface "your app updated mid-game; the partial transcript was preserved as a study line".
+- [ ] **F-CRASH-001** `ENGINE_NATIVE_CRASH_FORENSIC_WRITTEN` — v10 native-engine crash forensic bundle written by the watchdog. *Recovery:* offer the bundle on next launch via the diag UX.
+- [ ] **F-STUDY-005** `TRANSCRIPT_HISTORICAL_ENGINE_ARCHIVE_MISSING` — §12.6 v10 cross-version replay needs an archive that is not vendored. *Recovery:* offer download.
+- [ ] **F-STUDY-006** `TRANSCRIPT_HISTORICAL_ENGINE_ARCHIVE_DOWNLOAD_FAIL` — archive download failed. *Recovery:* fall back to PGN-only view.
+- [ ] **F-INTEGRITY-002** `ANTI_ROLLBACK_LOCAL_TAMPER_DETECTED` — §12.5 v10 server attest disagrees with local high-water-mark. *Recovery:* refuse session; surface "your local data appears to have been tampered with — please reinstall the app".
+- [ ] **F-ID-019** `RECOVERY_ROTATION_CAS_LOST` — §2.11 v10 rotation lost the server-side compare-and-swap. *Recovery:* abort rotation atomically; old code remains valid.
+- [ ] **F-ID-020** `RECOVERY_ROTATION_ABORTED_BIOMETRIC` — user cancelled biometric mid-rotation. *Recovery:* abort atomically; old code remains valid.
+- [ ] **F-NET-010** `ICLOUD_PRIVATE_RELAY_DETECTED` — §4.13 v10 detection. *Recovery:* informational + relax §11.2 desync budget to 750 ms.
+- [ ] **F-NET-011** `NETWORK_CLASSIFIER_HOSTILE_VERDICT` — §4.14 v10 classifier verdict ∈ `{captive_portal, dpi_filtered, ipv6_only_pmtu_blocked}`. *Recovery:* surface UX + skip the corresponding ICE branch.
+- [ ] **F-FLAG-001** `FLAG_REGISTRY_STALE` — §8.13 v10 sunset date elapsed without cleanup. *Recovery:* CI-only; opens `kind: p2p_flag_cleanup`.
+- [ ] **F-EXP-001** `EXPERIMENT_OPT_OUT_HONOURED` — §8.14 v10 user opted out; cohort assignment forced to control. *Recovery:* informational.
+- [ ] **F-EXP-002** `EXPERIMENT_DURATION_EXCEEDED` — §8.14 v10 experiment past 30-day cap without renewal. *Recovery:* CI-only; opens `kind: p2p_experiment_renewal`.
+- [ ] **F-PRIV-001** `PRIVACY_DATA_FLOW_AUDIT_FAILED` — §18.1 v10 data-flow-completeness CI gate failed. *Recovery:* CI-only; opens `kind: p2p_privacy_inventory`.
+- [ ] **F-PRIV-002** `PORTABILITY_EXPORT_VERIFY_FAILED` — §18.4 v10 import-side verification failed. *Recovery:* surface "this export archive is corrupted or was tampered with"; offer PGN-only fallback.
+- [ ] **F-OPS-006** `STAGED_ROLLOUT_AUTO_HALT` — §19.4 v10 auto-halt fired. *Recovery:* operator-only; surfaces on dashboard.
+- [ ] **F-OPS-007** `HOTFIX_LANE_BAKE_FAILED` — §19.2 v10 compressed-bake stage observed a regression. *Recovery:* operator-only; auto-rolls back to previous stage.
+- [ ] **F-OPS-008** `HOTFIX_LANE_AUTO_ROLLBACK` — §19.4 v10 auto-rollback engaged on a hot-fix release. *Recovery:* operator-only.
+- [ ] **F-OPS-009** `KILL_SWITCH_BY_VERSION_ENGAGED` — §19.5 v10 client refusing to enable P2P due to known-bad version list. *Recovery:* deep-link to store update.
+
+---
+
 ## Open questions (must be resolved before the corresponding gate)
 
 - [ ] **OQ-1** Web / desktop scope for GA — full parity, reduced (no recovery), or excluded? *Decision required before:* Phase 6. **v5 default:** web is reduced (no recovery, no push), behind separate `kEnableP2PWeb` flag, GA-stretch only.
@@ -1595,6 +1902,16 @@ Even a solo-operator deployment needs a continuity story:
 - [ ] **OQ-46** Display-name policy for spectators — should spectator display names be the device-local nickname (already §7.7) or the account's verified-display-name (Phase 14)? *Decision required before:* §7.9 UX freeze. **v9 default:** verified display name with the same UTS #39 confusable filter as chat content.
 - [ ] **OQ-47** Spectator chat in correspondence games — if `tc_kind=none` (correspondence, days-long), is the perf budget different (the issuing peer is rarely active) and should chat persist server-side via a relay? *Decision required before:* correspondence GA. **v9 default:** chat is **disabled** in correspondence games in v1 (no online host to fan out); revisit with a server-relay design.
 - [ ] **OQ-48** Engagement metrics for spectators — do we measure spectator counts, chat volume, and host-shed events under the §8.11 DP budget, or are they exempt as "operator infrastructure metrics"? *Decision required before:* §8.11 acceptance. **v9 default:** subject to DP; aggregate-count metrics get histogram bucketing identical to player metrics.
+- [ ] **OQ-49** Budget-tree leaf cardinality cap — the §17.1 tree starts at ~50 leaves; at what count does the harness become a bottleneck on PR latency, and do we shard? *Decision required before:* §17.8 acceptance. **v10 default:** 80-leaf cap, shard at 60; soak/cost leaves move to nightly.
+- [ ] **OQ-50** Privacy data-flow inventory update cadence — every PR or every release? *Decision required before:* §18.8 acceptance. **v10 default:** every PR for the completeness CI gate; release-only for the human-readable [docs/P2P_PRIVACY.md](P2P_PRIVACY.md) refresh.
+- [ ] **OQ-51** Hot-fix lane minimum bake time — §19.2 sets a 40 h floor; can on-call compress further for an actively-exploited zero-day, and what is the ceiling on compression? *Decision required before:* §19.8 acceptance. **v10 default:** floor compressible to 12 h with two-on-call sign-off; below 12 h forbidden.
+- [ ] **OQ-52** Feature-flag sunset enforcement strictness — §8.13 sunset triggers `F-FLAG-001`. Should an expired flag *also* default-flip its value to the safer side automatically, or only nag? *Decision required before:* §8.13 acceptance. **v10 default:** nag; auto-flip is a follow-up after one quarter of human-driven cleanup data.
+- [ ] **OQ-53** A/B max concurrent experiments — §8.14 risks combinatorial cohort explosion. *Decision required before:* §8.14 acceptance. **v10 default:** 3 concurrent experiments, mutually exclusive cohorts via shared 256-bucket assignment salt.
+- [ ] **OQ-54** Historical-engine archive TTL — §12.6 vendors the last 4 minor versions; how long do we keep the on-demand download archive? *Decision required before:* §12.6 acceptance. **v10 default:** 36 months from release; older archives move to a cold mirror documented in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md).
+- [ ] **OQ-55** Recovery-rotation cooldown — §2.11 v10 limits the rate. *Decision required before:* §2.11 acceptance. **v10 default:** 24 h cooldown between successful rotations; 5 attempts/day; biometric required.
+- [ ] **OQ-56** Private Relay desync budget — §4.13 v10 raises the §11.2 desync budget to 750 ms when Private Relay/NEXT-Hop is detected. Is 750 ms enough for the long tail of relay paths? *Decision required before:* §4.13 acceptance. **v10 default:** 750 ms; revisit at beta with measured P99 from the cohort.
+- [ ] **OQ-57** Hostile-network classifier 800 ms budget — §4.14 must classify the network in ≤ 800 ms or skip with `unknown`. Is that tight enough on captive portals? *Decision required before:* §4.14 acceptance. **v10 default:** 800 ms; `unknown` falls back to the safest ICE branch (TURN-only).
+- [ ] **OQ-58** Memory soak duration — §17.4.2 specifies 4 h. Is 4 h sufficient to catch the slowest-leaking 0.1% of PRs, or do we need 8 h nightly? *Decision required before:* §17.8 acceptance. **v10 default:** 4 h on every PR; 8 h weekly on `main`.
 
 ---
 
@@ -1658,6 +1975,17 @@ Phase 0 (cleanup) ──► Phase 1 (protocol) ──► Phase 4 (transport) ─
 22. [§8.11](#what-changed-in-v8-vs-v7) DP budget for telemetry is a hard prerequisite for the Phase 6 beta-open gate. Cross-session re-identification of beta users via uncalibrated metrics is a privacy violation regardless of opt-in framing.
 
 Critical-path summary (v8): **Phase 0 (with §0.6 + §0.7 + §0.8) → Phase 5 §5.1 + §5.5 + Phase 12 (with §12.5) + §2.7 + §8.10 → Phase 1 (with §1.1 v8 freshness + §1.7 v8 RESIGN fix + §1.9 + §1.10 + §1.11 + §1.12 atomic apply + §1.13 FFI fuzz + CBOR-float ban) + Phase 11 (with §11.7 + §11.8 + §11.10 a11y) → Phase 2 (with §2.9 + §2.10) → Phase 4 (with §4.1 v8 trickle + §4.10 + §4.11 BG tasks) + Phase 3 (with §3.10 + §3.11 + §3.12 + §3.13 + §3.14 + §3.15) + Phase 8.8 + §8.11 DP + §8.12 blob versioning + Phase 14 (with §14.9) → Phase 6 beta (with §6.7 + §6.8 study mode) → Phase 15.1 + 15.2 + Phase 16 → Phase 6 GA**.
+
+**Hard prerequisite ordering additions (v10):**
+
+23. [Phase 17](#phase-17--end-to-end-budget-tree-performance-efficiency-stability-reliability-integrity) (budget tree) is a hard prerequisite for the Phase 6 §6.4 GA-rollout gate. Numeric promises without a single-source-of-truth tree + per-PR harness drift undetected.
+24. [Phase 18](#phase-18--privacy-engineering) (privacy engineering — data-flow inventory + portability + erasure + PIA) is a hard prerequisite for the Phase 6 beta-open gate. Shipping P2P beta without these flows breaches GDPR/CCPA day-one regardless of crypto quality.
+25. [Phase 19](#phase-19--release--hot-fix-delivery) (release/hot-fix delivery — staged rollout enforcement + hot-fix lane + auto-rollback + kill-switch-by-version) is a hard prerequisite for the Phase 6 §6.4 GA-rollout gate. Without it, a P0 protocol bug has no documented path to the user device.
+26. [§17.4.2](#174-stability-budgets) (4-h memory-leak soak) is a hard prerequisite for ticking any Phase 6 beta-open box. Leak-induced OOM at hour 3 of a tournament is the single worst first-impression for P2P.
+27. [§17.6](#176-integrity-budgets) (release-integrity gate — reproducible build + SBOM/artefact byte-match + Sigstore + per-arch engine-replay + wire-version pin + KAT pass) is a hard prerequisite for the Phase 6 §6.4 GA gate AND for every hot-fix release; integrity is never compressed.
+28. [§2.11](#what-changed-in-v10-vs-v9) (recovery-code rotation with CAS on `wrapped_blob_revision`) is a hard prerequisite for the Phase 6 beta-open gate. Without it, a leaked recovery code is permanent — that violates the duty-of-care charter.
+
+Critical-path summary (v10): **Phase 0 (with §0.6 + §0.7 + §0.8) → Phase 5 §5.1 + §5.5 + Phase 12 (with §12.5 v10 server attest + §12.6 cross-version replay) + §2.7 + §8.10 + §17.6 release integrity → Phase 1 (with §1.1 v8 freshness + §1.7 v8 RESIGN fix + §1.9 + §1.10 + §1.11 + §1.12 atomic apply + §1.13 v10 structure-aware fuzz + CBOR-float ban) + Phase 11 (with §11.7 + §11.8 + §11.10 a11y) → Phase 2 (with §2.9 + §2.10 + §2.11 rotation) → Phase 4 (with §4.1 v8 trickle + §4.10 + §4.11 BG tasks + §4.12 mid-session update + §4.13 Private Relay + §4.14 hostile-network classifier) + Phase 3 (with §3.10 + §3.11 + §3.12 + §3.13 + §3.14 + §3.15) + Phase 8.8 + §8.11 DP + §8.12 + §8.13 flag governance + §8.14 A/B + Phase 14 (with §14.9) + Phase 17 budget tree + Phase 18 privacy → Phase 6 beta (with §6.7 + §6.8 study mode + §17.4.2 soak + §18.8 privacy gate + §19.1 staged-rollout) → Phase 15.1 + 15.2 + Phase 16 + Phase 19 hot-fix lane + auto-rollback drilled → Phase 6 GA**.
 
 ---
 
