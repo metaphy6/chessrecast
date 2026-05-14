@@ -1,6 +1,6 @@
 # ChessRecast — Peer-to-Peer Multiplayer Roadmap
 
-> **Version:** v6 · **Status banner:** 🟥 **0% shipped** — every checkbox in this document is empty (`[ ]`). No P2P code, no signaling server, no archive of the legacy backend exists yet. Everything below is design intent until a checkbox is ticked by a commit on `main`.
+> **Version:** v7 · **Status banner:** 🟥 **0% shipped** — every checkbox in this document is empty (`[ ]`). No P2P code, no signaling server, no archive of the legacy backend exists yet. Everything below is design intent until a checkbox is ticked by a commit on `main`.
 >
 > **Companion docs:** [AGENTS.md](../AGENTS.md), [.github/copilot-instructions.md](../.github/copilot-instructions.md), [docs/coding/ai/automation.md](coding/ai/automation.md), [docs/game/GAME_MODS_DOCUMENTATION.md](game/GAME_MODS_DOCUMENTATION.md), [docs/game/DRAW_RULES.md](game/DRAW_RULES.md). When this roadmap and AGENTS.md disagree on cross-cutting policy (commit/push, tests-with-code, system safety), **AGENTS.md wins**. This document is authoritative only for P2P scope, sequencing, and acceptance gates.
 
@@ -80,6 +80,34 @@ v5 was the first version that survived a hostile review of its cryptography. v6 
 - [ ] **Threat model new entries.** Added: T-N-009 monotonic-clock spoofing on rooted/jailbroken devices (mitigation: monotonic clock is OS-enforced; rooted-device detection surfaces a `casual_mode` enforcement); T-P-009 spectator-as-cheat-relay (mitigation: spectator chain forbidden, view-key tied to spectator's verified pubkey); T-D-005 secret residue in process memory after crash (mitigation: §2.7 zeroisation + core-dump disabled); T-D-006 screen-recording during recovery display (§FLAG_SECURE); T-S-006 push-provider compelled disclosure of token-to-account mapping (mitigation: tokens stored encrypted at rest with per-account KMS-derived key; documented residual risk); T-X-006 transitive-dep crypto downgrade (mitigation: `crypto_suite_id` negotiation pinned to current suite by default, future-suite acceptance gated by client major-version flag); T-X-007 build-artefact substitution between SBOM generation and store upload (mitigation: in-toto attestation chain through Sigstore Rekor); T-CHAT-001 social-engineering via chat to extract recovery code (mitigation: in-chat detection of "please tell me your" + 16-word patterns, soft warning); T-MIN-001 minor-account harm (mitigation: age-gate + reduced chat default for under-16).
 - [ ] **Open questions added.** OQ-17 through OQ-25 enumerated below.
 - [ ] **Sequencing-graph correction (v6).** Phase 15 (security audit + pentest) is a hard prerequisite for the Phase 6 §6.4 GA-rollout gate. Phase 14 (user safety) is a hard prerequisite for the beta-open gate.
+
+## What changed in v7 vs v6
+
+v6 hardened cryptography and platform-integration. v7 closes the gaps that surface when the design is read against the **rest-of-system** reality: actual file paths in the engine, the at-rest threat model for local storage, the full UX flow a user has to walk through to find a game, the supply-chain monitoring loop, and the operations cadence that keeps the whole thing from rotting in production. Every bullet below either fixes a concrete bug, adds a missing-but-load-bearing sub-system, or closes a sub-section that prior versions said was "in scope" without specifying.
+
+- [ ] **Engine path & PRNG-citation correction.** v5 §What-changed cited [frontend/native/engine/search.c](../frontend/native/engine/search.c) lines 149–196 as the location of the non-deterministic PRNG. The repository today has *both* a legacy [frontend/native/engine/search.c](../frontend/native/engine/search.c) **and** a modular [frontend/native/engine/search/search.c](../frontend/native/engine/search/search.c); the search PRNG and Zobrist PRNG live across [frontend/native/engine/board/board_zobrist.c](../frontend/native/engine/board/board_zobrist.c) and the search files. v7 §12.1's CI-gate path-list is corrected to enumerate the **actual** layout — `frontend/native/engine/{board,bridge,eval,movegen,search}/**` plus the legacy top-level `.c` siblings — and the PRNG citation in §9.7 T-P-007 is rewritten to name *both* PRNGs (Zobrist for hashing, search for tiebreaks) so a future cleanup of the legacy file does not silently break the threat-model link.
+- [ ] **At-rest encryption for local storage (new §0.6).** v0–v6 protected key material via OS secure storage but left **saved games, transcripts, chat history, forensic bundles, and the diagnostic ring buffer in plaintext SQLite / files**. A device with a weak lock screen, a forensic dump, or a sync-to-cloud backup misconfiguration leaks all opponent fingerprints, all chat, and all move history. v7 mandates SQLCipher (or platform-equivalent file-level encryption) for the saved-games DB, libsodium-secretstream for forensic bundles, and `android:allowBackup="false"` + iOS `NSFileProtectionCompleteUntilFirstUserAuthentication`. **Proof:** `frontend/test/p2p/storage/sqlcipher_at_rest_test.dart` + `frontend/test/p2p/storage/no_plaintext_residue_test.dart` (filesystem grep for known plaintext markers post-write).
+- [ ] **`session_id` derivation specified (new §1.9).** v6 used `session_id` as HKDF salt for both `session_master` and `aead-salt` but never said where `session_id` comes from. If either peer can choose it freely, an attacker mid-handshake can collide it with a prior session and replay AEAD frames. v7 fixes: `session_id = SHA-256(initiator_eph_pub || responder_eph_pub || initiator_nonce || responder_nonce)` — both peers compute it locally from values they already verified, no peer chooses it unilaterally, no wire field carries it. **Proof:** `frontend/test/p2p/identity/session_id_derivation_test.dart` + `frontend/test/p2p/identity/session_id_collision_resistance_test.dart` (1M handshake fuzz, no collisions).
+- [ ] **CBOR floats explicitly forbidden.** v6's deterministic-CBOR clause (§1.1) didn't ban floating-point. IEEE-754 NaN payloads, denormals, and `-0.0` vs `+0.0` are not deterministic across libraries — and chess never needs floats anyway. v7 §1.1 adds: any encoder emitting a CBOR major-type-7 float (`0xf9 / 0xfa / 0xfb`) MUST be rejected at decode with `BAD_FRAME`. **Proof:** `frontend/test/p2p/protocol/cbor_no_floats_test.dart`.
+- [ ] **HKDF `info`-string registry (new §1.10).** v6 spread `info="chessrecast/p2p/v1/master"`, `…/aead-salt`, `…/spectator/view-only/<pk>` etc. across multiple sections. A copy-paste typo collapses two domains and breaks key separation. v7 introduces a single registry table in §1.10 and a CI grep gate that fails any new `info="chessrecast/..."` literal not present in the registry. **Proof:** `frontend/tool/check_hkdf_info_registry.dart` + `frontend/test/p2p/identity/hkdf_info_registry_test.dart`.
+- [ ] **First-contact / TOFU verification (new §2.9).** v6 trusted that `device_pubkey` exchanged in `HELLO` is the real opponent's. With no out-of-band channel, MITM at first contact is undetectable. v7 adds: optional **safety-numbers** verification (Signal-style 60-digit fingerprint of `SHA-256(min(pkA,pkB) || max(pkA,pkB))`) shown in both UIs; QR-code scan for in-person verification; persistent "verified" badge that survives across sessions. Unverified contact is permitted but flagged on every session start. **Proof:** `frontend/test/p2p/identity/safety_numbers_test.dart` + `frontend/test/p2p/identity/qr_verification_test.dart`.
+- [ ] **Key-Compromise-Impersonation (KCI) defense.** v6's handshake signs the X25519 ephemeral pubkey with Ed25519 — but if Alice's long-term key leaks, an attacker can impersonate Bob *to* Alice (KCI). v7 adds a mutual-authentication step: each peer's first AEAD frame post-handshake carries a MAC over `transcript_hash` keyed by `K_kci = HKDF(session_master, info="chessrecast/p2p/v1/kci", L=32)`; both peers must verify before accepting any `MOVE`. **Proof:** `frontend/test/p2p/identity/kci_resistance_test.dart`.
+- [ ] **Anti-rollback for `ENGINE_REPLAY_VERSION` (new §12.5).** v6 had no defense against a peer that *intentionally* downgrades to an older app version with weaker mod rules (e.g. a buggy draw-rule that benefits one side). v7 adds: each device records the highest `ENGINE_REPLAY_VERSION` it has *ever* seen for an opponent fingerprint; a downgrade triggers a soft warning ("opponent is on an older app version than last time you played") and bars rated play if the rated-mode flag (Phase 13.3 future) is on. **Proof:** `frontend/test/p2p/identity/engine_version_rollback_warning_test.dart`.
+- [ ] **TURN-over-TLS (TURNS) and DPI-resistance (new §4.10).** v6 specified TURN over UDP + TCP/443 fallback but plain-TCP/443 is fingerprintable by deep-packet inspection on hostile networks (corporate firewalls, restrictive carriers, censoring countries). v7 adds TURNS (TURN over TLS on 443) as a third fallback, with the certificate sharing the same SAN as the signaling server so the connection is indistinguishable from ordinary HTTPS. **Proof:** `frontend/test/p2p/transport/turns_fallback_test.dart` + load test in `signaling/loadtest/`.
+- [ ] **Premove / pre-confirmation specified (new §11.8).** v6's clock protocol assumed a sequential think-then-send loop. Real blitz / bullet has *premoves* (the player picks their next move while it's still opponent's turn). v7 specifies: premoves are local-only, never sent until opponent's `MOVE` arrives + is engine-validated; the local clock charges 0 ms for the premove if the opponent's move is one of the legal positions the premove was conditioned on, else the premove is discarded and the player resumes thinking on the local clock. **Proof:** `frontend/test/p2p/clock/premove_legality_test.dart` + `frontend/test/p2p/clock/premove_zero_charge_test.dart`.
+- [ ] **Draw-by-repetition cross-peer determinism (new §1.11).** v6's `state_hash` covers position + mod state + half-move clock but did not say how 3-fold-repetition is detected. Each peer maintains its own position history, so a desynced history → desynced repetition claim. v7 specifies: repetition detection runs over the canonical `state_hash` history (ignoring clocks/transcripts); `MOVE` carrying `claim_repetition: true` requires the receiver's history to also contain ≥2 prior occurrences of the same hash, else `MISMATCH`. **Proof:** `frontend/test/p2p/protocol/repetition_cross_peer_test.dart` per mod.
+- [ ] **Onboarding & invite flow (new §6.7).** v6 talked about beta KPIs but never specified *how a user finds an opponent*. P2P with no central directory needs an explicit invite UX. v7 adds: share-sheet invite (signed deep link with offer-token), QR scan for in-person matchmaking, opt-in "recently played" list (local-only), pluggable handle providers (later: contacts, third-party rooms — out of scope for v1). The invite link carries a server-issued offer-token (§3.2 `/v1/offers`); links are single-use and expire in 24 h. **Proof:** `frontend/test/p2p/onboarding/invite_link_test.dart` + `frontend/test/p2p/onboarding/qr_invite_test.dart` + L8 device-matrix coverage.
+- [ ] **Username / vanity-handle decision (new §14.9).** v6 only used device-fingerprint identity. Many users will demand a display name; absent policy, name-squatting and impersonation will appear on day 1. v7 declares: **no central username registry in v1** (would require a server role beyond signaling). Users may set a *local* display name shown to themselves only and a *self-attested handle* shown to opponents alongside the always-displayed fingerprint. Handles are explicitly NOT unique and the UI never lets the fingerprint be hidden. **Proof:** `frontend/test/p2p/ui/handle_never_replaces_fingerprint_test.dart` + `frontend/test/p2p/ui/handle_impersonation_warning_test.dart` (when an opponent's handle matches a previously-played fingerprint's handle but the fingerprint differs → soft warning).
+- [ ] **Operations & lifecycle phase (new Phase 16).** v6 §8.8 specified on-call but had no recurring cadence for: CVE monitoring (libsodium / coturn / litestream / Valkey / Go stdlib / Flutter), key-rotation calendar (TURN HMAC, signed-config signing key, KMS, push provider keys), backup-restore drills, post-incident review template, dependency-bump policy, deprecation policy for old `wire_version`/`crypto_suite_id`/`ENGINE_REPLAY_VERSION`. v7 makes Phase 16 a continuous owner of these.
+- [ ] **Local storage retention & disk caps (folded into §0.6).** v6 wrote forensic bundles, transcripts, and saved games with no retention policy or cap. v7: forensic bundles capped at 50 entries (FIFO), transcripts capped at 500 (oldest evictable with user prompt), saved-games DB at 200 MB (warning at 80%, hard cap with user-driven cleanup at 100%). **Proof:** `frontend/test/p2p/storage/retention_caps_test.dart`.
+- [ ] **Network connectivity recovery telemetry refined.** v6 had a 5-min total pause cap (§4.6) but didn't differentiate network-blip (≤30 s, common on metro/LTE) from genuine outage. v7 splits the budget: ≤30 s blips don't count toward the 5-min cap; only sustained `disconnected` > 30 s consumes the cap. **Proof:** `frontend/test/p2p/transport/pause_budget_classification_test.dart`.
+- [ ] **`session_master` rotation mid-game (folded into §2.3).** v6 deferred re-key to Phase 7 "if `seq` ceiling reached". v7 adds an explicit periodic re-key trigger: every `2^32` AEAD frames per direction (essentially never in chess, but defensive against XChaCha20 nonce-reuse paranoia) **or** on user-driven "refresh keys" action (in-game menu). Re-key uses a fresh ECDH exchange under the existing session, derives a new `session_master` via HKDF chaining, and bumps a `keygen: u8` field in subsequent frame envelopes. **Proof:** `frontend/test/p2p/identity/session_rekey_test.dart`.
+- [ ] **Backup-encryption salt for opt-in transcript backup (corrects v6 §OQ-17 default).** When transcripts are backed up server-side (Phase 7 stretch), the encryption key must be derived from the recovery code via *a different HKDF info* than the account-key wrap (else compromise of the wrap also exposes transcripts). v7 specifies: `K_transcript_backup = HKDF(Argon2id_kek, info="chessrecast/p2p/v1/transcript-backup", L=32)`, distinct from the `K_account_wrap` info string.
+- [ ] **Memory-budget gates (folded into §1.4 / §4.4).** v6 specified frame-size caps but not a peer-process memory ceiling. A long game with full move/clock/chat history can consume tens of MB; on a low-end device the OS will kill the app. v7 adds: in-RAM transcript ring-buffer capped at 4 MB; overflow spills to disk-backed window with the same SQLCipher protection. **Proof:** `frontend/test/p2p/perf/transcript_ram_cap_test.dart`.
+- [ ] **Failure-mode catalog grew from ≥100 to ≥125 codes.** New codes (full list in §10.3 v7 additions): `SQLCIPHER_KEY_UNWRAP_FAIL`, `LOCAL_STORAGE_QUOTA_EXCEEDED`, `LOCAL_STORAGE_AT_REST_BROKEN`, `KCI_VERIFY_FAILED`, `SESSION_ID_COLLISION`, `CBOR_FLOAT_REJECTED`, `HKDF_INFO_UNKNOWN`, `SAFETY_NUMBERS_MISMATCH`, `OPPONENT_FINGERPRINT_DOWNGRADE_DETECTED`, `TURNS_HANDSHAKE_FAILED`, `PREMOVE_INVALIDATED`, `REPETITION_CLAIM_REJECTED`, `INVITE_LINK_EXPIRED`, `INVITE_LINK_REPLAYED`, `HANDLE_IMPERSONATION_SUSPECTED`, `RE_KEY_FAILED`, `TRANSCRIPT_RAM_CAP_OVERFLOW`, `CVE_REQUIRES_FORCED_UPDATE`, `KEY_ROTATION_OVERDUE`, `BACKUP_RESTORE_DRILL_FAILED`, `OPERATOR_ON_CALL_UNREACHABLE`, `DEPRECATED_WIRE_VERSION_REJECTED`, `DEPRECATED_CRYPTO_SUITE_REJECTED`, `DEPRECATED_ENGINE_REPLAY_VERSION_REJECTED`, `BACKUP_ENCRYPTION_SALT_MISMATCH`.
+- [ ] **Threat model new entries.** Added: T-D-008 plaintext local-storage harvest (mitigation §0.6), T-D-009 Android cloud-backup leak via `allowBackup=true` default (mitigation: explicit `false`), T-N-010 first-contact MITM (mitigation §2.9 safety numbers / QR), T-P-010 KCI from a leaked long-term key (mitigation §2.9 KCI MAC), T-P-011 engine-version rollback (mitigation §12.5), T-N-011 DPI on plain-TCP/443 TURN (mitigation §4.10 TURNS), T-X-008 unmaintained transitive dep (mitigation Phase 16 CVE monitoring + auto-bump policy), T-X-009 release-signing-key 1y+ rotation overdue (mitigation Phase 16 rotation calendar), T-OPS-001 silent on-call attrition (mitigation Phase 16 quarterly drill + degraded-mode default), T-INV-001 invite-link replay (mitigation §6.7 single-use server-side token), T-HDL-001 handle impersonation (mitigation §14.9 always-on fingerprint).
+- [ ] **Open questions OQ-26 through OQ-32 added.** Enumerated below.
+- [ ] **Sequencing-graph correction (v7).** Phase 16's CVE-monitoring sub-task is a hard prerequisite for the Phase 6 GA-rollout gate (along with v6's Phase 15 audits): shipping with an unpatched libsodium CVE because no one was watching is not a launch.
 
 ## Mission
 
@@ -214,6 +242,22 @@ Replace the current single-player + legacy backend matchmaking with **direct, en
 
 - [ ] All 0.1–0.4 boxes ticked, all proof tests green, commit pushed, the "P2P preview not yet shipped" banner is live in `README.md`.
 
+### 0.6 At-rest encryption, retention, and disk-fill defenses (v7)
+
+v0–v6 protected key material via OS secure storage but left **everything else** — saved games, transcripts, chat history, forensic bundles, the diagnostic ring buffer, and the per-mod KPI scratch DB — in plaintext SQLite or files on the app's documents directory. On a device with a weak lock screen, an unencrypted backup, a forensic dump, or a sync-to-cloud misconfiguration, **the entire history of who you played, what you said, and which fingerprints you've encountered** is harvestable. v7 makes at-rest encryption and bounded local storage a Phase 0 deliverable so every later phase inherits the guarantee for free.
+
+- [ ] **SQLCipher (or equivalent platform file-level encryption) for the saved-games DB.** Schema unchanged; the `meta` table additionally carries `cipher_version: INTEGER NOT NULL` and `kdf_params: BLOB NOT NULL`. KEK derived from a per-app-install random value sealed by the same OS secure storage backend used in [Phase 2.1](#21-device-identity); rotated automatically on every device-key rotation event. **Proof:** `frontend/test/p2p/storage/sqlcipher_at_rest_test.dart` + `frontend/test/p2p/storage/no_plaintext_residue_test.dart` (filesystem grep for known plaintext markers — device fingerprints, opening UCI strings, recovery wordlist tokens — across the documents directory after a write/close cycle; any hit fails the test).
+- [ ] **Forensic-bundle encryption.** Bundles written to `getApplicationDocumentsDirectory()/p2p/forensics/<session-id>/` are wrapped with libsodium `crypto_secretstream_xchacha20poly1305` keyed by `K_forensic = HKDF(install_seal_key, info="chessrecast/p2p/v1/forensic-at-rest", L=32)`. The user's "Help → Send diagnostics" path decrypts in-memory and re-encrypts under the operator's offline pubkey before upload. **Proof:** `frontend/test/p2p/storage/forensic_bundle_at_rest_test.dart`.
+- [ ] **Backup exclusion and OS protection class.** Android `AndroidManifest.xml` sets `android:allowBackup="false"` and `android:fullBackupContent` excludes the documents directory; iOS file-protection class is `NSFileProtectionCompleteUntilFirstUserAuthentication` for everything in the documents directory and `NSFileProtectionComplete` for the secure-storage shadow file. **Proof:** `frontend/test/p2p/storage/backup_excluded_android_test.dart` + `frontend/test/p2p/storage/file_protection_class_ios_test.dart` (per-platform; mocked where SDK unavailable).
+- [ ] **Retention policy and disk-fill defense.**
+  - Forensic bundles: FIFO cap of 50 entries; oldest evictable on overflow. **Proof:** `frontend/test/p2p/storage/forensic_retention_test.dart`.
+  - Transcripts: cap of 500 saved games; warning at 80%, hard cap at 100% with user-driven cleanup UX ("Free space: delete oldest 50 games"). **Proof:** `frontend/test/p2p/storage/transcript_retention_test.dart`.
+  - Saved-games DB: 200 MB hard cap (cipher overhead included); warning at 160 MB. **Proof:** `frontend/test/p2p/storage/saved_games_db_size_cap_test.dart`.
+  - Diagnostic ring buffer: existing 256 KB cap from §8.3 reused; rotation never blocks the UI thread.
+  - Hard ceiling: total P2P-owned bytes in the documents directory ≤ 250 MB; over ceiling → `LOCAL_STORAGE_QUOTA_EXCEEDED` (§10.3) and refusal to start a new session. **Proof:** `frontend/test/p2p/storage/total_quota_test.dart`.
+- [ ] **Cloud-backup mis-restore detection.** On launch, if the SQLCipher KEK unwrap fails AND the documents directory contains a saved-games DB created on a different `install_id` (recorded in plaintext metadata), the app surfaces "this game history was restored from a backup of a different installation; original device required" and quarantines the file rather than wiping. **Proof:** `frontend/test/p2p/storage/cross_install_restore_detection_test.dart`.
+- [ ] **Quality attributes folded into the existing 0.4 charter.** Performance: SQLCipher overhead < 8% on the 1000-game cold-list benchmark. Stability: KEK-unwrap failure raises `SQLCIPHER_KEY_UNWRAP_FAIL` (§10.3) and never silently recreates a fresh DB without explicit user consent. Integrity: every encrypted artefact carries an AEAD tag; tamper at rest is detectable on read.
+
 ---
 
 ## Phase 1 — Wire protocol (CBOR over SCTP DataChannel)
@@ -222,7 +266,7 @@ Replace the current single-player + legacy backend matchmaking with **direct, en
 
 ### 1.1 Spec
 
-- [ ] Author [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md) v0 covering: frame envelope, frame types, version negotiation, error codes, MUST/SHOULD per RFC 2119. Encode with **deterministic CBOR (RFC 8949 §4.2)** — sorted map keys, shortest-form integers, no indefinite-length strings.
+- [ ] Author [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md) v0 covering: frame envelope, frame types, version negotiation, error codes, MUST/SHOULD per RFC 2119. Encode with **deterministic CBOR (RFC 8949 §4.2)** — sorted map keys, shortest-form integers, no indefinite-length strings, **and no floating-point.** Major-type-7 simple values `0xf9 / 0xfa / 0xfb` (half / single / double precision floats) MUST be rejected at decode with `CBOR_FLOAT_REJECTED` (§10.3). Chess never needs floats; admitting them invites NaN payloads, denormals, and `±0.0` non-determinism. **Proof:** `frontend/test/p2p/protocol/cbor_no_floats_test.dart`.
 - [ ] Frame envelope fields: `v: u8` (protocol version), `t: u8` (frame type), `n: u64` (monotonic per-sender sequence), `ts: u64` (sender wall clock, ms — **informational only, never trusted for game logic**), `payload: bytes`. **Wrong v3 assumption corrected:** clock sync cannot rely on `ts` alone over an ordered+reliable SCTP channel; we add an unreliable companion frame `PING/PONG` with `ord=false, reliable=false` (separate `RTCDataChannel`) for RTT estimation, mirroring NTP's offset/delay computation. The chess clock itself is owned by [Phase 11](#phase-11--chess-clock-and-time-control).
 - [ ] Frame types (initial): `HELLO`, `HELLO_ACK`, `MOVE`, `MOVE_ACK`, `SYNC_REQ`, `SYNC_RESP`, `DRAW_OFFER`, `DRAW_RESPONSE`, `RESIGN`, `TAKEBACK_REQ`, `TAKEBACK_RESPONSE`, `CHAT`, `PING`, `PONG`, `BYE`, `MISMATCH`, `COLOR_FLIP_COMMIT`, `COLOR_FLIP_REVEAL`, `CLOCK_OFFSET_REQ`, `CLOCK_OFFSET_RESP`. Each has a strict CBOR schema in the spec.
 - [ ] **`HELLO` is the full pre-game handshake**, not a stub. Required fields: `wire_version: u8`, `engine_replay_version: u32` ([Phase 12](#phase-12--engine-replay-version-pinning)), `mod_id: u8` (must match `ModsEnum`), `mod_config: map<text, any>` (mod-specific options — e.g. Heir's heir-piece selection, Mercenary's pawn-conversion preset, Save-the-Queen prisoner-queen rules, Kings Battle phase-2 toggle), `time_control: { initial_ms: u32, increment_ms: u16, delay_ms: u16, tc_kind: enum{none, sudden_death, fischer, bronstein, byo_yomi} }`, `start_position: { kind: enum{standard, fen, mod_default}, fen?: text }`, `color_preference: enum{random_commit_reveal, want_white, want_black}`, `device_pubkey: bytes32`, `nonce: bytes16`, `capabilities: map<text, bool>` (e.g. `chat`, `takeback`, `spectator_ok`, `casual_mode`, `no_engine_pledge`), `signature: bytes64` (Ed25519 over canonical CBOR of the rest). **Proof:** `frontend/test/p2p/protocol/hello_schema_test.dart` (round-trip + reject every missing/extra field) and `frontend/test/p2p/protocol/hello_signature_test.dart` (tamper any byte → verify fails).
@@ -272,6 +316,30 @@ Replace the current single-player + legacy backend matchmaking with **direct, en
 - [ ] **Default cap is 16 KB per frame** (§4.2). For end-of-game `BYE` payloads exceeding 12 KB after deterministic CBOR encoding (long games with full clock history, full chat history, full move list with mod-specific tags), the sender MUST fragment via `BYE_PART { idx: u16, total: u16, payload: bytes }` followed by `BYE_FINAL { sha256_of_concatenated_parts: bytes32, signature: bytes64 }`. Each `BYE_PART` is independently AEAD-protected with its own monotonic `seq`; reassembly is by `idx` only after all `total` parts arrive. **Hard ceiling: `total ≤ 64`** (≈ 768 KB transcript; rejects DoS via fragment-flood). **Proof:** `frontend/test/p2p/protocol/bye_fragmentation_test.dart` (round-trip a 600-ply game with chat) + `frontend/test/p2p/protocol/bye_fragment_dos_test.dart` (sender announces `total=200` → receiver rejects with `BYE_FRAGMENT_OUT_OF_BOUNDS`).
 - [ ] **Fragment timeout:** receiver gives up after 30 s without all parts → `BYE_FRAGMENT_TIMEOUT`, partial transcript saved. **Proof:** `frontend/test/p2p/protocol/bye_fragment_timeout_test.dart`.
 - [ ] **No fragmentation for any other frame type.** `MOVE`, `MOVE_ACK`, `CHAT`, `PING/PONG`, `SYNC_REQ/RESP` all stay under 16 KB by construction. A sender attempting to fragment a non-`BYE` frame triggers `FRAGMENT_NOT_ALLOWED` locally before send.
+
+### 1.9 `session_id` derivation and binding (v7)
+
+v6 used `session_id` as the HKDF salt for both `session_master` and the AEAD-salt derivation but **never specified where `session_id` comes from**. If either peer can choose it freely — or if it is recycled across sessions — an attacker mid-handshake can collide it with a prior session's salt and replay AEAD frames whose nonces happen to align. v7 fixes this by deriving `session_id` deterministically from values both peers already produce and verify, and by binding it into AAD on every frame.
+
+- [ ] **Derivation:** `session_id = SHA-256(min(initiator_eph_pub, responder_eph_pub) || max(...) || min(initiator_nonce, responder_nonce) || max(...))` where the `min/max` ordering is byte-lexicographic. Both peers compute it locally; **no wire field carries `session_id`**. The sort step removes role-asymmetry so peers that disagree on "who is initiator" (perfect-negotiation collision rollback, §4.7) still agree on `session_id`. **Proof:** `frontend/test/p2p/identity/session_id_derivation_test.dart` (KAT) + `frontend/test/p2p/identity/session_id_collision_resistance_test.dart` (1M random handshake fuzz: zero collisions across all observed sessions).
+- [ ] **Binding into AAD on every frame:** the AAD defined in §2.3 is extended to `wire_version || frame_type || session_id || keygen` (where `keygen: u8` is the re-key counter from §2.3 / v7's session-rekey addition). A peer that tries to splice ciphertexts from a different session fails decryption deterministically. **Proof:** `frontend/test/p2p/identity/aead_aad_session_id_binding_test.dart`.
+- [ ] **Replay across resumed sessions blocked:** even after `RESUMED_AS_NEW` (§10.2), the new session has fresh ephemerals → fresh `session_id` → fresh AAD → prior ciphertexts cannot be replayed. **Proof:** `frontend/test/p2p/identity/cross_session_replay_blocked_test.dart`.
+
+### 1.10 HKDF `info`-string registry (v7)
+
+v6 spread HKDF `info` strings (`chessrecast/p2p/v1/master`, `…/aead-salt`, `…/spectator/view-only/<pk>`, `…/transcript-backup`, `…/kci`, `…/forensic-at-rest`) across multiple sections. A copy-paste typo collapses two key-domains and silently breaks key separation. v7 introduces a single registry plus a CI grep gate.
+
+- [ ] **Registry table** lives in [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md) §kdf-labels and lists every legal `info` string with its purpose, output length, and which subkey consumes it. New labels require a registry diff in the same PR.
+- [ ] **CI grep gate:** `frontend/tool/check_hkdf_info_registry.dart` walks `frontend/lib/services/p2p/**` and the registry; any literal string matching `"chessrecast/p2p/v\d+/[^"]+"` not in the registry fails CI. Symmetric grep on the Go signaling code under `signaling/internal/**`. **Proof:** `frontend/test/p2p/identity/hkdf_info_registry_test.dart` + `signaling/internal/recovery/hkdf_info_registry_test.go`.
+- [ ] **Collision test:** all registered labels are pairwise-distinct and none is a prefix of another (defends against length-confusion in environments where the underlying HKDF API treats `info` as length-prefixed differently). **Proof:** `frontend/test/p2p/identity/hkdf_info_no_prefix_collision_test.dart`.
+
+### 1.11 Cross-peer draw-by-repetition determinism (v7)
+
+v6's `state_hash` covered position + mod state + half-move clock but did not say how three-fold-repetition is detected across two peers. Each peer maintains its own position history; a desynced history → a desynced repetition claim → no agreement → forced `MISMATCH` even on honest games.
+
+- [ ] **Algorithm (both peers, identical):** maintain a list of `state_hash` values, one per applied ply, since the last irreversible move (capture, pawn move, mod-specific irreversible event — see [docs/game/DRAW_RULES.md](game/DRAW_RULES.md)). Three-fold = ≥3 occurrences of the same `state_hash` in that list.
+- [ ] **Claim wire format:** a `MOVE` frame carrying `claim_repetition: true` MUST be accompanied by `repetition_witness: { state_hash, occurrences: u8 }`. Receiver verifies its own history contains ≥`occurrences` matches; mismatch → `REPETITION_CLAIM_REJECTED` (§10.3) and the move is treated as a regular move (not a draw claim). **Proof:** `frontend/test/p2p/protocol/repetition_cross_peer_test.dart` (×7 mods, including Mercenary's pawn-as-piece variants where irreversibility differs).
+- [ ] **Mod-specific state inclusion:** the `state_hash` per §1.1 already includes mod state. v7 adds a regression that confirms two semantically-identical positions in different mod-state contexts hash differently (e.g. Heir with heir-piece on g8 vs heir-piece captured) so repetition cannot be falsely claimed across mod-state changes. **Proof:** `frontend/test/p2p/protocol/repetition_mod_state_distinct_test.dart`.
 
 ---
 
@@ -332,6 +400,28 @@ Replace the current single-player + legacy backend matchmaking with **direct, en
 - [ ] **Stability:** an exception thrown inside a `using` / `try-finally` secret-bearing block must still zeroise; verified by `secret_lifetime_test.dart` with injected exceptions at every libsodium call site.
 - [ ] **Reliability:** a failure of `sodium_memzero` (extremely unlikely but theoretically possible if libsodium is mis-loaded) raises `SECRET_ZEROISE_FAILED` and the process aborts deliberately rather than continue with possibly-leaked secrets in memory.
 - [ ] **Integrity:** the FFI symbol table is initialised exactly once per process lifetime (`sodium_init()` is idempotent but documented as not thread-safe on first call); the isolate boundary (§8.10) ensures the call happens on a single isolate before any other isolate touches crypto.
+
+### 2.9 First-contact verification, KCI defense, and trust-on-first-use (v7)
+
+v6 trusted that the `device_pubkey` exchanged in `HELLO` actually belongs to the human across the table. With no out-of-band channel and no central directory, **a MITM at first contact is undetectable**: an attacker sitting on the signaling path can swap pubkeys for both sides and translate every move while reading every chat. v7 adds (a) a Signal-style safety-numbers UX so two players in the same room can verify each other in 30 seconds, (b) a QR-code path for in-person verification, (c) persistent "verified" state, and (d) a cryptographic KCI defense for when an attacker has already stolen one side's long-term key.
+
+- [ ] **Safety numbers:** `safety_number = base10(SHA-512(min(pkA, pkB) || max(pkA, pkB))[:30])` displayed as 6 groups of 5 digits in both UIs. Either peer can read theirs aloud; both must match. Numbers are stable across sessions for the same pubkey pair. **Proof:** `frontend/test/p2p/identity/safety_numbers_test.dart` (KAT + UI golden).
+- [ ] **QR-code in-person verification:** the safety-number screen shows a QR encoding `{version:1, my_pubkey, their_pubkey, expected_safety_number}`; scanning the opponent's QR auto-confirms the match (or surfaces "safety number does not match — possible MITM" with a red, non-dismissable banner). **Proof:** `frontend/test/p2p/identity/qr_verification_test.dart`.
+- [ ] **TOFU policy:** unverified contact is permitted (lowering the bar would make the feature unusable for online matchmaking) but is *flagged on every session start* with a soft yellow badge until verification happens. The badge text is honest: "You haven't verified this opponent's identity in person; their messages and moves could be intercepted by someone on your network." **Proof:** `frontend/test/p2p/ui/unverified_opponent_badge_test.dart`.
+- [ ] **Persistent verification:** once verified, the opponent's pubkey is stored in the local `verified_contacts` table (SQLCipher, §0.6) with `verified_at_ts` and `verification_method: enum{safety_numbers, qr}`. A subsequent session with the same pubkey shows a green "verified" badge. A *change* in the pubkey for a known contact → red "this contact's identity changed; re-verify" banner. **Proof:** `frontend/test/p2p/identity/verified_contacts_persistence_test.dart` + `frontend/test/p2p/identity/contact_pubkey_change_warning_test.dart`.
+- [ ] **KCI (Key-Compromise-Impersonation) defense:** the v6 handshake signs the X25519 ephemeral pubkey under Ed25519, but if Alice's long-term key leaks, an attacker can impersonate Bob *to* Alice (KCI) without ever having Bob's key. v7 adds a mutual-authentication step: each peer's first AEAD frame post-handshake carries an explicit MAC over `transcript_hash = SHA-256(canonical_HELLO_initiator || canonical_HELLO_responder || initiator_eph_pub || responder_eph_pub)` keyed by `K_kci = HKDF(session_master, info="chessrecast/p2p/v1/kci", L=32)`. Both peers must verify the other's KCI MAC before accepting any `MOVE`; failure → `KCI_VERIFY_FAILED` (§10.3), session ends, no game starts. **Proof:** `frontend/test/p2p/identity/kci_resistance_test.dart` (replays a handshake with attacker-controlled long-term-key leak and asserts the KCI MAC catches it).
+- [ ] **Documented residual risks:**
+  - A user who never verifies any opponent gets TOFU-only protection. Honest UX copy on the verification screen explains this.
+  - An attacker who compromises both peers' long-term keys defeats KCI. Mitigation is hardware-backed key storage (§2.1) and the recovery-rebind quarantine flow (§2.2).
+  - QR scan via a hostile camera-app overlay (Android a11y abuse) is theoretically possible. Mitigation: the QR screen sets `FLAG_SECURE` and the iOS equivalent.
+
+### 2.10 Periodic and user-initiated session re-key (v7)
+
+v6 deferred re-key to Phase 7 "if `seq` ceiling reached". v7 adds an explicit periodic re-key trigger (defensive) and a user-initiated "refresh keys" action (visible reassurance for paranoid users), both inside the existing session without disconnect.
+
+- [ ] **Triggers:** (a) per-direction `seq` reaches 2^32 (effectively never in chess but defensive against XChaCha20 nonce-reuse paranoia), (b) user taps "refresh keys" in the in-game overflow menu, (c) wall-clock-tampered detection (§11.7) fires — forces re-key as a defensive reset.
+- [ ] **Procedure:** both peers exchange fresh X25519 ephemerals signed under the existing session AEAD (no signaling-server round-trip), derive a new `session_master = HKDF(prev_session_master || new_ECDH, info="chessrecast/p2p/v1/rekey", L=32)`, increment a `keygen: u8` counter that is bound into AAD (§1.9). Old session keys are zeroised via `sodium_memzero` immediately. **Proof:** `frontend/test/p2p/identity/session_rekey_test.dart` + `frontend/test/p2p/identity/rekey_keygen_aad_binding_test.dart`.
+- [ ] **Failure mode:** re-key that does not complete within 5 s ends the session as `RE_KEY_FAILED` (§10.3) rather than continuing on the old keys past 2^32 boundary. **Proof:** `frontend/test/p2p/identity/rekey_timeout_test.dart`.
 
 ---
 
@@ -415,6 +505,24 @@ v5's signaling server had per-IP and per-account *rate* limits but no *quantity*
 - [ ] **Process-level caps:** the signaling-server container runs with `RLIMIT_NOFILE=65536`, `RLIMIT_AS` capped at 80% of cgroup limit, Go runtime `GOMEMLIMIT` tuned to 90% of cgroup limit (graceful degradation under pressure). **Proof:** `signaling/internal/server/process_limits_test.go`.
 - [ ] **PoW solution rate-limit:** each PoW challenge issuance is signed and bound to a single redemption; sliding-window 50 challenges/min per IP to prevent farm replay. **Proof:** `signaling/internal/abuse/pow_rate_test.go`.
 
+### 3.10 CVE monitoring and forced-update enforcement (v7)
+
+v6 listed compromised dependencies as a supply-chain threat (T-X-001) but never specified the *operational* loop: who watches CVE feeds, who decides when a vulnerability is severe enough to force an update, and how clients on the vulnerable version are stopped from playing on the wire.
+
+- [ ] **CVE-watcher service:** a small Go cron in `signaling/cmd/cve_watcher/` polls (a) GitHub Security Advisories for libsodium / coturn / litestream / Valkey / Go-stdlib / Flutter, (b) NVD CVE feed filtered to the SBOM dependency list, (c) Sigstore Rekor for surprise signatures on pinned releases. New entries land in `signaling/internal/cve/queue.json` and surface in the operator's daily standup feed. **Proof:** `signaling/internal/cve/watcher_test.go`.
+- [ ] **Per-CVE severity playbook** in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md): critical → ship patched build within 7 d AND set the server-side `min_client_version` to the patched version (clients below the floor receive `CVE_REQUIRES_FORCED_UPDATE` per §10.3 and a friendly "please update" deep link); high → 30 d; medium → 90 d; low → next release.
+- [ ] **Server-side `min_client_version` enforcement:** signaling rejects registration / offer-creation from clients below the floor with HTTP 426 Upgrade Required and the patched-version deep link. **Proof:** `signaling/internal/auth/min_client_version_test.go`.
+- [ ] **Patch SLA dashboard:** the operator dashboard (§8.4) surfaces a single panel "days since most-recent unpatched critical CVE"; > 0 for > SLA → PagerDuty page. **Proof:** `signaling/internal/cve/sla_panel_test.go`.
+
+### 3.11 Push-token and TURN-credential rotation (v7)
+
+v6 specified static-secret HMAC for TURN credentials and storage-encrypted push tokens but did not require rotation. v7 makes rotation a first-class scheduled job.
+
+- [ ] **TURN HMAC rotation:** quarterly. The signaling server holds two simultaneous HMAC keys (current + previous); credentials minted under the previous key remain valid until the previous TURN session lifetime (1 h) elapses. Rotation is automatic; failure to rotate within the SLA → `KEY_ROTATION_OVERDUE` (§10.3) on the operator dashboard. **Proof:** `signaling/internal/turn/hmac_rotation_test.go`.
+- [ ] **Push-token re-registration:** clients re-register their push token on every install, on every device-key rotation, and at most every 30 d via a server-driven "please re-register" hint piggybacked on the next signaling response. Stale tokens > 90 d are evicted server-side. **Proof:** `signaling/internal/push/token_rotation_test.go` + `frontend/test/p2p/services/push_reregister_test.dart`.
+- [ ] **Signed-config signing key rotation:** annually. Old key remains in the client trust set for one app-update cycle to allow safe rollover. **Proof:** `signaling/internal/config/signing_key_rotation_test.go`.
+- [ ] **KMS / install-seal key rotation:** biennially or on confirmed leak. Documented in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md) §key-calendar.
+
 ---
 
 ## Phase 4 — WebRTC transport and NAT traversal
@@ -485,6 +593,16 @@ Android foreground services are not enough on Xiaomi / Huawei / OnePlus / Samsun
 - [ ] **Mid-game kill detection:** if the foreground service is killed unexpectedly, on next foreground the app surfaces a friendly post-mortem ("your game ended because the OS killed our background service; please disable battery optimisation for ChessRecast") with a deep-link. **Proof:** `frontend/test/p2p/transport/foreground_service_killed_postmortem_test.dart`.
 - [ ] **Graceful degradation:** when battery optimisation IS active and the user declines to change it, the app caps session length at 10 minutes and warns at session start ("long games may be interrupted on this device"). **Proof:** `frontend/test/p2p/transport/restricted_mode_session_cap_test.dart`.
 
+### 4.10 TURNS, DPI-resistance, and metered-network UX (v7)
+
+v6 specified TURN over UDP/TCP but not TURNS-over-TLS. On networks that DPI-block plain WebRTC (corporate / hotel / state-level), `TURN_UNAVAILABLE` is the user's only signal and they have no recourse. v7 adds TURNS as a fallback, surfaces metered-network warnings, and documents the limits honestly.
+
+- [ ] **TURNS over TLS-443:** coturn deployment additionally listens on `:5349` (TURN-TLS) and `:443` (TURN-TLS, port-shared with the signaling HTTPS service via SNI). Client ICE config includes `turns:` URLs alongside `turn:`/`stun:`. **Proof:** `signaling/internal/turn/turns_listener_test.go` + `frontend/test/p2p/transport/turns_failover_test.dart`.
+- [ ] **Auto-promote to TURNS on TURN-blocked path:** if `turn:` candidate gathering fails AND `turns:` candidate gathering succeeds within the 8 s ICE budget, surface a one-time toast "Connected via secure relay (your network blocks direct WebRTC)". **Proof:** `frontend/test/p2p/transport/turns_auto_promote_test.dart`.
+- [ ] **Metered-network detection:** when ICE selects a TURN-relayed candidate AND the platform reports a metered network (Android `ConnectivityManager.isActiveNetworkMetered()`, iOS `NWPath.isExpensive`), prompt user before continuing: "This game will use your mobile data via a relay (≈1 KB/s). Continue?" Decline → graceful end with `METERED_NETWORK_USER_DECLINED` (§10.2). **Proof:** `frontend/test/p2p/transport/metered_network_prompt_test.dart`.
+- [ ] **DPI-resistance honesty:** TURNS-on-443 fools generic port-based filters but a determined SNI-inspecting middlebox can still block. v1 does not implement domain-fronting or pluggable-transports (Tor / Snowflake) — documented as future work in OQ-31. UX copy: "If your network blocks ChessRecast entirely, try a different network or a personal hotspot."
+- [ ] **`TURNS_HANDSHAKE_FAILED`** (§10.3) when the TLS handshake to TURNS fails distinctly from a plain `TURN_UNAVAILABLE`; the operator dashboard separates the two so DPI prevalence can be measured.
+
 ---
 
 ## Phase 5 — Test and CI strategy (the 9-layer pyramid)
@@ -528,6 +646,17 @@ The 9 layers, smallest-fastest at the top:
 ### 5.4 Acceptance gate
 
 - [ ] All 9 layers wired, all baselines created, CI green on `main`, flake rate within budget.
+
+### 5.5 Fake transports for L5 hermetic testing (v7)
+
+The sequencing graph cites "Phase 5 §5.1 (CI wiring + fake transports)" but v6 only specified CI wiring. v7 closes the gap by enumerating the fake-transport classes that L5 (synthetic-network integration) depends on. All four live under `frontend/lib/services/p2p/transport/fake/` and are pure-Dart (no FFI, no real WebRTC) so they run identically on every CI runner.
+
+- [ ] **`FakeTransport`** — baseline in-memory pipe between two `Session` instances; zero loss, zero jitter, FIFO. Establishes the "no network is in the picture" reference behaviour. **Proof:** `frontend/test/p2p/transport/fake_transport_test.dart`.
+- [ ] **`JitterTransport`** — wraps `FakeTransport`, adds per-frame Gaussian delay with configurable mean / stddev (defaults: μ=80 ms, σ=40 ms; supports L5 "realistic mobile" presets). **Proof:** `frontend/test/p2p/transport/jitter_transport_test.dart`.
+- [ ] **`LossyTransport`** — drops a configurable fraction of frames (uniform or burst-loss model per Gilbert–Elliot two-state Markov chain). Supports per-channel asymmetry (drop more on `clock` than `chess`). **Proof:** `frontend/test/p2p/transport/lossy_transport_test.dart`.
+- [ ] **`ReorderingTransport`** — holds frames in a small reorder buffer and releases them out-of-order with configurable swap probability; only legal on the unordered `clock` channel (asserted in the wrapper). **Proof:** `frontend/test/p2p/transport/reordering_transport_test.dart`.
+- [ ] **Composability:** the four are stackable (`LossyTransport(JitterTransport(FakeTransport()))`); L5 chaos suites pick presets from a published table in [docs/P2P_TEST_PRESETS.md](P2P_TEST_PRESETS.md): `clean`, `wifi-good`, `wifi-bad`, `mobile-4g`, `mobile-3g`, `roaming`. **Proof:** `frontend/test/p2p/transport/transport_stack_composition_test.dart`.
+- [ ] **Determinism:** every transport accepts an injected seed; identical seed → identical drop / reorder / jitter sequence so a flaky L5 test is reproducible. **Proof:** `frontend/test/p2p/transport/transport_determinism_test.dart`.
 
 ---
 
@@ -581,6 +710,17 @@ The 9 layers, smallest-fastest at the top:
 ### 6.6 Acceptance gate
 
 - [ ] All 6.1–6.5 ticked, GA at 100% with KPIs at or above beta targets for 7 consecutive days.
+
+### 6.7 Onboarding and invite-link UX (v7)
+
+v6 specified a signaling protocol but never said how a human convinces another human to play. "Open the app, tap matchmaking, hope someone is online" is not a viable onboarding path for a new social feature. v7 adds a first-class invite-link flow with single-use, short-TTL deep links and a QR fallback, plus an explicit first-launch onboarding script that sets identity expectations honestly.
+
+- [ ] **First-launch P2P onboarding** (4 screens): (1) what P2P means here in plain language; (2) recovery-code generation with re-entry verification (§2.2); (3) chat-safety primer + phishing warning (§14.6); (4) optional contact-verification primer (§2.9). User must complete all 4 before the matchmaking surface is enabled. **Proof:** `frontend/test/p2p/onboarding/first_launch_flow_test.dart`.
+- [ ] **Invite-link generation:** a tap on "Invite a friend" produces a single-use deep link `https://chessrecast.example/i/<token>` where `token = base64url(my_account_pubkey || nonce_16 || expiry_u32_be || HMAC(invite_signing_key, ...))`. TTL: 24 h. Token state stored server-side; first redemption claims it; subsequent redemptions return `INVITE_LINK_REPLAYED` (§10.3). **Proof:** `signaling/internal/invites/single_use_test.go` + `frontend/test/p2p/services/invite_link_creation_test.dart`.
+- [ ] **Share-sheet integration:** on tap, the app opens the OS share sheet with a default message containing the link + a one-line preview. Never auto-sends; user controls the channel. **Proof:** `frontend/test/p2p/ui/invite_share_sheet_test.dart`.
+- [ ] **QR fallback for in-person:** the same link is offered as a QR code that the other player scans via the app's in-app camera (no third-party scanner round-trip; better privacy). **Proof:** `frontend/test/p2p/ui/invite_qr_test.dart`.
+- [ ] **Cold-start deep-link handling:** opening the app from an invite link from a freshly-installed (no-account) state walks the user through onboarding first, *then* honours the invite — link state survives onboarding via SecureStorage. **Proof:** `frontend/test/p2p/onboarding/invite_cold_start_test.dart`.
+- [ ] **Failure modes:** `INVITE_LINK_EXPIRED` (TTL elapsed), `INVITE_LINK_REPLAYED` (already-claimed), both with friendly retry-with-fresh-link UX (§10.3).
 
 ---
 
@@ -713,7 +853,7 @@ The 9 layers, smallest-fastest at the top:
 
 ### 9.7 Engine / replay-parity threats (defensive)
 
-- [ ] **T-P-007** Engine search uses a non-deterministic PRNG (`xorshift64` seeded from wall clock; see [frontend/native/engine/search.c](../frontend/native/engine/search.c) lines 149–196). This is **safe** for P2P because move *selection* is a local UX concern that never crosses the wire — only legality + canonical state hash do (§1.1). Defensive proof: a fuzz test exchanges random move sequences and asserts that *receivers* never use search PRNG output for any decision affecting `state_hash`. *Proof:* `frontend/test/p2p/engine/no_prng_in_replay_path_test.dart`.
+- [ ] **T-P-007** Engine search uses a non-deterministic PRNG. v7 confirms the workspace contains *two* PRNG sites: (a) Zobrist init in [frontend/native/engine/board/board_zobrist.c](../frontend/native/engine/board/board_zobrist.c) (seeded once, deterministic across runs once seeded), and (b) the search tiebreak `xorshift64` seeded from wall clock in both the modular [frontend/native/engine/search/search.c](../frontend/native/engine/search/search.c) and the legacy top-level [frontend/native/engine/search.c](../frontend/native/engine/search.c) at lines 17 / 149 / 1360 / 1852 / 1902 / 1916. This is **safe** for P2P because move *selection* is a local UX concern that never crosses the wire — only legality + canonical state hash do (§1.1). Defensive proof: a fuzz test exchanges random move sequences and asserts that *receivers* never use search PRNG output for any decision affecting `state_hash`. *Proof:* `frontend/test/p2p/engine/no_prng_in_replay_path_test.dart`.
 - [ ] **T-P-008** Engine replay-version drift between peers (same source build, different compiler flags producing different rule outputs in pathological mod-corner cases). *Mitigation:* the `replay_version_golden_test.dart` 10k-position golden across all 7 mods (see [Phase 12](#phase-12--engine-replay-version-pinning)) catches this in CI. Optional runtime: first 8 frames of every session attach the local hash of the engine's rule-test golden output; `MISMATCH` if these differ. **Status:** runtime check is OQ-14-adjacent, deferred to Phase 12 sprint.
 - [ ] **T-P-009** Spectator-as-cheat-relay — a spectator decrypts moves and forwards to a remote engine, then signals quality back to the issuing peer via side-channel. *Mitigation:* spectator chain explicitly forbidden by spec (§7.1); spectator view-key is derived per-spectator-pubkey so re-issuance is detectable; `casual_mode` flag for any session admitting spectators surfaced in opponent UI. *Documented residual risk:* no cryptographic protocol can prevent a peer's chosen spectator from being a coach.
 
@@ -736,6 +876,20 @@ The 9 layers, smallest-fastest at the top:
 - [ ] **T-X-007** Build-artefact substitution between SBOM generation and store upload. *Mitigation:* in-toto attestation chain through Sigstore Rekor; release workflow generates attestations bound to the SBOM hash. *Proof:* documented in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md) + verified by `verify-reproducible-build.sh`.
 - [ ] **T-CHAT-001** Social-engineering via chat to extract recovery code. *Mitigation:* per-message regex detector for "recovery" / "backup" / "seed" + 16-word patterns surfaces a soft warning above any incoming or outgoing chat that matches; warning copy: "Never share your recovery words — ChessRecast staff will never ask." *Proof:* `frontend/test/p2p/ui/chat_recovery_warning_test.dart`.
 - [ ] **T-MIN-001** Minor-account harm via chat. *Mitigation:* age-gate on first launch, chat disabled by default for self-attested under-16, [docs/P2P_TRUST_AND_SAFETY.md](P2P_TRUST_AND_SAFETY.md) reporting flow. *Proof:* `age_gate_test.dart`.
+
+### 9.10 v7 threat entries
+
+- [ ] **T-D-008** Plaintext local-storage harvest — historical games / chats / opponent fingerprints recoverable from a stolen-but-locked device via forensic tooling. *Mitigation:* §0.6 SQLCipher + protection-class + retention caps. *Proof:* `sqlcipher_at_rest_test.dart` + `no_plaintext_residue_test.dart`.
+- [ ] **T-D-009** Android cloud-backup leak — app data backed up to user's Google Drive ends up readable by anyone with the Google credential. *Mitigation:* `android:allowBackup="false"` enforced in manifest + cross-install restore detection. *Proof:* `backup_excluded_android_test.dart`.
+- [ ] **T-N-010** First-contact MITM on the signaling path — attacker swaps pubkeys for both sides at first session. *Mitigation:* §2.9 safety numbers + QR + persistent verified-contacts list + TOFU badge. *Proof:* `safety_numbers_test.dart` + `qr_verification_test.dart` + `unverified_opponent_badge_test.dart`.
+- [ ] **T-P-010** KCI from leaked long-term Ed25519 key — attacker impersonates Bob to Alice without Bob's key. *Mitigation:* §2.9 KCI MAC over `transcript_hash` keyed by `K_kci`. *Proof:* `kci_resistance_test.dart`.
+- [ ] **T-P-011** Engine-version rollback to a buggy older build. *Mitigation:* §12.5 high-water-mark + server-side `min_engine_replay_version`. *Proof:* `anti_rollback_high_water_mark_test.dart`.
+- [ ] **T-N-011** DPI on plain-port WebRTC. *Mitigation:* §4.10 TURNS-on-443 + auto-promote. *Proof:* `turns_failover_test.dart`. *Documented residual:* SNI-inspecting middlebox can still block; pluggable transports are OQ-31.
+- [ ] **T-X-008** Unmaintained transitive dependency falls behind a CVE. *Mitigation:* §3.10 CVE-watcher + forced-update enforcement; SBOM diff review on every release. *Proof:* `cve_watcher_test.go`.
+- [ ] **T-X-009** Release-signing-key rotation overdue → a quietly-leaked old key keeps signing. *Mitigation:* §3.11 + Phase 16 key calendar. *Proof:* `signing_key_rotation_test.go`.
+- [ ] **T-OPS-001** Silent on-call attrition — the solo operator stops responding without anyone noticing until users do. *Mitigation:* Phase 16 dead-man-switch on the operator dashboard fires `OPERATOR_ON_CALL_UNREACHABLE` after 72 h of unacknowledged alerts; auto-engages §6.3 kill-switch. *Proof:* `signaling/internal/ops/dead_man_switch_test.go`.
+- [ ] **T-INV-001** Invite-link replay — an attacker intercepts a shared link and uses it before the intended recipient. *Mitigation:* §6.7 single-use + 24 h TTL + `INVITE_LINK_REPLAYED`. *Proof:* `invites/single_use_test.go`.
+- [ ] **T-HDL-001** Handle / display-name impersonation — attacker sets display name to a well-known player's handle. *Mitigation:* §14.9 — display name is local-only, never replaces the cryptographic fingerprint, soft-warn on first contact with a name conflicting with a verified contact. *Proof:* `handle_impersonation_warning_test.dart`.
 
 ---
 
@@ -868,6 +1022,36 @@ The 9 layers, smallest-fastest at the top:
 - [ ] **F-CONC-001** `ISOLATE_CRASHED` — `p2p` isolate threw an unhandled exception. *Recovery:* supervisor restart, end any active session, file `kind: crash` queue entry, surface friendly error.
 - [ ] **F-CONC-002** `SODIUM_INIT_FAILED` — libsodium failed to load on first call. *Recovery:* refuse to enable P2P; surface platform incompatibility.
 
+### 10.3 v7 additions to the catalog
+
+Every code referenced by the v7 changelog or by the new sub-sections has a typed enum value, a UX string, and a proof test (per the catalog-ownership rule above).
+
+- [ ] **F-STORE-005** `SQLCIPHER_KEY_UNWRAP_FAIL` — SQLCipher KEK unwrap failed at app launch. *Recovery:* quarantine DB, surface "history unavailable" with operator-contact path; never silently recreate. *Proof:* `frontend/test/p2p/storage/sqlcipher_key_unwrap_fail_test.dart`.
+- [ ] **F-STORE-006** `LOCAL_STORAGE_QUOTA_EXCEEDED` — P2P-owned bytes exceed 250 MB ceiling. *Recovery:* refuse new session, surface cleanup UX. *Proof:* `total_quota_test.dart`.
+- [ ] **F-STORE-007** `LOCAL_STORAGE_AT_REST_BROKEN` — plaintext-residue regression test caught a leak in a release build. *Recovery:* CI-blocker only; never reaches production. *Proof:* `no_plaintext_residue_test.dart`.
+- [ ] **F-STORE-008** `BACKUP_ENCRYPTION_SALT_MISMATCH` — transcript-backup salt doesn't match the wrapping context. *Recovery:* refuse to load backup; surface "backup belongs to a different installation". *Proof:* `cross_install_restore_detection_test.dart`.
+- [ ] **F-ID-015** `KCI_VERIFY_FAILED` — §2.9 KCI MAC verification failed. *Recovery:* end pre-game; never start a session.
+- [ ] **F-ID-016** `SESSION_ID_COLLISION` — §1.9 session_id derivation produced a collision against an active session (catastrophic; defensive). *Recovery:* abort, file `kind: crash / severity: critical`.
+- [ ] **F-PROTO-023** `CBOR_FLOAT_REJECTED` — incoming CBOR contained a float per §1.1. *Recovery:* drop frame, count toward `BAD_FRAME` threshold.
+- [ ] **F-PROTO-024** `HKDF_INFO_UNKNOWN` — receiver saw an HKDF info string not in the registry (§1.10). *Recovery:* abort the operation; file `kind: bug`.
+- [ ] **F-ID-017** `SAFETY_NUMBERS_MISMATCH` — user reported safety-number mismatch via the verification UX (§2.9). *Recovery:* refuse to start session; flag opponent fingerprint locally.
+- [ ] **F-PROTO-025** `OPPONENT_FINGERPRINT_DOWNGRADE_DETECTED` — §12.5 high-water-mark check fired. *Recovery:* user prompt; decline-to-play one tap.
+- [ ] **F-NET-009** `TURNS_HANDSHAKE_FAILED` — §4.10 TLS handshake to TURNS failed. *Recovery:* fall back to plain TURN; surface as `TURN_UNAVAILABLE` only if both fail.
+- [ ] **F-CLOCK-006** `PREMOVE_INVALIDATED` — §11.8 queued premove illegal in post-opponent-move position. *Recovery:* drop premove; non-blocking toast.
+- [ ] **F-PROTO-026** `REPETITION_CLAIM_REJECTED` — §1.11 cross-peer repetition witness mismatch. *Recovery:* treat as regular move (no draw).
+- [ ] **F-SIG-014** `INVITE_LINK_EXPIRED` — §6.7 invite TTL elapsed. *Recovery:* prompt to generate fresh link.
+- [ ] **F-SIG-015** `INVITE_LINK_REPLAYED` — §6.7 invite already claimed. *Recovery:* prompt for fresh link; flag for abuse review on operator side.
+- [ ] **F-CHAT-005** `HANDLE_IMPERSONATION_SUSPECTED` — §14.9 display name conflicts with a verified contact. *Recovery:* soft warn; never auto-block.
+- [ ] **F-ID-018** `RE_KEY_FAILED` — §2.10 re-key did not complete within budget. *Recovery:* end session; user retries.
+- [ ] **F-OBS-003** `TRANSCRIPT_RAM_CAP_OVERFLOW` — in-RAM transcript buffer exceeded its memory budget mid-game. *Recovery:* spill to encrypted disk; never block.
+- [ ] **F-OPS-002** `CVE_REQUIRES_FORCED_UPDATE` — §3.10 server-side `min_client_version` floor rejected this build. *Recovery:* deep-link to store update.
+- [ ] **F-OPS-003** `KEY_ROTATION_OVERDUE` — Phase 16 key calendar shows an overdue rotation. *Recovery:* operator-only; surfaces on dashboard, never on user UI.
+- [ ] **F-OPS-004** `BACKUP_RESTORE_DRILL_FAILED` — monthly Phase 16 drill failed. *Recovery:* operator queue entry `kind: p2p_ops`.
+- [ ] **F-OPS-005** `OPERATOR_ON_CALL_UNREACHABLE` — dead-man-switch (T-OPS-001) fired. *Recovery:* auto-engage kill-switch (§6.3); status-page banner.
+- [ ] **F-PROTO-027** `DEPRECATED_WIRE_VERSION_REJECTED` — client `wire_version` below floor. *Recovery:* deep-link to store update.
+- [ ] **F-PROTO-028** `DEPRECATED_CRYPTO_SUITE_REJECTED` — client `crypto_suite_id` deprecated. *Recovery:* deep-link to store update.
+- [ ] **F-PROTO-029** `DEPRECATED_ENGINE_REPLAY_VERSION_REJECTED` — §12.5 server-side engine-version floor. *Recovery:* deep-link to store update.
+
 ---
 
 ## Phase 11 — Chess clock and time control
@@ -920,6 +1104,24 @@ Chess-clock arithmetic on wall-clock time is exploitable: an attacker can wind t
 - [ ] **`MONOTONIC_CLOCK_UNAVAILABLE` failure:** if the platform doesn't expose a monotonic clock (extremely unlikely), the app refuses to start any timed session. Untimed (correspondence) sessions remain possible. **Proof:** `frontend/test/p2p/clock/monotonic_unavailable_test.dart` (mocked).
 - [ ] **Rooted-device escalation:** rooted/jailbroken-device detection (Phase 14 §14.5) forces `casual_mode=true` because monotonic clock can be intercepted via Magisk / Frida. Documented residual risk: an attacker on their own device cannot be stopped; goal is opponent-record protection.
 
+### 11.8 Premove (v7)
+
+Blitz play is unusable without premoves — every serious chess UI offers them — but they are subtle on the wire because the engine must validate the premove against the just-arrived opponent move and either fire it or invalidate it within one frame budget.
+
+- [ ] **Premove storage:** local-only; the premove is never sent to the opponent until it becomes the actual move. Storage is the in-memory move queue per side; max queue depth 1 (no premove chains in v1; revisit in OQ-30).
+- [ ] **Validation pipeline:** on receipt of opponent's `MOVE`, after engine-validating + applying it, the local engine attempts to apply the queued premove against the new position. Legal → fire as a normal `MOVE` frame, observe local time as if user clicked at receipt time + 0 ms (premove latency advantage is the whole point). Illegal → silently drop the premove and surface `PREMOVE_INVALIDATED` (§10.3) as a non-blocking toast.
+- [ ] **Mod-aware premove rules:** the premove validator runs *the same* per-mod legality check as a normal move (§12.1 `ENGINE_REPLAY_VERSION` already covers this). Mods with phase-changing rules (Kings Battle Phase-1→Phase-2, Mercenary pawn-as-piece transitions) must re-validate the premove against the post-opponent-move phase. **Proof:** `frontend/test/p2p/clock/premove_mod_phase_transition_test.dart` (×7 mods).
+- [ ] **Cross-peer determinism:** premove is purely local until fired; once fired it is an ordinary `MOVE` and `state_hash` parity is preserved. **Proof:** `frontend/test/p2p/protocol/premove_state_hash_parity_test.dart`.
+- [ ] **UI:** opponent never sees the premove indicator; local UI shows the premove as a translucent piece on the destination square. Tap on a different square cancels the premove (no wire traffic).
+- [ ] **Default off for v1**, opt-in via settings (OQ-30 tracks default-on-for-blitz consideration).
+
+### 11.9 Repetition-claim wiring (v7)
+
+Section §1.11 specifies the cross-peer algorithm; §11.9 covers the in-game UX:
+
+- [ ] Three-fold repetition is *claimable* per FIDE rules — the player whose move it is can play the move-that-causes-the-third-occurrence and claim a draw, or play it and not claim (game continues). v7 surfaces the claim as a one-tap dialog when the engine detects the condition. **Proof:** `frontend/test/p2p/ui/repetition_claim_dialog_test.dart`.
+- [ ] Five-fold repetition is *automatic* (FIDE 2014+); both engines force a draw without UX. **Proof:** `frontend/test/p2p/protocol/five_fold_auto_draw_test.dart`.
+
 ---
 
 ## Phase 12 — Engine replay-version pinning
@@ -930,6 +1132,8 @@ Chess-clock arithmetic on wall-clock time is exploitable: an attacker can wind t
 
 - [ ] `ENGINE_REPLAY_VERSION: u32` lives in [frontend/native/engine/replay_version.h](../frontend/native/engine/replay_version.h) and is emitted by the build into a static symbol exposed via FFI. Bumped manually for any change that affects: move generation, legality, draw rules, mod-specific rules, canonical state hash. **Not** bumped for: search-only changes, eval-only changes, opening book content, performance tuning that does not affect move legality.
 - [ ] **CI gate:** a workflow `engine-replay-version-bump-required.yml` greps the diff of `frontend/native/engine/{board,moves,rules,mods}/**` and `frontend/native/engine/bridge_*_refine_result.c` and fails the PR / push if those paths changed without `replay_version.h` changing. Override: a queue entry `kind: engine_replay_no_bump_justified` with a written rationale (e.g. comment-only change, internal refactor with proof of identical output via golden tests). **Proof:** `.github/workflows/engine-replay-version-bump-required.yml` + `frontend/test/native/replay_version_golden_test.dart` (10k-position move-list golden across all 7 mods; bumping the version implies regenerating the golden in the same PR).
+
+> **v7 correction:** the v6 path glob `{board,moves,rules,mods}` did not match the actual engine layout. The watched paths MUST be `frontend/native/engine/{board,bridge,eval,movegen,search}/**`, the top-level legacy translation units `frontend/native/engine/{board,bridge,evaluate,movegen,search}.c`, and the per-mod `bridge_*_refine_result.c` files. The CI gate enforces the corrected list; a v7 regression test asserts that any added `.c`/`.h` file under `frontend/native/engine/` is either explicitly watched or explicitly listed in `frontend/native/engine/replay_version_excluded_paths.txt` with a written rationale. **Proof:** `frontend/test/native/replay_version_watched_paths_complete_test.dart`.
 - [ ] **Cosmetic / build-only changes:** a separate `BUILD_REPLAY_VERSION: u32` is auto-bumped by CI on every native-lib rebuild. `HELLO` carries it as informational only; mismatch is **not** an error.
 
 ### 12.2 Negotiation and failure mode
@@ -948,6 +1152,14 @@ Chess-clock arithmetic on wall-clock time is exploitable: an attacker can wind t
 ### 12.4 Acceptance gate
 
 - [ ] All 12.1–12.3 ticked, golden tests in CI, `replay_version.h` exists with version 1, `HELLO` carries it.
+
+### 12.5 Anti-rollback enforcement (v7)
+
+v6's negotiation rule is "exact match or no-game". An honest peer running an old build never sees a downgrade attack — *but a malicious peer can advertise a low `ENGINE_REPLAY_VERSION` to coerce the opponent into the older (potentially-buggy) rules*. v7 adds an anti-rollback floor and a per-account high-water-mark.
+
+- [ ] **Per-account high-water-mark:** the local client persists `seen_max_engine_replay_version` across sessions in the SQLCipher-backed `meta` table. A `HELLO` advertising a *lower* version than this water-mark triggers `OPPONENT_FINGERPRINT_DOWNGRADE_DETECTED` (§10.3) and a soft warning: "Your opponent is on an older engine version than you've previously played against. This is unusual." Decline-to-play is one tap. **Proof:** `frontend/test/p2p/protocol/anti_rollback_high_water_mark_test.dart`.
+- [ ] **Server-side floor:** the signaling server rejects `HELLO`s carrying `engine_replay_version` below the `min_engine_replay_version` set by the operator (independent from `min_client_version` in §3.10 because a forced-update CVE may not bump the engine version). → `DEPRECATED_ENGINE_REPLAY_VERSION_REJECTED` (§10.3). **Proof:** `signaling/internal/auth/min_engine_replay_test.go`.
+- [ ] **Cross-architecture golden parity:** the 10k-position golden in §12.1 must produce bit-identical output on x86_64 (CI baseline) and arm64 (release-branch matrix). If divergence is ever observed, ship per-arch goldens and bind arch into `engine_replay_version` derivation. (OQ-32 tracks whether a single-golden assertion is sufficient given integer-only arithmetic in the rule layer.) **Proof:** `frontend/test/native/replay_version_golden_cross_arch_test.dart`.
 
 ---
 
@@ -1040,6 +1252,17 @@ v5 had per-side rate limits but no answer to harassment, abuse, or safety report
 
 - [ ] All 14.1–14.7 ticked, [docs/P2P_TRUST_AND_SAFETY.md](P2P_TRUST_AND_SAFETY.md) published with operator SLA and action ladder, age-gate live on first launch, opponent-block UI accessible from in-game and from settings.
 
+### 14.9 Handle / display-name policy (v7)
+
+v6 silently assumed a displayed opponent identity is the cryptographic fingerprint. Real users want a friendlier label. v7 adds a *strictly local* display-name layer that never replaces the fingerprint and resists impersonation by design.
+
+- [ ] **No central handle registry.** There is no "@username" claim service. Every name is self-attested and shown only on the local device. **Proof:** [docs/P2P_IDENTITY_POLICY.md](P2P_IDENTITY_POLICY.md) + `signaling/internal/accounts/no_handle_endpoint_test.go` (asserts no handle endpoints exist).
+- [ ] **Local-only display name:** the user can assign a custom display name to any opponent fingerprint they've encountered ("Alice from chess club"). Stored in SQLCipher (§0.6); never sent on the wire.
+- [ ] **Self-attested handle in `HELLO.capabilities.display_name: utf8?`** is permitted (≤ 32 grapheme clusters, NFC-normalised, no zero-width / RTL-override / homoglyph-prone characters per a confusables-skeleton check). Receiver UI shows it as "Bob (…claims this name)" until verified.
+- [ ] **Impersonation soft-warn:** when an incoming `HELLO.display_name` matches the local label of an *already-verified* contact (§2.9) but the fingerprint differs, surface a non-blocking warning: "Someone is using the name 'Alice from chess club' but their identity does not match." → `HANDLE_IMPERSONATION_SUSPECTED` (§10.3). Never auto-blocks; user decides.
+- [ ] **Confusables / homoglyph detection** uses the Unicode confusables-skeleton algorithm (`uts46` + `uts39`) on incoming names; flagged names are visually marked. **Proof:** `frontend/test/p2p/identity/handle_confusables_test.dart`.
+- [ ] **The cryptographic fingerprint is always visible** in the in-game opponent badge regardless of display-name. UI tests assert the fingerprint cannot be hidden by any setting. **Proof:** `frontend/test/p2p/ui/fingerprint_always_visible_test.dart`.
+
 ---
 
 ## Phase 15 — Security audit, penetration test, and bug bounty
@@ -1090,6 +1313,77 @@ v5 implicitly assumed good code quality + extensive proof tests are sufficient. 
 
 ---
 
+## Phase 16 — Operations and lifecycle (v7)
+
+**Goal:** A shipped P2P feature is not a ship-and-forget artefact. v6 documented the cryptographic ceremony for first-day operations and the audit programme for pre-GA validation, but was silent on the steady-state work that keeps the system safe across years: CVE response, key rotation, drill cadence, dependency hygiene, deprecation policy, and on-call handoff. v7 makes this a first-class phase whose acceptance gate is a **hard prerequisite for the Phase 6 GA-rollout gate**, alongside Phase 15. *0% complete.*
+
+### 16.1 CVE-response operations
+
+- [ ] CVE-watcher service (§3.10) is live and triaged daily; queue entry `kind: p2p_cve` opened for every new advisory affecting the SBOM.
+- [ ] Per-severity SLA published in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md) and visible to users on the security.txt page.
+- [ ] Forced-update path (§3.10 server-side `min_client_version` enforcement) drilled at least once before GA. **Proof:** `signaling/internal/cve/forced_update_drill_test.go` + a runbook entry in [docs/P2P_SIGNALING_RUNBOOK.md](P2P_SIGNALING_RUNBOOK.md).
+
+### 16.2 Key-rotation calendar
+
+A single source-of-truth calendar in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md) §key-calendar with the following minimums:
+
+| Key | Rotation cadence | Trigger for off-cycle | Proof |
+|---|---|---|---|
+| TURN HMAC | Quarterly | Suspected leak | §3.11 `hmac_rotation_test.go` |
+| Push-token re-registration | 30 d server-driven hint | Device-key rotation, install | §3.11 |
+| Signed-config signing key | Annual | Suspected leak | §3.11 |
+| KMS / install-seal key | Biennial | Confirmed leak | §3.11 |
+| Release-signing (cosign / Apple ID) | Biennial | Confirmed leak | T-X-005 |
+| Bug-bounty PGP key | Annual | Suspected leak | §15.3 |
+
+- [ ] Overdue rotation → `KEY_ROTATION_OVERDUE` (§10.3) on the operator dashboard within 24 h of the deadline.
+
+### 16.3 Backup-restore drills
+
+- [ ] Monthly drill restores the signaling DB from a litestream snapshot into a clean staging environment, runs the full Phase 5 L7 chaos suite, and asserts P50/P95 within 10% of production. **Proof:** `signaling/internal/ops/restore_drill_test.go` + monthly report at `agent/reports/p2p/restore-drill-<yyyy-mm>.md`.
+- [ ] Drill failure → `BACKUP_RESTORE_DRILL_FAILED` (§10.3) and a `kind: p2p_ops` queue entry; GA gate auto-suspends if no successful drill in the past 60 d.
+
+### 16.4 Dependency-bump policy
+
+- [ ] Pinned dependencies receive a SBOM-diff review on every release. Major-version bumps in cryptographic dependencies (libsodium, Go-stdlib crypto, Flutter `cryptography` package) require a queue entry `kind: shared_edit` with a written rationale and a regenerated KAT-vector test pass.
+- [ ] The CVE-watcher's auto-PR for patch-level dependency bumps must pass the full L1–L7 suite before merge. No `--force-merge`.
+
+### 16.5 Deprecation policy
+
+Fields negotiated at handshake (`wire_version`, `crypto_suite_id`, `engine_replay_version`) accumulate over time. v7 declares the deprecation ladder up front so beta users do not hit deprecation surprises:
+
+- [ ] **Soft-deprecate:** announce in release notes; bump `min_*` floor on the staging server; clients see a non-blocking "please update" badge for 30 d.
+- [ ] **Hard-deprecate:** bump `min_*` floor on production; affected clients get the appropriate `DEPRECATED_*_REJECTED` (§10.3) and a deep-link to the store.
+- [ ] **Sunset window:** minimum 90 d between soft- and hard-deprecation for `wire_version` and `crypto_suite_id` (allows enterprise / managed-device fleets to upgrade); minimum 30 d for `engine_replay_version` (rule bugs justify shorter).
+- [ ] Sunset events documented at [docs/P2P_DEPRECATIONS.md](P2P_DEPRECATIONS.md) with effective dates and the original release-notes link.
+
+### 16.6 Post-incident review
+
+- [ ] Every production incident (KPI breach, kill-switch engagement, security advisory acknowledged) gets a written post-mortem within 7 d using the template at [docs/P2P_INCIDENT_RESPONSE.md](P2P_INCIDENT_RESPONSE.md). Template includes: timeline, detection lag, root cause (5-whys minimum), action items with owners + dates, prevention test added.
+- [ ] Public-facing summary on the status page within 14 d for any incident affecting > 1% of beta MAU.
+
+### 16.7 On-call handoff
+
+Even a solo-operator deployment needs a continuity story:
+
+- [ ] On-call schedule in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md) names a primary and a secondary; secondary may be "none" for solo deployments but the doc must say so.
+- [ ] Dead-man-switch (T-OPS-001): unacknowledged critical alerts > 72 h → `OPERATOR_ON_CALL_UNREACHABLE` (§10.3) auto-engages §6.3 kill-switch and posts a status-page banner. **Proof:** `signaling/internal/ops/dead_man_switch_test.go`.
+- [ ] Onboarding runbook for a new operator covers: KMS access, signing-key access, dashboard access, status-page admin, runbook locations, recovery from each `kind: p2p_*` queue entry. **Proof:** [docs/P2P_OPERATOR_ONBOARDING.md](P2P_OPERATOR_ONBOARDING.md) exists and is dated within the past 6 months.
+
+### 16.8 Quality attributes
+
+- [ ] **Performance:** the operations work does not slow user-visible code paths.
+- [ ] **Efficiency:** the dead-man-switch + restore drill + CVE watcher run inside the existing signaling-server budget (no new infra cost line).
+- [ ] **Stability:** every operations action that mutates production state has a dry-run mode and a documented rollback.
+- [ ] **Reliability:** rotation jobs are idempotent; a partial run can resume cleanly.
+- [ ] **Integrity:** all rotation events sign their successors using the predecessor key; an attacker who steals a key cannot rotate it without leaving an audit trail.
+
+### 16.9 Acceptance gate
+
+- [ ] All 16.1–16.8 ticked, [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md) published with the key calendar + on-call schedule + runbook index, dead-man-switch live with at least one successful drill, restore drill passing for two consecutive months.
+
+---
+
 ## Open questions (must be resolved before the corresponding gate)
 
 - [ ] **OQ-1** Web / desktop scope for GA — full parity, reduced (no recovery), or excluded? *Decision required before:* Phase 6. **v5 default:** web is reduced (no recovery, no push), behind separate `kEnableP2PWeb` flag, GA-stretch only.
@@ -1117,6 +1411,13 @@ v5 implicitly assumed good code quality + extensive proof tests are sufficient. 
 - [ ] **OQ-23** Web build push wakeups — implement Web Push API for parity with mobile, or document web as "online-only" (must be foreground)? *Decision required before:* Phase 7 web GA. **v6 default:** online-only for first web release.
 - [ ] **OQ-24** Foundation primitives provider — stay on libsodium for the foreseeable, or evaluate AWS-LC / BoringSSL for FIPS-aligned deployments if enterprise demand emerges? *Decision required before:* enterprise-tier scope. **v6 default:** libsodium-only for v1.
 - [ ] **OQ-25** Per-mod time-control defaults — do specific mods (Save the Queen escape race, Mercenary endgame) need mod-aware default time controls (longer increments)? *Decision required before:* Phase 11 acceptance. **v6 default:** standard chess defaults across all mods; mod-specific tuning is a Phase 7 polish task.
+- [ ] **OQ-26** Recovery-code paste-from-password-manager — should the recovery-entry screen allow paste (better UX, exposes the code to clipboard managers and screen-readers) or forbid it (forces typing, harder for users with motor disabilities)? *Decision required before:* Phase 2 acceptance. **v7 default:** allow paste with a one-time "this clipboard entry will be cleared in 30 s" notice; clipboard cleared via `Clipboard.setData('')` on screen exit.
+- [ ] **OQ-27** Long-poll vs Server-Sent Events vs WebSocket for `/v1/offers/poll` — long-poll is simplest and works through more middleboxes; SSE is more efficient at scale; WebSocket adds bidirectional capability we may want for Phase 7 spectator. *Decision required before:* Phase 3 acceptance. **v7 default:** long-poll for v1; revisit at 10k MAU.
+- [ ] **OQ-28** Vanity-username feature — ship as v1 polish, defer to v1.x, or never? §14.9 says "local-only display name only" for v1; this OQ asks whether centrally-claimed handles should be a future feature. **v7 default:** never; the federation-friendly fingerprint-only model is a deliberate choice.
+- [ ] **OQ-29** Rage-quit forfeit policy — a peer that closes the app mid-game without sending `BYE` should (a) lose on a fixed timeout, (b) lose immediately, or (c) the game enters "awaiting opponent" with a 7-day correspondence-style timeout? *Decision required before:* Phase 11 acceptance. **v7 default:** option (a) with a 90 s timeout; surfaces clearly on both sides; transcript records the disconnect.
+- [ ] **OQ-30** Premove default for blitz time controls — §11.8 ships premove off-by-default. Should blitz (≤ 5+0) auto-enable it for new accounts? *Decision required before:* Phase 11 acceptance. **v7 default:** off everywhere; user opts in once and the setting persists.
+- [ ] **OQ-31** First-contact verification UX strictness — §2.9 currently uses TOFU + soft badge. Should rated games (if rating ever ships per OQ-10) require verification? Three options: skip / soft-warn / require-for-rated. *Decision required before:* Phase 13 close-out (rating decision).
+- [ ] **OQ-32** Cross-architecture engine-replay golden — must we ship per-arch goldens (x86_64, arm64, RISC-V if Linux web ever happens) or does §12.5's integer-only-arithmetic argument let a single golden suffice? *Decision required before:* Phase 12 acceptance. **v7 default:** single golden, with the cross-arch parity test (`replay_version_golden_cross_arch_test.dart`) gating any release that adds a new arch.
 
 ---
 
@@ -1158,7 +1459,16 @@ Phase 0 (cleanup) ──► Phase 1 (protocol) ──► Phase 4 (transport) ─
 6. [§2.7](#27-secret-memory-hygiene) (secret memory hygiene) and [§8.10](#810-concurrency-and-isolate-model) (isolate model) are hard prerequisites for ticking any Phase 2 or Phase 4 box — a session that uses Dart `String` for keys or runs Argon2 on the UI isolate is broken regardless of whether its KAT vectors pass.
 7. [§11.7](#117-monotonic-clock-requirement-and-wall-clock-tamper-detection) (monotonic clock) is a hard prerequisite for ticking any Phase 11 box. A clock built on `DateTime.now()` cannot be "fixed later".
 
-Critical-path summary: **Phase 0 → Phase 5 §5.1 + Phase 12 + §2.7 + §8.10 → Phase 1 + Phase 11 (with §11.7) → Phase 4 → Phase 8.8 + Phase 14 → Phase 6 beta → Phase 15.1 + 15.2 → Phase 6 GA**. Phases 2 and 3 are parallelisable but must converge before Phase 4's network-change + push-wake testing.
+**Hard prerequisite ordering additions (v7):**
+
+8. [§0.6](#06-at-rest-encryption-retention-and-disk-fill-defenses-v7) (at-rest encryption + retention caps) is a hard prerequisite for ticking any Phase 6 beta-open box. Shipping a P2P feature that leaves opponent fingerprints, chat history, and forensic bundles in plaintext on disk fails the integrity charter.
+9. [§1.9](#19-session_id-derivation-and-binding-v7) (session_id derivation + AAD binding) and [§1.1](#11-spec) **CBOR-float ban** are hard prerequisites for ticking any Phase 1 box. A protocol whose nonce-uniqueness rests on undefined `session_id` provenance, or that admits NaN payloads, is unsound regardless of how many KAT vectors pass.
+10. [§2.9](#29-first-contact-verification-kci-defense-and-trust-on-first-use-v7) (TOFU + safety numbers + KCI MAC) is a hard prerequisite for ticking any Phase 2 box. A handshake without first-contact verification UX cannot honestly claim end-to-end security.
+11. [§3.10](#310-cve-monitoring-and-forced-update-enforcement-v7) (CVE-watcher live + forced-update path drilled) is a hard prerequisite for the Phase 6 beta-open gate. Without it, a critical libsodium / Go-stdlib CVE has no operational response path.
+12. [Phase 12 §12.5](#125-anti-rollback-enforcement-v7) (anti-rollback + per-account high-water-mark) is a hard prerequisite for the Phase 6 GA gate. Without it, a malicious peer can downgrade an opponent into older buggy rule semantics.
+13. [Phase 16](#phase-16--operations-and-lifecycle-v7) acceptance gate (CVE-watcher + key-rotation calendar live + at-least-one successful restore drill + dead-man-switch armed) is a hard prerequisite for the Phase 6 §6.4 GA-rollout gate, alongside Phase 15. Shipping P2P to GA without an operations story is the single highest-likelihood path to a silent post-launch breach.
+
+Critical-path summary (v7): **Phase 0 (with §0.6) → Phase 5 §5.1 + §5.5 + Phase 12 (with §12.5) + §2.7 + §8.10 → Phase 1 (with §1.9 + §1.10 + §1.11 + CBOR-float ban) + Phase 11 (with §11.7 + §11.8) → Phase 2 (with §2.9 + §2.10) → Phase 4 (with §4.10) + Phase 3 (with §3.10 + §3.11) + Phase 8.8 + Phase 14 (with §14.9) → Phase 6 beta (with §6.7) → Phase 15.1 + 15.2 + Phase 16 → Phase 6 GA**.
 
 ---
 
