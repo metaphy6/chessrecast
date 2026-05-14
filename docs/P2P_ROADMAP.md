@@ -1,6 +1,6 @@
 # ChessRecast — Peer-to-Peer Multiplayer Roadmap
 
-> **Version:** v5 · **Status banner:** 🟥 **0% shipped** — every checkbox in this document is empty (`[ ]`). No P2P code, no signaling server, no archive of the legacy backend exists yet. Everything below is design intent until a checkbox is ticked by a commit on `main`.
+> **Version:** v6 · **Status banner:** 🟥 **0% shipped** — every checkbox in this document is empty (`[ ]`). No P2P code, no signaling server, no archive of the legacy backend exists yet. Everything below is design intent until a checkbox is ticked by a commit on `main`.
 >
 > **Companion docs:** [AGENTS.md](../AGENTS.md), [.github/copilot-instructions.md](../.github/copilot-instructions.md), [docs/coding/ai/automation.md](coding/ai/automation.md), [docs/game/GAME_MODS_DOCUMENTATION.md](game/GAME_MODS_DOCUMENTATION.md), [docs/game/DRAW_RULES.md](game/DRAW_RULES.md). When this roadmap and AGENTS.md disagree on cross-cutting policy (commit/push, tests-with-code, system safety), **AGENTS.md wins**. This document is authoritative only for P2P scope, sequencing, and acceptance gates.
 
@@ -50,6 +50,37 @@ v4 was structurally sound but had silent gaps that would have bitten us mid-impl
 - [ ] **Web platform scope clarified.** v4 hand-waved web. v5 §4.7 specifies: web ships **without** account recovery (WebCrypto non-extractable keys preclude it), **with** WebRTC DataChannel + IndexedDB-backed local storage, and is gated behind `kEnableP2PWeb` (separately flagged from mobile). Web is a Phase 7 stretch goal *for GA*, not a Phase 6 launch surface.
 - [ ] **Sequencing-graph correction.** v4 showed Phase 5 (test/CI) and Phase 8 (cross-cutting) as parallel-to-everything but didn't gate them. v5 makes Phase 5 §5.1 (CI wiring) a **prerequisite** for any other phase being able to tick `[~]→[x]` — without CI, there is no proof anything is green.
 
+## What changed in v6 vs v5
+
+v5 was the first version that survived a hostile review of its cryptography. v6 is the first version that survives a hostile review of its **integration with the rest of the platform** (mobile OS realities, app-store compliance, user-safety, supply chain, monotonic time, FFI memory hygiene, post-quantum drift). Every bullet below either fixes a real bug or closes a coverage gap that would have bitten us between Phase 4 and GA.
+
+- [ ] **Cryptography correctness — session salt negotiation specified.** v5 §2.3 said "`salt_15` is the 15-byte random session salt fresh per session" but never said *how the two peers agree on it*. If each peer picks its own salt the AEAD construction is asymmetric and `MOVE_ACK` cannot be decrypted; if both pick a salt and concatenate, the spec must say so. v6 §2.3 fixes this: the 15-byte session salt is **derived deterministically** via `salt_15 = HKDF-SHA256(shared_secret, salt=session_id, info="chessrecast/p2p/v1/aead-salt", L=15)`. Both peers compute the same salt from the same ECDH shared secret and the same `session_id`. No salt is sent on the wire, eliminating a tampering surface entirely. **Proof:** `frontend/test/p2p/identity/aead_salt_derivation_test.dart` (KAT) + `frontend/test/p2p/identity/aead_salt_no_wire_leak_test.dart` (greps wire trace for the 15 salt bytes; must never appear).
+- [ ] **Sequence-counter rollover defense.** v5's `seq_u64_be` would not realistically reach `2^64`, but a buggy or malicious encoder could re-bind `seq` to 0 mid-session, causing nonce reuse with the same `(salt, dir)`. v6 adds: receiver MUST track `last_seen_seq` per direction; any received `seq <= last_seen_seq` → `OUT_OF_SEQUENCE` → `MISMATCH`. Encoder MUST refuse to encode at `seq == 2^63` (defensive ceiling, well below any practical use); over the ceiling → `SEQ_CEILING_REACHED` (new failure mode), session ends gracefully with key rotation deferred to Phase 7. **Proof:** `frontend/test/p2p/protocol/seq_rollover_defense_test.dart`.
+- [ ] **FFI memory hygiene & secret zeroisation specified (new §2.7).** v5 was silent on what happens to plaintext private keys, derived KEKs, and shared secrets in process memory after use. Garbage-collected Dart strings can linger arbitrarily long, and Dart `Uint8List` backing memory is not zeroed on free. v6 mandates: every secret-bearing buffer is allocated via libsodium `sodium_malloc` (guard pages, `mlock`, no swap), zeroed via `sodium_memzero` before `sodium_free`, and accessed only inside a `using` / `try-finally` boundary that guarantees cleanup on exception. Dart `String` is forbidden for secret material; raw bytes only. **Proof:** `frontend/test/p2p/identity/secret_lifetime_test.dart` (instruments libsodium calls, asserts every allocation has a paired free + zeroise) + a static lint `frontend/tool/forbid_string_for_secrets.dart` enforced in CI.
+- [ ] **Concurrency model & isolate boundary specified (new §8.10).** v5 didn't say *which Dart isolate* runs crypto, AEAD, native engine validation, or DataChannel I/O. Running them all on the UI isolate would cause jank during Argon2 (1.5–4 s freeze on the main thread) and would race with the platform channel handler. v6 mandates: a dedicated `p2p` isolate owns the protocol state machine, AEAD encrypt/decrypt, engine binding, and signaling I/O. The UI isolate exposes only a typed message-passing surface (`SendPort`/`ReceivePort`). Argon2 derivation runs in a separate one-shot worker isolate. The libsodium FFI symbol table is initialised exactly once per process and shared via a thread-safe handle. **Proof:** `frontend/test/p2p/concurrency/isolate_boundary_test.dart` + `frontend/test/p2p/perf/ui_jank_during_argon2_test.dart` (asserts UI isolate frame budget never exceeds 16 ms while Argon2 runs).
+- [ ] **Monotonic clock requirement for chess clocks (new §11.7).** v5 specified the clock protocol but never said which OS clock to use. Wall-clock (e.g. `DateTime.now()`) can jump backward on NTP correction, manual user change, or DST transition; an attacker could *deliberately* wind back their system clock to deny a flag-fall. v6 mandates: all chess-clock arithmetic uses the **OS monotonic clock** (`clock_gettime(CLOCK_MONOTONIC_RAW)` on POSIX, `mach_absolute_time` on iOS, `QueryPerformanceCounter` on Windows, `Stopwatch` on Dart-pure paths). Wall-clock is permitted only for transcript timestamps (informational). **Proof:** `frontend/test/p2p/clock/monotonic_only_test.dart` (mocks system wall-clock to jump ±1 hour mid-game; clock state must be unaffected) + a CI grep gate forbidding `DateTime.now()` in `frontend/lib/services/p2p/clock/**`.
+- [ ] **Frame fragmentation & oversize transcripts (new §1.8).** v5's 16 KB per-frame cap is fine for `MOVE` but fails for end-of-game `BYE` in long games (1000+ plies × clock-history entries × chat history can exceed 16 KB). v6 adds a chunked `BYE_PART { idx: u16, total: u16, payload: bytes }` fallback for transcripts > 12 KB after CBOR encoding, with the same AEAD per chunk and a final `BYE_FINAL` carrying the signature over the concatenated payload hash. Hard ceiling: 64 chunks (≈ 768 KB transcript). **Proof:** `frontend/test/p2p/protocol/bye_fragmentation_test.dart`.
+- [ ] **DataChannel re-establishment ID re-use bug fixed.** v5 §4.7 said "re-create with `negotiated: true, id: 1`" but if the SCTP association is half-alive (one side thinks it's gone, other doesn't), recreating with the same `id` is undefined behaviour per spec. v6 adds: on rebind, the polite peer MUST close any existing DataChannel with the target ID and wait for `oniceconnectionstatechange = closed` before re-creating. If the SCTP transport itself was torn down (`iceConnectionState = failed`), both peers MUST renegotiate with a fresh DTLS handshake, generating fresh AEAD session salt (§2.3) — the previous session ends as `RESUMED_AS_NEW`. **Proof:** `frontend/test/p2p/transport/datachannel_id_collision_test.dart`.
+- [ ] **Mobile-network awareness (new §4.8).** v5 had no concept of metered networks. Some users would be charged for TURN-relayed cellular sessions (≈ 6 MB / 30-min game). v6 adds: client detects `connectivity_plus` reported metered status; if metered AND TURN-relayed for > 30 s, surface a one-time soft warning per session with an opt-out preference. Battery-saver mode shrinks the `clock` channel ping cadence from 5 s to 15 s (still under desync budget). **Proof:** `frontend/test/p2p/transport/metered_network_warning_test.dart` + `frontend/test/p2p/transport/battery_saver_clock_cadence_test.dart`.
+- [ ] **OEM background-kill matrix (new §4.9).** v5 mentioned Android foreground service but did not enumerate the OEM-specific kill behaviours (Xiaomi MIUI, Huawei EMUI, Samsung One UI battery optimisation, OnePlus Oxygen). v6 adds [docs/P2P_ANDROID_OEM_MATRIX.md](P2P_ANDROID_OEM_MATRIX.md) with per-OEM expected behaviour, in-app guidance to disable battery optimisation for ChessRecast, and a one-time on-launch detection (`PowerManager.isIgnoringBatteryOptimizations()`) with a friendly nudge. **Proof:** `frontend/test/p2p/transport/oem_battery_optimisation_nudge_test.dart`.
+- [ ] **iOS push reliability — `content-available: 1` mandated.** v5 said "content-less push". On iOS, a truly content-less push (no payload) is treated as a marketing notification and may be silently dropped under Low Power Mode. v6 specifies: APNs payload is `{"aps": {"content-available": 1}, "token": "<redeem_token>"}` (silent push, wakes app for ≤ 30 s NSE budget). FCM equivalent uses `data` payload with `priority: high` and `content_available: true`. **Proof:** `frontend/test/p2p/transport/apns_silent_push_payload_test.dart` + `signaling/internal/push/payload_shape_test.go`.
+- [ ] **FCM token rotation handling.** v5 didn't specify what happens when FCM unilaterally rotates a token (common, undocumented frequency). v6 mandates: client subscribes to `FirebaseMessaging.onTokenRefresh`, immediately re-registers via `POST /v1/push/register` (signed under device key), and tolerates one missed wake during the rotation window. **Proof:** `frontend/test/p2p/transport/fcm_token_rotation_test.dart`.
+- [ ] **Recovery-code on-screen security.** v5 didn't address screenshot/screen-recording leakage. v6 mandates: while the recovery-code wizard is on-screen, Android sets `WindowManager.LayoutParams.FLAG_SECURE` (blocks screenshots, blocks recent-tasks thumbnail, blocks screen recording on most OEMs); iOS marks the window with `screenCaptureDidChangeNotification` listener and obscures the words on screen-recording detection. Clipboard copy is **not** offered for the words (no clipboard sniffer leakage); user must transcribe by hand. A verification step asks the user to re-enter words 4, 9, and 13 before completing setup. **Proof:** `frontend/test/p2p/identity/recovery_screen_secure_test.dart` + `frontend/test/p2p/ui/recovery_no_clipboard_test.dart`.
+- [ ] **User-safety phase added (new Phase 14 — chat moderation, blocking, abuse reporting).** v5 had no answer to "the opponent is harassing me in chat" beyond per-side rate limits. v6 adds Phase 14: per-device opponent block-list (fingerprint-keyed, prevents future matches), per-message local mute, opt-in abuse report bundle (signed transcript + chat history uploaded only with explicit consent for review by a human operator), age-gate during onboarding (13+ default; mod-specific 16+ option for chat-enabled mods), and a documented reporting SLA in [docs/P2P_TRUST_AND_SAFETY.md](P2P_TRUST_AND_SAFETY.md).
+- [ ] **Security audit, pentest, and bug bounty (new Phase 15).** v5 implicitly assumed good code quality is enough. v6 makes a third-party cryptographic-protocol audit and a one-time application pentest **hard prerequisites for the Phase 6 GA gate** (not for beta-open). A continuous bug-bounty programme (responsible disclosure inbox + SemVer-pinned scope) is the steady-state posture after GA.
+- [ ] **Store & regulatory compliance (new §8.9).** v5 was silent on Google Play Privacy Manifest, Apple Privacy Manifest (`PrivacyInfo.xcprivacy`, required for new submissions), EU Digital Services Act notice-and-action obligations for chat content, COPPA / GDPR-K (children under 13 / 16 depending on jurisdiction), and Apple App Store guideline 1.4.1 ("physical harm") if any safety-sensitive copy is missing. v6 enumerates these and gates GA on each.
+- [ ] **Per-account device cap & resource quotas (new §3.9).** v5's signaling server had per-IP and per-account *rate* limits but no *quantity* caps. A compromised account could register thousands of devices and pin server FDs. v6 adds: max 8 active devices per account (configurable; oldest-by-`last_seen` evicted on overflow with user notification), max 32 concurrent long-poll connections per account, hard ulimit / cgroup memory caps on the signaling process. **Proof:** `signaling/internal/accounts/device_cap_test.go` + `signaling/internal/server/long_poll_cap_test.go`.
+- [ ] **SDP size cap & offer-content sanitisation.** v5 didn't cap SDP size. A malformed offer can trivially be 1 MB. v6 caps SDP at 16 KB at the signaling layer and rejects offers containing media-section types beyond `application/data` (no audio/video media lines accepted; defensive — we never request them, but a malicious offer could carry them). **Proof:** `signaling/internal/offers/sdp_sanitisation_test.go`.
+- [ ] **Spectator key derivation specified (Phase 7 §7.1 enrichment).** v5 said "derived view-only key" without saying how. v6 specifies: spectator receives a one-shot symmetric key `K_view = HKDF(session_master, info="spectator/view-only/<spectator_pubkey>", L=32)` issued by *one* of the two peers (spectator's choice; the issuing peer is the only one whose chat the spectator can read — chat between the two players remains end-to-end private if either peer doesn't issue). Spectator cannot inject moves (no AEAD encrypt key issued, only decrypt). Spectator chain (spectator-of-spectator) explicitly forbidden by spec; issuing peer is the trust root. **Proof:** `frontend/test/p2p/spectator/key_derivation_test.dart`.
+- [ ] **Post-quantum readiness note (new §9.8).** v5 used purely classical primitives (X25519, Ed25519, ChaCha20-Poly1305). NIST PQ migration is now timelined (CNSA 2.0 deadlines: signature 2030, KEM 2033 for new systems). v6 acknowledges this is **out of scope for v1** but adds a forward-looking subsection: hybrid X25519 + ML-KEM-768 for session establishment is the planned migration path; algorithm-agility is enforced now via a `crypto_suite_id: u8` field in `HELLO` so the wire format does not lock us in. **Proof:** `frontend/test/p2p/identity/crypto_suite_id_negotiation_test.dart` (today only `0x01 = X25519+Ed25519+XChaCha20-Poly1305`; future suites added without breaking the schema).
+- [ ] **Session-master key separation.** v5 conflated "session key" (used directly for AEAD) with material that should also derive transcript-signing keys, spectator view-only keys, and any future sub-channel keys. v6 corrects: `session_master = HKDF(ECDH(eph_a, eph_b), salt=session_id, info="chessrecast/p2p/v1/master", L=32)`. From `session_master`, derive: `K_aead_chess`, `K_aead_clock`, `K_aead_chat`, `K_view` (spectator), `K_transcript_kdf`. AEAD keys are per-direction via additional HKDF `info` strings. **Proof:** `frontend/test/p2p/identity/master_key_subkeys_test.dart` + KAT vectors checked into `agent/baselines/p2p_kdf_kat.json`.
+- [ ] **Replay-version pinning extended to transcripts.** v5 §12 versioned the engine for live play. v6 extends: every saved transcript carries `engine_replay_version` and `wire_version` so a future client can refuse to load a transcript it can no longer interpret correctly (rather than silently misinterpreting a legacy mod rule). **Proof:** `frontend/test/p2p/protocol/transcript_version_pinning_test.dart`.
+- [ ] **Saved-game transcript backup (opt-in, encrypted).** v5 stored transcripts locally only; device wipe loses game history. v6 adds an opt-in encrypted backup: transcripts are encrypted with a key derived from the recovery code (separate HKDF info from the account-recovery KEK) and uploaded to the signaling server's `s3` bucket, retrieval-keyed by account fingerprint. Server cannot read content; user can restore on a fresh device after recovery. Out-of-scope for Phase 0–6 launch; Phase 7 stretch.
+- [ ] **Failure-mode catalog grew from ≥75 to ≥100 codes.** New codes (full list in §10.2 v6 additions): `SEQ_CEILING_REACHED`, `KDF_DERIVATION_FAILED`, `SECRET_ZEROISE_FAILED`, `ISOLATE_CRASHED`, `MONOTONIC_CLOCK_UNAVAILABLE`, `WALL_CLOCK_TAMPERED_DETECTED`, `BYE_FRAGMENT_TIMEOUT`, `BYE_FRAGMENT_OUT_OF_ORDER`, `DATACHANNEL_ID_COLLISION`, `RESUMED_AS_NEW`, `METERED_NETWORK_USER_DECLINED`, `OEM_BATTERY_OPT_BLOCKING`, `APNS_SILENT_PUSH_DROPPED`, `FCM_TOKEN_REFRESHED`, `RECOVERY_SCREEN_CAPTURED_DETECTED`, `CHAT_BLOCKED_BY_USER`, `CHAT_REPORTED_AS_ABUSE`, `AGE_GATE_BLOCKED`, `STORE_PRIVACY_MANIFEST_OUT_OF_DATE`, `DEVICE_CAP_EXCEEDED`, `LONG_POLL_CAP_EXCEEDED`, `SDP_TOO_LARGE`, `SDP_FORBIDDEN_MEDIA_LINE`, `SPECTATOR_CHAIN_REJECTED`, `CRYPTO_SUITE_NOT_NEGOTIATED`, `TRANSCRIPT_VERSION_UNSUPPORTED`.
+- [ ] **Threat model new entries.** Added: T-N-009 monotonic-clock spoofing on rooted/jailbroken devices (mitigation: monotonic clock is OS-enforced; rooted-device detection surfaces a `casual_mode` enforcement); T-P-009 spectator-as-cheat-relay (mitigation: spectator chain forbidden, view-key tied to spectator's verified pubkey); T-D-005 secret residue in process memory after crash (mitigation: §2.7 zeroisation + core-dump disabled); T-D-006 screen-recording during recovery display (§FLAG_SECURE); T-S-006 push-provider compelled disclosure of token-to-account mapping (mitigation: tokens stored encrypted at rest with per-account KMS-derived key; documented residual risk); T-X-006 transitive-dep crypto downgrade (mitigation: `crypto_suite_id` negotiation pinned to current suite by default, future-suite acceptance gated by client major-version flag); T-X-007 build-artefact substitution between SBOM generation and store upload (mitigation: in-toto attestation chain through Sigstore Rekor); T-CHAT-001 social-engineering via chat to extract recovery code (mitigation: in-chat detection of "please tell me your" + 16-word patterns, soft warning); T-MIN-001 minor-account harm (mitigation: age-gate + reduced chat default for under-16).
+- [ ] **Open questions added.** OQ-17 through OQ-25 enumerated below.
+- [ ] **Sequencing-graph correction (v6).** Phase 15 (security audit + pentest) is a hard prerequisite for the Phase 6 §6.4 GA-rollout gate. Phase 14 (user safety) is a hard prerequisite for the beta-open gate.
+
 ## Mission
 
 Replace the current single-player + legacy backend matchmaking with **direct, end-to-end-encrypted, peer-to-peer multiplayer** that:
@@ -97,6 +128,11 @@ Replace the current single-player + legacy backend matchmaking with **direct, en
 | **NTP estimator** | The RFC 5905 offset/delay sampler riding the unreliable `clock` DataChannel; budgets are bounded ([Phase 11.2](#112-ntp-style-offset-and-delay-estimation)). |
 | **Read-only mode** | Server state during failover where reads are served from the standby region but writes return HTTP 503; clients see a friendly maintenance message. |
 | **kill-switch** | Server-side signed-config flag `kEnableP2P=false` that disables P2P globally on next client poll; auto-engaged after `T_ack` of unacknowledged alerts ([Phase 8.8](#88-operator-model-and-on-call)). |
+| **session_master** | Root key derived from the X25519 ECDH shared secret via HKDF; per-purpose subkeys (chess AEAD, clock AEAD, chat AEAD, transcript signing, spectator view-only) are derived from it via distinct HKDF `info` strings ([§2.3](#23-session-key-derivation)). |
+| **crypto_suite_id** | One-byte identifier in `HELLO` selecting the cryptographic algorithm bundle for the session ([§2.6](#26-cryptographic-algorithm-agility)); v1 defines only `0x01`, v2 will define a hybrid X25519+ML-KEM-768 / Ed25519+ML-DSA-65 suite. |
+| **monotonic clock** | OS-provided clock that cannot decrease; mandatory for all chess-clock arithmetic ([§11.7](#117-monotonic-clock-requirement-and-wall-clock-tamper-detection)). Wall-clock is permitted only for informational transcript timestamps. |
+| **isolate boundary** | The Dart concurrency frontier between the UI isolate and the long-lived `p2p` isolate ([§8.10](#810-concurrency-and-isolate-model)); crypto, AEAD, engine validation, and signaling all live behind this boundary. |
+| **block-list** | Per-device set of opponent fingerprints (and optionally accounts) the user has blocked; local-only, never reported to the server ([§14.1](#141-per-device-opponent-block-list)). |
 
 ## Architecture overview
 
@@ -231,6 +267,12 @@ Replace the current single-player + legacy backend matchmaking with **direct, en
 - [ ] **TAKEBACK_REQ / TAKEBACK_RESPONSE:** opt-in feature gated by both peers' `HELLO.capabilities.takeback`. Request specifies `last_acked_seq` to roll back to; both peers re-derive board from move list `[0..seq]` and re-emit `MOVE_ACK`s. Disallowed in `casual_mode == false` games to avoid abuse. **Proof:** `frontend/test/p2p/protocol/takeback_test.dart`.
 - [ ] **BYE / game-end transcript.** First peer to detect game end (checkmate, stalemate, resignation, agreed draw, mod-specific termination per [docs/game/DRAW_RULES.md](game/DRAW_RULES.md), flag-fall) emits `BYE` with `(session_id, mod_id, mod_config_hash, time_control, move_list_hash, final_state_hash, result, termination_reason, signature_over_all_with_device_key)`. Other peer verifies and counter-signs into a local `transcript.cbor` for both peers. **Proof:** `frontend/test/p2p/protocol/transcript_signing_test.dart` + `frontend/test/p2p/protocol/bye_disagreement_test.dart` (peers disagree on result → both keep their own transcript, file forensic bundle, surface dispute UI).
 
+### 1.8 Frame fragmentation for oversize transcripts
+
+- [ ] **Default cap is 16 KB per frame** (§4.2). For end-of-game `BYE` payloads exceeding 12 KB after deterministic CBOR encoding (long games with full clock history, full chat history, full move list with mod-specific tags), the sender MUST fragment via `BYE_PART { idx: u16, total: u16, payload: bytes }` followed by `BYE_FINAL { sha256_of_concatenated_parts: bytes32, signature: bytes64 }`. Each `BYE_PART` is independently AEAD-protected with its own monotonic `seq`; reassembly is by `idx` only after all `total` parts arrive. **Hard ceiling: `total ≤ 64`** (≈ 768 KB transcript; rejects DoS via fragment-flood). **Proof:** `frontend/test/p2p/protocol/bye_fragmentation_test.dart` (round-trip a 600-ply game with chat) + `frontend/test/p2p/protocol/bye_fragment_dos_test.dart` (sender announces `total=200` → receiver rejects with `BYE_FRAGMENT_OUT_OF_BOUNDS`).
+- [ ] **Fragment timeout:** receiver gives up after 30 s without all parts → `BYE_FRAGMENT_TIMEOUT`, partial transcript saved. **Proof:** `frontend/test/p2p/protocol/bye_fragment_timeout_test.dart`.
+- [ ] **No fragmentation for any other frame type.** `MOVE`, `MOVE_ACK`, `CHAT`, `PING/PONG`, `SYNC_REQ/RESP` all stay under 16 KB by construction. A sender attempting to fragment a non-`BYE` frame triggers `FRAGMENT_NOT_ALLOWED` locally before send.
+
 ---
 
 ## Phase 2 — Identity, key management, and recovery
@@ -257,7 +299,8 @@ Replace the current single-player + legacy backend matchmaking with **direct, en
 
 - [ ] Per-session: each peer generates an X25519 ephemeral keypair, signs the public key with its Ed25519 long-term key, exchanges via signaling. Shared secret = X25519(my_eph, their_eph_pub). Session key = HKDF-SHA256(shared, salt=session_id, info="chessrecast/p2p/v1"). **Proof:** `frontend/test/p2p/identity/session_kdf_test.dart` (KAT vectors).
 - [ ] **Forward secrecy property:** verified by destroying ephemeral keys at session end and proving prior session ciphertexts cannot be decrypted with current state. **Proof:** `frontend/test/p2p/identity/forward_secrecy_test.dart`.
-- [ ] **Symmetric AEAD: XChaCha20-Poly1305** (libsodium `crypto_aead_xchacha20poly1305_ietf`). Nonce is 192 bits = 24 bytes, structured as `salt_15 || dir_1 || seq_u64_be` where `salt_15` is the 15-byte random session salt fresh per session, `dir_1` is `0x00` for initiator→responder and `0x01` for the reverse, `seq_u64_be` is the per-direction monotonic sequence. **Corrects v4 nonce-arithmetic bug** (v4 specified 13 bytes for a 12-byte nonce). XChaCha20 was chosen over plain ChaCha20-Poly1305 because the larger nonce makes accidental reuse cryptographically impossible across sessions (no need to coordinate session_id collisions). **Proof:** nonce-uniqueness fuzz `frontend/test/p2p/identity/aead_nonce_test.dart` + KAT vectors `frontend/test/p2p/identity/xchacha_kat_test.dart`. Defensive: a runtime assert in the encrypt path catches any (dir, seq) pair already used in the session and triggers `XCHACHA_NONCE_REUSE_DETECTED` — should be unreachable; if it ever fires it's a critical bug.
+- [ ] **Symmetric AEAD: XChaCha20-Poly1305** (libsodium `crypto_aead_xchacha20poly1305_ietf`). Nonce is 192 bits = 24 bytes, structured as `salt_15 || dir_1 || seq_u64_be` where `salt_15` is **derived deterministically** via `salt_15 = HKDF-SHA256(shared_secret, salt=session_id, info="chessrecast/p2p/v1/aead-salt", L=15)` (corrects v5 silence on how the two peers agree on the salt; the salt is never sent on the wire), `dir_1` is `0x00` for initiator→responder and `0x01` for the reverse, `seq_u64_be` is the per-direction monotonic sequence with a defensive ceiling at `2^63` (over-ceiling triggers `SEQ_CEILING_REACHED` and a graceful session end; a future Phase 7 sub-task adds in-session re-key without disconnect). **Corrects v4 nonce-arithmetic bug** (v4 specified 13 bytes for a 12-byte nonce). XChaCha20 was chosen over plain ChaCha20-Poly1305 because the larger nonce makes accidental reuse cryptographically impossible across sessions. **Proof:** nonce-uniqueness fuzz `frontend/test/p2p/identity/aead_nonce_test.dart` + KAT vectors `frontend/test/p2p/identity/xchacha_kat_test.dart` + `frontend/test/p2p/identity/aead_salt_derivation_test.dart` (KAT for the salt HKDF) + `frontend/test/p2p/identity/aead_salt_no_wire_leak_test.dart` (greps captured wire traffic for the 15 derived salt bytes; must never appear) + `frontend/test/p2p/protocol/seq_rollover_defense_test.dart` (sender refuses to encode at ceiling; receiver rejects backward `seq`). Defensive: a runtime assert in the encrypt path catches any (dir, seq) pair already used in the session and triggers `XCHACHA_NONCE_REUSE_DETECTED` — should be unreachable; if it ever fires it's a critical bug.
+- [ ] **Key separation via HKDF.** From the X25519 ECDH shared secret derive a `session_master = HKDF-SHA256(ECDH, salt=session_id, info="chessrecast/p2p/v1/master", L=32)`, then derive every per-purpose subkey from `session_master` with distinct `info` strings: `K_aead_chess_a2b`, `K_aead_chess_b2a`, `K_aead_clock_a2b`, `K_aead_clock_b2a`, `K_transcript_kdf`, `K_view_template` (spectator key derivation root, §7.1). KAT vectors checked into `agent/baselines/p2p_kdf_kat.json`. **Proof:** `frontend/test/p2p/identity/master_key_subkeys_test.dart`.
 - [ ] **Associated data (AAD)** for every AEAD frame: `wire_version || frame_type || session_id`. Tampering with the unencrypted CBOR envelope fails decryption. **Proof:** `frontend/test/p2p/identity/aead_aad_test.dart`.
 
 ### 2.4 Quality attributes
@@ -271,6 +314,24 @@ Replace the current single-player + legacy backend matchmaking with **direct, en
 ### 2.5 Acceptance gate
 
 - [ ] All 2.1–2.4 ticked, recovery user flow has a documented runbook in [docs/P2P_RECOVERY_RUNBOOK.md](P2P_RECOVERY_RUNBOOK.md), all proof tests green on iOS / Android / Linux / macOS / Windows / web (best-effort: web uses non-extractable WebCrypto Ed25519, recovery flow is reduced).
+
+### 2.6 Cryptographic algorithm agility
+
+- [ ] Every `HELLO` carries `crypto_suite_id: u8`. Today the only defined suite is `0x01 = X25519 + Ed25519 + XChaCha20-Poly1305 + HKDF-SHA256 + Argon2id`. Mismatch → `CRYPTO_SUITE_NOT_NEGOTIATED` (§10.2). New suites are added at the wire schema without breaking layout; old clients refuse unknown ids cleanly. The hybrid X25519 + ML-KEM-768 suite is the planned `0x02` (post-quantum migration; out of scope for v1, see §9.8). **Proof:** `frontend/test/p2p/identity/crypto_suite_id_negotiation_test.dart`.
+
+### 2.7 Secret memory hygiene
+
+- [ ] Every secret-bearing buffer (Ed25519 private key, X25519 ephemeral private key, ECDH shared secret, derived session keys, Argon2 KEK, recovery-code wordlist as bytes, AEAD plaintext during decrypt) MUST be allocated via libsodium `sodium_malloc` (guard pages, `mlock`, no-swap), zeroed via `sodium_memzero` before `sodium_free`, and accessed only inside a `using` / `try-finally` boundary that guarantees cleanup on exception.
+- [ ] **Dart `String` is forbidden for secret material.** Strings are interned, immutable, and live in unreachable-but-not-zeroed heap memory until GC. Raw `Uint8List` allocated through the libsodium FFI wrapper is the only permitted carrier. A static lint `frontend/tool/forbid_string_for_secrets.dart` enforced in CI flags any `String`-typed parameter on a function whose name matches `*Key|*Secret|*Password|*Mnemonic|*Wordlist`. **Proof:** the lint runs as a CI job and `frontend/test/p2p/identity/secret_lifetime_test.dart` instruments libsodium calls and asserts every secret allocation has a paired `sodium_memzero` + `sodium_free`.
+- [ ] **Core dumps disabled** for the app process where the OS supports it (Linux `prctl(PR_SET_DUMPABLE, 0)`, Android NDK equivalent, iOS / macOS via `setrlimit(RLIMIT_CORE, {0,0})`). **Proof:** `frontend/test/p2p/identity/core_dump_disabled_test.dart` (per platform; mocked where SDK unavailable).
+- [ ] **Crash-handler sanitisation:** if Sentry / Crashlytics is enabled (§6.1), the breadcrumb capture path filters any frame whose stack contains a libsodium-wrapper symbol; secret-bearing locals are never serialised. **Proof:** `frontend/test/p2p/telemetry/crash_breadcrumb_redaction_test.dart`.
+
+### 2.8 Quality attributes (cross-section addendum)
+
+- [ ] **Performance:** secret-allocation overhead via `sodium_malloc` is < 50 µs per allocation; not in the hot move path (only at handshake / key-derivation / unwrap).
+- [ ] **Stability:** an exception thrown inside a `using` / `try-finally` secret-bearing block must still zeroise; verified by `secret_lifetime_test.dart` with injected exceptions at every libsodium call site.
+- [ ] **Reliability:** a failure of `sodium_memzero` (extremely unlikely but theoretically possible if libsodium is mis-loaded) raises `SECRET_ZEROISE_FAILED` and the process aborts deliberately rather than continue with possibly-leaked secrets in memory.
+- [ ] **Integrity:** the FFI symbol table is initialised exactly once per process lifetime (`sodium_init()` is idempotent but documented as not thread-safe on first call); the isolate boundary (§8.10) ensures the call happens on a single isolate before any other isolate touches crypto.
 
 ---
 
@@ -342,6 +403,18 @@ Replace the current single-player + legacy backend matchmaking with **direct, en
 
 - [ ] All 3.1–3.7 ticked, soak + chaos green for one week, runbook published, on-call rotation defined.
 
+### 3.9 Resource quotas and per-account device caps
+
+v5's signaling server had per-IP and per-account *rate* limits but no *quantity* caps. A compromised account or buggy client could pin server file descriptors and memory.
+
+- [ ] **Per-account active-device cap: 8.** On overflow, the oldest-by-`last_seen` device is evicted from the registry; that device sees `DEVICE_CAP_EXCEEDED` (§10.2) on its next authenticated call and is prompted to re-register. Configurable per-account on the server side for power users (Phase 7 stretch). **Proof:** `signaling/internal/accounts/device_cap_test.go`.
+- [ ] **Per-account concurrent long-poll cap: 32.** Excess connections receive HTTP 429 with `Retry-After: 5`. **Proof:** `signaling/internal/server/long_poll_cap_test.go`.
+- [ ] **Per-account pending-offer cap: 16.** Older offers evicted FIFO. **Proof:** `signaling/internal/offers/pending_cap_test.go`.
+- [ ] **SDP size cap: 16 KB at the signaling layer.** Larger → HTTP 413, no DB write. **Proof:** `signaling/internal/offers/sdp_size_test.go`.
+- [ ] **SDP content sanitisation:** signaling rejects any offer containing `m=` lines other than `application/data` (defensive; we never request audio/video). Logs the rejection coarsened to GeoIP region for abuse pattern analysis. **Proof:** `signaling/internal/offers/sdp_sanitisation_test.go`.
+- [ ] **Process-level caps:** the signaling-server container runs with `RLIMIT_NOFILE=65536`, `RLIMIT_AS` capped at 80% of cgroup limit, Go runtime `GOMEMLIMIT` tuned to 90% of cgroup limit (graceful degradation under pressure). **Proof:** `signaling/internal/server/process_limits_test.go`.
+- [ ] **PoW solution rate-limit:** each PoW challenge issuance is signed and bound to a single redemption; sliding-window 50 challenges/min per IP to prevent farm replay. **Proof:** `signaling/internal/abuse/pow_rate_test.go`.
+
 ---
 
 ## Phase 4 — WebRTC transport and NAT traversal
@@ -396,6 +469,21 @@ Replace the current single-player + legacy backend matchmaking with **direct, en
 - [ ] **DataChannel re-establishment after ICE restart:** if SCTP association does not survive, both peers re-create the `chess` and `clock` channels with the same labels and negotiated IDs (`negotiated: true, id: 1` for chess, `id: 2` for clock) so the state machine can resume without renegotiation. **Proof:** `frontend/test/p2p/transport/datachannel_reestablish_test.dart`.
 - [ ] **Web platform scope.** Web build supports: WebRTC DataChannel (Chromium/Firefox/Safari latest 2), IndexedDB-backed local SQLite alternative (sql.js or sqflite_common_ffi_web), WebCrypto Ed25519 / X25519 (non-extractable keys). Web build does **not** support: account recovery (non-extractable WebCrypto keys can't be wrapped), cross-device migration, push wakeups (Web Push complexity deferred to Phase 7). Web feature-gated by `kEnableP2PWeb` independently of mobile. **Proof:** `frontend/test/p2p/web/web_capability_matrix_test.dart` (run under `flutter test -d chrome`).
 - [ ] **iOS Safari quirks:** WebRTC behind Lockdown Mode is unsupported; surface `WEBRTC_NOT_SUPPORTED` with explicit guidance. **Proof:** documented manual matrix entry.
+
+### 4.8 Mobile-network awareness (metered, low-power, data-saver)
+
+- [ ] Client subscribes to `connectivity_plus` reports of metered status (cellular, hotspot). If a session goes TURN-relayed for > 30 s on a metered network, surface a one-time, dismissable soft warning per session with rough byte-cost estimate (≈12 KB/s for blitz, ≈4 KB/s for classical). User-pref: "warn me on metered networks" defaulting to ON. **Proof:** `frontend/test/p2p/transport/metered_network_warning_test.dart`.
+- [ ] **Data-saver / low-power mode adaptation:** when Android Battery Saver, iOS Low Power Mode, or system data-saver is on, reduce `clock` channel ping cadence from 5 s to 15 s (still under §11.2 desync budget), pause optional telemetry uploads, and disable optional features (move-time histogram exchange). Surface a small badge in the connection-state UI. **Proof:** `frontend/test/p2p/transport/battery_saver_clock_cadence_test.dart` + `frontend/test/a11y/low_power_badge_a11y_test.dart`.
+- [ ] **Roaming detection (best-effort):** if `connectivity_plus` reports a roaming carrier, the metered warning is shown unconditionally (regardless of TURN status). **Proof:** `frontend/test/p2p/transport/roaming_warning_test.dart`.
+
+### 4.9 Android OEM background-kill matrix
+
+Android foreground services are not enough on Xiaomi / Huawei / OnePlus / Samsung where aggressive battery managers ignore the foreground-service contract.
+
+- [ ] [docs/P2P_ANDROID_OEM_MATRIX.md](P2P_ANDROID_OEM_MATRIX.md) enumerates per-OEM expected behaviour, the per-OEM settings path the user must visit ("Battery → App Battery Saver → ChessRecast → No restrictions"), and the `Build.MANUFACTURER` heuristic that drives in-app guidance. Covered OEMs at GA: Xiaomi (MIUI 12+), Huawei (EMUI / HarmonyOS), OnePlus (Oxygen 11+), Samsung (One UI 4+), Oppo (ColorOS), Vivo (Funtouch), Realme. Plain AOSP / Pixel is the baseline.
+- [ ] **One-time on-launch detection:** if `PowerManager.isIgnoringBatteryOptimizations()` is `false` AND the device matches a known-aggressive OEM, surface a one-time onboarding card with deep-link to the right Settings page. Not blocking; user can dismiss. **Proof:** `frontend/test/p2p/transport/oem_battery_optimisation_nudge_test.dart`.
+- [ ] **Mid-game kill detection:** if the foreground service is killed unexpectedly, on next foreground the app surfaces a friendly post-mortem ("your game ended because the OS killed our background service; please disable battery optimisation for ChessRecast") with a deep-link. **Proof:** `frontend/test/p2p/transport/foreground_service_killed_postmortem_test.dart`.
+- [ ] **Graceful degradation:** when battery optimisation IS active and the user declines to change it, the app caps session length at 10 minutes and warns at session start ("long games may be interrupted on this device"). **Proof:** `frontend/test/p2p/transport/restricted_mode_session_cap_test.dart`.
 
 ---
 
@@ -627,6 +715,27 @@ The 9 layers, smallest-fastest at the top:
 
 - [ ] **T-P-007** Engine search uses a non-deterministic PRNG (`xorshift64` seeded from wall clock; see [frontend/native/engine/search.c](../frontend/native/engine/search.c) lines 149–196). This is **safe** for P2P because move *selection* is a local UX concern that never crosses the wire — only legality + canonical state hash do (§1.1). Defensive proof: a fuzz test exchanges random move sequences and asserts that *receivers* never use search PRNG output for any decision affecting `state_hash`. *Proof:* `frontend/test/p2p/engine/no_prng_in_replay_path_test.dart`.
 - [ ] **T-P-008** Engine replay-version drift between peers (same source build, different compiler flags producing different rule outputs in pathological mod-corner cases). *Mitigation:* the `replay_version_golden_test.dart` 10k-position golden across all 7 mods (see [Phase 12](#phase-12--engine-replay-version-pinning)) catches this in CI. Optional runtime: first 8 frames of every session attach the local hash of the engine's rule-test golden output; `MISMATCH` if these differ. **Status:** runtime check is OQ-14-adjacent, deferred to Phase 12 sprint.
+- [ ] **T-P-009** Spectator-as-cheat-relay — a spectator decrypts moves and forwards to a remote engine, then signals quality back to the issuing peer via side-channel. *Mitigation:* spectator chain explicitly forbidden by spec (§7.1); spectator view-key is derived per-spectator-pubkey so re-issuance is detectable; `casual_mode` flag for any session admitting spectators surfaced in opponent UI. *Documented residual risk:* no cryptographic protocol can prevent a peer's chosen spectator from being a coach.
+
+### 9.8 Future-proofing: post-quantum readiness
+
+- [ ] **Threat horizon:** large-scale quantum computers capable of breaking X25519 / Ed25519 ("harvest now, decrypt later") are not imminent in the v1 timeframe. CNSA 2.0 deadlines: signature 2030, KEM 2033 for new systems. v1 ships purely classical primitives.
+- [ ] **Algorithm agility today:** `crypto_suite_id: u8` in `HELLO` (§2.6) ensures the wire schema is not locked to the current suite. Today only `0x01` is defined; mismatch → `CRYPTO_SUITE_NOT_NEGOTIATED`.
+- [ ] **Planned migration path:** `0x02 = X25519+ML-KEM-768 (hybrid KEM) + Ed25519+ML-DSA-65 (hybrid signature) + XChaCha20-Poly1305 + HKDF-SHA384 + Argon2id`. Hybrid (classical + PQ) avoids regret on either side. Migration triggers when libsodium ships stable ML-KEM bindings AND the Flutter / Dart pipeline supports the new primitive sizes (signatures grow from 64 B to ≈3.3 KB; KEM ciphertexts ≈1.1 KB — wire-size budget impact documented).
+- [ ] **Transcript forward-protection:** because transcripts are signed under the device long-term key, all signatures issued before PQ migration are permanently classical. Future verifiers must accept legacy `crypto_suite_id` values to validate historical games. **Proof:** `frontend/test/p2p/protocol/legacy_suite_transcript_verify_test.dart`.
+- [ ] **No promises in marketing copy** about quantum resistance until `0x02` ships.
+
+### 9.9 Additional v6 threat entries
+
+- [ ] **T-N-009** Monotonic-clock spoofing on rooted/jailbroken devices. *Mitigation:* monotonic clock is OS-enforced; on rooted-device detection (Phase 14 §14.5), session is forced to `casual_mode=true` (no flag-fall ever wins; only resignation/checkmate/stalemate). Documented honestly: a determined adversary on their own device cannot be stopped from cheating; the goal is to keep their cheating from harming the honest opponent's rated record (Phase 13). *Proof:* `frontend/test/p2p/identity/rooted_device_casual_only_test.dart`.
+- [ ] **T-D-005** Secret residue in process memory after crash. *Mitigation:* §2.7 `sodium_memzero` + `sodium_malloc` guard pages + core dumps disabled. *Proof:* `secret_lifetime_test.dart`.
+- [ ] **T-D-006** Screen-recording during recovery-code display. *Mitigation:* `FLAG_SECURE` on Android, screen-capture-detection obfuscation on iOS, no clipboard copy offered, verification re-entry of words 4/9/13. *Proof:* `recovery_screen_secure_test.dart`.
+- [ ] **T-D-007** Hostile accessibility service / IME captures recovery code as the user types. *Documented residual risk* — a user who has installed a hostile a11y service or IME has lost the device-trust assumption. Mitigation: warning copy on the recovery-entry screen + on-screen-keyboard option (custom view, not the system IME) for users who want to opt out. *Proof:* `frontend/test/p2p/identity/recovery_custom_keyboard_test.dart`.
+- [ ] **T-S-006** Push-provider compelled disclosure of `(token → account)` mapping. *Mitigation:* tokens stored encrypted at rest with per-account KMS-derived key; provider-side mapping unavoidable but `(token → ChessRecast user)` requires both the provider DB and the signaling DB. *Documented residual risk.*
+- [ ] **T-X-006** Transitive-dep crypto downgrade (an attacker contributes an upstream patch that quietly weakens a primitive). *Mitigation:* `crypto_suite_id` is pinned to `0x01` by build flag; future-suite acceptance gated by client major-version flag and SBOM diff review. *Proof:* `check-deps.sh` + `crypto_suite_id_negotiation_test.dart`.
+- [ ] **T-X-007** Build-artefact substitution between SBOM generation and store upload. *Mitigation:* in-toto attestation chain through Sigstore Rekor; release workflow generates attestations bound to the SBOM hash. *Proof:* documented in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md) + verified by `verify-reproducible-build.sh`.
+- [ ] **T-CHAT-001** Social-engineering via chat to extract recovery code. *Mitigation:* per-message regex detector for "recovery" / "backup" / "seed" + 16-word patterns surfaces a soft warning above any incoming or outgoing chat that matches; warning copy: "Never share your recovery words — ChessRecast staff will never ask." *Proof:* `frontend/test/p2p/ui/chat_recovery_warning_test.dart`.
+- [ ] **T-MIN-001** Minor-account harm via chat. *Mitigation:* age-gate on first launch, chat disabled by default for self-attested under-16, [docs/P2P_TRUST_AND_SAFETY.md](P2P_TRUST_AND_SAFETY.md) reporting flow. *Proof:* `age_gate_test.dart`.
 
 ---
 
@@ -727,6 +836,38 @@ The 9 layers, smallest-fastest at the top:
 - [ ] **F-OBS-002** `DIAG_LOG_DISK_FULL` — ring buffer rollover failed because disk is full. *Recovery:* drop oldest in-memory; never block; surface low-priority OS-settings hint.
 - [ ] **F-OPS-001** `KILL_SWITCH_ENGAGED` — server-side `kEnableP2P=false`. *Recovery:* friendly maintenance UI; check again in 10 minutes.
 
+### 10.2 v6 additions to the catalog
+
+- [ ] **F-PROTO-016** `SEQ_CEILING_REACHED` — sender at defensive `2^63` ceiling. *Recovery:* end session gracefully; future Phase 7 sub-task adds in-session re-key.
+- [ ] **F-PROTO-017** `BYE_FRAGMENT_TIMEOUT` — receiver did not see all `BYE_PART`s within 30 s. *Recovery:* save partial transcript; surface "game ended without confirmation".
+- [ ] **F-PROTO-018** `BYE_FRAGMENT_OUT_OF_ORDER` — part `idx` higher than announced `total` or duplicate. *Recovery:* `MISMATCH` with forensic bundle.
+- [ ] **F-PROTO-019** `BYE_FRAGMENT_OUT_OF_BOUNDS` — announced `total > 64`. *Recovery:* reject before allocation; treat as DoS.
+- [ ] **F-PROTO-020** `FRAGMENT_NOT_ALLOWED` — sender attempted to fragment a non-`BYE` frame. *Recovery:* local logic error; abort send, file `kind: bug` queue entry.
+- [ ] **F-PROTO-021** `CRYPTO_SUITE_NOT_NEGOTIATED` — `HELLO.crypto_suite_id` unsupported. *Recovery:* end pre-game with friendly "both players need to be on a compatible app version".
+- [ ] **F-PROTO-022** `TRANSCRIPT_VERSION_UNSUPPORTED` — attempted to load a saved transcript whose `engine_replay_version` is too old or too new. *Recovery:* refuse to load; offer export.
+- [ ] **F-ID-012** `KDF_DERIVATION_FAILED` — HKDF or Argon2 returned an error (libsodium failure). *Recovery:* abort the operation; surface "please retry".
+- [ ] **F-ID-013** `SECRET_ZEROISE_FAILED` — `sodium_memzero` reported failure. *Recovery:* deliberate process abort; secrets in memory are assumed leaked.
+- [ ] **F-XPORT-004** `DATACHANNEL_ID_COLLISION` — attempted to recreate a DataChannel with an `id` still in use. *Recovery:* close existing, wait for `closed`, retry; if it recurs once → fresh DTLS handshake.
+- [ ] **F-XPORT-005** `RESUMED_AS_NEW` — ICE / SCTP fully torn down; previous session ends, a new session is established with fresh AEAD salt. *User-visible:* "connection restarted".
+- [ ] **F-CLOCK-004** `MONOTONIC_CLOCK_UNAVAILABLE` — platform did not return a monotonic clock source. *Recovery:* refuse to start any timed session; surface platform incompatibility.
+- [ ] **F-CLOCK-005** `WALL_CLOCK_TAMPERED_DETECTED` — wall clock jumped > 10 s while a timed session was active (informational; chess clock is on monotonic so unaffected, but transcript timestamps are flagged). *Recovery:* warning toast; transcript flagged in metadata.
+- [ ] **F-NET-008** `METERED_NETWORK_USER_DECLINED` — user declined to continue on metered network during TURN-relayed session. *Recovery:* graceful end with `BYE` carrying `reason: user_declined_metered`.
+- [ ] **F-LIFECYCLE-005** `OEM_BATTERY_OPT_BLOCKING` — detected OEM battery optimisation is preventing background play. *Recovery:* surface nudge; cap session length at 10 min.
+- [ ] **F-PUSH-005** `APNS_SILENT_PUSH_DROPPED` — silent push not delivered (best-effort detection via in-app delivery counter vs server-side send counter). *Recovery:* surface to user; suggest enabling Background App Refresh.
+- [ ] **F-PUSH-006** `FCM_TOKEN_REFRESHED` — informational; client re-registers automatically.
+- [ ] **F-ID-014** `RECOVERY_SCREEN_CAPTURED_DETECTED` — iOS reported screen-recording during recovery-code display. *Recovery:* obscure words; surface security warning; user must re-enter the recovery wizard to proceed.
+- [ ] **F-CHAT-003** `CHAT_BLOCKED_BY_USER` — incoming chat from a fingerprint on the local block-list. *Recovery:* drop silently; never notify the blocked sender.
+- [ ] **F-CHAT-004** `CHAT_REPORTED_AS_ABUSE` — user filed a report; bundle (signed transcript + chat) queued for upload after explicit "send" tap.
+- [ ] **F-ONBOARD-001** `AGE_GATE_BLOCKED` — user self-attested under chat-eligibility age. *Recovery:* chat-disabled experience; can be revisited in settings.
+- [ ] **F-STORE-004** `STORE_PRIVACY_MANIFEST_OUT_OF_DATE` — CI gate caught a data-collection change without a manifest update. *Recovery:* block merge.
+- [ ] **F-SIG-010** `DEVICE_CAP_EXCEEDED` — account already has 8 active devices; oldest evicted, this device is the eviction target. *Recovery:* prompt user to remove an old device.
+- [ ] **F-SIG-011** `LONG_POLL_CAP_EXCEEDED` — account at 32 concurrent long-polls. *Recovery:* `Retry-After: 5`.
+- [ ] **F-SIG-012** `SDP_TOO_LARGE` — SDP > 16 KB at signaling. *Recovery:* surface as `ICE_FAILED` to the user; log on server.
+- [ ] **F-SIG-013** `SDP_FORBIDDEN_MEDIA_LINE` — SDP contained a media section other than `application/data`. *Recovery:* reject; flag the offering account for abuse review.
+- [ ] **F-SPEC-001** `SPECTATOR_CHAIN_REJECTED` — a spectator attempted to issue a view-key to a fourth party. *Recovery:* reject.
+- [ ] **F-CONC-001** `ISOLATE_CRASHED` — `p2p` isolate threw an unhandled exception. *Recovery:* supervisor restart, end any active session, file `kind: crash` queue entry, surface friendly error.
+- [ ] **F-CONC-002** `SODIUM_INIT_FAILED` — libsodium failed to load on first call. *Recovery:* refuse to enable P2P; surface platform incompatibility.
+
 ---
 
 ## Phase 11 — Chess clock and time control
@@ -767,6 +908,17 @@ v4 had `CLOCK_STARVATION` as a failure mode but no actual clock protocol. P2P cl
 ### 11.6 Acceptance gate
 
 - [ ] All 11.1–11.5 ticked, blitz chaos green, clock spec section in [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md) §clock published.
+
+### 11.7 Monotonic clock requirement and wall-clock-tamper detection
+
+Chess-clock arithmetic on wall-clock time is exploitable: an attacker can wind the system clock back to deny a flag-fall, or forward to claim opponent flagged. v6 closes this by mandating monotonic time everywhere it matters.
+
+- [ ] **All chess-clock arithmetic uses the OS monotonic clock:** `clock_gettime(CLOCK_MONOTONIC_RAW)` on Linux/Android, `mach_absolute_time` on iOS/macOS, `QueryPerformanceCounter` on Windows. The pure-Dart fallback (web, hot-reload) uses `Stopwatch` which is monotonic by spec on all current Flutter platforms.
+- [ ] **Wall-clock is permitted only for transcript timestamps** (informational; flagged "approximate" in the transcript schema). Wall-clock is never read inside the flag-fall consensus or clock-pause arithmetic.
+- [ ] **CI grep gate:** `frontend/lib/services/p2p/clock/**` is forbidden from importing `dart:core` `DateTime.now()`, `DateTime.timestamp()`, or `Platform.localeName`-derived calendar arithmetic. **Proof:** `frontend/test/p2p/clock/no_wall_clock_in_clock_module_test.dart`.
+- [ ] **Wall-clock-jump detection:** the `p2p` isolate samples wall-clock alongside monotonic at 1 Hz; a wall-clock delta > 10 s in either direction over a 1 s monotonic interval triggers `WALL_CLOCK_TAMPERED_DETECTED` (§10.2). The chess clock is unaffected (it's on monotonic), but the transcript metadata records the event. **Proof:** `frontend/test/p2p/clock/wall_clock_jump_detection_test.dart`.
+- [ ] **`MONOTONIC_CLOCK_UNAVAILABLE` failure:** if the platform doesn't expose a monotonic clock (extremely unlikely), the app refuses to start any timed session. Untimed (correspondence) sessions remain possible. **Proof:** `frontend/test/p2p/clock/monotonic_unavailable_test.dart` (mocked).
+- [ ] **Rooted-device escalation:** rooted/jailbroken-device detection (Phase 14 §14.5) forces `casual_mode=true` because monotonic clock can be intercepted via Magisk / Frida. Documented residual risk: an attacker on their own device cannot be stopped; goal is opponent-record protection.
 
 ---
 
@@ -831,6 +983,113 @@ v4 had `CLOCK_STARVATION` as a failure mode but no actual clock protocol. P2P cl
 
 ---
 
+## Phase 14 — User safety: chat moderation, blocking, abuse reporting
+
+**Goal:** Give every user the tools to protect themselves in a peer-to-peer environment where the operator cannot proactively moderate. *0% complete. Hard prerequisite for the Phase 6 beta-open gate.*
+
+v5 had per-side rate limits but no answer to harassment, abuse, or safety reporting. v6 makes user-safety a first-class phase because shipping unmoderated chat without these features would fail App Store / Play review and would be a duty-of-care failure.
+
+### 14.1 Per-device opponent block-list
+
+- [ ] Block-list keyed by **opponent device fingerprint** (§2.1). Blocking prevents future matches with that fingerprint and silently drops any incoming chat (no notification to the blocked sender). Block list is local-only (no server reporting); user can review and unblock.
+- [ ] **Account-level escalation:** because device fingerprints rotate on rebind, an option to also block the *account* fingerprint is offered. Account blocks survive opponent's device replacement.
+- [ ] **Block during game:** mid-game block ends the current session as `BYE { reason: user_blocked }`, transcript saved, no further matches.
+- [ ] **UI surface:** the opponent's fingerprint is always visible in-game (Device ID badge); long-press → Block / Mute / Report menu. **Proof:** `frontend/test/p2p/ui/opponent_block_test.dart` + `frontend/test/p2p/services/block_list_persistence_test.dart`.
+
+### 14.2 Per-message local mute
+
+- [ ] In-game "mute chat" toggle hides incoming chat without ending the session and without notifying the opponent. Distinct from blocking (mute is reversible mid-game).
+- [ ] **Default-mute heuristics:** new opponents (fingerprint never seen before) start in a soft-mute mode where chat is delivered but not auto-shown until the user taps "show chat". Reduces spam of unsolicited messages on first contact. **Proof:** `frontend/test/p2p/ui/default_mute_first_contact_test.dart`.
+
+### 14.3 Abuse reporting
+
+- [ ] Report flow: user taps "Report opponent" → selects reason (harassment, sexual content, threats, cheating-suspicion, other) → reviews the bundle that will be uploaded (signed transcript + chat history + opponent fingerprint + reason code) → explicit "Send" tap.
+- [ ] **Cryptographic accountability:** because both peers sign the transcript and chat (§1.7 RESIGN; chat could similarly carry signatures — deferred to v6.1 if it inflates wire cost too much), the reported content is non-repudiable. The accused cannot claim "I didn't say that" if the signature verifies.
+- [ ] **Server-side review:** reports land in a queue at the operator (signaling-server admin endpoint). [docs/P2P_TRUST_AND_SAFETY.md](P2P_TRUST_AND_SAFETY.md) defines the published SLA (e.g. "reviewed within 7 days"), the action ladder (warning, account suspension, account ban with recovery-code invalidation), and the appeal path. For a solo-operator deployment, the SLA is honestly stated as "best-effort, no guaranteed timeline".
+- [ ] **Report storage:** uploaded bundles encrypted at rest with operator KMS key; auto-purged at 90 d if not actioned. **Proof:** `signaling/internal/abuse/report_storage_test.go`.
+- [ ] **No retaliation channel:** a report does not notify the reported peer (would invite retaliation). The reporter is anonymised in the bundle (account fingerprint hashed, raw fingerprint stored separately and only revealed on operator decision to escalate). **Proof:** `signaling/internal/abuse/anonymisation_test.go`.
+- [ ] **Report-bombing defense:** per-account limit of 5 reports / 24 h; over-cap reports are queued but de-prioritised; persistent over-cap reporters are flagged for operator review (could be bad faith, could be a victim of stalking). **Proof:** `signaling/internal/abuse/report_rate_limit_test.go`.
+
+### 14.4 Age-gate and minor protections
+
+- [ ] On first launch, self-attested age picker. Default 13+ (US COPPA); EU member states with GDPR-K may require 16+ — detected from device locale (best-effort) and surfaced.
+- [ ] **Under-age users:** chat features disabled by default; can be re-enabled in settings only after re-attesting age. Spectator mode (Phase 7) disabled. Reported transcripts auto-flagged with `minor_involved: true` for prioritised review.
+- [ ] **Age-gate UI:** plain-language copy, no dark patterns; "prefer not to say" option (assumed under-age for safety). **Proof:** `frontend/test/p2p/onboarding/age_gate_test.dart` + `frontend/test/a11y/age_gate_a11y_test.dart`.
+
+### 14.5 Rooted / jailbroken / emulator detection
+
+- [ ] Best-effort detection on Android (Magisk / SafetyNet / Play Integrity "BASIC" verdict) and iOS (jailbreak heuristics: writable system paths, dyld checks, sandbox escape signatures). Result is **not** a block; it forces `casual_mode=true` (no rated games, no flag-fall victories) for the device.
+- [ ] **Honest UX copy:** "This device shows signs of modification; rated play is disabled. You can still play casual games." Avoid accusatory framing. **Proof:** `frontend/test/p2p/identity/root_detection_casual_only_test.dart`.
+- [ ] **No silent telemetry of root status** to the server (privacy concern); only surfaced locally and reflected in `HELLO.capabilities.casual_mode` so opponents see the badge.
+
+### 14.6 In-chat social-engineering warnings
+
+- [ ] Per-message regex detector for patterns that suggest social engineering ("recovery" / "backup" / "seed" / "password" + 16-word patterns + "send me your" + URL-shorteners on outgoing chat). Triggers a soft, non-blocking warning above the message: incoming → "This looks like a phishing attempt. Never share your recovery words"; outgoing → "Are you sure? Sharing recovery words gives the recipient full account access."
+- [ ] Detector list is shipped in the app (no server callback; privacy-clean) and updated via remote signed-config. **Proof:** `frontend/test/p2p/ui/chat_recovery_warning_test.dart` + `frontend/test/p2p/ui/chat_url_shortener_warning_test.dart`.
+- [ ] **URL handling:** chat URLs are never auto-clickable; user must explicitly tap a "reveal link" button that surfaces the full URL and a warning before opening.
+
+### 14.7 Quality attributes
+
+- [ ] **Performance:** block-list lookup O(1) via in-memory hash set; loaded once per session, persisted on change. **Proof:** `frontend/test/p2p/perf/block_list_lookup_test.dart`.
+- [ ] **Efficiency:** report bundle ≤ 256 KB after compression for a typical 1-hour game; rejected at upload if larger.
+- [ ] **Stability:** mid-game block transition cannot crash the UI; verified by widget test under all session states. **Proof:** `frontend/test/p2p/ui/mid_game_block_widget_test.dart`.
+- [ ] **Reliability:** an upload failure of a report bundle is retried with backoff and persisted locally; user sees "report queued" state. **Proof:** `frontend/test/p2p/services/report_upload_retry_test.dart`.
+- [ ] **Integrity:** the report bundle is signed by the reporter's device key; tampering at upload-time is server-detectable.
+
+### 14.8 Acceptance gate
+
+- [ ] All 14.1–14.7 ticked, [docs/P2P_TRUST_AND_SAFETY.md](P2P_TRUST_AND_SAFETY.md) published with operator SLA and action ladder, age-gate live on first launch, opponent-block UI accessible from in-game and from settings.
+
+---
+
+## Phase 15 — Security audit, penetration test, and bug bounty
+
+**Goal:** External validation of the cryptographic protocol, application security, and operational posture before GA. *0% complete. Hard prerequisite for the Phase 6 §6.4 GA-rollout gate (not for beta-open).*
+
+v5 implicitly assumed good code quality + extensive proof tests are sufficient. v6 acknowledges that no internal review catches everything in cryptography or platform-integration code; an external audit before GA is industry-standard hygiene.
+
+### 15.1 Cryptographic protocol audit
+
+- [ ] Engagement scope: [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md) v1, [Phase 1](#phase-1--wire-protocol-cbor-over-sctp-datachannel), [Phase 2](#phase-2--identity-key-management-and-recovery), [Phase 11](#phase-11--chess-clock-and-time-control), [Phase 12](#phase-12--engine-replay-version-pinning) reviewed by a third-party cryptographic-protocol firm.
+- [ ] Deliverables: written report covering protocol soundness (forward secrecy, replay protection, downgrade resistance, KDF parameter choice, AEAD nonce construction, signature ceremonies), a list of findings with severity, a remediation plan.
+- [ ] **All critical / high findings remediated and re-tested** before GA. Medium findings tracked as queue entries with deadlines; low findings documented.
+- [ ] **Public summary** of the audit (with operator's permission) published in [docs/P2P_AUDIT_HISTORY.md](P2P_AUDIT_HISTORY.md). Builds user trust; standard for security-conscious projects.
+
+### 15.2 Application penetration test
+
+- [ ] Scope: client (iOS / Android), signaling server, infrastructure (TURN, observability stack). Methodology: OWASP MASVS-L2 for mobile; OWASP ASVS-L3 for the server.
+- [ ] Findings remediated under the same severity ladder as 15.1.
+- [ ] **Specific in-scope checks:**
+  - Secure-storage extraction on jailbroken iOS / rooted Android.
+  - DataChannel ciphertext recovery from on-device memory dumps.
+  - Signaling-server endpoint authorisation matrix.
+  - TURN credential lifetime and binding.
+  - Push-payload tamper resistance.
+  - Reproducible-build verification end-to-end.
+  - SBOM accuracy (every artefact in the binary appears in the SBOM).
+
+### 15.3 Bug bounty programme (steady-state)
+
+- [ ] Public security.txt (RFC 9116) at `https://chessrecast.example/.well-known/security.txt` declaring scope, contact (PGP-encrypted email), safe-harbour clauses, and reward range.
+- [ ] **Scope:** signaling server, P2P protocol, client crypto/identity code paths. **Out of scope:** social engineering of operators, physical attacks, denial of service via legitimate use, third-party dependencies (file upstream).
+- [ ] **Triage SLA:** acknowledgement within 5 days; initial assessment within 14 days; fix shipped per severity (critical ≤ 7 d, high ≤ 30 d, medium ≤ 90 d). Honoured even for solo-operator deployments — if the bus factor is 1, the SLA is published as "best-effort" with that disclosure.
+- [ ] **Hall of fame** for credited reporters (opt-in).
+- [ ] **Coordinated disclosure window:** 90 days standard; extendable on agreement. Embargoed-CVE handling documented.
+
+### 15.4 Quality attributes
+
+- [ ] **Performance:** audit/pentest engagement does not block other phases; runs in parallel with Phase 6 beta.
+- [ ] **Efficiency:** findings are tracked as queue entries with proof-test references so re-occurrence is mechanically prevented.
+- [ ] **Stability:** every remediation carries a regression test (per the tests-with-code rule).
+- [ ] **Reliability:** audit report is reproducibly verifiable against the audited commit SHA.
+- [ ] **Integrity:** the audit firm is paid for its time, not its findings; explicit "no findings" outcome is acceptable and publishable.
+
+### 15.5 Acceptance gate
+
+- [ ] Phase 15.1 + 15.2 complete with all critical / high findings remediated and verified; Phase 15.3 live with a working security.txt and PGP-keyed inbox; remediation queue entries closed or carrying explicit deferral rationale.
+
+---
+
 ## Open questions (must be resolved before the corresponding gate)
 
 - [ ] **OQ-1** Web / desktop scope for GA — full parity, reduced (no recovery), or excluded? *Decision required before:* Phase 6. **v5 default:** web is reduced (no recovery, no push), behind separate `kEnableP2PWeb` flag, GA-stretch only.
@@ -849,6 +1108,15 @@ v4 had `CLOCK_STARVATION` as a failure mode but no actual clock protocol. P2P cl
 - [ ] **OQ-14** Re-key policy on `engine_replay_version` bump — does the bump invalidate ongoing sessions? v5 working answer: no, ongoing sessions complete on the version they started on; new sessions use the new version. *Decision required before:* Phase 12 acceptance.
 - [ ] **OQ-15** Push-wake redeem-once token storage — in-memory only, or persisted to survive a server restart? Trade-off: persistence widens DR window, in-memory loses tokens on restart but is privacy-cleaner. *Decision required before:* Phase 3 acceptance.
 - [ ] **OQ-16** Late-join / reconnect for already-completed move list — does the spec support a cold-rejoin from a fully-archived game (study mode), or only mid-session resync? *Decision required before:* Phase 7 late-join sub-task.
+- [ ] **OQ-17** Encrypted transcript backup at GA — ship in v1, defer to Phase 7, or never? Trade-off: device-loss data preservation vs server-side storage cost + DSAR scope expansion. *Decision required before:* Phase 6 GA gate. **v6 default:** Phase 7 stretch, opt-in only.
+- [ ] **OQ-18** Chat signing — sign every chat message under the device key (non-repudiable for abuse reports), or sign only the chat-history hash inside `BYE` (cheaper on the wire)? *Decision required before:* Phase 14 acceptance. **v6 default:** sign chat-history hash inside `BYE`; revisit if abuse reports need finer granularity.
+- [ ] **OQ-19** Crypto-suite migration trigger — do we ship `crypto_suite_id = 0x02` (hybrid PQ) when libsodium ships stable ML-KEM, when CNSA 2.0 deadlines force it, or when a real attack appears? *Decision required before:* libsodium-ML-KEM availability. **v6 default:** when libsodium ships stable bindings AND we have hybrid-KAT vectors from a third party.
+- [ ] **OQ-20** Bug-bounty reward funding — self-funded, sponsored, or no monetary reward (recognition only)? *Decision required before:* Phase 15.3.
+- [ ] **OQ-21** Spectator chain — v6 forbids it. Should a future version allow N-deep spectator chains with explicit per-hop consent? *Decision required before:* Phase 7 spectator sub-task.
+- [ ] **OQ-22** Account-level vs device-level block precedence — if I block an account but the account's owner gets a fresh fingerprint via rebind, do I auto-block the new fingerprint (privacy: tracks the user across rebinds) or unblock (lets stalkers reset)? *Decision required before:* Phase 14 acceptance. **v6 default:** account-block survives rebind; documented in Trust & Safety policy.
+- [ ] **OQ-23** Web build push wakeups — implement Web Push API for parity with mobile, or document web as "online-only" (must be foreground)? *Decision required before:* Phase 7 web GA. **v6 default:** online-only for first web release.
+- [ ] **OQ-24** Foundation primitives provider — stay on libsodium for the foreseeable, or evaluate AWS-LC / BoringSSL for FIPS-aligned deployments if enterprise demand emerges? *Decision required before:* enterprise-tier scope. **v6 default:** libsodium-only for v1.
+- [ ] **OQ-25** Per-mod time-control defaults — do specific mods (Save the Queen escape race, Mercenary endgame) need mod-aware default time controls (longer increments)? *Decision required before:* Phase 11 acceptance. **v6 default:** standard chess defaults across all mods; mod-specific tuning is a Phase 7 polish task.
 
 ---
 
@@ -883,7 +1151,14 @@ Phase 0 (cleanup) ──► Phase 1 (protocol) ──► Phase 4 (transport) ─
 2. [Phase 12](#phase-12--engine-replay-version-pinning) (engine-replay-version CI gate) is a hard prerequisite for ticking any Phase 1 / Phase 4 / Phase 6 box, for the reason above.
 3. [Phase 8.8](#88-operator-model-and-on-call) (operator model & auto-killswitch) is a hard prerequisite for the Phase 6 beta-open gate. Shipping a P2P feature with no plan for what happens at 03:00 UTC on a long weekend is a violation of the integrity charter.
 
-Critical-path summary: **Phase 0 → Phase 5 §5.1 + Phase 12 → Phase 1 + Phase 11 → Phase 4 → Phase 8.8 → Phase 6**. Phases 2 and 3 are parallelisable but must converge before Phase 4's network-change + push-wake testing.
+**Hard prerequisite ordering additions (v6):**
+
+4. [Phase 14](#phase-14--user-safety-chat-moderation-blocking-abuse-reporting) (user safety — block, mute, report, age-gate) is a hard prerequisite for the Phase 6 beta-open gate. Shipping unmoderated chat without these tools fails App Store / Play review and the duty-of-care charter.
+5. [Phase 15.1](#151-cryptographic-protocol-audit) + [§15.2](#152-application-penetration-test) (third-party crypto audit + pentest) are hard prerequisites for the Phase 6 §6.4 GA-rollout gate. The 1% rollout step may begin only after both audits' critical/high findings are remediated and re-verified.
+6. [§2.7](#27-secret-memory-hygiene) (secret memory hygiene) and [§8.10](#810-concurrency-and-isolate-model) (isolate model) are hard prerequisites for ticking any Phase 2 or Phase 4 box — a session that uses Dart `String` for keys or runs Argon2 on the UI isolate is broken regardless of whether its KAT vectors pass.
+7. [§11.7](#117-monotonic-clock-requirement-and-wall-clock-tamper-detection) (monotonic clock) is a hard prerequisite for ticking any Phase 11 box. A clock built on `DateTime.now()` cannot be "fixed later".
+
+Critical-path summary: **Phase 0 → Phase 5 §5.1 + Phase 12 + §2.7 + §8.10 → Phase 1 + Phase 11 (with §11.7) → Phase 4 → Phase 8.8 + Phase 14 → Phase 6 beta → Phase 15.1 + 15.2 → Phase 6 GA**. Phases 2 and 3 are parallelisable but must converge before Phase 4's network-change + push-wake testing.
 
 ---
 
