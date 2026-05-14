@@ -1,1134 +1,653 @@
-# 🌐 ChessRecast — Peer-to-Peer Multiplayer Roadmap
+# ChessRecast — Peer-to-Peer Multiplayer Roadmap
 
-> **Status:** 📝 Draft **v2 (revised)** · **Owner:** @serhatakbak · **Target release train:** post-engine-freeze
-> **Companion docs:** [GAME_MODS_DOCUMENTATION](game/GAME_MODS_DOCUMENTATION.md) · [DRAW_RULES](game/DRAW_RULES.md) · [AGENTS.md](../AGENTS.md) · [.github/copilot-instructions.md](../.github/copilot-instructions.md)
+> **Version:** v4 · **Status banner:** 🟥 **0% shipped** — every checkbox in this document is empty (`[ ]`). No P2P code, no signaling server, no archive of the legacy backend exists yet. Everything below is design intent until a checkbox is ticked by a commit on `main`.
 >
-> **What changed in v2** (vs Draft v1)
->
-> 1. ❌ Removed wrong assumption that "WebRTC ordered + reliable + signed JSON < 512 B" alone delivers tournament-grade latency. Replaced with a layered latency budget per-phase, CBOR/varint framing, and an **explicit pre-warmed ICE pair + keep-alive** model.
-> 2. ⏰ **Clocks are now an explicit subsystem.** Wall-clock `client_ts_ms` is treated as untrusted hint only; the authoritative timer is monotonic + NTP-anchored, exchanged at handshake and re-anchored periodically. The "lower wins" tiebreak from v1 is preserved as the *defensive* path, not the *normal* path.
-> 3. 🎮 **Mod-specific message catalog** added — Heir, Friendly Fire, Kings Battle, Mercenary, Save the Queen, Succession, Truce all need bespoke envelope subtypes (heir-pick, hire-choice, escape-route, truce-call, promotion-to-king, etc.). v1 silently assumed `from/to/promo` was enough.
-> 4. ♟️ **Game-flow primitives added**: pre-game ready handshake, premove, takeback offer, draw offer, resign, abort, opponent-disconnect adjudication policy with explicit grace windows per time control.
-> 5. 📱 **Mobile reality calibrated**: iOS WebRTC backgrounding, VoIP push for invite delivery (APNs / FCM high-priority), Android Doze, OS-level network change (Wi-Fi ↔ cellular), CGNAT/symmetric-NAT TURN fallout, mDNS-host-candidate breakage on older Android.
-> 6. 🛡️ **Abuse/cheat/anti-tamper expanded**: per-pubkey + per-IP + per-/24 token buckets (CGNAT-safe), engine-correlation report harness reused from `agent/reports/`, premove-flood detection, mouse-slip vs intent classification, signed build attestation lite (apk-hash gossip), key rotation & revocation list.
-> 7. 🧪 **Proof-test matrix expanded** to 7 layers (unit / property / component / integration / E2E-emulator / chaos / soak) with named scenarios and pass criteria. Per-mod conformance suite added.
-> 8. 🧱 **Server hardening**: graceful drain, blue/green, structured shutdown, idempotent invite redemption, signaling fuzz harness, server-side replay-cache for nonces.
-> 9. 🧹 **Phase 0 adds proof-of-cleanup tests** (`git grep` assertions in CI, dead-code analyzer, archived-folder lint).
-> 10. 📊 **KPI tables per phase** (not only Phase 5) with thresholds wired into the same baselines/queue mechanism the engine uses, so a `kind: p2p_regression` task is filed automatically.
-> 11. 🌍 **Hosting / region / disaster-recovery section** added. Single-region beta is fine, but the protocol must be region-agnostic from day 1 to avoid migration pain later.
-> 12. 🔐 **GDPR / data-subject deletion**, store-policy disclosures, kill-switch & forced-upgrade flows added.
-> 13. 🪪 **Lightweight stats-recovery account** added in Phase 2 (revised v2.1). The original "no central account ever" stance was wrong: losing a phone meant losing ELO, W/L/D, and game history. The protocol now ships an *opt-in but recommended* server-side account holding only the **bare-minimum stats blob** (per-mod ELO, played/wins/losses/draws, account age, last-seen, optional cosmetic handle) keyed by `device_id_pub`, with two recovery paths — **always-issued recovery codes** + **optional verified email** — neither of which gives the server access to game content, private keys, or move logs.
+> **Companion docs:** [AGENTS.md](../AGENTS.md), [.github/copilot-instructions.md](../.github/copilot-instructions.md), [docs/coding/ai/automation.md](coding/ai/automation.md), [docs/game/GAME_MODS_DOCUMENTATION.md](game/GAME_MODS_DOCUMENTATION.md), [docs/game/DRAW_RULES.md](game/DRAW_RULES.md). When this roadmap and AGENTS.md disagree on cross-cutting policy (commit/push, tests-with-code, system safety), **AGENTS.md wins**. This document is authoritative only for P2P scope, sequencing, and acceptance gates.
 
----
+## Status legend (apply to every `[ ]` in this doc)
 
-## 🎯 Mission
+- `[ ]` — **Not started.** No code, no test, no infra. Default state for v4.
+- `[~]` — **Partial / in progress.** A commit has landed but the acceptance gate at the end of the sub-phase has not yet been met. Must cite the in-progress queue entry id from [agent/queue.yaml](../agent/queue.yaml).
+- `[x]` — **Done and gated.** A commit on `main` has shipped the work, the proof test(s) listed for the bullet are green in CI, and the relevant KPI baseline (if applicable) was updated in `agent/baselines/p2p*.json`. Must cite the commit SHA and the proof-test path inline, e.g. `[x] (sha 1a2b3c4d, [frontend/test/p2p/foo_test.dart](../frontend/test/p2p/foo_test.dart))`.
 
-Ship **two-player online play** for all seven Chess Recast mods with:
+> **Tick discipline.** A box may be ticked **only** when (a) the code is on `origin/main`, (b) the proof tests cited beside it are green, (c) any new failure mode it introduces is reflected in [Phase 10 — Failure-mode catalog](#phase-10--failure-mode-catalog), and (d) any new threat surface is reflected in [Phase 9 — Threat model](#phase-9--threat-model). Half-ticks are recorded as `[~]`, never as `[x]`.
 
-- 🤝 **True P2P gameplay** — moves flow over a WebRTC SCTP `RTCDataChannel`; no server in the hot path of moves.
-- 🛰️ **One small signaling/ops server** — SDP/ICE relay, lobby/matchmaking, in-app feedback & issue reports, TURN credential vending, kill-switch & forced-upgrade broadcast, optional opt-in stats. **That is the complete server feature set.**
-- ⏱️ **Tournament-grade latency**, with explicit per-leg budgets:
-  - Local (same NAT, same Wi-Fi): `p50 ≤ 25 ms`, `p95 ≤ 60 ms`.
-  - Intra-region direct (host candidate): `p50 ≤ 60 ms`, `p95 ≤ 150 ms`.
-  - Intra-region srflx (server-reflexive): `p50 ≤ 90 ms`, `p95 ≤ 220 ms`.
-  - Inter-region or TURN-relayed: `p50 ≤ 180 ms`, `p95 ≤ 400 ms` (UI must surface a "relayed" badge here).
-  - Hard ceiling for *acceptable* play at any tier: `p99 ≤ 600 ms` one-way; above that we flag the game as `degraded` and offer a draw.
-- 🛡️ **Security by default** — DTLS 1.2+ on the data channel, every move signed (Ed25519), hash-chained log, replay-resistant by `(game_id, ply)` uniqueness + nonce cache, signed handshake pinning of opponent pubkey.
-- 👤 **Pseudonymous, P2P-leaning identity** — per-install Ed25519 device keypair (sole signing authority for moves) **plus** an *opt-in but recommended* lightweight server-side **stats-recovery account** that holds only ELO, W/L/D, played count, account age, last-seen, and the user's cosmetic handle. Two recovery paths: **always-issued one-time recovery codes** (offline-capable) + **optional verified email** (network-capable). The server **never** holds private keys, move logs, or anything that could let it impersonate a player in-game (§2.2).
-- 🧪 **Reproducible local sim** — two Android emulators on one workstation playing a clean rated game across **all 7 mods**, verifiable in CI, with chaos-net injected (loss / latency / disconnect / NAT-rebind).
-- 📵 **Survives a flaky phone** — mid-game suspend, network swap, app-kill-and-relaunch all resume cleanly within 30 s or hand off to a deterministic adjudication.
+## What changed in v4 vs v3
 
----
+- [ ] **Checkbox discipline added end-to-end.** Every actionable line is now a `[ ]` checkbox so partial / done states can be tracked at-a-glance.
+- [ ] **Per-phase Quality Attributes block.** Each phase carries an explicit *Performance · Efficiency · Stability · Reliability · Integrity* sub-section with measurable acceptance criteria, not vibes. v3 mixed these into prose; v4 separates them so they can be gated independently.
+- [ ] **Proof-test gaps closed.** v3 had strong unit/integration coverage but under-specified proof tests for: Phase 0 cleanup invariants, Phase 2 recovery-flow chaos, Phase 3 signaling server load + abuse, Phase 4 NAT / IPv6-only / path-MTU, Phase 6 beta telemetry sanity, supply-chain integrity (SBOM diff, dependency confusion). v4 adds them.
+- [ ] **Wrong / fragile assumptions corrected.** v3 assumed (a) `RTCDataChannel` SCTP ordered+reliable is sufficient for clock sync — *no, clock sync needs an unreliable side-channel or NTP-style RTT estimator on the same channel*; (b) Argon2id `m=64MB` is universally affordable on low-end Android — *flagged as device-class adaptive*; (c) Play Integrity / DeviceCheck only on rebind — *expanded to also gate first-time signaling-server registration on hostile-region heuristics*; (d) "deterministic CBOR is enough for replay parity" — *no, also need canonical move-list normalisation for promotions, en-passant disambiguation, and mod-specific king-move tags*; (e) "litestream WAL replication = HA" — *no, that's DR not HA; HA needs a second active replica or graceful degraded mode*.
+- [ ] **New cross-cutting subsections.** Battery & thermal budget (Phase 4 + Phase 8), accessibility for connection-state UI (Phase 8), supply-chain provenance (Phase 8), legal/data-residency for signaling and TURN (Phase 6/8), licence audit for libsodium / coturn / litestream (Phase 8).
+- [ ] **Engine-correlation hooks.** P2P feature must not regress single-player engine KPIs (`agent/baselines/<mod>.json`); v4 adds a Phase 5 gate that re-runs the per-mod regression suite on every signaling-touching change because shared services (analytics, lifecycle, native-lib loader) can leak.
+- [ ] **Failure-mode catalog grew from 41 to ≥60 codes** (storage corruption, web/desktop variants, push-notification deferral, biometric re-key failures, deep-link cold-start races, CRDT-style late-join collisions).
+- [ ] **Sequencing graph revised.** Phase 3 (signaling) and Phase 2 (identity) were drawn as strictly serial in v3; in v4 they overlap from week 2 onward because identity bytes block signaling registration but server scaffolding does not.
 
-## 🧭 Guiding principles
+## Mission
 
-1. 🥇 **Engine-quality bar carries over.** Every gate in [.github/copilot-instructions.md](../.github/copilot-instructions.md) → *Hard rules → 4* still applies. Multiplayer code lives under `frontend/lib/services/p2p/**` and `frontend/test/p2p/**` (per-area allow-list update in §0.5).
-2. 🪶 **Server is replaceable.** The signaling server is a thin, mostly-stateless HTTP+WebSocket service. If it dies for an hour, in-progress games keep playing (data channel is direct). New games and reconnect-via-restart need it; in-game moves do not.
-3. 🔐 **Trust the cryptography, not the server.** Moves are signed with the player's per-device key; the server never sees move content. Even malicious servers cannot rewrite a game. The stats-recovery account (§2.2) is a *separate, smaller* trust boundary: a compromised server could falsify stats but **cannot** sign moves, decrypt game logs, or impersonate a player in a live lobby.
-4. 🧱 **Deterministic, versioned protocol.** Move envelopes are versioned, schema-validated, canonicalized via [RFC 8785 JCS](https://www.rfc-editor.org/rfc/rfc8785) before signing, and replayable from the on-disk game log — same harness as `agent/reports/`. Wire format is **CBOR (RFC 8949)** with a JSON debug shadow; the JSON shadow is gated behind a debug flag and never affects the signature.
-5. 🧮 **Clocks are first-class.** Wall clocks lie; monotonic clocks drift; only the synchronized exchange of both, anchored by an authenticated handshake, can be trusted. Any disagreement must have a deterministic resolution that *cannot benefit a cheater*.
-6. 🎮 **Every mod is on the wire from day 1.** No mod is "added later" — the protocol's mod-message catalog (§1.4) covers all 7 from v1, even if the UI for some is built incrementally.
-7. 🧹 **One legacy cleanup, then forward only.** The Go [`backend/`](../backend/) is archived in Phase 0; no new features land there. The new signaling server is a fresh tree (`signaling/`).
-8. 🚦 **Feature flags + kill switch from day 1.** Every networked feature ships behind a server-broadcast flag so we can disable a broken codepath in minutes, not in a 1.5-day app-store review.
-9. 📈 **Every phase has a KPI table** with a baselines file and a `kind: p2p_regression` queue contract — same gating discipline as the engine.
+Replace the current single-player + legacy backend matchmaking with **direct, end-to-end-encrypted, peer-to-peer multiplayer** that:
 
----
+- works with **no central game-state server** (signaling + TURN are the only server roles),
+- preserves the seven-mod chess engine bit-for-bit between peers (replay parity),
+- survives realistic mobile conditions: NAT, captive portals, network handoffs, app suspension, low battery, hostile peers,
+- is **forward-secret** (per-session keys), **identity-stable** (long-term Ed25519 device keys + recoverable account keys), and **abuse-resistant** (rate-limited signaling, proof-of-work fallback, push-spam ceiling),
+- never regresses single-player engine strength (per-mod KPIs in `agent/baselines/<mod>.json`).
 
-## 🗂️ Phase 0 — Cleanup, foundations & proof-of-cleanup 🧹
+## Guiding principles (load-bearing)
 
-> **Goal:** Repo is unambiguously "P2P era" before any new code lands, *and CI proves it stays that way*.
+1. **Replay parity over feature speed.** A move is legal iff both peers' native engines compute the same legal-move set from the same board state. If they disagree, the session ends with `MISMATCH` and a forensic bundle is written locally — *never* a "trust the server" fallback.
+2. **Identity is local, recovery is opt-in.** The Ed25519 device key never leaves the device unencrypted. Account-level recovery (across devices) is opt-in, requires Argon2id-wrapped backup, and is independent of the signaling server's database.
+3. **Signaling server is dumb on purpose.** It brokers SDP offers/answers, ICE candidates, and push wakeups. It does **not** see plaintext moves, board state, or chat. Compromise of the signaling server must not break confidentiality of past or future games.
+4. **Test pyramid is non-negotiable.** Every phase ships with the test layers listed in [Phase 5](#phase-5--test-and-ci-strategy). No phase is "done" without proof tests.
+5. **Engine correlation.** A P2P change that regresses any per-mod engine KPI in `agent/baselines/<mod>.json` by >5% is a hard revert, exactly as in [.github/copilot-instructions.md](../.github/copilot-instructions.md) Hard rules → 4.
+6. **No silent fallbacks.** Every degradation (TURN relay engaged, push wakeup used, recovery code consumed) is surfaced in UI and recorded in local telemetry.
 
-### 0.1 📦 Archive the deprecated Go backend
+## Glossary
 
-- Move [`backend/`](../backend/) → `archive/backend-go-legacy/`. Add `archive/backend-go-legacy/README.md` explaining: *deprecated, kept for git history & possible reference, do not extend*.
-- Update [README.md](../README.md), [AGENTS.md](../AGENTS.md) discoverability index, [.github/copilot-instructions.md](../.github/copilot-instructions.md) *Project shape* section, and [docs/coding/ai/automation.md](coding/ai/automation.md) to reflect the move.
-- Remove `backend/` from any CI workflows (`.github/workflows/**`) and from VS Code tasks.
-- 🔒 Add `archive/.frozen` marker file + a CI lint that fails if any commit modifies files under `archive/**` without the commit message containing `archive-touch:` (rare, by-design escape hatch).
-
-### 0.2 🧽 Flutter cleanup of legacy backend wiring
-
-Files to touch (Phase-0 allow-list):
-
-- 🔥 Delete: [`frontend/lib/services/api_service.dart`](../frontend/lib/services/api_service.dart), [`frontend/lib/services/game_websocket.dart`](../frontend/lib/services/game_websocket.dart).
-- ✂️ Strip backend calls from:
-  - [`frontend/lib/ui/online_bot_vs_bot_page.dart`](../frontend/lib/ui/online_bot_vs_bot_page.dart) → see §0.3 for fate decision.
-  - [`frontend/lib/ui/bot_selection_page.dart`](../frontend/lib/ui/bot_selection_page.dart) → drop the "play against backend AI" copy.
-  - [`frontend/lib/analytics/custom/custom_board_setup.dart`](../frontend/lib/analytics/custom/custom_board_setup.dart) → drop the `"Backend server is not reachable"` paths; analytics stays fully on-device.
-- 🧪 Remove/relocate tests that mock `ApiService` / `GameWebSocket`. Anything proving on-device behavior stays; anything asserting backend round-trips moves to `archive/`.
-- 🏷️ Replace the comment in [`frontend/lib/mods/enums.dart`](../frontend/lib/mods/enums.dart) (`Convert enum name to snake_case for backend API`) with `… for wire/serialization`.
-- 🧯 Audit `pubspec.yaml` for now-unused dependencies (`http`, `web_socket_channel`) and either remove them or note them as P2P-future.
-
-### 0.3 🧭 Decide the fate of "online bot vs bot"
-
-- **Option A (recommended ✅):** rename to **"Self-play sandbox"**, run two engine instances on-device. Zero network. Useful as a debug/teaching tool and as the basis for the *engine-correlation report* anti-cheat in §6.4.
-- **Option B:** delete entirely.
-- Decision logged in this doc + an entry in [agent/queue.yaml](../agent/queue.yaml) of `kind: shared_edit` since it touches shared UI.
-
-### 0.4 🛡️ Proof-of-cleanup tests (new in v2)
-
-A new test file `frontend/test/cleanup/legacy_backend_cleanup_test.dart` enforces, on every PR:
-
-- `git grep -nE "ApiService|GameWebSocket|10\.0\.2\.2:8080"` returns **zero** hits outside `archive/`.
-- `package:http` and `package:web_socket_channel` are not imported outside `frontend/lib/services/p2p/**` (until Phase 4 unlocks them).
-- No file under `frontend/lib/**` references the symbol `ApiService`.
-- Static check: `archive/**` is not imported from `frontend/lib/**`.
-
-These checks are tiny `Process.run('git', …)` + `dart analyze` shells; they run as a normal Flutter test and gate every commit. **This is what "proof of cleanup" means** — without these the cleanup will rot within a sprint.
-
-### 0.5 📋 Per-area allow-list addition for P2P work
-
-Add to [.github/copilot-instructions.md](../.github/copilot-instructions.md) *Per-area source allow-list*:
-
-| Area  | Allowed paths |
+| Term | Definition |
 |---|---|
-| `p2p` | `frontend/lib/services/p2p/**`, `frontend/test/p2p/**`, `frontend/tool/p2p/**`, `signaling/**`, `docs/signaling/**`, `scripts/p2p/**`, `agent/baselines/p2p.json` |
+| **Peer** | A device running ChessRecast holding a long-term Ed25519 device key. |
+| **Account** | A user-level identity; one or more peers may attach to it via the recovery flow. |
+| **Session** | One game between two peers, with a fresh symmetric key derived via X25519 ECDH + HKDF. |
+| **Signaling server** | A Go service that brokers offers/answers/ICE candidates and queues push wakeups. Stores no game state. |
+| **TURN** | A coturn relay used when direct ICE fails. Carries opaque ciphertext; it learns peer IPs and traffic volume only. |
+| **STUN** | A coturn binding-discovery endpoint (free, public is acceptable but a self-hosted twin is preferred for reliability metrics). |
+| **Recovery code** | A 16-word BIP-39-style mnemonic that, with Argon2id, unwraps an account-key backup. Held by the user, never by the server. |
+| **Replay parity** | Property that two peers' native engines, fed the same UCI move list and same mod, reach byte-identical board states for every ply. |
+| **Push wake** | An APNs / FCM payload that wakes the recipient app to attempt to redeem a pending offer. Carries no game data. |
+| **Rebind** | A server-side action of re-associating an account with a fresh device key (after device loss). Gated by recovery code + integrity attestation. |
 
-Touching `frontend/lib/services/p2p/protocol/**` after Phase 1 closes requires a `kind: shared_edit` (protocol breaking change — see §1.7).
+## Architecture overview
 
-### 0.6 ✅ Definition of done for Phase 0
+```
+┌─────────────┐                ┌─────────────┐
+│  Peer A     │                │  Peer B     │
+│ (Flutter +  │                │ (Flutter +  │
+│  native C)  │                │  native C)  │
+└──────┬──────┘                └──────┬──────┘
+       │                              │
+       │  1. Register / heartbeat     │
+       │     (Ed25519-signed)         │
+       ▼                              ▼
+   ┌────────────────────────────────────┐
+   │   Signaling Server (Go, stateless  │
+   │   per-request; SQLite + litestream │
+   │   for accounts & pending offers)   │
+   └─────────┬─────────────────┬────────┘
+             │  2. SDP offer   │  2'. SDP answer
+             │     + ICE       │      + ICE
+             ▼                 ▼
+       ┌──────────────────────────┐
+       │   3. WebRTC SCTP         │
+       │      DataChannel         │
+       │   (E2E: X25519 + HKDF +  │
+       │    ChaCha20-Poly1305)    │
+       └──────────────────────────┘
+                │
+                │  4. CBOR-framed protocol
+                │     (move, ack, sync, chat,
+                │      resign, draw-offer, …)
+                ▼
+       ┌──────────────────────────┐
+       │   Native engine (FFI)    │
+       │   validates every move   │
+       │   from peer (no trust)   │
+       └──────────────────────────┘
 
-- All §0.4 tests green on `main` for 3 consecutive CI runs.
-- App builds and all existing engine/UI tests pass.
-- New section "Multiplayer (P2P)" placeholder appears in the in-app *About* / *Settings* screen, marked **Coming soon 🚧**, hidden behind a `--dart-define=ENABLE_P2P_PREVIEW=true` flag.
-- `agent/baselines/p2p.json` skeleton committed (all KPIs at `null`, populated as later phases ship).
+   Side channels:
+   - APNs / FCM push wake (no game data)
+   - TURN relay (opaque ciphertext) when direct ICE fails
+```
 
 ---
 
-## 🏛️ Phase 1 — Architecture & protocol design 🧠
+## Phase 0 — Cleanup of the legacy backend
 
-> **Goal:** Lock the wire format, message catalog, and topology before writing any networking code. **Breaking changes after Phase 1 closes require a `kind: shared_edit` queue entry.**
+**Goal:** Remove the existing client→server game-state coupling so Phase 1+ can land without bit-rot. *0% complete.*
 
-### 1.1 🗺️ Topology diagram
+### 0.1 Inventory and freeze
 
-```
-        ┌──────────────────────────────────────────┐
-        │   Signaling / Ops API (single binary)    │
-        │  · /v1/lobby           (WSS)             │
-        │  · /v1/turn-credentials                  │
-        │  · /v1/feedback   /v1/issues             │
-        │  · /v1/version    /v1/health  /v1/flags  │
-        │  · /v1/push-token (APNs/FCM)             │
-        └─────────────┬────────────────────────────┘
-                      │  WSS (control plane only, ≤ 8 KB frames)
-        ┌─────────────┴────────────────────────────┐
-        │                                          │
-   📱 Player A ◀── WebRTC SCTP DataChannel (DTLS) ──▶ 📱 Player B
-        │                                                  │
-        ├──── STUN (free public + self-hosted backup) ─────┤
-        └──── TURN/TURNS (self-hosted coturn,              │
-              short-lived HMAC creds) ─── ~5–15 % of games ┘
-```
+- [ ] Enumerate every Dart symbol referencing the legacy HTTP / WebSocket backend. Source files known to be in scope: [frontend/lib/services/api_service.dart](../frontend/lib/services/api_service.dart), [frontend/lib/services/game_websocket.dart](../frontend/lib/services/game_websocket.dart), [frontend/lib/services/saved_game.dart](../frontend/lib/services/saved_game.dart), [frontend/lib/services/saved_games_service.dart](../frontend/lib/services/saved_games_service.dart). Output: `docs/code/LEGACY_BACKEND_USAGES.md` listing every call site (file, symbol, purpose). **Proof test:** `frontend/test/legacy/legacy_usages_inventory_test.dart` — fails if any new file in `frontend/lib/**` (added after the freeze) imports a symbol from one of the four legacy files.
+- [ ] Freeze the Go backend: tag the last legacy commit (`backend-legacy-final`), update `backend/README.md` with the freeze notice and a pointer to this roadmap. **Proof:** `git tag --list backend-legacy-final` returns the tag.
+- [ ] Snapshot the legacy API contract (OpenAPI / proto-equivalent) under [docs/P2P_LEGACY_API_SNAPSHOT.md](P2P_LEGACY_API_SNAPSHOT.md) so Phase 0.4 can prove "no live caller is left".
 
-- ✋ Server **never** sees move content in the happy path.
-- 🛰️ **STUN**: 2 self-hosted + 1 public fallback. **TURN**: self-hosted coturn with short-lived HMAC credentials (TTL ≤ 5 min).
-- 📨 **Push delivery for invites** (APNs / FCM high-priority data push) — required for invite delivery when the recipient app is backgrounded; otherwise iOS Doze / Android Doze will silently swallow lobby messages.
+### 0.2 Decouple via local stubs
 
-### 1.2 🧾 Wire format & framing
+- [ ] Introduce `frontend/lib/services/saved_games_local.dart` with a SQLite (sqflite/drift) backing store; mirror `SavedGamesService` API. **Proof test:** `frontend/test/services/saved_games_local_test.dart` covering create / list / load / delete / migration round-trip plus a fuzz test for malformed SQLite rows.
+- [ ] Add a feature flag `kUseLegacyBackend` defaulting to `false` in [frontend/lib/constants.dart](../frontend/lib/constants.dart). **Proof:** widget test that flipping the flag does not crash any screen.
+- [ ] Replace every call site identified in 0.1 with the local stub when `kUseLegacyBackend` is `false`. **Proof test:** `frontend/test/legacy/no_legacy_calls_when_flag_off_test.dart` — runs the app shell and asserts zero outbound HTTP/WebSocket calls to the legacy host.
 
-- **Encoding:** **CBOR (RFC 8949)** with deterministic encoding rules (sorted keys, definite lengths). Average envelope ≈ 180–260 B, p99 < 480 B → always single SCTP MTU.
-- **Debug shadow:** Each envelope can be re-rendered as JCS-canonicalized JSON for human inspection; the JSON form is **never signed and never sent on the wire** (signature is over CBOR canonical bytes).
-- **Hashing:** **BLAKE3-256** for the prev-envelope hash chain; **SHA-256** for `engine_hash` (matches `cmake` artifact hashes the engine team already emits).
-- **Signatures:** **Ed25519** over the CBOR canonical byte string of the envelope minus the `sig` field.
-- **Framing on DataChannel:** SCTP messages are already framed; no further framing needed, but a 2-byte big-endian `wire_version` prefix lets us cleanly add a v2 wire later.
+### 0.3 Archive the Go backend
 
-### 1.3 🧾 Move envelope (v1, **locked at end of Phase 1**)
+- [ ] `git mv backend/ archive/backend-go-legacy/` and add `archive/README.md` explaining the freeze. **Proof:** `git log --diff-filter=R -- backend/` shows the rename; CI fails if `backend/` reappears.
+- [ ] Remove `docker-compose.yml` from repo root (was pulling the legacy backend); replace with `docker-compose.signaling.yml` (empty stub for Phase 3). **Proof:** `docker compose -f docker-compose.yml config` no longer references the legacy backend.
+- [ ] Update [README.md](../README.md) to remove "run the backend" instructions and add a "P2P preview not yet shipped" banner.
 
-```cbor
-{
-  "v":              1,                   // wire/protocol version
-  "type":           "move",              // see §1.4 for full catalog
-  "game_id":        h'0190…' (uuidv7),
-  "ply":            17,
-  "from":           "e2",
-  "to":             "e4",
-  "promo":          null,                // "q"|"r"|"b"|"n"|"k"(succession)|null
-  "mod":            "save_the_queen",
-  "mod_payload":    { … }                // mod-specific extension; see §1.4
-  "rules_version":  3,                   // mod ruleset version (independent of engine_hash)
-  "engine_hash":    h'…' (sha256, 32 B), // BUILD identity, not strength
-  "client_ts_ms":   1736459123456,       // wall clock, advisory only
-  "client_mono_ms": 4823501,             // monotonic clock since handshake
-  "remaining_ms":   178300,              // sender's clock after this move
-  "increment_ms":   2000,                // time-control increment applied
-  "nonce":          h'…' (16 B random),  // anti-replay
-  "prev_hash":      h'…' (blake3, 32 B), // hash chain
-  "sig":            h'…' (ed25519, 64 B) // over canonical CBOR sans `sig`
-}
-```
+### 0.4 Quality attributes
 
-Total typical size: **≈ 220 B** binary. Worst case (with `mod_payload`): **< 480 B**.
+- [ ] **Performance:** Local SQLite saved-games path must serve 1000-game list in <50 ms cold and <10 ms warm on a low-end Android (Pixel 4a class). **Proof:** `frontend/test/perf/saved_games_local_perf_test.dart`.
+- [ ] **Efficiency:** Cleanup must reduce APK size by ≥1.2 MB (no more http/web_socket_channel imports for game state). **Proof:** size diff in CI artefact `frontend/build/size-report.txt`.
+- [ ] **Stability:** Zero regressions in the per-mod regression suites after the cleanup. **Proof:** all seven `<mod>_engine_regression_test.dart` green; CI gate.
+- [ ] **Reliability:** Migration from any pre-existing legacy save format (JSON-on-disk, if present) to local SQLite is idempotent and survives mid-write crash injection. **Proof:** `frontend/test/services/saved_games_local_migration_chaos_test.dart`.
+- [ ] **Integrity:** No legacy backend URL or secret remains in the repo after 0.3. **Proof:** `frontend/tool/scan_secrets.dart` clean; explicit grep test in CI.
 
-### 1.4 🎮 Mod-specific message catalog (new in v2)
+### 0.5 Acceptance gate
 
-The protocol's `type` field is a closed enum. Every mod gets at least one bespoke message; some need multiple. **All 7 mods are on the wire from day 1 of Phase 1**, even if the UI ships incrementally.
-
-| `type`                  | Direction      | Payload                                          | Mod(s)                |
-|-------------------------|----------------|--------------------------------------------------|-----------------------|
-| `move`                  | bidirectional  | as §1.3                                          | all                   |
-| `premove_set`           | bidirectional  | `{ply_target, from, to, promo}`                  | all (UX, optional)    |
-| `premove_cancel`        | bidirectional  | `{ply_target}`                                   | all (UX, optional)    |
-| `draw_offer`            | bidirectional  | `{at_ply}`                                       | all                   |
-| `draw_accept`           | bidirectional  | `{at_ply}`                                       | all                   |
-| `draw_decline`          | bidirectional  | `{at_ply}`                                       | all                   |
-| `resign`                | bidirectional  | `{at_ply, reason?}`                              | all                   |
-| `takeback_offer`        | bidirectional  | `{plies}` (≤ 2)                                  | all (config-gated)    |
-| `takeback_accept`       | bidirectional  | `{plies}`                                        | all                   |
-| `abort_request`         | bidirectional  | `{at_ply, reason}` (only allowed plies ≤ 2)      | all                   |
-| `flag_claim`            | bidirectional  | `{at_ply}` (timeout adjudication)                | all                   |
-| `heir_pick`             | mover only     | `{square}` (post-king-capture heir selection)    | heir                  |
-| `friendly_fire_intent`  | mover only     | `{ack: true}` confirmed self-capture             | friendly_fire         |
-| `kings_battle_phase`    | mover only     | `{phase: 1\|2, trigger_ply}`                     | kings_battle          |
-| `mercenary_hire`        | mover only     | `{pawn_square, role: "n"\|"b"\|"r"}`             | mercenary             |
-| `stq_escape`            | mover only     | `{queen_from, queen_to, escape_route_id}`        | save_the_queen        |
-| `succession_promote`    | mover only     | `{pawn_square, to_king: true}`                   | succession            |
-| `truce_call`            | bidirectional  | `{at_ply, duration_plies}`                       | truce                 |
-| `truce_accept`          | bidirectional  | `{at_ply}`                                       | truce                 |
-| `truce_decline`         | bidirectional  | `{at_ply}`                                       | truce                 |
-| `clock_resync`          | bidirectional  | `{mono_a, mono_b, wall_a, wall_b, rtt_samples}`  | all                   |
-| `hello`                 | bidirectional  | handshake (see §1.5)                             | all                   |
-| `bye`                   | bidirectional  | `{reason}` (graceful close)                      | all                   |
-| `ping` / `pong`         | bidirectional  | `{seq, ts_mono}`                                 | all                   |
-| `engine_corr_optin`     | bidirectional  | `{accept: bool, share_pgn: bool}` (post-game)    | all                   |
-
-Mod-payload examples for `move`:
-
-- **heir** `move`: `mod_payload: {captured_king: "e8" | null}`
-- **friendly_fire** `move`: `mod_payload: {self_capture: true | false}`
-- **kings_battle** `move`: `mod_payload: {phase: 1 | 2}`
-- **mercenary** `move`: `mod_payload: {acts_as: "p" | "n" | "b" | "r"}`
-- **save_the_queen** `move`: `mod_payload: {queen_safety_window: int}`
-- **succession** `move`: `mod_payload: {king_count: 1|2, last_king_pawn_promo: bool}`
-- **truce** `move`: `mod_payload: {truce_active: bool, truce_remaining: int}`
-
-The receiver **always re-validates** the move locally against its own engine; `mod_payload` is a hint for UI/animation, never a forcing rule.
-
-### 1.5 🤝 Handshake (`hello`)
-
-1. Both peers exchange a signed `hello`:
-   ```
-   { v, type: "hello", game_id, side: "w"|"b", chosen_mod, time_control,
-     rules_version, engine_hash, peer_pub: <ed25519 pub>,
-     mono_t0_ms, wall_t0_ms, rtt_probe_seq: [...], apk_attestation: {...},
-     supported_types: [...], min_wire_version, max_wire_version, sig }
-   ```
-2. Each peer verifies the opponent's signature against the **public key learned during the lobby pairing** (see §2.2). A signature mismatch aborts the game with code `HELLO_PUBKEY_MISMATCH`.
-3. Both peers compare `engine_hash` and `rules_version`. Mismatch ⇒ user sees `Engine version differs — please update both apps`. The game is **not started**; this is a hard refusal, not a warning.
-4. The `supported_types` arrays are intersected — features the other peer doesn't support (e.g. premove on an old client) are disabled in UI before move 1.
-5. Five `ping`/`pong` round-trips bootstrap the clock model (§1.6).
-6. The first `move` envelope's `prev_hash` is the BLAKE3 of the initiator's `hello`.
-
-### 1.6 ⏱️ Clock model (rewritten in v2)
-
-The v1 model ("authoritative clock = local board, lower wins") is preserved as a **defensive fallback** but is no longer the *normal* path because it was exploitable: a malicious client could under-report `remaining_ms` to "win" the tiebreak after deliberately stalling.
-
-The v2 model:
-
-- Each peer maintains:
-  - **`mono_clock`** — `Stopwatch`-style monotonic clock, started at `hello`. Cannot be manipulated by the user changing the device clock.
-  - **`wall_clock`** — system wall clock; advisory only.
-- At handshake, both peers exchange `(mono_t0, wall_t0)` and 5 ping/pong round-trips. From those we derive:
-  - `rtt_median`, `rtt_p95`, `clock_skew_ms = wall_a − wall_b − adjusted_offset`.
-- During the game:
-  - On send, the mover sets `client_mono_ms = mono_clock.elapsed`, `client_ts_ms = wall_clock.now`, and `remaining_ms = local_remaining`.
-  - On receive, the opponent computes `expected_remaining = previous_remaining − (local_mono_now − last_received_mono) + increment` and compares.
-  - If the gap exceeds `max(80 ms, 1.5 × rtt_p95)`, a `clock_resync` is triggered. Two consecutive resyncs that *worsen* the gap → `degraded_clock` UI state, draw offered automatically.
-- **`flag_claim`**: only the *non-mover* can claim the flag, and only after `remaining_ms ≤ 0` per the receiver's reconstruction. The flagged peer can dispute with their own monotonic evidence; if the dispute logs reconcile via the on-disk hash chain, the dispute wins. Otherwise the claim wins. **The server is never the arbiter** — the canonical record is the signed log.
-
-### 1.7 🔁 Reconnection model
-
-State machine (revised — see §4.3 for the full implementation):
-
-```
-Idle → Signaling → ICEGather → Connected → Handshake → InGame
-                                                ↑          │
-                                                │      drop│
-                                                │          ▼
-                                                │      ICERestart  (≤ 30 s)
-                                                │          │
-                                                │  success │  fail
-                                                │ ◀────────┘──────┐
-                                                │                  ▼
-                                                │           PausedOffline
-                                                │                  │
-                                                │       grace expires (per time control)
-                                                │                  ▼
-                                                │           AdjudicateAbandon
-                                                │                  │
-                                                ▼                  ▼
-                                            GameEnd           GameEnd(forfeit/draw)
-```
-
-Grace windows:
-
-| Time control | ICE-restart window | Paused-offline grace | Outcome on expiry |
-|---|---|---|---|
-| Bullet (≤ 1 m)        | 8 s   | 20 s   | offline player flagged |
-| Blitz (3 m – 5 m)     | 15 s  | 60 s   | offline player flagged |
-| Rapid (10 m – 30 m)   | 30 s  | 5 min  | offline player flagged |
-| Classical (> 30 m)    | 60 s  | 15 min | adjudicated draw if material balanced; otherwise forfeit |
-
-After ICE-restart success, both peers exchange `prev_hash` of their last sent and last received envelope; the trailing peer requests a **hash-chained delta replay** from the leading peer. Replay verifies signatures end-to-end; any mismatch ends the game in dispute, logged for review.
-
-### 1.8 🧰 Protocol tooling
-
-- 📐 Schemas live in `frontend/lib/services/p2p/protocol/` as Dart classes + `*_schema.cbor.cddl` (CDDL — RFC 8610 — the standard schema language for CBOR).
-- 🧪 **Golden tests** in `frontend/test/p2p/protocol/` exercise canonicalization & signature determinism cross-platform (Android x86_64, Android arm64, iOS sim, Linux desktop, Web canvas).
-- 🧪 **Property tests** (`package:glados`) over the envelope codec: round-trip CBOR encode/decode, signature verify, hash-chain integrity under random insertion/deletion/reordering.
-- 🧪 **Fuzz harness** (`frontend/tool/p2p/fuzz_protocol.dart`) using `package:dart_fuzzer` over the decoder; nightly run gated. Crashes auto-file `kind: crash / severity: critical`.
-- 🪞 A small Dart CLI in `frontend/tool/p2p/`:
-  - `replay_log.dart` — replays a stored game log against the engine to verify legality (reuses audit-batch infrastructure).
-  - `inspect_envelope.dart` — pretty-prints CBOR envelopes for debugging.
-  - `diff_logs.dart` — diffs two peers' logs for a disputed game.
-
-### 1.9 📊 Phase 1 KPIs (`agent/baselines/p2p.json`)
-
-```jsonc
-{
-  "phase1": {
-    "envelope_size_p99_bytes":   { "value": null, "threshold": 480 },
-    "encode_decode_us_p95":      { "value": null, "threshold": 250 },
-    "sign_us_p95":               { "value": null, "threshold": 1500 },
-    "verify_us_p95":             { "value": null, "threshold": 2000 },
-    "fuzz_crashes_per_1m_iter":  { "value": null, "threshold": 0    }
-  }
-}
-```
-
-### 1.10 ✅ Definition of done for Phase 1
-
-- Protocol document committed (this section + `frontend/lib/services/p2p/protocol/README.md` + CDDL schemas).
-- Schemas + golden tests + property tests + first 1 M fuzz iterations green.
-- Phase-1 KPIs measured on a developer device and committed to `agent/baselines/p2p.json`.
-- A queue entry of `kind: shared_edit` is required for any future protocol-breaking change. Wire-version bump policy: additive (new optional fields) does not bump `v`; renames or removals do.
+- [ ] All 0.1–0.4 boxes ticked, all proof tests green, commit pushed, the "P2P preview not yet shipped" banner is live in `README.md`.
 
 ---
 
-## 🪪 Phase 2 — Identity, recovery account, key management & attestation 🔐
+## Phase 1 — Wire protocol (CBOR over SCTP DataChannel)
 
-> **Goal:** Players can prove "this move came from the same device that started the game" *and* recover their stats / handle / friends list when the phone is lost or wiped — without giving the server the power to impersonate them in-game.
+**Goal:** Define and implement a versioned, deterministic, replay-parity-safe wire format for moves, acks, sync, chat, draw/resign, and protocol housekeeping. *0% complete.*
 
-### 2.0 🧭 Two-layer identity model (rewritten in v2.1)
+### 1.1 Spec
 
-The original draft conflated two things: the cryptographic identity that signs moves and the long-lived identity that owns stats. We now separate them.
+- [ ] Author [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md) v0 covering: frame envelope, frame types, version negotiation, error codes, MUST/SHOULD per RFC 2119. Encode with **deterministic CBOR (RFC 8949 §4.2)** — sorted map keys, shortest-form integers, no indefinite-length strings.
+- [ ] Frame envelope fields: `v: u8` (protocol version), `t: u8` (frame type), `n: u64` (monotonic per-sender sequence), `ts: u64` (sender wall clock, ms), `payload: bytes`. **Wrong v3 assumption corrected:** clock sync cannot rely on `ts` alone over an ordered+reliable SCTP channel; we add an unreliable companion frame `PING/PONG` with `ord=false, reliable=false` (separate `RTCDataChannel`) for RTT estimation, mirroring NTP's offset/delay computation.
+- [ ] Frame types (initial): `HELLO`, `HELLO_ACK`, `MOVE`, `MOVE_ACK`, `SYNC_REQ`, `SYNC_RESP`, `DRAW_OFFER`, `DRAW_RESPONSE`, `RESIGN`, `CHAT`, `PING`, `PONG`, `BYE`, `MISMATCH`. Each has a strict CBOR schema in the spec.
+- [ ] **Move-list canonicalisation** (corrects v3 wrong assumption that "deterministic CBOR is enough"): UCI strings normalised — promotion piece always lowercase, en-passant disambiguated by source square, mod-specific king moves (e.g. Heir's second king, Kings Battle phase-2 king walks) tagged with explicit `actor=king_a|king_b`. **Proof:** `frontend/test/p2p/move_canonical_test.dart`.
 
-| Layer                    | Lives on…                       | Owns…                                                                          | Lost when…                              | Recovers via…                                              |
-|--------------------------|---------------------------------|--------------------------------------------------------------------------------|-----------------------------------------|------------------------------------------------------------|
-| **Device key** (§2.1)    | Device only (hardware keystore) | Move signing, lobby pairing, opponent pubkey pin                               | Phone is lost, wiped, or factory-reset  | **Cannot be recovered** by design — a new key is minted; the **account** (below) re-binds it. |
-| **Stats account** (§2.2) | Server (encrypted, minimal)     | ELO, W/L/D, played count, handle, account age, last-seen, friends list (§7)    | Never, as long as the user has *one* of: recovery codes, verified email, or any device still bound | Recovery codes (always) **or** verified email magic-link (if user opted in) |
+### 1.2 Implementation
 
-The **device key signs moves**. The **account holds stats**. The two are linked by a signed binding stored on the server (§2.2.4). Losing the phone loses the *device key* but not the *account*; recovery rebinds a fresh device key to the existing account, and the user's stats / handle / friends survive intact.
+- [ ] `frontend/lib/services/p2p/protocol/frame.dart` — pure-Dart codec. No I/O. **Proof tests:** `frontend/test/p2p/protocol/frame_codec_test.dart` (round-trip), `frontend/test/p2p/protocol/frame_fuzz_test.dart` (≥100k random/malformed inputs, no panics, all rejected with typed errors), `frontend/test/p2p/protocol/frame_determinism_test.dart` (re-encoding any decoded frame produces byte-identical output).
+- [ ] `frontend/lib/services/p2p/protocol/session.dart` — state machine: `idle → handshake → playing → finished | aborted`. Transitions documented in `docs/P2P_PROTOCOL.md` §state-machine. **Proof:** `frontend/test/p2p/protocol/session_state_test.dart` (every illegal transition raises typed `ProtocolStateError`).
+- [ ] Sequence-number monotonicity enforced; out-of-order or duplicate `n` for a sender → `MISMATCH`. **Proof:** `frontend/test/p2p/protocol/sequence_test.dart`.
+- [ ] `MISMATCH` writes a forensic bundle (last 64 frames, both sides' move lists, mod, native lib SHA) to `getApplicationDocumentsDirectory()/p2p/forensics/<session-id>/`. **Proof:** `frontend/test/p2p/protocol/mismatch_forensics_test.dart`.
 
-### 2.1 🆔 Device key (the move-signing layer)
+### 1.3 Engine binding
 
-- On first launch the app generates an **Ed25519 keypair** (`device_id_pub`, `device_id_priv`) using a CSPRNG (`Random.secure`).
-- Private key is stored in `flutter_secure_storage` (Android Keystore / iOS Keychain backed). On Android the key is wrapped by a hardware-backed key when available (`StrongBox` if present).
-- 🪪 Public key fingerprint → **`DeviceId`** (e.g. `dev_4f3a…b2`). The legacy term `PlayerId` is now reserved for the *account-level* identifier (§2.2.1).
-- Optional **display handle** (3–24 chars, NFKC-normalized, validated client-side, cosmetic only) is stored both locally and in the account; broadcast in the lobby; **never authoritative**.
-- 🔁 **Local encrypted backup blob** (still supported): passphrase-protected, Argon2id-derived key, libsodium `secretbox`. Contains the device private key + handle + settings + game-history index. This is now the *power-user* recovery path (offline, server-independent). The *normal* recovery path is the account flow in §2.2.
-- 🔁 **Key rotation:**
-  - User can mint a new device keypair at any time. The old keypair signs a `key_rotation` certificate naming the new pubkey; both keys are accepted for in-flight games until those games end.
-  - Rotation is also issued automatically every time a fresh device is bound to an existing account (§2.2.4) — the account always points at exactly one *active* device key, with up to 4 historical keys retained for the in-flight overlap window.
-  - Old games remain attributed to the old key (immutable history).
-- 📛 **Revocation:**
-  - User can publish a `key_revoked` certificate, signed by the old key, optionally counter-signed by the new key. The signaling server publishes the revocation list (`/v1/revocations`); peers refuse new lobbies from revoked keys.
-  - If the private key is *lost* (no signing possible), the user authenticates to their **account** (§2.2) and triggers a server-mediated revocation: the account marks the lost device key revoked and binds a fresh one, signed by the new device. A key thief still has a small window — see §2.2.5 for mitigation.
+- [ ] `frontend/lib/services/p2p/engine_binding.dart` — given mod + UCI move list, validates each remote move via the existing native engine (no trust). Rejects with `ILLEGAL_MOVE` → `MISMATCH`. **Proof:** `frontend/test/p2p/engine_binding_test.dart` per mod (×7).
+- [ ] **Engine-correlation gate:** the per-mod regression suites must remain green after this binding lands. **Proof:** CI runs all seven `<mod>_engine_regression_test.dart` on every commit touching `frontend/lib/services/p2p/**`.
 
-### 2.2 🪪 Stats-recovery account (new in v2.1)
+### 1.4 Quality attributes
 
-> **Design principle:** the smallest possible server-held record that lets a user keep their ELO and stats across phones, with zero ability for the server (or anyone who steals its database) to forge moves, read game content, or impersonate a player in a live lobby.
+- [ ] **Performance:** Frame encode + decode < 50 µs P99 on a Pixel 4a class CPU; `MOVE` round-trip path (encode → channel mock → decode → engine validate → ack encode) < 2 ms P99. **Proof:** `frontend/test/p2p/perf/frame_perf_test.dart`.
+- [ ] **Efficiency:** Average `MOVE` frame ≤ 48 bytes on the wire (CBOR-encoded, pre-encryption). **Proof:** `frontend/test/p2p/perf/frame_size_test.dart`.
+- [ ] **Stability:** State machine has no reachable deadlocks; verified by exhaustive symbolic exploration of the documented transitions. **Proof:** `frontend/test/p2p/protocol/session_state_exhaustive_test.dart`.
+- [ ] **Reliability:** Fuzz suite (1M iterations nightly in CI) finds zero panics, zero hangs > 10 ms per frame. **Proof:** nightly CI job artifact.
+- [ ] **Integrity:** Re-encoding any externally-supplied frame is byte-identical to the input (deterministic CBOR holds). **Proof:** part of `frame_determinism_test.dart`.
 
-#### 2.2.1 What the server stores (the **bare minimum**)
+### 1.5 Acceptance gate
 
-One row per account, in the signaling server's SQLite store, schema versioned:
-
-```sql
-CREATE TABLE accounts (
-  player_id            BLOB PRIMARY KEY,        -- 16 B random; the durable account ID
-  active_device_pub    BLOB NOT NULL,           -- current device Ed25519 pubkey (32 B)
-  prior_device_pubs    BLOB,                    -- CBOR array of up to 4 historical pubkeys
-  handle               TEXT,                    -- cosmetic, NFKC-normalized, ≤ 24 chars
-  created_at           INTEGER NOT NULL,        -- unix seconds
-  last_seen_at         INTEGER NOT NULL,
-  recovery_email_hash  BLOB,                    -- nullable; HMAC-SHA256(server_pepper, lower(email))
-  recovery_email_verified_at INTEGER,           -- nullable
-  recovery_code_hashes BLOB NOT NULL,           -- CBOR array of 10 × Argon2id hashes
-  recovery_codes_used  INTEGER NOT NULL DEFAULT 0,
-  binding_sig          BLOB NOT NULL,           -- Ed25519 sig of (player_id || active_device_pub) by active device key
-  schema_v             INTEGER NOT NULL DEFAULT 1
-);
-
-CREATE TABLE account_stats (
-  player_id  BLOB NOT NULL,
-  mod        TEXT NOT NULL,                     -- one of the 7 mods, or 'overall'
-  elo        INTEGER NOT NULL DEFAULT 1200,     -- Glicko-2 rating ×1; rd/sigma in separate cols
-  rd         INTEGER NOT NULL DEFAULT 350,      -- Glicko-2 rating deviation
-  sigma_e6   INTEGER NOT NULL DEFAULT 60000,    -- Glicko-2 volatility ×1e6
-  played     INTEGER NOT NULL DEFAULT 0,
-  wins       INTEGER NOT NULL DEFAULT 0,
-  losses     INTEGER NOT NULL DEFAULT 0,
-  draws      INTEGER NOT NULL DEFAULT 0,
-  forfeits   INTEGER NOT NULL DEFAULT 0,        -- separate from losses for fairness analytics
-  last_played_at INTEGER,
-  PRIMARY KEY (player_id, mod)
-);
-```
-
-**That is the entire account record.** Specifically, the server does **not** store: move content, PGNs, opening choice, opponent identity per game (only aggregates), private keys, anything about the user's device beyond the pubkey, or anything that lets it answer the question "what did this user play in their last game?".
-
-*Why Glicko-2 not classic ELO?* Same compute cost, much better at handling sporadic players (typical mobile audience). The schema is identical in shape to ELO — just with `rd` and `sigma_e6` columns the rating engine uses.
-
-#### 2.2.2 Account creation
-
-- New install ⇒ device key minted (§2.1) ⇒ app shows a **3-screen onboarding**:
-  1. *"Want to keep your stats if you switch phones?"* (Yes / Skip — Skip = no account, device-only mode).
-  2. *"Save these 10 recovery codes."* — 10 × 6-char Crockford-base32 codes (`AB12-CD34`-style, ≈ 30 bits each). The user is prompted to screenshot **or** print **or** copy to a password manager. The first code must be re-entered on the next screen to prove the user actually saved them.
-  3. *"Add a recovery email? (optional, recommended)"* — if entered, the server sends a magic-link verification; account is usable immediately, recovery via email is gated on verification.
-- Server-side, on `POST /v1/accounts`:
-  - Body: `{ device_pub, handle?, email_optin?, recovery_code_hashes[10], binding_sig }`.
-  - Server generates `player_id`, persists row, returns `{player_id, recovery_codes_remaining: 10}`.
-  - Server **never sees the recovery codes themselves**, only their Argon2id hashes (`m=64MB, t=3, p=1`).
-  - Email, if provided, is hashed with a server-side pepper before storage; the plaintext email is held only in a verification queue with a 24-hour TTL, then dropped.
-
-#### 2.2.3 Stats updates
-
-- After every completed game (resign / mate / flag / agreed draw), each peer calls `POST /v1/stats/update` with a **co-signed game-result envelope**:
-  ```
-  { player_id_a, player_id_b, mod, time_control, result: "a_wins"|"b_wins"|"draw",
-    final_ply, game_id, sig_a, sig_b }
-  ```
-- The server updates Glicko-2 ratings only when **both peers** submit the *same* envelope (signatures match, both signed the same `result`). One-sided submissions are queued for 30 minutes; if the other side never submits, the result is dropped (no ELO change). This makes it impossible for one peer to fake a win.
-- Disconnect-adjudicated outcomes (§1.7 grace expiry) are signed by the surviving peer **and** by the signaling server's witness key (the server saw the disconnect on the lobby side); two sigs ≥ one peer sig.
-- Spam mitigation: per-pubkey rate limit on stats submissions (max 60 per hour, generous; bullet-spam counter tracked separately).
-
-#### 2.2.4 Binding a fresh device to an existing account (the recovery flow)
-
-**Path A — recovery codes (works offline-capable, no email needed):**
-
-1. User taps *"I have an account, restore it"* on a fresh install.
-2. Enters their player handle (or `player_id` from a screenshot) **plus one unused recovery code**.
-3. App generates a new device keypair locally and signs a `device_rebind` request:
-   ```
-   { player_id, recovery_code, new_device_pub, new_device_sig }
-   ```
-4. Server: looks up account, Argon2id-verifies the code against `recovery_code_hashes`, marks that code consumed (`recovery_codes_used++`), rotates `active_device_pub` ← `new_device_pub` (old key moved to `prior_device_pubs`), publishes a `key_rotation` cert to `/v1/revocations`, returns the account row.
-5. User is in. Stats restored. Old device key revoked.
-
-**Path B — verified email (requires the user opted in at creation):**
-
-1. User enters their email address.
-2. Server sends a magic link (`https://signaling/v1/recover?token=…`, 15-min TTL, single-use).
-3. Tapping the link in the app proves possession of the email; same `device_rebind` flow as above runs.
-
-**Recovery codes regenerate** automatically once `recovery_codes_used ≥ 8` (next time the user is online); the app shows the new codes and asks the user to re-save. We never run a user out of codes silently.
-
-**Path C — power-user (offline, server-down):** the local encrypted backup blob (§2.1) restores the device key directly without contacting the server. Stats sync resumes when the server is reachable again.
-
-#### 2.2.5 Stolen-phone race & mitigation
-
-The attack: phone stolen, thief unlocks it, *then* you wipe-and-restore on a new phone. There is a window where two devices both think they're "active".
-
-Mitigations, in order of strength:
-
-- **Hardware-backed keystore** (the default on modern Android/iOS): the thief cannot extract the device private key without bypassing the OS lock screen. This is the front line.
-- **Account-level lock** via *"Mark phone lost"* in the in-app web flow (`/v1/accounts/lock`, requires recovery code or email) — sets `active_device_pub = NULL` on the account; in-flight games are paused, no new games can start until a fresh device binds.
-- **Last-seen alert**: when a device rebinds, the previously active device receives an `account_rebound` notification (via push and on next app foreground) showing the timestamp / approx-region of the new bind. If the user did not initiate it, they can lock the account from the new device or from any other signed-in device.
-- **Per-bind cooldown**: after a `device_rebind`, the new device cannot trigger another rebind for 24 hours unless the user enters a *second* recovery code.
-
-#### 2.2.6 What the server still does **not** see, even with an account
-
-- Move content, PGNs, opening choice (still strictly P2P).
-- Per-game opponent identity (only the co-signed result envelope, which is intentionally aggregable but not browseable per-user).
-- Email plaintext after verification (only a peppered hash).
-- Recovery code plaintext (only Argon2id hashes).
-- Device location beyond IP (and IPs are still purged after 7 days per §3.3).
-
-A server-side breach reveals: pubkeys, handles, peppered email hashes, Argon2id'd recovery code hashes, ELO/W/L/D. **It does not reveal:** any move played, any ability to sign moves, any ability to read a user's email, or any ability to brute-force recovery codes in a usable timeframe (Argon2id m=64MB, t=3 over a 30-bit code = years of GPU-time per account at offline-attack rates).
-
-#### 2.2.7 Server endpoints (added to §3.2)
-
-| Method | Path                       | Purpose                                                          |
-|--------|----------------------------|------------------------------------------------------------------|
-| `POST` | `/v1/accounts`             | Create account (body in §2.2.2)                                  |
-| `GET`  | `/v1/accounts/me`          | Fetch own account row (auth: signature by active device key)     |
-| `POST` | `/v1/accounts/rebind`      | Bind fresh device via recovery code or verified-email magic link |
-| `POST` | `/v1/accounts/lock`        | Mark phone lost; clears `active_device_pub`                      |
-| `POST` | `/v1/accounts/email`       | Add or change recovery email (re-verification required)          |
-| `DELETE` | `/v1/accounts/me`        | GDPR delete (drops account row + stats; pubkeys retained on game-result envelopes for 90 d for dispute window, then anonymized) |
-| `POST` | `/v1/stats/update`         | Co-signed game-result envelope (§2.2.3)                          |
-| `GET`  | `/v1/stats/me`             | Fetch own per-mod stats                                          |
-| `GET`  | `/v1/stats/lookup`         | Fetch a *single* opponent's per-mod ELO + played count *only* (handle + ELO + played; nothing else) — used in the lobby to show "Opponent rating" |
-| `POST` | `/v1/accounts/recovery-codes/regenerate` | Mint a fresh batch of 10; old hashes invalidated immediately |
-
-All of the above require a signed nonce challenge by the `active_device_pub` **or** an unconsumed recovery code (rebind / lock paths only).
-
-### 2.3 🤝 Pairing & handshake
-
-1. Player A creates a lobby → server returns short **invite code** (Crockford-base32, 6 chars + 2-char checksum, ~30 bits effective entropy, single-use, 5 min TTL). A QR code is also generated.
-2. Player B enters the code (or scans the QR) → both peers exchange **public keys + SDP offers** through the signaling server. If both peers have stats accounts (§2.2), the server attaches each peer's `{handle, per-mod ELO, played}` row from `/v1/stats/lookup` so the lobby UI can show "Opponent rating" before the game starts.
-3. Each peer **verifies the opponent's first SDP message is signed by the pubkey advertised at lobby join**. MITM by the signaling server is detected here. A failed verification aborts pairing with `PAIRING_PUBKEY_MISMATCH`.
-4. After ICE connection, the **first data-channel message is the `hello` handshake** (§1.5).
-5. Optional **out-of-band fingerprint check**: both apps display a 6-word **PGP-style fingerprint** of the pinned opponent key. Users who care can verify out-of-band (in person, on a call).
-
-### 2.4 🛡️ Server-side trust boundary (revised)
-
-- The signaling server learns:
-  - `device_id_pub` and (for accounts) `player_id`, `handle`, peppered `recovery_email_hash`, Argon2id'd `recovery_code_hashes`, per-mod `{elo, played, wins, losses, draws}`, account `created_at` / `last_seen_at`.
-  - **IP** (necessarily, for ICE), invite code activity, lobby presence, push tokens (only if user enables push), feedback/issue payloads.
-  - Co-signed game-*result* envelopes (winner / draw / mod / time-control / final-ply / game_id) — see §2.2.3.
-- The server does **not** learn: move content, individual move times, opening choice, PGN, per-game opponent (only aggregated), private keys, recovery code plaintext, email plaintext after verification, mod played per game (only that *some* game on mod X happened).
-- 📜 Privacy notice (`docs/signaling/PRIVACY.md`) enumerates exactly the above and is linked from in-app *About* + the App Store privacy declaration.
-
-### 2.5 🚦 Rate limiting & abuse
-
-- Server enforces token buckets at three independent scopes (CGNAT-aware):
-  - per-`device_id_pub` and per-`player_id` (tight),
-  - per-IP (medium),
-  - per-/24 IPv4 or /48 IPv6 (loose).
-- Why three? Because mobile carriers route many legitimate users through a single IP (CGNAT). A per-IP-only limiter would lock out an entire neighborhood after one abuser.
-- 3 strikes (invalid signatures, spam, malformed payloads) → exponential backoff (1 m → 5 m → 1 h → 24 h), persisted in server SQLite.
-- **Recovery-code brute-force lockout:** 5 wrong codes against the same `player_id` within 1 h ⇒ recovery via codes is locked for 24 h (email path still works); 20 within 24 h ⇒ account is auto-locked and the owner is notified by email if available.
-- **Email-recovery flood guard:** max 3 magic-link sends per `recovery_email_hash` per hour.
-- 🚫 No password storage anywhere — recovery is by code or magic link only, so there is no password-leak surface area.
-
-### 2.6 🛡️ Attestation lite (new in v2)
-
-We can't cryptographically prove the running APK is unmodified (this is OSS), but we can make modification *visible*:
-
-- At `hello`, both clients exchange the SHA-256 of their installed APK / IPA bundle (`apk_attestation`).
-- The signaling server publishes the **canonical hashes** of the latest published builds at `/v1/version`.
-- Mismatch ⇒ a yellow "modified-build opponent" badge in the UI. Game proceeds; the user decides.
-- This is **not** anti-cheat; it's a trust-but-verify signal.
-
-### 2.7 🧪 Phase 2 proof tests
-
-Device-key layer:
-
-- `frontend/test/p2p/identity/keypair_lifecycle_test.dart` — generate, sign, verify, persist across app restart.
-- `frontend/test/p2p/identity/backup_restore_test.dart` — round-trip encrypted backup with passphrase, including wrong-passphrase rejection.
-- `frontend/test/p2p/identity/key_rotation_test.dart` — old/new key both accepted during overlap, old key rejected after rotation cert is acknowledged.
-- `frontend/test/p2p/identity/revocation_test.dart` — revoked key cannot start a new lobby.
-- `frontend/test/p2p/identity/cross_platform_backup_test.dart` — Android-generated backup restores on iOS sim and vice versa (CI matrix).
-
-Account layer (new in v2.1):
-
-- `frontend/test/p2p/account/create_account_test.dart` — onboarding generates 10 codes, server stores only Argon2id hashes; raw codes never appear in any persisted log.
-- `frontend/test/p2p/account/rebind_with_code_test.dart` — fresh install + recovery code restores stats; old device key is revoked; consumed code cannot be reused.
-- `frontend/test/p2p/account/rebind_with_email_test.dart` — magic-link flow on Android + iOS sim, including expired-token rejection and replay rejection.
-- `frontend/test/p2p/account/cooldown_test.dart` — second rebind within 24 h requires a *second* code.
-- `frontend/test/p2p/account/stats_cosign_test.dart` — stats only update when both peers submit matching result envelopes; one-sided submissions expire.
-- `frontend/test/p2p/account/lost_phone_lock_test.dart` — `/v1/accounts/lock` pauses in-flight games and blocks new lobby creation until rebind.
-- `frontend/test/p2p/account/recovery_code_lockout_test.dart` — 5 wrong codes locks the code path for 24 h; email path still works.
-- `frontend/test/p2p/account/regenerate_codes_test.dart` — codes regenerate at usage ≥ 8; old hashes invalidated immediately.
-- `frontend/test/p2p/account/gdpr_delete_test.dart` — `DELETE /v1/accounts/me` clears the account + stats; pubkey retained on co-signed result envelopes for 90 d then anonymized.
-- `frontend/test/p2p/account/server_breach_simulation_test.dart` — given a leaked DB dump, assert recovery codes cannot be brute-forced under a fixed compute budget within target time.
-- `signaling/internal/accounts/*_test.go` — server-side unit + integration coverage of all `/v1/accounts/**` endpoints.
-
-### 2.8 📊 Phase 2 KPIs (`agent/baselines/p2p.json`)
-
-```jsonc
-{
-  "phase2": {
-    "account_create_p95_ms":           { "value": null, "threshold": 400  },
-    "rebind_with_code_p95_ms":         { "value": null, "threshold": 800  },
-    "stats_update_p95_ms":             { "value": null, "threshold": 250  },
-    "recovery_code_argon2id_ms":       { "value": null, "threshold": 350  }, // tuned target on a 2 vCPU server
-    "account_table_size_bytes_p99":    { "value": null, "threshold": 2048 },
-    "recovery_codes_loss_pct_30d":     { "value": null, "threshold": 2.0  }, // % of accounts that exhausted all codes without regenerating
-    "orphaned_account_pct_30d":        { "value": null, "threshold": 5.0  }  // % of accounts with no `last_seen_at` update in 30 d (helps tune retention)
-  }
-}
-```
-
-### 2.9 ✅ Definition of done for Phase 2
-
-- All §2.7 device-key tests + account tests green on Android + iOS sim + Linux desktop.
-- Threat-model checklist (§9, including the new account-layer entries) reviewed and signed off.
-- `docs/signaling/PRIVACY.md` first draft committed, with explicit *"What is in your account"* and *"What is **not** in your account"* sections.
-- Phase-2 KPIs measured on a staging server and committed to `agent/baselines/p2p.json`.
-- Recovery-flow UX walked through end-to-end on a real Android *and* a real iOS device by at least two reviewers (one of whom should *not* be the implementer).
+- [ ] All 1.1–1.4 boxes ticked, `docs/P2P_PROTOCOL.md` v0 published, all proof tests green, commit pushed, KPI baseline `agent/baselines/p2p_protocol.json` created (encode/decode latency, frame size).
 
 ---
 
-## 🛰️ Phase 3 — Signaling & ops server 🌐
+## Phase 2 — Identity, key management, and recovery
 
-> **Goal:** One small service. Boring tech. Easy to operate. Replaceable. **Survives a deploy without dropping in-flight pairings.**
+**Goal:** Long-term per-device Ed25519 keys, per-session X25519 ephemeral keys, opt-in account-level recovery. Keys never leave the device unencrypted; recovery is offline-first and server-independent in the cryptographic critical path. *0% complete.*
 
-### 3.1 🧱 Tech choice
+### 2.1 Device identity
 
-- **Language:** **Go** (preferred — fits prior backend experience; tiny single-binary; great net stack). TypeScript is a fallback only if the team's bandwidth shifts.
-- **Storage:** **SQLite (WAL mode)** for: lobbies, invite codes, rate-limit buckets, feedback, issue reports, revocation list, push tokens, **accounts + stats + recovery hashes** (§2.2.1). Move to PostgreSQL only when DAU > 5 k (formal trigger; not a guess) **or** when account-table row count > 250 k (whichever first).
-- **Hosting:** single VPS or a managed container (Fly.io / Render / Hetzner). HTTPS via Caddy/Traefik with auto-cert. **At least one warm standby** in the same region from day 1; multi-region pushed to Phase 7 but **the protocol is region-agnostic from day 1**.
-- **Observability:** structured JSON logs → file + stdout; Prometheus `/metrics` endpoint; uptime ping; OpenTelemetry traces optional.
-- **Secrets:** read at boot from env vars *or* a `secrets/*.age` directory; never committed. Rotation procedure documented in `docs/signaling/RUNBOOK.md`.
+- [ ] Generate Ed25519 keypair on first launch via libsodium FFI ([package:cryptography](https://pub.dev/packages/cryptography) is the Dart fallback for unit tests; production uses libsodium FFI for constant-time guarantees). **Proof:** `frontend/test/p2p/identity/device_key_gen_test.dart`.
+- [ ] Persist private key in **platform secure storage**: iOS Keychain (`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`), Android Keystore (StrongBox preferred, hardware-backed required, fallback policy documented), macOS Keychain, Windows DPAPI/NCRYPT, Linux libsecret + fallback to Argon2id-wrapped on-disk file. **Proof tests** per platform: `frontend/test/p2p/identity/secure_storage_<platform>_test.dart` (mocked where SDK unavailable in CI).
+- [ ] Public-key fingerprint format: lowercase Base32 of `SHA-256(pubkey)[:10]` grouped `xxxx-xxxx-xx`. Surfaced in UI as "Device ID". **Proof:** `frontend/test/p2p/identity/fingerprint_test.dart`.
+- [ ] **Re-key after biometric/PIN failure threshold:** after N consecutive auth failures (configurable, default 10), private key is wiped and account marked "needs recovery". **Proof:** `frontend/test/p2p/identity/biometric_lockout_test.dart`.
 
-### 3.2 🌍 Endpoints (v1)
+### 2.2 Account recovery (opt-in)
 
-| Method | Path                       | Purpose                                                         | Auth                            |
-|--------|----------------------------|-----------------------------------------------------------------|---------------------------------|
-| `GET`  | `/v1/health`               | Liveness                                                        | none                            |
-| `GET`  | `/v1/ready`                | Readiness (DB + TURN reachable)                                 | none                            |
-| `GET`  | `/v1/version`              | Server build, min-supported client, canonical APK/IPA hashes    | none                            |
-| `GET`  | `/v1/flags`                | Feature flags + kill switches (cached 60 s by client)           | none                            |
-| `WS`   | `/v1/lobby`                | Create/join lobby, exchange SDP/ICE                             | signed nonce challenge          |
-| `POST` | `/v1/turn-credentials`     | Vend short-lived TURN HMAC creds (TTL ≤ 5 m)                    | signed nonce challenge          |
-| `POST` | `/v1/feedback`             | In-app feedback (text + optional log tail)                      | signed envelope, rate-limited   |
-| `POST` | `/v1/issues`               | Bug report (text + redacted device info)                        | signed envelope, rate-limited   |
-| `POST` | `/v1/push-token`           | Register APNs/FCM token for invite delivery                     | signed envelope                 |
-| `GET`  | `/v1/revocations`          | Revocation list (delta + full snapshot, ETag)                   | none (public)                   |
-| `POST` | `/v1/report-player`        | Abuse / cheat report (signed, rate-limited, requires evidence)  | signed envelope                 |
-| `POST` | `/v1/engine-corr-submit`   | Opt-in post-game PGN for engine-correlation analysis (§6.4)     | signed envelope                 |
-| `POST` | `/v1/accounts`             | Create stats-recovery account (§2.2.2)                          | signed envelope                 |
-| `GET`  | `/v1/accounts/me`          | Fetch own account row                                            | signed envelope by active device |
-| `POST` | `/v1/accounts/rebind`      | Bind fresh device via recovery code or magic link (§2.2.4)      | recovery code OR magic-link token |
-| `POST` | `/v1/accounts/lock`        | Mark phone lost; clears `active_device_pub` (§2.2.5)            | recovery code OR signed envelope |
-| `POST` | `/v1/accounts/email`       | Add / change recovery email (re-verification required)          | signed envelope                 |
-| `DELETE` | `/v1/accounts/me`        | GDPR delete                                                      | signed envelope                 |
-| `POST` | `/v1/accounts/recovery-codes/regenerate` | Mint fresh batch of 10 codes                       | signed envelope                 |
-| `POST` | `/v1/stats/update`         | Co-signed game-result envelope (§2.2.3)                          | both-peer signatures            |
-| `GET`  | `/v1/stats/me`             | Fetch own per-mod stats                                         | signed envelope                 |
-| `GET`  | `/v1/stats/lookup`         | Single-opponent `{handle, ELO, played}` lookup                  | signed envelope                 |
-| `GET`  | `/v1/leaderboard`          | (Phase 7) optional opt-in stats                                 | signed envelope                 |
+- [ ] User opts in by setting a recovery code (BIP-39 wordlist, 16 words ≈ 176 bits entropy). Words drawn from libsodium-validated entropy. **Proof:** `frontend/test/p2p/identity/recovery_code_entropy_test.dart` (statistical χ² over 1M generations).
+- [ ] Account key (separate from device key) wrapped with Argon2id: `m=64MB, t=3, p=1` on flagship, **device-class-adaptive** (`m=32MB, t=4` on low-end Android per `getTotalMem` thresholds; documented in [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md) §recovery). v3 wrong assumption corrected. **Proof:** `frontend/test/p2p/identity/argon2_adaptive_test.dart`.
+- [ ] Wrapped backup uploaded to signaling server **only after** opt-in checkbox + explicit "I have written down the words" confirmation. Server stores `wrapped_blob, account_pub, kdf_params`. Server cannot derive plaintext. **Proof:** `signaling/internal/recovery/recovery_test.go` covers end-to-end with a simulated client.
+- [ ] **Recovery flow:** on a new device, user enters 16 words → Argon2id-derived KEK unwraps the blob → fresh device key is generated → server **rebind** call signed with the recovered account key + Play Integrity / DeviceCheck attestation token (v3 was rebind-only; v4 also gates first registration in flagged hostile-source regions). **Proof:** `frontend/test/p2p/identity/recovery_flow_test.dart` + `signaling/internal/rebind/rebind_test.go`.
+- [ ] **Account migration drill:** documented user-facing flow + `frontend/test/p2p/identity/account_migration_chaos_test.dart` simulating: (a) old device still online, (b) old device offline forever, (c) old device returning after rebind (must surface "this device has been replaced" and self-quarantine).
 
-### 3.3 🔐 Server hardening checklist
+### 2.3 Session key derivation
 
-- [ ] HTTPS only (HSTS, TLS 1.3 min, OCSP stapling).
-- [ ] Strict CORS (only the app's WebView origin, if any).
-- [ ] Body size cap: 64 KB (feedback/issues), 8 KB (lobby messages), 16 KB (engine-corr submit).
-- [ ] Per-IP + per-/24 + per-pubkey token buckets (§2.4).
-- [ ] Signature verification middleware on every authenticated route, with **nonce replay cache** (5 min window).
-- [ ] Logs scrubbed for IPs after 7 days (configurable; documented in PRIVACY.md).
-- [ ] Backups (SQLite snapshot to encrypted offsite storage) nightly; restore drill quarterly.
-- [ ] Single binary, distroless container, read-only FS, non-root user, no shell.
-- [ ] **Graceful drain on SIGTERM:** stop accepting new lobbies, hand off active lobbies to standby via state replication or invalidate them with a clear error code (`LOBBY_DRAINING`, client retries on standby).
-- [ ] **Blue/green deploys** with traffic shift via the load balancer; never deploy by replacing the live container in place.
-- [ ] **Idempotent invite redemption:** redeeming the same code twice from the same `device_id_pub` returns the same lobby state; from a different pubkey returns `INVITE_TAKEN`.
-- [ ] **Server-side fuzz harness** for the WS protocol *and* all `/v1/accounts/**` + `/v1/stats/**` handlers (`go-fuzz` on every PR).
-- [ ] **Chaos tests** on the server (kill the DB mid-request, drop network mid-WS) — see §5.5.
-- [ ] **Account-table at-rest encryption**: SQLite database file lives on a per-host LUKS-encrypted volume; backups are encrypted with `age` before leaving the host. Recovery code hashes are Argon2id (m=64MB, t=3, p=1); email hashes are HMAC-SHA256 with a server-side pepper rotated yearly.
-- [ ] **Recovery-code pepper + Argon2id parameters** version-stamped per account row so we can rotate parameters without invalidating existing codes.
+- [ ] Per-session: each peer generates an X25519 ephemeral keypair, signs the public key with its Ed25519 long-term key, exchanges via signaling. Shared secret = X25519(my_eph, their_eph_pub). Session key = HKDF-SHA256(shared, salt=session_id, info="chessrecast/p2p/v1"). **Proof:** `frontend/test/p2p/identity/session_kdf_test.dart` (KAT vectors).
+- [ ] **Forward secrecy property:** verified by destroying ephemeral keys at session end and proving prior session ciphertexts cannot be decrypted with current state. **Proof:** `frontend/test/p2p/identity/forward_secrecy_test.dart`.
+- [ ] Symmetric AEAD: ChaCha20-Poly1305, 96-bit nonce = `session_id_lo32 || sender_dir1 || seq_u64_be` (deterministic, never reused). **Proof:** nonce-uniqueness fuzz `frontend/test/p2p/identity/aead_nonce_test.dart`.
 
-### 3.4 📁 Repo layout
+### 2.4 Quality attributes
 
-```
-signaling/
-  cmd/server/main.go
-  internal/lobby/…
-  internal/feedback/…
-  internal/turn/…
-  internal/identity/        ← Ed25519 verify helpers
-  internal/flags/           ← feature flags & kill switch
-  internal/revocations/
-  internal/push/            ← APNs + FCM clients
-  internal/ratelimit/
-  internal/observability/
-  migrations/
-  fuzz/                     ← go-fuzz corpora & targets
-  Dockerfile
-  README.md
-  Makefile
-docs/signaling/
-  RUNBOOK.md                ← deploy, rollback, on-call
-  PRIVACY.md                ← what we collect, retention, deletion
-  SECURITY.md               ← responsible-disclosure contact
-  THREAT_MODEL.md           ← canonical version of §9
-  KILL_SWITCH.md            ← how to disable a broken feature in < 5 min
-```
+- [ ] **Performance:** Argon2id derivation completes in <1.5 s on flagship, <4 s on low-end (within adaptive params). **Proof:** `frontend/test/p2p/perf/argon2_perf_test.dart`.
+- [ ] **Efficiency:** Wrapped backup blob ≤ 256 bytes; uploaded once, refreshed only on user-initiated re-key. **Proof:** asserted in `recovery_test.go`.
+- [ ] **Stability:** Key wipe after biometric lockout is atomic (no half-state where device key is unusable but app thinks it can sign). **Proof:** `frontend/test/p2p/identity/wipe_atomicity_test.dart` with crash injection.
+- [ ] **Reliability:** Recovery succeeds on every supported platform with the same 16 words (cross-platform KDF determinism). **Proof:** `frontend/test/p2p/identity/recovery_cross_platform_kat_test.dart`.
+- [ ] **Integrity:** Account-key wrapped blob is integrity-protected (AEAD, AAD = `account_pub || kdf_params`). Tampered blob fails to unwrap with a typed error, never with silent garbage output. **Proof:** `frontend/test/p2p/identity/wrapped_blob_aead_test.dart`.
 
-### 3.5 📊 Phase 3 KPIs (`agent/baselines/p2p.json`)
+### 2.5 Acceptance gate
 
-```jsonc
-{
-  "phase3": {
-    "lobby_create_p95_ms":          { "value": null, "threshold": 200  },
-    "lobby_join_p95_ms":            { "value": null, "threshold": 250  },
-    "ws_uptime_pct_30d":            { "value": null, "threshold": 99.5 },
-    "deploy_drain_drops_pct":       { "value": null, "threshold": 0.1  },
-    "fuzz_crashes_per_1m_iter":     { "value": null, "threshold": 0    },
-    "rate_limit_false_positive_pct":{ "value": null, "threshold": 0.5  }
-  }
-}
-```
-
-### 3.6 ✅ Definition of done for Phase 3
-
-- `make run` boots the server with an in-memory DB.
-- `make test` runs unit + integration tests with **≥ 85 %** coverage on `internal/`.
-- `make fuzz` runs 1 M iterations clean.
-- A staging instance is reachable from a dev phone.
-- Drain-on-SIGTERM verified by chaos test (no client sees `WS dropped` during a deploy).
-- Runbook + privacy notice + security contact pages live.
+- [ ] All 2.1–2.4 ticked, recovery user flow has a documented runbook in [docs/P2P_RECOVERY_RUNBOOK.md](P2P_RECOVERY_RUNBOOK.md), all proof tests green on iOS / Android / Linux / macOS / Windows / web (best-effort: web uses non-extractable WebCrypto Ed25519, recovery flow is reduced).
 
 ---
 
-## 📡 Phase 4 — WebRTC data channel in Flutter 🧩
+## Phase 3 — Signaling server (Go)
 
-> **Goal:** Two phones playing, with reconnection that survives the elevator-test, the airplane-mode-toggle, and the iOS-background-suspend.
+**Goal:** Stateless-per-request signaling with SQLite + litestream replication, rate-limited, observable, abuse-resistant. Stores accounts, pending offers, push tokens. Stores **no** game data. *0% complete.*
 
-### 4.1 📦 Dependencies
+### 3.1 Project scaffold
 
-- `flutter_webrtc` — battle-tested WebRTC bindings.
-- `web_socket_channel` — signaling transport.
-- `cryptography` (Dart) **and** `libsodium` FFI — Ed25519 sign/verify (Dart for portability, libsodium for hot path on mobile).
-- `flutter_secure_storage` — key persistence.
-- `cbor` — CBOR codec.
-- `firebase_messaging` (Android) + `flutter_apns` (iOS) — push delivery for invites.
+- [ ] `signaling/` Go module: `cmd/signaling-server`, `internal/{accounts,offers,push,rebind,ratelimit,attest,store}`, `pkg/api`. **Proof:** `signaling/Makefile` builds the binary; `go vet` and `staticcheck` clean in CI.
+- [ ] HTTP/3 (QUIC) + HTTP/2 fallback. Frameworks: stdlib `net/http` + `quic-go`. No web framework dependency. **Proof:** `signaling/internal/server/transport_test.go` exercises both.
+- [ ] Auth: every authenticated endpoint requires an Ed25519 signature over `(method, path, ts, body_sha256)` with `ts` within ±60 s; replay-protected via short-lived `ts → seen` cache. **Proof:** `signaling/internal/auth/sig_test.go` + replay-attack test.
 
-### 4.2 🧱 Module layout
+### 3.2 Endpoints (HTTPS / HTTP-3)
+
+- [ ] `POST /v1/accounts/register` — first-time registration, body signed with new device key. Optionally carries a wrapped recovery blob (Phase 2.2). Hostile-region requests gated by integrity attestation.
+- [ ] `POST /v1/accounts/rebind` — recovery flow; signed with recovered account key + integrity attestation.
+- [ ] `POST /v1/offers` — push an SDP offer to a peer; payload is opaque (encrypted client-side under the account key of the recipient if known, else plain SDP — SDP itself is not secret, the data channel is).
+- [ ] `GET /v1/offers/poll` — long-poll (max 25 s) for pending offers; returns immediately if any.
+- [ ] `POST /v1/offers/{id}/answer` — submit SDP answer.
+- [ ] `POST /v1/ice/{session}` — relay ICE candidates (small JSON), authenticated.
+- [ ] `POST /v1/push/register` — APNs/FCM token; one per device key.
+- [ ] `POST /v1/push/wake` — request the server send a content-less push to a peer (rate-limited per `(sender, recipient)`, daily ceiling).
+- [ ] `GET /v1/health` — liveness; `GET /v1/ready` — readiness (DB reachable, push provider reachable).
+- [ ] `GET /v1/metrics` — Prometheus exposition (admin-token gated).
+
+### 3.3 Storage
+
+- [ ] SQLite WAL with `litestream` replication to S3-compatible object storage. **Wrong v3 claim corrected:** litestream provides DR (cold restore), not HA. v4 adds: a hot read-replica via litestream's `replicate` + a graceful read-only mode the server enters when the writable store is unavailable. **Proof:** `signaling/internal/store/ha_degraded_test.go`.
+- [ ] Schema migrations via `golang-migrate`; forward-only. **Proof:** `signaling/internal/store/migrate_test.go`.
+- [ ] PII minimisation: store account pubkey, push token (encrypted at rest with server KMS key), wrapped recovery blob, `last_seen_ts`, IP-coarsened (`/24` IPv4, `/48` IPv6) for abuse heuristics only. **Proof:** schema review + `signaling/internal/store/pii_audit_test.go` (greps schema for forbidden columns).
+- [ ] Retention: pending offers TTL = 5 min, push tokens auto-purged after 30 d of inactivity, rebound accounts keep an audit row for 90 d. **Proof:** `signaling/internal/store/retention_test.go`.
+
+### 3.4 Rate limiting and abuse resistance
+
+- [ ] Per-IP token bucket (refill 10/min, burst 30) at edge. **Proof:** `signaling/internal/ratelimit/ip_test.go`.
+- [ ] Per-account token bucket (refill 60/min, burst 120) for authenticated endpoints. **Proof:** `signaling/internal/ratelimit/account_test.go`.
+- [ ] Per-`(sender, recipient)` push wakeup ceiling: 50/day, exponential backoff after 5 ignored wakes. **Proof:** `signaling/internal/push/wake_ceiling_test.go`.
+- [ ] **Proof-of-work fallback** for register / rebind under burst: scrypt-based PoW challenge from the server, difficulty adjusted by sliding-window QPS. **Proof:** `signaling/internal/abuse/pow_test.go` + load test that confirms PoW kicks in under synthetic abuse.
+- [ ] Hostile-region heuristics: GeoIP + ASN risk score; high-risk requests require Play Integrity / DeviceCheck attestation even on first registration (v4 expansion of v3 rebind-only attestation). **Proof:** `signaling/internal/attest/integrity_test.go`.
+
+### 3.5 Observability
+
+- [ ] Prometheus metrics: per-endpoint latency histograms, error counters, rate-limit drops, PoW issuances, push success/fail per provider, DB connection-pool stats. **Proof:** `signaling/internal/metrics/metrics_test.go` asserts metric registration; CI scrapes a test instance.
+- [ ] Structured logs (JSON) with `request_id`, `account_id_hash`, `endpoint`, `latency_ms`, `outcome`, `region_coarse`. **No PII** (no IP, no push token, no SDP body). **Proof:** `signaling/internal/log/redaction_test.go`.
+- [ ] OpenTelemetry traces (OTLP/gRPC) for the full request path including DB and push provider calls. **Proof:** `signaling/internal/tracing/tracing_test.go`.
+- [ ] Alerts (runbook in [docs/P2P_SIGNALING_RUNBOOK.md](P2P_SIGNALING_RUNBOOK.md)): readiness-down >2 min, error-rate >1% over 5 min, push-fail >5% over 15 min, PoW issuance >1 Hz sustained.
+
+### 3.6 Quality attributes
+
+- [ ] **Performance:** P50 < 30 ms, P99 < 250 ms for `/v1/offers/poll` (excluding long-poll wait), P99 < 80 ms for `/v1/ice/*` and `/v1/offers`. **Proof:** k6/vegeta load test pipeline `signaling/loadtest/` + report artefact.
+- [ ] **Efficiency:** Server fits in a single 1 vCPU / 512 MB instance up to 1k concurrent long-polls. **Proof:** load test report.
+- [ ] **Stability:** 24-hour soak at 50% peak load: zero memory growth (>5%/hour), zero goroutine leaks. **Proof:** soak job in CI nightly.
+- [ ] **Reliability:** Chaos suite — kill -9 mid-write, disk-full, network partition to S3 (litestream backlog), push provider 5xx burst, NTP skew ±5 min. Each scenario must either succeed or fail closed with a typed error. **Proof:** `signaling/test/chaos/`.
+- [ ] **Integrity:** Every authenticated request signature is verified before any DB read; no DB read leaks the existence of an unknown account (uniform "no offers" response timing). **Proof:** `signaling/internal/auth/timing_test.go` (statistical timing-side-channel test).
+
+### 3.7 Deployment
+
+- [ ] Container image: distroless-base, non-root, read-only filesystem, seccomp profile attached. **Proof:** `signaling/Dockerfile` + `signaling/.docker/seccomp.json`; image scan in CI (`trivy --severity HIGH,CRITICAL`).
+- [ ] IaC under `signaling/deploy/` (Terraform) — must be idempotent, no plan drift on no-op apply. **Proof:** CI re-applies and asserts `terraform plan` is empty.
+- [ ] Multi-region: 2 regions active-active with anycast or latency-based DNS; per-region SQLite + litestream; cross-region eventual consistency (offer routing tolerant of momentary visibility lag, max 5 s). **Proof:** `signaling/test/multiregion/visibility_lag_test.go`.
+
+### 3.8 Acceptance gate
+
+- [ ] All 3.1–3.7 ticked, soak + chaos green for one week, runbook published, on-call rotation defined.
+
+---
+
+## Phase 4 — WebRTC transport and NAT traversal
+
+**Goal:** Reliable peer-to-peer DataChannel under realistic mobile conditions: NATs, captive portals, IPv6-only, network handoff, suspension. *0% complete.*
+
+### 4.1 ICE / STUN / TURN
+
+- [ ] Wire ICE: 1 STUN (self-hosted twin) + 2 TURN (UDP + TCP/443 fallback for restrictive networks). **Proof:** `frontend/test/p2p/transport/ice_candidate_gather_test.dart`.
+- [ ] TURN credentials short-lived (5 min) HMAC-SHA256-issued by signaling server; never long-lived static creds. **Proof:** `signaling/internal/turn/cred_test.go` + integration `frontend/test/p2p/transport/turn_cred_refresh_test.dart`.
+- [ ] **IPv6-only carriers**: explicitly tested path with synthetic NAT64/DNS64 + path-MTU clamp at 1280. **Proof:** `frontend/test/p2p/transport/ipv6_only_test.dart` (mocked) + manual matrix entry in [docs/P2P_NAT_MATRIX.md](P2P_NAT_MATRIX.md).
+- [ ] **NAT type matrix**: documented coverage for cone / restricted-cone / port-restricted-cone / symmetric × 2 peers; symmetric × symmetric forces TURN. **Proof:** `frontend/test/p2p/transport/nat_matrix_test.dart`.
+
+### 4.2 DataChannel configuration
+
+- [ ] Two channels: `chess` (ordered, reliable, max-retransmits=∞) for protocol frames; `clock` (unordered, max-retransmits=0) for `PING/PONG` and clock-sync side traffic (corrects v3 wrong assumption). **Proof:** `frontend/test/p2p/transport/datachannel_config_test.dart`.
+- [ ] SCTP buffer / send-queue thresholds tuned to drop the session on backpressure > 256 KB sustained for 5 s, surfaced as `BACKPRESSURE_DROP`. **Proof:** `frontend/test/p2p/transport/backpressure_test.dart`.
+- [ ] Per-frame size cap: 16 KB (well under SCTP defaults). **Proof:** `frontend/test/p2p/transport/frame_size_cap_test.dart`.
+
+### 4.3 Lifecycle
+
+- [ ] Network change (Wi-Fi ↔ cellular, VPN toggle) triggers ICE restart, not session teardown, if the encrypted session key is still valid (under 30 min). **Proof:** `frontend/test/p2p/transport/network_change_ice_restart_test.dart`.
+- [ ] App suspension: on Android, a foreground service keeps the connection alive during in-game; on iOS, VoIP-style background mode is **not** abused — instead, connection is gracefully closed and a push wakeup re-establishes. **Proof:** `frontend/test/p2p/transport/android_foreground_service_test.dart`, `frontend/test/p2p/transport/ios_suspend_resume_test.dart`.
+- [ ] Push wakeup → in-app cold-start → handshake completion P95 < 5 s on a warm cache. **Proof:** `frontend/test/p2p/perf/push_wake_cold_start_test.dart`.
+- [ ] iOS Notification Service Extension (NSE) decrypts the wakeup payload (no game data, just `session_hint`) and pre-warms the app (best-effort). **Proof:** `frontend/test/p2p/transport/ios_nse_test.dart`.
+- [ ] Deep-link cold-start race: tapping a "Join game" notification while the app is launching does not lose the offer. **Proof:** `frontend/test/p2p/transport/deeplink_cold_start_test.dart`.
+
+### 4.4 Quality attributes
+
+- [ ] **Performance:** Direct (no TURN) move RTT P50 < 80 ms in same-country, P95 < 200 ms; TURN-relayed P95 < 350 ms. **Proof:** synthetic-network test harness `frontend/test/p2p/perf/rtt_*_test.dart` + a real-world beta dashboard panel.
+- [ ] **Efficiency:** Battery — sustained 30-min session must not exceed 4% battery on a Pixel 6 / iPhone 13 reference device (screen-on baseline subtracted). **Proof:** documented manual test + CI proxy `frontend/test/p2p/perf/cpu_budget_test.dart` enforcing CPU ≤ 6% average over a 5-min synthetic session.
+- [ ] **Efficiency:** Thermal — no thermal-throttle event in a 30-min session at 25 °C ambient. **Proof:** documented manual matrix.
+- [ ] **Stability:** 1000 synthetic move exchanges with random 0–500 ms jitter and 0–2% loss: zero session drops, zero `MISMATCH`, zero memory growth >5%. **Proof:** `frontend/test/p2p/transport/long_run_stability_test.dart`.
+- [ ] **Reliability:** Network-change suite: airplane-mode toggle, Wi-Fi reconnect, cellular handoff, VPN on/off — each must heal within 10 s or end the session with a typed `NETWORK_LOST`. **Proof:** `frontend/test/p2p/transport/network_chaos_test.dart`.
+- [ ] **Integrity:** Every byte arriving on `chess` channel is AEAD-decrypted and CBOR-validated before reaching the engine. Drop with `BAD_FRAME` on any failure. **Proof:** `frontend/test/p2p/transport/aead_decrypt_path_test.dart`.
+
+### 4.5 Acceptance gate
+
+- [ ] All 4.1–4.4 ticked, NAT matrix documented and verified, beta-network telemetry shows P95 RTT under target on real users.
+
+---
+
+## Phase 5 — Test and CI strategy (the 9-layer pyramid)
+
+**Goal:** Every phase ships with proof at every relevant layer of the pyramid. *0% complete.*
+
+The 9 layers, smallest-fastest at the top:
+
+- [ ] **L1 — Pure unit tests** (codec, KDF, state machine). Target: <50 ms each, run on every save in IDE.
+- [ ] **L2 — Property tests** (codec round-trip, state-machine transitions). Run in CI, ≥1k iterations.
+- [ ] **L3 — Fuzz tests** (frame parser, signature verifier, recovery-blob unwrap). Nightly, ≥1M iterations.
+- [ ] **L4 — Engine-correlation tests** (per-mod regression suites stay green on every P2P change). CI gate.
+- [ ] **L5 — Synthetic-network integration** (two `Session` instances + a fake transport with jitter/loss/reorder). CI gate.
+- [ ] **L6 — Real WebRTC integration** (two flutter_driver-controlled apps over loopback / LAN). CI nightly + on release branches.
+- [ ] **L7 — Server load + chaos** (signaling server under k6 + chaos toolkit). CI nightly.
+- [ ] **L8 — Cross-platform device matrix** (iOS / Android / Web / Linux / macOS / Windows). CI on release branches via device farm.
+- [ ] **L9 — Beta production telemetry** (real users; KPIs in [docs/P2P_BETA_KPIS.md](P2P_BETA_KPIS.md)). Continuous.
+
+### 5.1 CI wiring
+
+- [ ] GitHub Actions matrix: per-OS, per-platform, per-mod. Cache pub + cargo + go modules + the native engine `.so/.dylib/.dll`. **Proof:** `.github/workflows/p2p-ci.yml` exists and is green.
+- [ ] Hermetic builds: pinned Flutter / Dart / Go versions in `.tool-versions` + `mise` (or asdf) onboarding script. **Proof:** `scripts/p2p/bootstrap-dev.sh` builds from a clean Ubuntu image in CI.
+- [ ] Artefact retention: load-test + chaos reports kept ≥30 d under `agent/reports/p2p/<run-id>/`.
+
+### 5.2 KPI baselines
+
+- [ ] `agent/baselines/p2p_protocol.json` — frame encode/decode latency, frame size, fuzz iterations.
+- [ ] `agent/baselines/p2p_transport.json` — handshake P50/P95, move RTT P50/P95, network-change recovery P95, push-wake cold-start P95, battery %.
+- [ ] `agent/baselines/p2p_signaling.json` — endpoint P50/P95, error rate, soak memory drift, chaos pass-rate.
+- [ ] `agent/baselines/p2p_identity.json` — Argon2 timing per device class, recovery-flow success rate.
+- [ ] Threshold rule (parity with engine baselines): >5% regression on any baseline metric is a hard revert.
+
+### 5.3 Quality attributes
+
+- [ ] **Performance:** CI wall-clock for the L1–L4 suite under 4 minutes; L5–L7 under 25 minutes.
+- [ ] **Efficiency:** Test parallelism saturates available cores without flakes; `flutter test --concurrency` tuned per platform.
+- [ ] **Stability:** Flake budget ≤ 0.2% per layer over a rolling 30-day window; over budget triggers `kind: p2p_flake` queue entry.
+- [ ] **Reliability:** Every red CI on `main` triggers `agent/state/last_failure.json` and blocks ticking any P2P box.
+- [ ] **Integrity:** No test relies on network access except L6/L7/L8 explicitly; L1–L5 hermetic. **Proof:** CI runs L1–L5 with network namespace dropped.
+
+### 5.4 Acceptance gate
+
+- [ ] All 9 layers wired, all baselines created, CI green on `main`, flake rate within budget.
+
+---
+
+## Phase 6 — Beta and release
+
+**Goal:** Controlled rollout with measurable KPIs, kill-switch, and a documented rollback. *0% complete.*
+
+### 6.1 Closed beta
+
+- [ ] Feature flag `kEnableP2P` defaulting `false`, served via remote config (signed config blob fetched from signaling server, cached). **Proof:** `frontend/test/p2p/config/remote_config_test.dart`.
+- [ ] Opt-in via TestFlight / Play Internal. ≥100 invitees over ≥2 regions.
+- [ ] In-app feedback channel + opt-in crash reporting (Sentry or equivalent, PII-scrubbed). **Proof:** `frontend/test/p2p/telemetry/redaction_test.dart`.
+
+### 6.2 Telemetry KPIs (must be live and graphed before opening beta)
+
+- [ ] Connection success rate (handshake completed within 30 s of intent).
+- [ ] Direct-connect rate vs TURN-relay rate.
+- [ ] P50/P95 move RTT.
+- [ ] `MISMATCH` rate (target: 0 in 10⁵ moves).
+- [ ] `BACKPRESSURE_DROP` rate.
+- [ ] Push-wake redemption rate and time-to-handshake.
+- [ ] Recovery-flow attempts vs successes.
+- [ ] Battery & thermal anomalies (opt-in).
+- [ ] Per-mod engine KPIs (must remain at single-player baseline).
+
+### 6.3 Kill switch and rollback
+
+- [ ] `kEnableP2P` can be flipped off remotely within 10 minutes globally; client falls back to local-only mode (single-player). **Proof:** `frontend/test/p2p/config/kill_switch_test.dart`.
+- [ ] Server-side: `/v1/offers` returns 503 with `Retry-After` when admin-disabled; clients respect and surface a friendly message. **Proof:** `signaling/internal/admin/disable_test.go`.
+- [ ] Documented rollback runbook in [docs/P2P_SIGNALING_RUNBOOK.md](P2P_SIGNALING_RUNBOOK.md) §rollback.
+
+### 6.4 Public release
+
+- [ ] Open beta → GA staged: 1% → 10% → 50% → 100% with 24 h soak between steps; auto-halt on KPI regression >5%. **Proof:** rollout config + dashboard alert rules.
+- [ ] Store listing & screenshots updated; privacy policy revised to disclose signaling data minimisation. **Proof:** legal review checkbox in this doc + diff in [docs/legal/PRIVACY.md](legal/PRIVACY.md) (placeholder until created).
+
+### 6.5 Quality attributes
+
+- [ ] **Performance:** Public-release KPIs hit beta targets at full traffic.
+- [ ] **Efficiency:** Signaling cost per active user ≤ $0.01/month at 100k MAU (calculated from request volume × per-request cost).
+- [ ] **Stability:** 7-day rolling crash-free rate ≥ 99.9% for the P2P-flag-on cohort.
+- [ ] **Reliability:** No `MISMATCH` event in production over the rollout window; if any, automatic halt + forensic bundle uploaded (with consent).
+- [ ] **Integrity:** Every released APK / IPA build is reproducible from source; SBOM published per release. **Proof:** `scripts/p2p/verify-reproducible-build.sh` + release-asset attestation.
+
+### 6.6 Acceptance gate
+
+- [ ] All 6.1–6.5 ticked, GA at 100% with KPIs at or above beta targets for 7 consecutive days.
+
+---
+
+## Phase 7 — Stretch goals
+
+*0% complete. Unblocked only after Phase 6 GA.*
+
+- [ ] **Spectator mode**: a third peer subscribes (read-only) via the signaling server's "join as spectator" endpoint; receives a derived view-only key; cannot inject moves. Proof: `frontend/test/p2p/spectator_test.dart`.
+- [ ] **Multi-device per account**: same account key on N devices; signaling routes offers to all reachable devices; first-to-answer wins; others abort gracefully. Proof: `frontend/test/p2p/multi_device_routing_test.dart`.
+- [ ] **Tournament mode**: signed bracket served by signaling server; pairings are deterministic from the bracket commitment + round number; results signed by both peers. Proof: `frontend/test/p2p/tournament_test.dart`.
+- [ ] **Late-join / reconnect**: a peer rejoining mid-game synchronises via a CRDT-style move log with Lamport-clock-tagged moves; conflicts (impossible if protocol is correct) end the session. Proof: `frontend/test/p2p/late_join_test.dart`.
+- [ ] **Federation**: peer-discovery via well-known signaling servers; cross-server play with capability negotiation. Proof: `signaling/internal/federation/federation_test.go`.
+
+---
+
+## Phase 8 — Cross-cutting concerns
+
+*0% complete. Some items partially addressed by phase-specific subsections; this phase is the holistic owner.*
+
+### 8.1 Internationalisation
+
+- [ ] All P2P UI strings in [frontend/lib/l10n/](../frontend/lib/l10n/) (ARB files). RTL layouts verified (Arabic, Hebrew). **Proof:** `frontend/test/i18n/p2p_strings_test.dart`.
+- [ ] Recovery-code wordlist localised — fallback to English if a locale wordlist is unavailable, with explicit user-visible note.
+
+### 8.2 Accessibility
+
+- [ ] Connection-state UI: every state has a `Semantics` label; live-region announcements on state change. **Proof:** `frontend/test/a11y/p2p_connection_state_a11y_test.dart`.
+- [ ] Recovery-code entry: large-font / high-contrast mode tested; screen-reader announces word numbers. **Proof:** `frontend/test/a11y/recovery_entry_a11y_test.dart`.
+- [ ] Colour is never the sole indicator of connection status (icons + text + semantics). Colour-blind matrix verified.
+
+### 8.3 Observability (client-side)
+
+- [ ] Local rolling diagnostic log (256 KB ring buffer) persisted, redacted, exportable via "Help → Send diagnostics" (opt-in). **Proof:** `frontend/test/p2p/telemetry/diag_log_test.dart`.
+- [ ] No PII in client telemetry by default; opt-in detailed mode adds session ids only. **Proof:** redaction test.
+
+### 8.4 Supply chain & provenance
+
+- [ ] SBOM generated per build (CycloneDX) for client and signaling server. **Proof:** CI artefact `sbom-*.cdx.json`.
+- [ ] Dependency confusion guard: pin all direct deps; CI fails on resolution that pulls a higher-numbered same-name package from a non-allow-listed registry. **Proof:** `scripts/p2p/check-deps.sh`.
+- [ ] License audit: libsodium (ISC), coturn (BSD), litestream (Apache-2.0), `package:cryptography` (Apache-2.0), Go stdlib (BSD). Compatible with project licence. Documented in [docs/P2P_LICENSES.md](P2P_LICENSES.md). **Proof:** `scripts/p2p/check-licenses.sh` in CI.
+- [ ] Reproducible builds for both client (per-platform) and server (single-binary). **Proof:** `scripts/p2p/verify-reproducible-build.sh`.
+- [ ] Release assets signed (Sigstore / cosign) with provenance attestation. **Proof:** release workflow.
+
+### 8.5 Legal & data residency
+
+- [ ] Signaling server deployed in regions consistent with the privacy policy; per-region routing. **Proof:** documented in [docs/legal/DATA_RESIDENCY.md](legal/DATA_RESIDENCY.md).
+- [ ] DSAR (data subject access request) flow: account pubkey → coarse `last_seen`, push-token hash, audit rows; deletion endpoint wipes all rows including litestream snapshots ≤ 30 d. **Proof:** `signaling/internal/dsar/dsar_test.go`.
+- [ ] GDPR / CCPA review checklist completed.
+
+### 8.6 Quality attributes (cross-cutting)
+
+- [ ] **Performance:** Telemetry path adds ≤ 50 µs per move. **Proof:** `frontend/test/p2p/perf/telemetry_overhead_test.dart`.
+- [ ] **Efficiency:** Diagnostic log rotation never blocks UI thread. **Proof:** `frontend/test/p2p/telemetry/diag_log_async_test.dart`.
+- [ ] **Stability:** No localisation key missing in any locale (CI gate).
+- [ ] **Reliability:** A11y semantics survive Flutter SDK upgrades (golden tests).
+- [ ] **Integrity:** SBOM diff between consecutive releases is reviewed by a human; new direct deps require a queue entry of `kind: p2p_dep_review`.
+
+### 8.7 Acceptance gate
+
+- [ ] All 8.1–8.6 ticked, every release shipped after this phase carries SBOM + provenance, every supported locale has all P2P strings, a11y suite green.
+
+---
+
+## Phase 9 — Threat model
+
+*Living document; minimum 60 entries by GA. v3 had 36; v4 adds 24+. Each entry: ID · vector · asset · likelihood · impact · mitigation · proof test reference.*
+
+### 9.1 Network attacker (active)
+
+- [ ] **T-N-001** Signaling server impersonation → MITM. *Mitigation:* TLS 1.3 with HPKP/HSTS-style pinning, request signatures over body hash. *Proof:* `signaling/internal/auth/sig_test.go`.
+- [ ] **T-N-002** SDP offer tampering → wrong ICE candidates. *Mitigation:* offer/answer signed under the long-term device key. *Proof:* `frontend/test/p2p/transport/offer_signature_test.dart`.
+- [ ] **T-N-003** ICE candidate injection → traffic mirroring via attacker TURN. *Mitigation:* TURN cred is HMAC-bound to session; mismatched relay rejected. *Proof:* `frontend/test/p2p/transport/turn_cred_bind_test.dart`.
+- [ ] **T-N-004** TURN credential leak / re-use. *Mitigation:* 5-min lifetime + per-session binding. *Proof:* `signaling/internal/turn/cred_test.go`.
+- [ ] **T-N-005** DataChannel ciphertext replay. *Mitigation:* deterministic nonce + sequence enforcement. *Proof:* `frontend/test/p2p/protocol/sequence_test.dart`.
+- [ ] **T-N-006** Push-wake forgery → spam. *Mitigation:* per-(sender,recipient) ceiling + signed wakeup request. *Proof:* `signaling/internal/push/wake_ceiling_test.go`.
+- [ ] **T-N-007** Captive-portal hijack. *Mitigation:* connection state surfaces "captive portal detected" via known-good HTTPS canary. *Proof:* `frontend/test/p2p/transport/captive_portal_test.dart`.
+
+### 9.2 Malicious peer
+
+- [ ] **T-P-001** Illegal-move injection. *Mitigation:* every remote move re-validated by local engine. *Proof:* per-mod `engine_binding_test.dart`.
+- [ ] **T-P-002** Replay of own previous move. *Mitigation:* sequence enforcement. *Proof:* sequence test.
+- [ ] **T-P-003** Excessive frame size → DoS. *Mitigation:* 16 KB cap + AEAD failure on tamper. *Proof:* `frame_size_cap_test.dart`.
+- [ ] **T-P-004** Slow-loris on `chess` channel → starve clock. *Mitigation:* per-side move time budget enforced locally. *Proof:* `frontend/test/p2p/protocol/clock_starvation_test.dart`.
+- [ ] **T-P-005** Mod mismatch (Heir vs Truce). *Mitigation:* `HELLO` includes signed mod id; mismatch → abort. *Proof:* `frontend/test/p2p/protocol/hello_mod_match_test.dart`.
+- [ ] **T-P-006** Fork attack — peer claims a different game state to a third party. *Mitigation:* signed game-end transcript; spectator (Phase 7) verifies. *Proof:* `frontend/test/p2p/protocol/transcript_signing_test.dart`.
+
+### 9.3 Server compromise
+
+- [ ] **T-S-001** DB read → no plaintext game data exists; only account pubkeys, hashed push tokens, wrapped recovery blobs. *Proof:* PII audit test.
+- [ ] **T-S-002** DB write (insert rogue offers). *Mitigation:* offers are opaque blobs; client validates handshake signatures end-to-end. *Proof:* `frontend/test/p2p/transport/handshake_signature_test.dart`.
+- [ ] **T-S-003** Push token leak → off-platform spam to users. *Mitigation:* tokens encrypted at rest with KMS; rate-limited send. *Proof:* `signaling/internal/store/pii_audit_test.go`.
+- [ ] **T-S-004** Backdoored binary → poisoned wakeup. *Mitigation:* SBOM + reproducible build + Sigstore. *Proof:* `verify-reproducible-build.sh`.
+- [ ] **T-S-005** Hostile-region traffic spike → resource exhaustion. *Mitigation:* PoW + GeoIP throttling. *Proof:* `signaling/internal/abuse/pow_test.go`.
+
+### 9.4 Device compromise
+
+- [ ] **T-D-001** Device-key theft via keystore extraction. *Mitigation:* hardware-backed Keystore / Secure Enclave required where available; fall-through documented. *Proof:* `secure_storage_<platform>_test.dart`.
+- [ ] **T-D-002** Recovery code phished. *Mitigation:* user-visible warnings + rebind requires fresh attestation; old device self-quarantines. *Proof:* `account_migration_chaos_test.dart`.
+- [ ] **T-D-003** Biometric spoofing → silent rebind. *Mitigation:* biometric only unlocks the local key; rebind also requires the recovery code. *Proof:* recovery flow test.
+- [ ] **T-D-004** Backup leak (cloud backup of app data). *Mitigation:* device-key marked non-backup on iOS / Android; secret-storage flags asserted. *Proof:* per-platform secure-storage tests.
+
+### 9.5 Privacy / metadata
+
+- [ ] **T-M-001** Server learns who plays whom and when. *Mitigation:* unavoidable for a signaling server; coarsen IP, drop UA, time-bucket logs to 5 min, no per-game retention. *Proof:* `signaling/internal/log/redaction_test.go`.
+- [ ] **T-M-002** TURN learns peer IPs and traffic volume. *Documented* — no full mitigation in scope; users informed in privacy policy.
+- [ ] **T-M-003** Push provider learns recipient device + wakeup frequency. *Mitigation:* batch wakeups under daily ceiling; payload empty.
+
+### 9.6 Supply chain
+
+- [ ] **T-X-001** Compromised libsodium release. *Mitigation:* pin SHA, verify against multiple mirrors, SBOM diff review. *Proof:* `check-deps.sh`.
+- [ ] **T-X-002** Compromised pub.dev or proxy. *Mitigation:* lockfile + checksum verification. *Proof:* CI lockfile gate.
+- [ ] **T-X-003** Build-system tampering. *Mitigation:* hermetic builds + reproducible-build verification. *Proof:* `verify-reproducible-build.sh`.
+
+---
+
+## Phase 10 — Failure-mode catalog
+
+*Living document; minimum 60 codes by GA. Each: code · trigger · detection · user-visible state · auto-recovery · proof test.*
+
+> v4 expansion areas vs v3 (storage corruption, web/desktop, push deferral, biometric re-key failures, deep-link cold-start, late-join collisions). Every code must have a typed Dart enum value in `frontend/lib/services/p2p/errors.dart` and a matching test reference.
+
+- [ ] **F-PROTO-001** `BAD_FRAME` — CBOR parse failed. *Recovery:* drop, count; threshold (5/min) → end session.
+- [ ] **F-PROTO-002** `BAD_VERSION` — version negotiation failed. *Recovery:* end with friendly UI ("update required").
+- [ ] **F-PROTO-003** `OUT_OF_SEQUENCE` — sequence skip or duplicate. *Recovery:* `MISMATCH`.
+- [ ] **F-PROTO-004** `ILLEGAL_MOVE` — engine rejected. *Recovery:* `MISMATCH` with forensic bundle.
+- [ ] **F-PROTO-005** `MOD_MISMATCH` — `HELLO` mod id differs. *Recovery:* end before any move.
+- [ ] **F-PROTO-006** `CLOCK_STARVATION` — peer too slow. *Recovery:* time-out per game rules.
+- [ ] **F-PROTO-007** `BACKPRESSURE_DROP` — SCTP queue overflow. *Recovery:* end session, surface "connection unstable".
+- [ ] **F-PROTO-008** `MISMATCH` — replay parity broken. *Recovery:* end + write forensic bundle.
+
+- [ ] **F-NET-001** `ICE_FAILED` — no candidate pair. *Recovery:* prompt user to retry; surface diagnostics.
+- [ ] **F-NET-002** `ICE_DISCONNECTED` — mid-session loss. *Recovery:* ICE restart within 10 s, else `NETWORK_LOST`.
+- [ ] **F-NET-003** `NETWORK_LOST` — unrecoverable. *Recovery:* save partial game; offer to resume via push wake.
+- [ ] **F-NET-004** `TURN_UNAVAILABLE` — both TURN endpoints down. *Recovery:* fail with explicit message; queue entry `kind: p2p_infra`.
+- [ ] **F-NET-005** `CAPTIVE_PORTAL` — canary failed. *Recovery:* prompt user to sign in to network.
+- [ ] **F-NET-006** `NAT_HARD_BLOCK` — symmetric × symmetric, TURN also blocked. *Recovery:* fail with guidance to switch network.
+- [ ] **F-NET-007** `IPV6_PMTU_BLACK_HOLE` — IPv6-only path with MTU issues. *Recovery:* clamp + retry; if still failing, surface diagnostics.
+
+- [ ] **F-XPORT-001** `DATACHANNEL_CLOSED_UNEXPECTEDLY`. *Recovery:* attempt rebind once.
+- [ ] **F-XPORT-002** `SCTP_HANDSHAKE_TIMEOUT`. *Recovery:* `ICE_FAILED` path.
+
+- [ ] **F-SIG-001** `SIGNALING_5XX` — server unreachable. *Recovery:* exponential backoff; cached config.
+- [ ] **F-SIG-002** `SIGNALING_RATE_LIMITED` — 429. *Recovery:* respect `Retry-After`; surface gentle UI.
+- [ ] **F-SIG-003** `SIGNALING_POW_REQUIRED` — 421-style PoW challenge. *Recovery:* solve transparently; surface only on persistent loop.
+- [ ] **F-SIG-004** `OFFER_EXPIRED` — pending offer past TTL. *Recovery:* prompt to re-invite.
+- [ ] **F-SIG-005** `OFFER_DUPLICATE_ANSWER` — race of two devices answering. *Recovery:* server returns 409; loser aborts cleanly.
+- [ ] **F-SIG-006** `ADMIN_DISABLED` — `kEnableP2P` off. *Recovery:* fall back to local-only.
+
+- [ ] **F-ID-001** `KEY_GEN_FAILED` — entropy unavailable. *Recovery:* surface with "try again later"; never proceed with weak entropy.
+- [ ] **F-ID-002** `KEY_STORAGE_UNAVAILABLE` — secure storage broken. *Recovery:* refuse to proceed; document support path.
+- [ ] **F-ID-003** `BIOMETRIC_LOCKOUT` — N failed attempts. *Recovery:* wipe device key, mark "needs recovery".
+- [ ] **F-ID-004** `RECOVERY_BAD_CODE` — Argon2 unwrap MAC fail. *Recovery:* allow retry with backoff (1s, 5s, 30s, 5m, 1h).
+- [ ] **F-ID-005** `RECOVERY_PARAM_MISMATCH` — KDF params unsupported on this device. *Recovery:* fail with clear "open on your old device first" message.
+- [ ] **F-ID-006** `REBIND_ATTESTATION_FAILED` — Play Integrity / DeviceCheck rejected. *Recovery:* surface friendly error; queue entry.
+- [ ] **F-ID-007** `OLD_DEVICE_REJECTED_AFTER_REBIND` — quarantine state. *Recovery:* show "this device has been replaced".
+
+- [ ] **F-PUSH-001** `PUSH_TOKEN_INVALID` — provider rejected. *Recovery:* drop token, request re-register.
+- [ ] **F-PUSH-002** `PUSH_PROVIDER_DOWN` — APNs/FCM 5xx. *Recovery:* server retries with backoff; client UI shows "your friend may be offline".
+- [ ] **F-PUSH-003** `PUSH_DEFERRED_BY_OS` — Doze / Low Power Mode. *Recovery:* surface as "expected delivery delayed"; do not retry-spam.
+- [ ] **F-PUSH-004** `PUSH_RECEIVED_NO_OFFER` — wakeup race. *Recovery:* client polls once, then quiet exit.
+
+- [ ] **F-LIFECYCLE-001** `APP_SUSPENDED_MID_HANDSHAKE`. *Recovery:* mark intent; resume on foreground.
+- [ ] **F-LIFECYCLE-002** `FOREGROUND_SERVICE_KILLED` — Android OEM kills service. *Recovery:* end session with friendly message; queue entry to track OEM.
+- [ ] **F-LIFECYCLE-003** `IOS_NSE_TIMEOUT` — NSE budget exceeded. *Recovery:* cold-start path.
+- [ ] **F-LIFECYCLE-004** `DEEP_LINK_COLD_START_LOST` — race lost the offer. *Recovery:* automatic re-poll on launch; tracked metric.
+
+- [ ] **F-STORE-001** `SAVED_GAMES_DB_CORRUPT` — SQLite corruption (sqlite_corrupt). *Recovery:* quarantine DB, fresh DB, surface "history unavailable, contact support".
+- [ ] **F-STORE-002** `SAVED_GAMES_MIGRATION_FAILED`. *Recovery:* roll back, do not destroy old data, surface clearly.
+- [ ] **F-STORE-003** `DISK_FULL`. *Recovery:* refuse to start new session; surface OS settings link.
+
+- [ ] **F-WEB-001** `WEBRTC_NOT_SUPPORTED` — old browser. *Recovery:* feature gate by browser version.
+- [ ] **F-WEB-002** `WEBCRYPTO_NON_EXTRACTABLE_LIMIT` — recovery flow not feasible on web. *Recovery:* document; suggest mobile.
+
+- [ ] **F-DESKTOP-001** `LIBSECRET_UNAVAILABLE` (Linux). *Recovery:* fallback to Argon2id-wrapped on-disk file with explicit user consent.
+
+- [ ] **F-OBS-001** `TELEMETRY_QUEUE_OVERFLOW`. *Recovery:* drop oldest; never block UI.
+
+- [ ] **F-CHAT-001** `CHAT_FRAME_TOO_LARGE`. *Recovery:* reject locally before send; surface "message too long".
+- [ ] **F-CHAT-002** `CHAT_RATE_LIMIT_LOCAL` — anti-flood per peer. *Recovery:* drop with toast.
+
+- [ ] **F-LATEJOIN-001** `LAMPORT_CONFLICT` (Phase 7 stretch). *Recovery:* end session as `MISMATCH`-equivalent.
+
+- [ ] **F-FORENSIC-001** `FORENSIC_BUNDLE_WRITE_FAILED` — disk full during forensic dump. *Recovery:* in-memory tail kept until next launch.
+
+> **Catalog ownership rule.** Every new failure code must land with: (a) a typed enum value, (b) at least one proof test, (c) a UX string in [frontend/lib/l10n/](../frontend/lib/l10n/), (d) a row in this catalog, (e) a queue entry of `kind: p2p_failure_mode` if it surfaced from a real incident.
+
+---
+
+## Open questions (must be resolved before the corresponding gate)
+
+- [ ] **OQ-1** Web / desktop scope for GA — full parity, reduced (no recovery), or excluded? *Decision required before:* Phase 6.
+- [ ] **OQ-2** Self-host vs managed TURN at GA cost-vs-reliability — what's the break-even? *Decision required before:* Phase 6 cost model.
+- [ ] **OQ-3** Spectator / tournament priority order in Phase 7. *Decision required before:* Phase 7 kickoff.
+- [ ] **OQ-4** Federation appetite — is cross-server play desirable, or a one-vendor approach forever? *Decision required before:* Phase 7.5.
+- [ ] **OQ-5** Engine-correlation tolerance — is the >5% rule too tight given P2P adds CPU work on receive? *Decision required before:* Phase 1 acceptance.
+- [ ] **OQ-6** Recovery wordlist languages — which beyond English at GA? *Decision required before:* Phase 8.1 close-out.
+- [ ] **OQ-7** Push-wake daily ceiling — start at 50, justify in beta. *Decision required before:* beta opens.
+- [ ] **OQ-8** Data residency regions for GA. *Decision required before:* Phase 8.5.
+- [ ] **OQ-9** APK / IPA size budget — what's the ceiling we accept for libsodium + WebRTC? *Decision required before:* Phase 4 acceptance.
+
+---
+
+## Sequencing graph
 
 ```
-frontend/lib/services/p2p/
-  identity/           ← keypair, signing, backup, rotation, revocation
-  signaling/          ← WS client, lobby protocol, feature-flag fetch
-  transport/          ← WebRTC PeerConnection + DataChannel wrapper, backpressure
-  protocol/           ← envelope schema, codecs, hash chain, JCS, CBOR, CDDL
-  game_session/       ← orchestrates: handshake → moves → reconnect → end
-  clock/              ← monotonic clock, NTP-anchored skew, flag adjudication
-  diagnostics/        ← latency probes, connection-quality metrics, dev overlay
-  push/               ← APNs/FCM token registration & receipt
-  persistence/        ← on-disk game log, resume-after-app-kill
-  ui_glue/            ← state-machine bindings, premove, takeback, draw, resign
-frontend/test/p2p/
-  protocol/
-  transport/          ← uses fake_signaling + loopback peer
-  game_session/
-  identity/
-  clock/
-  persistence/
-  chaos/              ← mocked-network failure injectors
+Phase 0 (cleanup) ──► Phase 1 (protocol) ──► Phase 4 (transport) ──► Phase 6 (beta) ──► GA ──► Phase 7
+                  ╲                       ╲                      ╱
+                   ╲─► Phase 2 (identity) ─╳► Phase 3 (signaling)
+                                            (Phase 2 & 3 overlap from week 2;
+                                             identity bytes block signaling
+                                             registration but server scaffolding
+                                             does not.)
+                  Phase 5 (test/CI) accompanies every other phase.
+                  Phase 8 (cross-cutting) accompanies every other phase.
+                  Phase 9 (threat model) is updated continuously.
+                  Phase 10 (failure catalog) is updated continuously.
 ```
 
-### 4.3 🧪 Connection state machine (full)
-
-```
-Idle ─create/join─▶ Signaling ─SDP/ICE─▶ ICEGather ─candidates─▶ Connecting
-                                                                      │
-                                                                ICE ok│
-                                                                      ▼
-                                                                  Handshake ─verify─▶ ReadyCheck
-                                                                      │                  │
-                                                                fail/MITM            both peers ready
-                                                                      ▼                  ▼
-                                                                  Aborted              InGame ◀──────┐
-                                                                                          │           │
-                                                                                  drop / netchg / bg │
-                                                                                          ▼           │
-                                                                                    ICERestart        │
-                                                                                          │           │
-                                                                                 success / replay     │
-                                                                                          └───────────┘
-                                                                                          │
-                                                                                fail (window expires)
-                                                                                          ▼
-                                                                                  PausedOffline
-                                                                                          │
-                                                                              grace expires (§1.7)
-                                                                                          ▼
-                                                                                  AdjudicateAbandon ─▶ GameEnd
-```
-
-Implemented as a sealed-class `P2pState` (Dart 3 patterns + exhaustive switch). Every state has:
-
-- a per-state widget overlay (so the user always knows what's happening),
-- a per-state allowed-message-type whitelist (defense in depth),
-- a per-state timeout with a deterministic next-state transition.
-
-### 4.4 ⏱️ Latency engineering checklist
-
-- [ ] ✅ DataChannel `ordered: true`, `maxRetransmits: null` (reliable). Move messages are tiny — no need for unreliable mode.
-- [ ] ✅ **Pre-warm** one ICE candidate pair before showing the lobby "Ready" button (parallel ICE gather).
-- [ ] ✅ Filter out **mDNS host candidates** on Android API ≤ 28 (known to break on certain OEMs).
-- [ ] ✅ Tune SCTP: `setBufferedAmountLowThreshold` to 16 KB; pause sends when `bufferedAmount > 64 KB`; UI shows `slow link` badge.
-- [ ] ✅ Keep envelopes < **480 B** so they always fit in one MTU on every common link MTU (1280 is the IPv6 minimum; SCTP overhead ≈ 30 B; DTLS overhead ≈ 30 B).
-- [ ] ✅ Send → render → confirm round-trip instrumented; `p50`, `p95`, `p99` exposed in the dev overlay and in `agent/baselines/p2p.json`.
-- [ ] ✅ TURN fallback measured: target **< 15 %** of games need TURN globally, **< 5 %** intra-region. Above the threshold ⇒ investigate ICE config, file `kind: p2p_regression`.
-- [ ] ✅ **Adaptive ping cadence**: 5 s when stable, 1 s when RTT variance > 50 ms, off when backgrounded (rely on OS keep-alive).
-
-### 4.5 📱 Mobile reality (new in v2)
-
-iOS and Android both make WebRTC interesting.
-
-#### iOS
-
-- WebRTC sockets do **not** survive app backgrounding for more than ~30 s (no real-time-VoIP entitlement = no PushKit). Mitigations:
-  - For invite delivery: **APNs high-priority data push** + a notification the user taps to bring the app foreground.
-  - For mid-game suspend: persist game state (§4.7), show a "tap to resume" notification on backgrounding, treat resume as `ICERestart`.
-  - We do **not** request the VoIP entitlement (App Store reviewers reject games using it). Documented in `docs/signaling/RUNBOOK.md` so we don't relitigate this.
-- Disable the iOS "Low Data Mode" path: detect via `NWPathMonitor`, surface to user, allow them to opt in to a degraded mode.
-
-#### Android
-
-- Doze + App Standby will kill the WS and DataChannel within 5 min of backgrounding. Same mitigation: persist + push-resume.
-- FCM high-priority data push for invite delivery (FCM `priority: high` + `data` payload, not `notification`, to avoid Android's notification rate limits).
-- Network-change detection via `connectivity_plus` (`onConnectivityChanged`); on a Wi-Fi ↔ cellular swap, immediately trigger ICE restart **proactively** rather than waiting for the data channel to die.
-
-#### Both
-
-- Battery: keep-alive cadence drops to OS default when the screen is off and the user is on the move clock (no UI updates needed).
-- Audio focus / phone call interruption: pause the game clock for the local player (signed `pause_request` to opponent, opponent must accept; auto-resume after 30 s).
-
-### 4.6 🛡️ Anti-cheat / integrity (engine-side)
-
-- 🧠 Each peer **independently runs the rules engine** — illegal moves are rejected locally; the network is **untrusted input** even from a signed peer.
-- 🚨 Persistent invalid-move attempts → log, end game with `OPPONENT_PROTOCOL_VIOLATION`, file an issue automatically with the offending envelope.
-- 🧨 **Premove flood detection**: > 4 premove sets per ply ⇒ rate-limited; > 12 per game ⇒ logged.
-- 🖱️ **Mouse-slip vs intent**: client-side, a move executed within 200 ms of a touch-down without a confirmation tap (configurable) gets a 1-s undo window. This is local UX only; the wire never sees the slip.
-- 🧮 **Engine-correlation report** (Phase 6+): post-game, opt-in, the user submits the PGN to `/v1/engine-corr-submit`. The server runs a depth-12 analysis against the submitted line and flags suspiciously perfect play above a per-mod threshold (reuses the audit-batch infrastructure from `agent/reports/`).
-- 🔁 **Replay protection**: `(game_id, ply, nonce)` is unique; receiver caches last 64 nonces per game.
-- 🪪 **Pubkey pinning**: opponent's pubkey is pinned at handshake; subsequent envelopes signed by a different key → `OPPONENT_KEY_CHANGED` abort.
-
-### 4.7 💾 Persistence & resume-after-app-kill (new in v2)
-
-- Every sent and received envelope is appended to a per-game log file (`<docs>/p2p/games/<game_id>.cbor.log`), `fsync`'d before the UI advances.
-- On app launch, if any log is unfinished and within its grace window, the app offers **Resume game** in the lobby. Resume reconnects via the signaling server using the persisted `game_id` and rejoins as the same `device_id_pub`.
-- Logs are **encrypted at rest** under a subkey derived from the device key (Argon2id from a long-lived random salt).
-- Logs older than 30 days are auto-archived to a compressed tarball; user can export or delete from Settings.
-- The same logs feed the engine-correlation report and the `replay_log.dart` debugging tool.
-
-### 4.8 🧪 Phase 4 proof tests
-
-- `frontend/test/p2p/transport/loopback_basic_test.dart` — two in-process peers, full handshake + 20 plies, no network.
-- `frontend/test/p2p/transport/backpressure_test.dart` — flood the DataChannel, assert `bufferedAmountLowThreshold` triggers and UI surfaces the slow-link badge.
-- `frontend/test/p2p/game_session/all_mods_smoke_test.dart` — 7-mod scripted game, asserts each mod's bespoke message types appear in the log.
-- `frontend/test/p2p/game_session/reconnect_test.dart` — kill the data channel mid-game, restart within window, verify hash-chain replay.
-- `frontend/test/p2p/game_session/abandon_test.dart` — exceed grace window, verify adjudication outcome per time control.
-- `frontend/test/p2p/clock/skew_test.dart` — simulate a 2-s wall-clock jump on one peer, verify monotonic path saves the day.
-- `frontend/test/p2p/clock/flag_dispute_test.dart` — flagged peer disputes with hash-chained evidence, verify dispute wins.
-- `frontend/test/p2p/persistence/resume_test.dart` — kill app, relaunch, resume game.
-- `frontend/test/p2p/persistence/encryption_test.dart` — log file is unreadable without the device key.
-
-### 4.9 📊 Phase 4 KPIs
-
-```jsonc
-{
-  "phase4": {
-    "p50_move_latency_local_ms":   { "value": null, "threshold": 25  },
-    "p95_move_latency_local_ms":   { "value": null, "threshold": 60  },
-    "p95_move_latency_intra_ms":   { "value": null, "threshold": 150 },
-    "p95_move_latency_relayed_ms": { "value": null, "threshold": 400 },
-    "reconnect_success_rate":      { "value": null, "threshold": 0.97 },
-    "ice_restart_success_rate":    { "value": null, "threshold": 0.92 },
-    "turn_fallback_rate_global":   { "value": null, "threshold": 0.15 },
-    "turn_fallback_rate_intra":    { "value": null, "threshold": 0.05 },
-    "abort_rate":                  { "value": null, "threshold": 0.005 },
-    "resume_after_kill_success":   { "value": null, "threshold": 0.95 },
-    "battery_drain_per_hour_pct":  { "value": null, "threshold": 8    }
-  }
-}
-```
-
-### 4.10 ✅ Definition of done for Phase 4
-
-- Two emulators on the same workstation can play a complete game across **all 7 mods**, each exercising its bespoke message types.
-- Forced disconnect (`adb shell svc wifi disable && sleep 10 && adb shell svc wifi enable`) recovers within 15 s and the move log replays cleanly.
-- iOS sim survives 60 s background → foreground with game intact.
-- All Phase-4 tests green; no regressions in engine gates.
-- Phase-4 KPIs measured and committed.
+Critical-path summary: **Phase 0 → Phase 1 → Phase 4 → Phase 6**. Phases 2 and 3 are parallelisable but must converge before Phase 4's network-change + push-wake testing.
 
 ---
 
-## 🧪 Phase 5 — Test, simulation & CI strategy 🤖
+## References
 
-> **Goal:** Prove the system works without humans in the loop, across all 7 mods, under hostile network conditions.
-
-### 5.1 🧪 Test pyramid (7 layers)
-
-| # | Layer       | Where                                     | What it covers                                         |
-|---|-------------|-------------------------------------------|--------------------------------------------------------|
-| 1 | 🟢 Unit      | `frontend/test/p2p/{protocol,identity,clock}/` | Codec, signing, hash chain, key backup, monotonic time. |
-| 2 | 🟡 Property  | `frontend/test/p2p/protocol/` (`glados`)  | Round-trip codec, hash-chain integrity under permutation. |
-| 3 | 🟠 Component | `frontend/test/p2p/transport/`            | DataChannel wrapper with loopback signaling + 2 in-process peers. |
-| 4 | 🔵 Integration | `frontend/test/p2p/game_session/`        | Full handshake → mod-specific scripted game → graceful end. |
-| 5 | 🔴 E2E (emu) | `scripts/p2p/run_two_emulator_match.sh`   | Two AVDs play a real game over loopback signaling.     |
-| 6 | 🌪️ Chaos    | `scripts/p2p/chaos.sh`                    | tc-netem packet loss / 200 ms latency / one-side disconnect / NAT rebind. |
-| 7 | 🕒 Soak      | `scripts/p2p/soak.sh`                     | 3-hour rapid game, 24-hour idle-lobby, leak detection. |
-| 8 | ⚫ Server    | `signaling/internal/**/*_test.go` + `fuzz/` | Lobby logic, signature middleware, rate limits, fuzz. |
-
-### 5.2 🌪️ Chaos scenarios (named, not "etc.")
-
-The `scripts/p2p/chaos.sh` driver runs these named scenarios; each has a deterministic pass criterion:
-
-| Scenario                         | Injection                                             | Pass criterion                                  |
-|----------------------------------|-------------------------------------------------------|-------------------------------------------------|
-| `loss-1pct`                      | 1 % uniform packet loss                               | game completes, p95 ≤ 200 ms                    |
-| `loss-5pct`                      | 5 % uniform                                           | game completes, p95 ≤ 400 ms                    |
-| `loss-burst-20pct-200ms`         | 20 % loss in 200 ms bursts every 10 s                 | game completes, ≤ 1 ICE restart                 |
-| `latency-200ms`                  | 200 ms one-way latency                                | clock model holds, no false flags               |
-| `latency-jitter-100±50ms`        | jitter                                                | adaptive ping kicks in, UI shows badge          |
-| `bandwidth-throttle-64kbps`      | extreme throttle                                      | game completes (envelopes are tiny)             |
-| `disconnect-then-reconnect-10s`  | drop one peer's network for 10 s                      | ICE restart succeeds                            |
-| `disconnect-then-reconnect-45s`  | drop for 45 s (past blitz grace)                      | adjudication fires correctly                    |
-| `nat-rebind`                     | rebind one peer's NAT mid-game                        | ICE restart succeeds                            |
-| `wifi-to-cellular-swap`          | Android only; swap network mid-game                   | proactive ICE restart, no game loss             |
-| `signaling-server-restart`       | restart server during in-game                         | in-game peers unaffected                        |
-| `signaling-server-deploy-drain`  | blue/green deploy mid-lobby-create                    | client retries on standby, no user-visible drop |
-| `clock-skew-2s-jump`             | one peer's wall clock jumps 2 s                       | monotonic path holds, no false flag             |
-| `clock-skew-malicious-underflag` | one peer reports false low `remaining_ms`             | flag dispute wins via hash-chained evidence     |
-| `mitm-server-rewrite-sdp`        | server rewrites SDP                                   | handshake `PAIRING_PUBKEY_MISMATCH` aborts      |
-| `replay-old-envelope`            | replay an envelope from earlier ply                   | nonce cache rejects                             |
-| `corrupt-envelope-bitflip`       | flip 1 bit in a signed envelope                       | signature fails, game continues with retransmit |
-
-### 5.3 🧰 Local simulation environment
-
-A new top-level script set under `scripts/p2p/`:
-
-- `bootstrap.sh` — installs (with confirmation per AGENTS.md §4): `adb`, `tc` (netem), the signaling server's deps. Starts:
-  - 🛰️ Local signaling server (`make run` in `signaling/`) on `localhost:8787`.
-  - 🧱 Local `coturn` in Docker on `localhost:3478` with a static dev secret.
-  - 📨 Local FCM/APNs **stub** server (Node tiny mock) for invite-push tests.
-- `run_two_emulator_match.sh <mod> <time-control>`:
-  1. Boots two named AVDs (`avd_p2p_a`, `avd_p2p_b`) if not running.
-  2. `flutter install` the debug APK on both, with `--dart-define=SIGNALING_URL=ws://10.0.2.2:8787/v1/lobby` and `--dart-define=TURN_URL=turn:10.0.2.2:3478`.
-  3. Drives both apps via [`integration_test`](https://pub.dev/packages/integration_test) + [`patrol`](https://pub.dev/packages/patrol):
-     - Create lobby on A → read invite code from screen.
-     - Join lobby on B with that code.
-     - Play a scripted opening (reuses `agent/openings/<mod>.csv` line 1).
-     - Let on-device engines (skill-capped) play out 30 plies.
-     - Assert game completes, both clients show identical PGN, hash chain validates, all expected mod-specific message types appear.
-  4. Tears down emulators (or leaves them up via `--keep`).
-- `run_all_mods.sh <time-control>` — runs `run_two_emulator_match.sh` for all 7 mods sequentially, each with its own report under `agent/reports/_p2p/<run-id>/<mod>/`.
-- `chaos.sh <scenario>` — wraps the above with `tc qdisc` rules.
-- `soak.sh <hours>` — runs a long game with periodic memory snapshots (`adb shell dumpsys meminfo`) + a leak threshold (≤ 5 MB growth per hour after warmup).
-
-> 💡 The same scripts double as the **demo for stakeholders**: run `run_all_mods.sh 30s` on screen-share, watch two phones play all 7 mods.
-
-### 5.4 🧯 CI
-
-- 🟢 Layers 1–4 (unit / property / component / integration) run on every PR (existing Flutter test workflow + a new p2p job).
-- ⚫ Server tests + fuzz (1 M iters) run in their own job (`signaling/`).
-- 🔴 Layer 5 (E2E emulator) runs **nightly** on a self-hosted runner; emulators are heavy for hosted CI. Failures auto-open a `kind: p2p_regression` queue entry.
-- 🌪️ Layer 6 (chaos) runs **weekly** for the full matrix; the `loss-1pct` and `disconnect-then-reconnect-10s` scenarios run nightly.
-- 🕒 Layer 7 (soak) runs **weekly**; the 3-hour rapid game gates a release tag.
-- 📲 **Optional (Phase 6+):** Firebase Test Lab matrix run on real devices for the top-10 Android handsets pre-release. Skipped in v1 to avoid GCP cost; revisit at beta.
-
-### 5.5 📊 Phase 5 / cross-phase KPIs
-
-`agent/baselines/p2p.json` is regenerated weekly. New `kind: p2p_regression` triggers when any KPI breaches its threshold, gated identically to engine KPIs.
-
-### 5.6 ✅ Definition of done for Phase 5
-
-- `scripts/p2p/run_all_mods.sh 1m` exits 0 on a clean checkout (after `bootstrap.sh`).
-- Nightly CI green for **7 consecutive days** before declaring P2P beta.
-- Weekly chaos matrix green for **3 consecutive weeks** before declaring P2P GA.
+- RFC 8949 — CBOR (deterministic encoding §4.2)
+- RFC 8489 — STUN
+- RFC 8656 — TURN
+- RFC 8445 — ICE
+- RFC 9147 — DTLS 1.3 (used inside WebRTC for media; SCTP DataChannel uses DTLS for transport security)
+- RFC 8032 — EdDSA (Ed25519)
+- RFC 7748 — X25519
+- RFC 5869 — HKDF
+- RFC 9106 — Argon2
+- RFC 8439 — ChaCha20-Poly1305
+- W3C WebRTC 1.0 — `RTCDataChannel`
+- libsodium documentation
+- Play Integrity API; Apple DeviceCheck / App Attest
+- litestream documentation
+- coturn documentation
+- Sigstore / cosign docs
+- CycloneDX SBOM spec
 
 ---
 
-## 🚀 Phase 6 — Beta, telemetry, kill-switch & release 📣
-
-> **Goal:** Ship to a small allow-list, learn, iterate. Be able to disable any feature in < 5 minutes without an app-store round-trip.
-
-### 6.1 🧪 Closed beta
-
-- 50–100 invitees via TestFlight + Google Play internal testing track.
-- In-app feedback button wired to `POST /v1/feedback`.
-- Crash & connection-quality reports auto-attach the redacted last 200 lines of the on-device log (user must confirm each submission — **no silent telemetry**).
-
-### 6.2 🚦 Feature flags & kill switch
-
-- `/v1/flags` returns a CBOR map of flag-name → bool/string. The client polls every 60 s while online (and on app foreground).
-- Flags include:
-  - `p2p_enabled` (master kill),
-  - `mod_<name>_enabled` (per-mod kill),
-  - `premove_enabled`, `takeback_enabled`, `engine_corr_optin_enabled`,
-  - `min_supported_client_build` (forced upgrade — see §6.3),
-  - `turn_required_regions` (force TURN in known-broken networks).
-- Flags are signed by the server's long-term key; client verifies the signature before applying. This prevents a hijacked DNS from disabling features.
-- Documented operational procedure in `docs/signaling/KILL_SWITCH.md`: who can flip, how to verify, how to roll back.
-
-### 6.3 ⏫ Forced upgrade flow
-
-- `min_supported_client_build` < installed build ⇒ app shows a non-dismissible "Update required" dialog with deep-links to the App Store / Play Store.
-- Used when a wire-incompatible protocol fix ships, or a security advisory hits.
-- We commit to never raising `min_supported_client_build` more aggressively than 14 days behind the latest release, except for security incidents.
-
-### 6.4 🔍 Engine-correlation report (anti-cheat, opt-in)
-
-- Post-game, both players see "Submit this game for an engine review (anonymous)" with a link to PRIVACY.md.
-- On opt-in, the **PGN only** (no identifying metadata beyond pubkey hash) is uploaded.
-- Server runs a depth-12 audit-batch-style analysis against the submitted PGN per mod and writes a verdict to `agent/reports/_p2p_corr/`.
-- Verdicts above the per-mod threshold are reviewed manually before any user-facing action (suspension is a human decision in v1; automated bans are out of scope).
-
-### 6.5 🚩 In-app player report
-
-- A single-tap "Report player" surfaces in the post-game screen.
-- Required: a reason (cheating / harassment / disconnect-abuse / other) + the pubkey hash of the opponent.
-- Optional: free-text note + auto-attached redacted last-game log.
-- Reports go to `POST /v1/report-player`. Three reports against the same pubkey within 7 days raise an internal flag for review.
-
-### 6.6 📊 What we measure (server-side, anonymized)
-
-- Lobby creation rate, invite redemption rate, time-to-first-move.
-- ICE candidate-pair type distribution (host / srflx / relay).
-- Reconnection frequency & success.
-- Per-mod completion rate.
-- Forced-upgrade adoption curve.
-
-### 6.7 🚫 What we don't measure
-
-- Move content. Outcomes. Player handles. Geographic location beyond the IP needed for ICE (and that's purged after 7 days per §3.3).
-
-### 6.8 🪪 Public release checklist
-
-- [ ] Privacy notice ([docs/signaling/PRIVACY.md](signaling/PRIVACY.md)) reviewed and linked from in-app *About*.
-- [ ] App-store submission updated to declare networking + microphone-not-used + camera-not-used + push-notification usage rationale.
-- [ ] Signaling server has runbook + on-call expectations documented.
-- [ ] Kill-switch verified end-to-end against staging.
-- [ ] All Phase-0..5 *Definition of done* boxes checked.
-- [ ] One full week of green nightly CI **and** three weeks of green weekly chaos.
-- [ ] 3-hour soak test green on both Android and iOS reference devices.
-- [ ] GDPR data-export (`Settings → Export my data`) and deletion (`Settings → Delete my data`) flows implemented and tested.
-- [ ] Responsible-disclosure contact published (`docs/signaling/SECURITY.md`).
-
----
-
-## 🔭 Phase 7 — Stretch goals (post-1.0) ✨
-
-- 🌍 **Multi-region signaling + geo-TURN selection** (latency-based candidate ordering).
-- 🏆 Optional **ELO / Glicko-2 ratings** (opt-in; published only with consent; per-mod separate ratings).
-- 🎫 **Tournament brackets** (server-managed pairing only; play stays P2P).
-- 👀 **Spectator mode** — signed read-only relay through the ops server, with a 30-s delay to discourage live coaching.
-- 🤝 **Friends list** backed by exchanged public keys, attached to the optional stats account (§2.2) so it survives device loss; for users without an account, the list lives only in the local encrypted backup blob.
-- 🔄 **Cross-device identity migration** via QR code + signed transfer envelope.
-- 🤖 **Open matchmaking** queues (with moderation surface — careful, this is a chunky scope).
-- 🧠 **Automated engine-correlation flagging** with human-in-the-loop review.
-- 🌐 **Server-relayed reconnect** for users behind double-NAT where ICE restart fails repeatedly.
-
----
-
-## 🛡️ Security threat model (expanded in v2)
-
-| # | Threat                                                | Mitigation                                                                                                |
-|---|-------------------------------------------------------|-----------------------------------------------------------------------------------------------------------|
-| 1 | Signaling server MITM swaps SDP                       | First SDP signed by long-term key; opponent verifies before answer.                                       |
-| 2 | Replay of past moves                                  | `(game_id, ply, nonce)` uniqueness + 64-nonce per-game cache + hash chain.                                 |
-| 3 | Spoofed move from non-peer                            | Every envelope signed; receiver pins opponent pubkey at handshake.                                         |
-| 4 | Engine-rule mismatch (different mod versions)         | `engine_hash` + `rules_version` exchanged at handshake; mismatch refuses game.                             |
-| 5 | TURN credential abuse                                 | Short-lived HMAC creds (≤ 5 min), per-pubkey + per-IP + per-/24 rate limits.                              |
-| 6 | DoS on signaling server                               | 3-tier token bucket; CDN/WAF in front of HTTPS; body-size caps.                                           |
-| 7 | Stolen device → identity theft                        | Hardware-backed keystore where available; user can revoke + rotate; old games remain attributed to old key.|
-| 8 | Cheating with engine assistance                       | Per-mod independent rule validation + opt-in engine-correlation report.                                    |
-| 9 | Privacy leakage via logs                              | IP retention 7 days; logs scrubbed; no move content stored server-side.                                    |
-| 10 | Wall-clock manipulation                              | Monotonic clock authoritative; wall clock advisory; flag-claim adjudicated via signed log, not server.    |
-| 11 | Premove flood / DataChannel exhaustion               | Backpressure + premove rate limit + per-state allowed-message whitelist.                                   |
-| 12 | Modified-build opponent (silent rule change)         | Attestation lite (apk hash gossip); UI badge; engine_hash mismatch refuses game.                          |
-| 13 | Server-published flag tampering (DNS hijack)         | Flags signed by server's long-term key; client verifies before apply.                                      |
-| 14 | Replay attack on signaling endpoints                 | Server-side nonce cache (5 min) on every signed request.                                                   |
-| 15 | Push-token leakage → spam push to user               | Push tokens signed-on-register; per-pubkey rate limit on push send; user can revoke from Settings.        |
-| 16 | Game-log exfiltration from a stolen unlocked phone   | Logs encrypted at rest under device-key-derived subkey.                                                    |
-| 17 | Symmetric-NAT / CGNAT preventing direct connection   | TURN relay fallback; clearly badged in UI; not treated as failure.                                         |
-| 18 | iOS background suspension mid-move                   | Persist + push-resume; ICE restart on foreground; grace window protects the suspended player.             |
-| 19 | Lost-passphrase, lost-key recovery (account opted in)| Recovery codes (always issued) + optional verified email (§2.2.4); device key revoked on rebind.          |
-| 20 | Lost-passphrase, lost-key recovery (no account)      | No server-side reset; user is told this loud and clear; new identity is the documented path.              |
-| 21 | Compromised maintainer publishes malicious build     | Reproducible-build effort tracked as a Phase-7 stretch; APK hash gossip alerts users to unexpected hash.  |
-| 22 | Server-side breach leaks account DB                  | Recovery codes Argon2id-hashed (m=64MB, t=3); emails peppered + HMAC'd; ELO/W/L/D leak is acceptable but no impersonation possible (no private keys stored). On detection: rotate pepper, force email re-verification, post advisory. |
-| 23 | Stolen phone, then user wipes-and-restores           | Hardware-backed keystore + `/v1/accounts/lock` + per-bind 24-h cooldown + `account_rebound` push notice (§2.2.5). |
-| 24 | Recovery-code brute force                            | Argon2id at 64 MB / t=3 raises offline cost; server-side 5-wrong-in-1-h lockout for online attempts; account auto-lock at 20 wrong / 24 h. |
-| 25 | Magic-link interception (email account compromise)   | Magic-link tokens are 15-min single-use; rebind triggers a `key_rotation` cert + push notice to any prior active device; user can lock the account from the prior device if they still have it. |
-| 26 | Stats forgery (one peer claims a fake win)           | `/v1/stats/update` requires **both** peers' signatures over the same result envelope; disconnect adjudication co-signed by the server's witness key. |
-| 27 | Reuse of consumed recovery code                      | `recovery_codes_used` counter + per-code consumption flag; verification rejects consumed codes; codes regenerate at ≥ 8 used. |
-| 28 | Server lies about a peer's ELO in `/v1/stats/lookup` | Lookup is advisory UX only ("Opponent rating: 1480"); no in-game decision depends on it. Future Phase-7: each stats row is signed by the server's long-term key + a sliding Merkle root the user can verify. |
-
----
-
-## 🧱 Failure-mode catalog (new in v2)
-
-Every failure has a code, a UI string, and a recovery action. Codes are stable (semver-bumped only).
-
-| Code                              | Where surfaces      | Recovery                                  |
-|-----------------------------------|---------------------|-------------------------------------------|
-| `LOBBY_FULL`                      | Lobby create        | Retry later                               |
-| `INVITE_EXPIRED`                  | Lobby join          | Ask host to re-share                      |
-| `INVITE_TAKEN`                    | Lobby join          | Different player already redeemed; ask host |
-| `PAIRING_PUBKEY_MISMATCH`         | Lobby join          | Abort; surface MITM warning               |
-| `HELLO_PUBKEY_MISMATCH`           | Handshake           | Abort                                     |
-| `ENGINE_HASH_MISMATCH`            | Handshake           | Both update                               |
-| `RULES_VERSION_MISMATCH`          | Handshake           | Both update                               |
-| `ICE_GATHER_TIMEOUT`              | Connecting          | Retry with TURN forced                    |
-| `ICE_RESTART_FAILED`              | InGame → reconnect  | Move to PausedOffline                     |
-| `OPPONENT_PROTOCOL_VIOLATION`     | InGame              | End game; auto file issue                 |
-| `OPPONENT_KEY_CHANGED`            | InGame              | Abort                                     |
-| `CLOCK_RESYNC_FAILED`             | InGame              | Offer draw                                |
-| `FLAG_CLAIM_DISPUTED_LOST`        | Flag claim          | Game continues for the other peer         |
-| `LOBBY_DRAINING`                  | Lobby create        | Retry on standby                          |
-| `RATE_LIMITED`                    | Any signaling call  | Backoff per `Retry-After`                 |
-| `REVOKED_KEY`                     | Lobby create        | Generate new identity                     |
-| `MIN_CLIENT_BUILD`                | Any                 | Forced upgrade dialog                     |
-| `P2P_DISABLED_BY_FLAG`            | App start           | Read-only mode + notice                   |
-| `ACCOUNT_NOT_FOUND`               | Account lookup      | Offer create-account flow                 |
-| `ACCOUNT_LOCKED`                  | Any account op      | Show recovery flow (code or email)        |
-| `RECOVERY_CODE_INVALID`           | Rebind              | Try a different code; if 5 wrong → wait 24 h |
-| `RECOVERY_CODE_LOCKOUT`           | Rebind              | Use email magic link or wait 24 h         |
-| `RECOVERY_CODES_EXHAUSTED`        | Rebind              | Use email magic link; if no email → cannot recover |
-| `RECOVERY_EMAIL_NOT_VERIFIED`     | Rebind              | Verify email first                        |
-| `MAGIC_LINK_EXPIRED`              | Rebind              | Re-request magic link                     |
-| `MAGIC_LINK_REUSED`               | Rebind              | Re-request; previous link is consumed     |
-| `REBIND_COOLDOWN_ACTIVE`          | Rebind              | Wait 24 h or enter a second recovery code |
-| `STATS_RESULT_MISMATCH`           | `/v1/stats/update`  | Both peers must submit matching envelopes; auto-retry on next foreground |
-| `STATS_SUBMIT_RATE_LIMITED`       | `/v1/stats/update`  | Backoff per `Retry-After`                 |
-
----
-
-## 🧭 Open questions (must be answered before Phase 3 ships)
-
-1. ❓ **Hosting region(s) for v1?** Single region for beta (probably EU-Central given the maintainer's location); multi-region pushed to Phase 7. Confirm before Phase 3 close.
-2. ❓ **Anonymous lobbies vs invite-only at v1?** Recommend invite-only at v1 to dodge moderation work. Confirmed by Phase 2 close.
-3. ❓ **Push provider funding model.** APNs is free; FCM is free. Bandwidth on TURN relay is not — set a monthly budget and a hard cutoff in `/v1/turn-credentials`.
-4. ❓ **Reproducible-build commitment** — defer to Phase 7 or commit to it for v1 to support attestation? Defer recommended.
-5. ❓ **Web build of the Flutter app** — does P2P need to work in browser? If yes, `flutter_webrtc`'s web bindings change the keystore story (browsers don't have hardware key storage). Recommend "mobile-only at v1, web tracked as Phase-7 stretch."
-
----
-
-## 📅 Sequencing (gated by green tests, not calendar)
-
-```
-P0 Cleanup ──► P1 Protocol ──► P2 Identity ──► P3 Server ──► P4 WebRTC ──► P5 Sim/CI ──► P6 Beta ──► P7 Stretch
-                          │                              │              │
-                          └────── golden + property tests ┴── shared ───┘
-                                  unblock P2/P4 in parallel
-```
-
-P1 and P2 can be developed in parallel after P0; P3 and P4 unblock as soon as P1's protocol is locked. P5 work begins as soon as the first P4 happy-path passes locally. **A phase is "done" only when its KPI table is populated and its DoD checklist is fully checked.**
-
----
-
-## 📚 References & follow-ups
-
-- WebRTC primer: <https://webrtc.org/getting-started/overview>
-- `flutter_webrtc` docs: <https://pub.dev/packages/flutter_webrtc>
-- coturn config: <https://github.com/coturn/coturn>
-- Ed25519 in Dart: <https://pub.dev/packages/cryptography>
-- CBOR (RFC 8949): <https://www.rfc-editor.org/rfc/rfc8949>
-- CDDL (RFC 8610): <https://www.rfc-editor.org/rfc/rfc8610>
-- JCS (RFC 8785): <https://www.rfc-editor.org/rfc/rfc8785>
-- BLAKE3: <https://github.com/BLAKE3-team/BLAKE3>
-- Will spawn follow-up docs:
-  - `docs/signaling/RUNBOOK.md` (Phase 3)
-  - `docs/signaling/PRIVACY.md` (Phase 3)
-  - `docs/signaling/SECURITY.md` (Phase 3)
-  - `docs/signaling/THREAT_MODEL.md` (Phase 3)
-  - `docs/signaling/KILL_SWITCH.md` (Phase 6)
-  - `frontend/lib/services/p2p/protocol/README.md` (Phase 1)
-  - `archive/backend-go-legacy/README.md` (Phase 0)
-
----
-
-> _"Ship the thinnest server you can defend, encrypt everything else, sign every move, time it on a monotonic clock, and let two phones do the talking."_ 🤝♟️
+> **Reminder for AI assistants editing this file:** Per [.github/copilot-instructions.md](../.github/copilot-instructions.md) and [AGENTS.md](../AGENTS.md), changing this roadmap is a doc-only change and does not require engine gates, but does require commit + push to `origin/main` once the edit is complete. Ticking a box from `[ ]` to `[x]` requires the proof tests cited beside the box to be green on `main` and the relevant KPI baseline updated; otherwise use `[~]`.
