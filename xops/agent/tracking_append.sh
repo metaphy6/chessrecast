@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# xops/agent/p2p_tracking_append.sh
+# xops/agent/tracking_append.sh
 #
-# Atomically append ONE row to agent/p2p_tracking.csv.
-# Enforces every invariant from agent/p2p_tracking.schema.md so an
+# Atomically append ONE row to agent/tracking.csv.
+# Enforces every invariant from agent/tracking.schema.md so an
 # ill-formed row cannot land. Concurrent agent runs are serialised via
 # flock(1) on the CSV file itself.
 #
