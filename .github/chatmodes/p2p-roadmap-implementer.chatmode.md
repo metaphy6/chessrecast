@@ -139,12 +139,13 @@ Before flipping the box:
 4. **Cross-bullet drift** — if the implementation file you wrote also satisfies *another* leaf in the roadmap, tick that one too in the same commit and append a separate `action=review, box=[x]` row for it. Never silently leave a satisfied bullet on `[ ]`.
 5. **Run the broader gate**: every test under `frontend/test/p2p/**` and `signaling/...` whose path overlaps the new files. If green → `action=review, status=passed`. If red → `action=gate_fail`, revert, retry once; if still red after one retry, `blocked`.
 
-### 4.7 Tick the box & commit
+### 4.7 Tick the box & stage
 
-> **DUAL OBLIGATION — both are mandatory, in the same commit, every time:**
+> **DUAL OBLIGATION — both are mandatory, staged together, every time:**
 > 1. The roadmap box in `docs/P2P_ROADMAP.md` must change from `[ ]` to `[x]`.
-> 2. A CSV row with `action=commit, roadmap_box_state=[x]` must be appended via [xops/agent/p2p_tracking_append.sh](../../xops/agent/p2p_tracking_append.sh).
-> Committing without one of these is a hard violation. The CSV row is appended **before** `git add` so that both changes land in the same atomic commit.
+> 2. A CSV row with `action=commit, roadmap_box_state=[x], commit_sha=pending` must be appended via [xops/agent/p2p_tracking_append.sh](../../xops/agent/p2p_tracking_append.sh).
+>
+> **The agent does NOT call `git commit`.** `make git` reads the CSV row, derives the conventional commit message, commits the implementation, then writes the real SHA back to the CSV in a follow-up commit.
 
 Steps (in order — do not reorder):
 
@@ -160,12 +161,14 @@ Steps (in order — do not reorder):
      --tests-run=K --tests-passed=K --tests-failed=0 \
      --proof-test-paths="<paths>"
    ```
-   (Use `commit-sha=pending`; the actual SHA will be obtainable after commit via `git rev-parse --short HEAD`.)
 3. `git add -A` (stages implementation files + roadmap change + CSV row — all three together).
-4. `git commit -m "p2p(<phase>): <one-line summary> [<run-id>]"`. **Do not push** — push accumulates for the user's `make git`.
-5. Note the SHA: `sha=$(git rev-parse --short HEAD)`. Report `committed: $sha` in chat.
+4. **Do not commit.** `make git` will:
+   - pop the tracking CSV from staging,
+   - commit implementation + roadmap with message `p2p(<scope>): <phase_title> [<run_id>]` derived from the CSV row,
+   - write the real SHA back to the CSV and commit it separately.
+5. Report `staged: <list of staged files>, pending CSV run_id: <run_id>` in chat.
 
-If the commit fails for any reason: `git restore .`, append `action=revert, status=blocked`, exit `blocked`.
+If staging fails for any reason: `git restore .`, append `action=revert, status=blocked`, exit `blocked`.
 
 ### 4.8 Rate-limit & resume protocol
 
@@ -210,14 +213,14 @@ The user runs this under "auto" model selection across GPT, Claude, and others. 
 
 ## §6 Mandatory terminal state
 
-Per [AGENTS.md](../../AGENTS.md) §2, every invocation of `/implement-roadmap`, `/review-roadmap-phase`, `/roadmap-status` must end in exactly one of:
+Every invocation of `/implement-roadmap`, `/review-roadmap-phase`, `/roadmap-status` must end in exactly one of:
 
-- **`committed`** — at least one local commit was created; report SHA(s) in chat. **Do not push** — the user triggers push via `make git`.
-- **`reverted`** — at least one leaf was attempted and rolled back; CSV has the `revert` row.
+- **`staged`** — changes and a CSV `commit_sha=pending` row are staged; `make git` will commit (message derived from CSV) and push. Report staged file count and `run_id` in chat. **Do not commit or push directly.**
+- **`reverted`** — at least one leaf was attempted and rolled back; `git restore .` was run; CSV has the `action=revert` row.
 - **`no-op`** — selection was empty or every selected leaf was already `[x]` with green proof tests.
 - **`blocked`** — a `shared_edit`, rate-limit long cooldown, or unresolvable drift halted the loop; `agent/state/checkpoint.json` written.
 
-"I'll let the user decide" / "this seemed out of scope" / "you might want to verify" are **not** acceptable terminal states.
+"I'll let the user decide" / "this seemed out of scope" / "you might want to verify" / "I'll commit this myself" are **not** acceptable terminal states.
 
 ---
 

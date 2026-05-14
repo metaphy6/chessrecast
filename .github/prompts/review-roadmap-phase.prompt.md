@@ -70,21 +70,28 @@ For each leaf, append at minimum:
 3. Zero or more `action=amend, status=passed|failed, files_changed=N` rows.
 4. One terminal `action=review, status=passed|failed|completed, roadmap_box_state=<final>` row.
 
-## Commit
+## Stage (do not commit)
 
 If any auto-amend produced changes:
 
-1. `git add -A`
-2. `git commit -m "p2p(<phase>): review fixes [<run-id>]"`
-3. Append `action=commit, status=completed, commit_sha=<short>`.
+1. Append the CSV row **before staging**:
+   ```bash
+   xops/agent/p2p_tracking_append.sh \
+     --run-id=<run_id> --command=/review-roadmap-phase --model=<model> \
+     --phase=<phase> --phase-title="<phase> review fixes" \
+     --action=commit --status=completed \
+     --commit-sha=pending --roadmap-box-state="[x]"
+   ```
+2. `git add -A` (stages all amend changes + CSV row).
+3. **Do not commit.** `make git` reads the `commit_sha=pending` row, derives the message (`p2p(<scope>): <phase> review fixes [<run_id>]`), and commits.
 
-**Do not push** — commits accumulate for `make git`.
+**Do not push** — `make git` handles commit and push.
 
 If no amend was needed and every leaf's `action=review` is `passed` → exit `no-op`.
 
 ## Mandatory terminal state
 
-Per [AGENTS.md](../../AGENTS.md) §2: `committed` / `reverted` / `no-op` / `blocked`. Report:
+Per chatmode §6: `staged` / `reverted` / `no-op` / `blocked`. Report:
 
 - phase id,
 - count of leaves audited / drift kinds found / auto-fixed / queued,
