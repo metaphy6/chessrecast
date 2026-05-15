@@ -93,6 +93,8 @@ The selector resolves to a *flat ordered list* of leaf bullets (each `[ ]` line)
 
 For each leaf in the resolved list whose roadmap box is `[ ]`, run the following ten steps. Steps are atomic — finish all of them or revert.
 
+**No-hesitation mandate.** The loop never pauses between leaves to ask for confirmation, approval, or guidance. If a leaf is blocked (3-attempt limit in §4.5), record it and continue immediately to the next leaf without stopping the session. The only legitimate pause is a rate-limit cooldown (§4.8) or a `agent/STOP` file.
+
 ### 4.1 Pre-flight (once per session, not per leaf)
 
 1. Run [xops/agent/session-bootstrap.sh](../../xops/agent/session-bootstrap.sh). If it surfaces an unresolved `agent/state/last_failure.json`, triage it first (read its `.log`, fix root cause, mark `resolved: true`), then continue.
@@ -135,7 +137,7 @@ This is a hard rule (AGENTS §3 + user requirement "tests are in place with no f
 ### 4.5 Implement (minimum diff)
 
 1. Edit only the planned files. No drive-by refactors. No comments / docstrings on untouched code (per discipline rules).
-2. Re-run the proof test; iterate until it passes. If it does not pass after **3 implementation attempts**, append `action=gate_fail, status=failed`, revert all edits (`git restore .`), file a queue entry of `kind: blocked_implementation`, exit `blocked` for this leaf, **continue with the next leaf** (do not abort the whole session for one stuck leaf).
+2. Re-run the proof test; iterate until it passes. If it does not pass after **3 implementation attempts**, append `action=gate_fail, status=failed`, revert all edits (`git restore .`), file a queue entry of `kind: blocked_implementation`, exit `blocked` for **this leaf**, **continue with the next leaf immediately** (do not abort the session, do not ask the user). After all other selected leaves are finished, attempt this leaf one additional time if time permits.
 3. Append: `action=implement, status=passed, files_changed=N, tests_added=M, tests_run=K, tests_passed=K, tests_failed=0, proof_test_paths="<paths>"`.
 
 ### 4.6 Self-review (mandatory, per leaf)
@@ -195,9 +197,15 @@ If any tool call returns 429 / "rate limit" / "quota exceeded":
 
 ### 4.9 Phase-completion review
 
-When the **last leaf in a top-level phase** flips to `[x]`, run [/review-roadmap-phase](../prompts/review-roadmap-phase.prompt.md) inline (don't ask the user) for that phase id. The review's findings (drift, weakened tests, missing files) are auto-amended in the same loop and committed as `p2p(<phase>): phase-review fixes [<run-id>]`. Only after the review row's `status=passed` is the phase considered complete.
+When the **last leaf in a top-level phase** flips to `[x]`, run [/review-roadmap-phase](../prompts/review-roadmap-phase.prompt.md) inline (don't ask the user) for that phase id. The review is **fully automated and mandatory**:
 
-This satisfies the user requirement: "agent review the phases when they complete it, and apply fixes if needed."
+1. For every finding (drift, weakened test, missing file, failing proof test), apply the prescribed fix immediately — do not ask the user before amending.
+2. Re-run all proof tests for the phase after amendments.
+3. Repeat the review loop up to **3 rounds**. Each round appends `action=amend` rows; the final round appends `action=review, status=passed`.
+4. If, after 3 rounds, any finding remains unresolved: downgrade the affected leaf from `[x]` to `[~]`, append `action=review, status=failed, drift_kind=<k>`, file a `kind: blocked_implementation` queue entry, and continue — do **not** block the rest of the phase.
+5. Only when the review row is `status=passed` **and** all proof tests are green is the phase considered complete.
+
+This satisfies the user requirement: *"agent review the phases when they complete it, and apply fixes if needed, automatically."*
 
 ### 4.10 Stop conditions
 
@@ -206,7 +214,7 @@ Halt the loop when (any one):
 - All selected leaves are `[x]` and their phase-review rows are `passed`.
 - `agent/STOP` exists (delete only on explicit user "go").
 - 3 consecutive leaves ended in `blocked`.
-- Per-session leaf budget exhausted (default 8; the prompt may override via `MAX=<N>`).
+- Per-session leaf budget exhausted **and** INCLUDE does not resolve to one or more complete top-level phases. When INCLUDE resolves to a complete top-level phase (integer token, no dot), the budget is never exhausted — the loop continues until every leaf in the phase is done.
 - The user types `stop`.
 - Hard rate-limit exit (§4.8 step 3 long cooldown).
 

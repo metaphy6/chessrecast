@@ -19,7 +19,7 @@ The user invokes this command with two **optional** arguments in `KEY=VALUE` for
 
 - `INCLUDE=<csv>` — phases / sub-phases / globs to attempt. Default: every top-level phase `0,1,…,19`.
 - `EXCLUDE=<csv>` — phases / sub-phases / globs to skip. EXCLUDE always wins on overlap.
-- `MAX=<int>` — per-session leaf budget. Default `8`. Use `MAX=999` for unattended overnight runs.
+- `MAX=<int>` — per-session leaf budget. Default `8`. **Exception: when `INCLUDE` resolves to one or more *complete* top-level phases (single integers, no dot notation), `MAX` is automatically set to the total `[ ]` leaf count of those phases plus 20 (to absorb amendment loops). The default-8 cap does not apply.** Use `MAX=999` for unattended multi-phase overnight runs.
 - `DRY_RUN=1` — produce the plan + CSV `plan` rows, but do not edit any code, run any test, commit, or push. Useful before kicking off a long run.
 
 User examples (verbatim from the request):
@@ -49,9 +49,11 @@ If the user passes any unrecognised argument, **stop immediately** and ask for c
 
 For each leaf, follow chatmode §4.2 → §4.7 verbatim. **Do not skip §4.4** (failing test first) — that is the user's "no false positives" guarantee.
 
-After each leaf finishes, decrement the `MAX` counter and check stop conditions (chatmode §4.10).
+**No-hesitation guarantee.** The loop never pauses mid-phase to ask the user for confirmation, approval, or guidance. If a leaf reaches the 3-attempt implementation limit (chatmode §4.5 step 2), record it as `blocked`, continue to the next leaf immediately, and resume this leaf at the end of the phase. Do not stop the session.
 
-After the **last leaf of a top-level phase** is committed, run [/review-roadmap-phase](review-roadmap-phase.prompt.md) inline for that phase id and append its findings as the next chunk of CSV rows + a follow-up commit if amendments are needed.
+After each leaf finishes, decrement the `MAX` counter and check stop conditions (chatmode §4.10). Budget exhaustion does **not** stop the loop when `INCLUDE` targets exactly one or more complete top-level phases — in that case the loop runs until every selected leaf is `[x]` and the phase-review passes.
+
+After the **last leaf of a top-level phase** is committed, run [/review-roadmap-phase](review-roadmap-phase.prompt.md) inline for that phase id. The review is **mandatory and fully automated**: append its findings as CSV rows, apply every auto-fixable amendment, re-run the proof tests, and repeat the review loop (up to 3 rounds) until all findings are resolved. Only when the phase-review row is `status=passed` with zero open findings is the phase considered complete. Do not ask the user before applying amendments.
 
 ## Phase completeness
 
@@ -59,10 +61,12 @@ Per the user's requirement *"be sure that a given phase is fully complete withou
 
 1. every non-EXCLUDED leaf in that phase is `[x]` in the roadmap,
 2. every cited proof test is green on a fresh run,
-3. the phase-review row has `action=review, status=passed`,
+3. the phase-review row has `action=review, status=passed` with **zero open findings**,
 4. the corresponding `commit` row's `commit_sha` exists on `origin/main`.
 
 If a rate-limit interruption blocks step 1, the loop exits **`blocked`**, writes `agent/state/checkpoint.json`, and the next invocation of this command (with the same INCLUDE/EXCLUDE args, or a re-issue of the same command) **resumes** at the recorded leaf — never re-implementing already-`[x]` leaves.
+
+**Auto-revise guarantee.** If the phase-review (§4.9) surfaces a regression, weakened test, or drift in any already-committed leaf, the agent automatically reverts that leaf's commit, re-implements from §4.4, and re-gates — without asking the user. This loop runs up to 3 times per leaf before the leaf is downgraded to `blocked` and the session exits. There is no manual intervention required.
 
 ## Drift handling
 
