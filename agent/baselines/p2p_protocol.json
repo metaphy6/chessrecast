@@ -1,0 +1,36 @@
+{
+  "version": "1.0.0",
+  "phase": "1",
+  "created_at": "2026-05-15",
+  "description": "KPI baseline for P2P wire protocol (Phase 1)",
+  "metrics": {
+    "frame_encode_p99_us": {
+      "value": 50,
+      "threshold": 50,
+      "unit": "microseconds",
+      "description": "P99 latency for frame encode (must be < 50 µs)"
+    },
+    "frame_decode_p99_us": {
+      "value": 50,
+      "threshold": 50,
+      "unit": "microseconds",
+      "description": "P99 latency for frame decode (must be < 50 µs)"
+    },
+    "move_frame_avg_bytes": {
+      "value": 48,
+      "threshold": 48,
+      "unit": "bytes",
+      "description": "Average MOVE frame wire size (must be <= 48 bytes)"
+    },
+    "frame_round_trip_p99_us": {
+      "value": 2000,
+      "threshold": 2000,
+      "unit": "microseconds",
+      "description": "P99 encode+mock-channel+decode+validate+ack-encode (must be < 2 ms)"
+    }
+  },
+  "thresholds": {
+    "regression_pct": 5,
+    "description": "Any metric worse than baseline by >5% is a KPI regression"
+  }
+}

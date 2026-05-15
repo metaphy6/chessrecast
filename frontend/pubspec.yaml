@@ -50,6 +50,9 @@ dependencies:
   sqflite: ^2.4.0
   encrypt: ^5.0.3
 
+  # Cryptography (hash, HMAC for P2P protocol)
+  crypto: ^3.0.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
