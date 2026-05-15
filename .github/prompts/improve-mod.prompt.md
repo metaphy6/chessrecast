@@ -1,9 +1,13 @@
 ---
 mode: agent
-description: Kick off the autonomous improvement loop for a single mod (or the full queue). Streams every test, stops on the first error, fixes it, restarts.
+description: Chess-engine improvement loop for ONE mod (heir|friendly_fire|kings_battle|mercenary|save_the_queen|succession|truce) or ALL. Streams every test, stops on the first error, fixes it, restarts. NOT for the P2P roadmap — use /implement-roadmap for that.
 ---
 
 # Improve mod: ${input:mod:heir|friendly_fire|kings_battle|mercenary|save_the_queen|succession|truce|ALL}
+
+> **Scope check (read first).** This command **only** runs the autonomous chess-engine improvement loop for one of the seven mods (heir, friendly_fire, kings_battle, mercenary, save_the_queen, succession, truce) or `ALL`. State lives in `agent/queue.yaml`, `agent/baselines/<mod>.json`, `agent/reports/<mod>/`.
+>
+> **Do NOT** confuse with [/implement-roadmap](implement-roadmap.prompt.md) — that command walks `docs/P2P_ROADMAP.md` leaves for the P2P / backend-cleanup migration and uses a different allow-list, tracking schema, and exit contract. If the user's request mentions `INCLUDE=`/`EXCLUDE=` phase tokens, P2P, the legacy backend, or `docs/P2P_ROADMAP.md`, stop and run `/implement-roadmap` instead.
 
 Operate per the `chess-mod-improver` chat mode and `.github/copilot-instructions.md`. In particular, honour the *Game-quality charter*, the *Take-initiative directive*, and the *Live test-watchdog protocol*.
 

@@ -1,9 +1,13 @@
 ---
 mode: agent
-description: Walk leaves of docs/P2P_ROADMAP.md selected by INCLUDE/EXCLUDE filters; for each, write a failing proof test, implement until it passes, self-review, tick the box, log to agent/p2p_tracking.csv, commit & push. Resumable on rate limits.
+description: P2P-roadmap migration only. Walk leaves of docs/P2P_ROADMAP.md selected by INCLUDE/EXCLUDE filters; for each, write a failing proof test, implement until it passes, self-review, tick the box, append a row to agent/tracking.csv, stage (no commit, no push). Resumable on rate limits. NOT for chess-mod work — use /improve-mod for that.
 ---
 
 # /implement-roadmap
+
+> **Scope check (read first).** This command **only** advances `docs/P2P_ROADMAP.md` leaves for the P2P / backend-cleanup migration. It is **NOT** the chess-engine improvement loop.
+>
+> **Do NOT** confuse with [/improve-mod](improve-mod.prompt.md) or [/improve-mod-all](improve-mod-all.prompt.md) — those operate on `frontend/native/engine/` per-mod evaluation/heuristics and the `agent/queue.yaml` mod queue. They share **no state, no allow-list, and no exit contract** with this command. If the user's request mentions a chess mod (heir, friendly_fire, kings_battle, mercenary, save_the_queen, succession, truce), audit batches, KPIs, or `agent/queue.yaml`, stop and run `/improve-mod` instead.
 
 Operate per the [`p2p-roadmap-implementer`](../chatmodes/p2p-roadmap-implementer.chatmode.md) chat mode and [AGENTS.md](../../AGENTS.md). Do not deviate.
 

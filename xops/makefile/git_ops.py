@@ -15,6 +15,7 @@ Commands:
 """
 
 import csv
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -68,6 +69,37 @@ def _pending_log() -> list[str]:
     return [l for l in raw.splitlines() if l.strip()]
 
 
+# ── conventional-commits enforcement ───────────────────────────────────────────
+# type(scope)?: description    (scope and ! are optional)
+_CC_TYPES = (
+    "feat", "fix", "docs", "style", "refactor", "perf", "test",
+    "chore", "ci", "build", "auto", "p2p", "revert",
+)
+_CC_RE = re.compile(
+    r"^(?P<type>" + "|".join(_CC_TYPES) + r")"
+    r"(?:\((?P<scope>[a-z0-9._\-/]+)\))?"
+    r"(?P<bang>!)?"
+    r": (?P<desc>\S.*\S|\S)$"
+)
+
+
+def _is_conventional(msg: str) -> bool:
+    if not msg:
+        return False
+    head = msg.splitlines()[0].strip()
+    return bool(_CC_RE.match(head))
+
+
+def _normalize_to_conventional(msg: str, fallback_type: str = "chore",
+                                fallback_scope: str = "workspace") -> str:
+    """If `msg` is already conventional, return as-is. Otherwise wrap it."""
+    if _is_conventional(msg):
+        return msg
+    head = (msg.splitlines()[0] if msg else "").strip() or "update"
+    print(f"{WARN} Commit message not conventional — normalising: {head!r}")
+    return f"{fallback_type}({fallback_scope}): {head}"
+
+
 # ── CSV: read pending rows ──────────────────────────────────────────────────────
 def _pending_csv() -> list[dict]:
     """
@@ -106,7 +138,11 @@ def _msg_from_csv(row: dict) -> str:
     """
     explicit = (row.get("commit_message") or "").strip()
     if explicit:
-        return explicit
+        return _normalize_to_conventional(
+            explicit,
+            fallback_type="auto",
+            fallback_scope=(row.get("component") or "workspace").split("/")[0] or "workspace",
+        )
 
     # ── fallback: derive from phase / phase_title / run_id ──────────────────
     phase  = (row.get("phase")       or "").strip()
@@ -188,13 +224,29 @@ def _auto_msg(files: list[str]) -> str:
     if not files:
         return "chore(workspace): sync workspace [auto]"
     names   = [Path(f).name for f in files[:3]]
-    summary = ", ".join(names) + (f" (+{len(files)-3} more)" if len(files) > 3 else "")
+    summary = " ".join(names) + (f" (+{len(files)-3} more)" if len(files) > 3 else "")
     ts      = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    return f"{_auto_type(files)}({_auto_scope(files)}): {summary} [auto-{ts}]"
+    msg     = f"{_auto_type(files)}({_auto_scope(files)}): update {summary} [auto-{ts}]"
+    # Defensive: ensure the auto-derived line is itself conventional.
+    return _normalize_to_conventional(msg, fallback_type=_auto_type(files),
+                                      fallback_scope=_auto_scope(files))
 
 
 # ── display helpers ────────────────────────────────────────────────────────────
 WIDTH = 60
+
+
+def _dirty_paths(dirty: list[str]) -> list[str]:
+    """Extract clean file paths from `git status --short` lines."""
+    paths = []
+    for line in dirty:
+        if len(line) > 3 and line[2] == " ":
+            path = line[3:].strip()
+            # Renames: "old -> new" — take the new path
+            if " -> " in path:
+                path = path.split(" -> ", 1)[1].strip()
+            paths.append(path)
+    return paths
 
 
 def _section(icon: str, title: str) -> None:
@@ -222,35 +274,60 @@ def dry():
     csv_rows    = _pending_csv()
     git_log     = _pending_log()
 
+    # Effective file set: everything `push()` would include after `git add -A`.
+    # Preserves order, deduplicates (staged paths already appear in dirty_list
+    # as "M " / "A " prefix lines, so use dirty_paths as the canonical list).
+    all_paths = list(dict.fromkeys(_dirty_paths(dirty_list) + staged_list))
+
     # — uncommitted / staged files —
     if dirty_list:
-        _section(FILES, "Uncommitted changes")
+        _section(FILES, "Uncommitted changes  (would be staged by `make git`)")
         for f in dirty_list:
             _file_line(f)
     else:
         print(f"\n{NONE}  No uncommitted changes")
 
-    # — commit message preview — show all pending rows —
+    # — commit message preview — always show what commits would be created —
     if csv_rows:
-        _section(CSV_E, f"Pending commits (tracking.csv — {len(csv_rows)} row(s))")
+        _section(CSV_E, f"Commits that would be created  (tracking.csv — {len(csv_rows)} row(s))")
         for i, r in enumerate(csv_rows, start=1):
             msg = _msg_from_csv(r)
-            label = "(all staged files)" if i == 1 else "(tracking update)"
-            print(f"   {ARROW}  [{i}] {msg}  {label}")
-            print(f"         run_id={r.get('run_id','')}  "
+            label = "(all staged/dirty files)" if i == 1 else "(tracking.csv update)"
+            print(f"   {ARROW}  [{i}] {msg}")
+            print(f"         {label}  run_id={r.get('run_id','')}  "
                   f"component={r.get('component','')}  "
                   f"phase={r.get('phase','')}")
-    elif staged_list:
-        _section(FILE, "Commit message  (auto-derived — no pending CSV rows)")
-        print(f"   {ARROW}  {_auto_msg(staged_list)}")
-
-    # — local commits waiting to push —
-    if git_log:
-        _section(COMMIT, "Local commits pending push")
-        for c in git_log:
-            print(f"   {CHECK}  {c}")
+        # Final tracking SHA-update commit
+        run_id_label = csv_rows[0].get("run_id", "auto")
+        print(f"   {ARROW}  [+] chore(tracking): sha update [{run_id_label}]")
+        print(f"         (tracking.csv SHA back-fill)")
+    elif all_paths:
+        _section(FILE, "Commit that would be created  (auto-derived — no pending CSV rows)")
+        print(f"   {ARROW}  {_auto_msg(all_paths)}")
     else:
-        print(f"\n{NONE}  Nothing to push — origin/main is up to date")
+        print(f"\n{NONE}  No changes and no pending CSV rows — nothing to commit")
+
+    # — what would be pushed —
+    # Tally commits that would be created from dirty/staged changes.
+    new_commits: list[str] = []
+    if csv_rows:
+        for i, r in enumerate(csv_rows, start=1):
+            new_commits.append(_msg_from_csv(r))
+        run_id_label = csv_rows[0].get("run_id", "auto")
+        new_commits.append(f"chore(tracking): sha update [{run_id_label}]")
+    elif all_paths:
+        new_commits.append(_auto_msg(all_paths))
+
+    push_queue = new_commits + git_log   # new commits land first, then existing ones
+
+    if push_queue:
+        _section(PUSH, f"Would be pushed to origin/main  ({len(push_queue)} commit(s))")
+        for c in new_commits:
+            print(f"   {ARROW}  {c}  (new)")
+        for c in git_log:
+            print(f"   {CHECK}  {c}  (already committed)")
+    else:
+        print(f"\n{NONE}  Nothing to commit or push — working tree clean, origin/main up to date")
 
 
 def push():
@@ -318,21 +395,30 @@ def push():
                 print(f"   {ARROW}  {row_msg}")
                 _write_sha({row["run_id"]}, sha)   # same sha — these rows share the impl commit
                 _run(["git", "add", CSV_REL])
+                # Skip if nothing actually changed (CSV may already have been committed
+                # in a previous iteration). Empty commits would abort push entirely.
+                staged_now = _staged()
+                if not staged_now:
+                    print(f"   {NONE}  No CSV delta for row {i} — skipping commit.")
+                    continue
                 r = _run(["git", "commit", "-m", row_msg])
                 if r.returncode != 0:
-                    print(f"\n{ERR}  Tracking commit {i} failed.")
-                    sys.exit(r.returncode)
+                    print(f"\n{WARN}  Tracking commit {i} failed; continuing to push.")
+                    continue
                 sha = _out(["git", "rev-parse", "--short", "HEAD"])
                 print(f"   {SHA}  {sha}")
 
-            # Final: commit remaining tracking.csv SHA updates
+            # Final: commit remaining tracking.csv SHA updates (only if something is staged).
             _run(["git", "add", CSV_REL])
-            run_id_label = first_row.get("run_id", "auto")
-            csv_msg = f"chore(tracking): sha update [{run_id_label}]"
-            r = _run(["git", "commit", "-m", csv_msg])
-            if r.returncode == 0:
-                sha2 = _out(["git", "rev-parse", "--short", "HEAD"])
-                print(f"\n{SHA}  CSV update: {sha2}  — {csv_msg}")
+            if _staged():
+                run_id_label = first_row.get("run_id", "auto")
+                csv_msg = f"chore(tracking): sha update [{run_id_label}]"
+                r = _run(["git", "commit", "-m", csv_msg])
+                if r.returncode == 0:
+                    sha2 = _out(["git", "rev-parse", "--short", "HEAD"])
+                    print(f"\n{SHA}  CSV update: {sha2}  — {csv_msg}")
+                else:
+                    print(f"{WARN}  Final CSV update commit failed; continuing to push.")
 
         else:
             # ── Fallback mode ────────────────────────────────────────────────
