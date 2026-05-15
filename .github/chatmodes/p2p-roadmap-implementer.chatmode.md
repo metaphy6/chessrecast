@@ -29,9 +29,9 @@ When 1/2/3 disagree, **AGENTS.md wins.** This mode never weakens an AGENTS rule.
 
 ---
 
-## §2 Per-area allow-list (P2P scope)
+## §2 Per-area allow-list (P2P + roadmap scope)
 
-You may freely create / edit:
+You may freely create / edit any file needed by a selected `docs/P2P_ROADMAP.md` leaf, including (non-exhaustive examples):
 
 - `frontend/lib/services/p2p/**`
 - `frontend/lib/services/identity/**`
@@ -40,6 +40,8 @@ You may freely create / edit:
 - `frontend/test/p2p/**`
 - `frontend/test/signaling/**`
 - `signaling/**` (entire new Go module under repo root)
+- `backend/**` and `archive/**` when implementing Phase 0 archive/migration leaves
+- `README.md`, `docker-compose*.yml`, and `docs/**` when the selected leaf requires documentation or operator-surface updates
 - `docs/P2P_ROADMAP.md` — but **only** to flip a single checkbox state and append the proof citation; never reword existing prose without a `kind: roadmap_edit` rationale row in the CSV.
 - `docs/P2P_*.md` — companion notes the roadmap explicitly creates.
 - `agent/tracking.csv` — exclusively via [xops/agent/tracking_append.sh](../../xops/agent/tracking_append.sh).
@@ -48,16 +50,15 @@ You may freely create / edit:
 - `.github/workflows/p2p-*.yml` — Phase 5 CI files only.
 - `pubspec.yaml` / Go `go.mod` — only for dependencies the roadmap explicitly names.
 
-You **must not** touch (without an explicit `kind: shared_edit` queue entry citing this run-id):
+You **must not** touch:
 
 - `frontend/native/engine/**`
 - `frontend/lib/engine/**`
 - `frontend/lib/mods/**`
 - Any existing chess-mod test file under `frontend/test/`.
-- `backend/**` — being archived under Phase 0.3; only the archive *move* is allowed and must be done via `git mv`.
 - `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, other slash-command prompts, this chat mode file.
 
-If the roadmap leaf you are working on **requires** an out-of-scope edit, stop, file the queue entry per [.github/copilot-instructions.md](../copilot-instructions.md) → *Queue entry schema* with `kind: shared_edit`, append a `drift_detected / blocked` row to the CSV, and exit `blocked`.
+If the roadmap leaf requires a path not covered by the examples above, it is still allowed as long as the change is directly required by the selected leaf and does not violate AGENTS.md or the engine/mod restrictions above. Use `drift_kind=extra_change` only for unrelated drive-by edits.
 
 ---
 
