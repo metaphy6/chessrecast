@@ -73,7 +73,7 @@ def _pending_log() -> list[str]:
 # type(scope)?: description    (scope and ! are optional)
 _CC_TYPES = (
     "feat", "fix", "docs", "style", "refactor", "perf", "test",
-    "chore", "ci", "build", "auto", "p2p", "revert",
+    "chore", "ci", "build", "revert",
 )
 _CC_RE = re.compile(
     r"^(?P<type>" + "|".join(_CC_TYPES) + r")"
@@ -150,18 +150,18 @@ def _msg_from_csv(row: dict) -> str:
     run_id = (row.get("run_id")      or "").strip()
 
     if not phase:
-        print(f"{WARN} CSV row missing 'phase' — using fallback scope 'p2p'")
-        phase = "p2p"
+        print(f"{WARN} CSV row missing 'phase' — using fallback scope 'workspace'")
+        phase = "workspace"
     if not title:
         print(f"{WARN} CSV row missing 'phase_title' — using fallback 'update'")
         title = "update"
     if not run_id:
         print(f"{WARN} CSV row missing 'run_id' — no run-id suffix")
 
-    # Strip leading 'p2p-' to avoid 'p2p(p2p-phase-1)'
-    scope  = phase[len("p2p-"):] if phase.lower().startswith("p2p-") else phase
+    # Build a valid scope: keep 'p2p-' prefix so P2P work is identifiable
+    scope  = phase if phase.lower().startswith("p2p-") else f"p2p-{phase}"
     suffix = f" [{run_id}]" if run_id else ""
-    return f"p2p({scope}): {title}{suffix}"
+    return f"chore({scope}): {title}{suffix}"
 
 
 # ── CSV: write real SHA back ────────────────────────────────────────────────────

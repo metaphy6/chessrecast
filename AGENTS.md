@@ -62,7 +62,7 @@ You are **forbidden** from inventing a fifth state. If gates are green and the d
 
 Forbidden git operations under all circumstances: `git commit`, `git push`, `--force`, `--force-with-lease`, `git reset --hard` on already-pushed commits, `--no-verify`, rewriting published history, deleting `main`.
 
-**Commit message format:** every `commit_message` field in tracking.csv **must** follow [Conventional Commits](https://www.conventionalcommits.org/) — `type(scope): description [run_id]`. Valid types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`, `build`, `auto`. Engine-mod work uses `auto(<mod>)`; P2P work uses `p2p(<phase>)`; tooling uses `chore(<area>)`.
+**Commit message format:** every `commit_message` field in tracking.csv **must** follow [Conventional Commits](https://www.conventionalcommits.org/) — `type(scope): description [run_id]`. Valid types (standard spec only): `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`, `ci`, `build`, `revert`. Engine-mod fixes use `fix(<mod>)` or `perf(<mod>)`; P2P feature work uses `feat(p2p-<phase>)` or `chore(p2p-<phase>)`; tooling uses `chore(<area>)`. The types `auto` and `p2p` are **not** valid — they violate the conventional-commits spec and are rejected by `make git`.
 
 ## 3. Tests move with code — no exceptions
 

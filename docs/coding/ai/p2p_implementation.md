@@ -39,7 +39,7 @@
    - implement minimum diff inside the per-area allow-list,
    - re-run the test until green; if not green after 3 attempts → revert, file `kind: blocked_implementation`, move on,
    - self-review (spec match, test honesty, allow-list, cross-bullet drift),
-   - flip the box, commit with `p2p(<phase>): <summary> [<run-id>]`, `git pull --ff-only`, push,
+   - flip the box, commit with `feat(p2p-<phase>): <summary> [<run-id>]` or `chore(p2p-<phase>): <summary> [<run-id>]`, `git pull --ff-only`, push,
    - log every action to `agent/p2p_tracking.csv` via the appender script.
 3. When the **last leaf in a top-level phase** ticks, the loop runs `/review-roadmap-phase` inline for that phase before moving on.
 4. End in one of `pushed` / `reverted` / `no-op` / `blocked` per [AGENTS.md](../../../AGENTS.md) §2.
