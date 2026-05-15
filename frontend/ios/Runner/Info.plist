@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-</dict>
-</plist>
+        <!-- At-rest file protection class for the app's documents directory.
+             NSFileProtectionCompleteUntilFirstUserAuthentication keeps files
+             accessible after first unlock but encrypted while the device is
+             locked before first boot, per roadmap §0.6.bullet-3. -->
+        <key>NSFileProtectionKey</key>
+        <string>NSFileProtectionCompleteUntilFirstUserAuthentication</string>

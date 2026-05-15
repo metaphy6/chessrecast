@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Backup exclusion rules for Android Auto Backup.
+     Excludes all P2P-owned files in the app's documents directory from cloud
+     backups, per roadmap §0.6.bullet-3. -->
+<full-backup-content>
+    <!-- Exclude the entire app data from backups.
+         Covers: saved_games.db, saved_games_enc.db, p2p/forensics/**,
+         p2p/.forensic_kek -->
+    <exclude domain="file" path="." />
+    <exclude domain="database" path="." />
+    <exclude domain="sharedpref" path="." />
+</full-backup-content>
