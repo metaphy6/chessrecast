@@ -843,6 +843,17 @@
   blunder_threshold_cp: 0
   notes: "Completed 2026-05-05. Added ChessBoard.toNativeFEN() with full fields, fixed explicit '-' castling parse semantics, switched native bridge to toNativeFEN(), and added legal move normalization/salvage for native special-move metadata mismatches. Gates passed: native_engine_fen_serialization_test, king_castling_policy_regression_test, heir_engine_regression_test, mercenary_engine_regression_test, mercenary_rule_mechanics_test, plus fresh 50-opening Heir and Mercenary audits."
 
+- id: p2p-phase0-archive-backend-shared-edit-20260515
+  mod: shared
+  status: blocked
+  kind: shared_edit
+  phase: strategy
+  severity: med
+  evidence:
+    report: docs/P2P_ROADMAP.md#L318
+  blunder_threshold_cp: 0
+  notes: "Phase 0.3 /implement-roadmap INCLUDE=0 crosses the p2p allow-list because the archive step requires root README.md and docker-compose edits in addition to the backend move. Re-open only after shared_edit approval is granted for the phase-0 archive step."
+
 # ===========================================================================
 # Reference / examples (status: example — agent skips). Kept here so authors
 # of new tasks can copy-paste a known-good shape.
