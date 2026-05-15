@@ -317,9 +317,9 @@ Replace the current single-player + legacy backend matchmaking with **direct, en
 
 ### 0.3 Archive the Go backend
 
-- [ ] `git mv backend/ archive/backend-go-legacy/` and add `archive/README.md` explaining the freeze. **Proof:** `git log --diff-filter=R -- backend/` shows the rename; CI fails if `backend/` reappears.
-- [ ] Remove `docker-compose.yml` from repo root (was pulling the legacy backend); replace with `docker-compose.signaling.yml` (empty stub for Phase 3). **Proof:** `docker compose -f docker-compose.yml config` no longer references the legacy backend.
-- [ ] Update [README.md](../README.md) to remove "run the backend" instructions and add a "P2P preview not yet shipped" banner.
+- [x] `git mv backend/ archive/backend-go-legacy/` and add `archive/README.md` explaining the freeze. **Proof:** `git log --diff-filter=R -- backend/` shows the rename; CI fails if `backend/` reappears. (sha pending, [frontend/test/legacy/backend_archive_phase0_test.dart](../frontend/test/legacy/backend_archive_phase0_test.dart))
+- [x] Remove `docker-compose.yml` from repo root (was pulling the legacy backend); replace with `docker-compose.signaling.yml` (empty stub for Phase 3). **Proof:** `docker compose -f docker-compose.yml config` no longer references the legacy backend. (sha pending, [frontend/test/legacy/docker_compose_signaling_stub_test.dart](../frontend/test/legacy/docker_compose_signaling_stub_test.dart))
+- [x] Update [README.md](../README.md) to remove "run the backend" instructions and add a "P2P preview not yet shipped" banner. (sha pending, [frontend/test/legacy/readme_p2p_preview_banner_test.dart](../frontend/test/legacy/readme_p2p_preview_banner_test.dart))
 
 ### 0.4 Quality attributes
 

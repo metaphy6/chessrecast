@@ -1,0 +1,3 @@
+# Phase 0.3 signaling compose stub.
+# Real signaling/TURN services are defined in later roadmap phases.
+services: {}

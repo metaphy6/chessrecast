@@ -1,6 +1,8 @@
 # ♟️ ChessRecast
 
 > **Chess variants with a native C runtime engine, 8 original game modes, and a full-stack mobile platform.**
+>
+> **P2P preview not yet shipped.** Legacy backend runtime instructions were retired during Phase 0 cleanup.
 
 ChessRecast reinvents chess with creative rule variants like Mercenary (king-like pawns), Heir (promotable kings), Truce (no-attack opening phase), and more. The Flutter app now runs engine search through the native C engine in `frontend/native/engine`, while `frontend/lib/engine` is the Dart bridge and async wrapper layer around that runtime.
 
@@ -30,7 +32,7 @@ chessrecast/
 ├── 📱 frontend/          Flutter mobile app (Android / iOS / Web)
 │   ├── lib/engine/        Native-engine bridge and async wrapper
 │   └── native/engine/     C engine (alpha-beta, eval, heuristics)
-├── 🖥️  backend/           Go API server + PostgreSQL + Redis (legacy)
+├── 🗄️  archive/backend-go-legacy/  Frozen legacy Go backend
 ├── 🌐 signaling/          Go P2P signalling server (in progress)
 ├── 🤖 agent/              Autonomous-loop state, queue, baselines, reports
 ├── 🔧 xops/               Operational scripts
@@ -47,8 +49,8 @@ Short note: Flutter runtime engine search is native-only. There is no Dart searc
 |-------|------------|
 | **Mobile** | Flutter 3.x · Dart · GetX |
 | **Engine** | Native C engine · Alpha-Beta · Iterative Deepening · Transposition Tables |
-| **Backend** | Go 1.21 · Gin · PostgreSQL 18 · Redis 8 · WebSocket |
-| **Infra** | Docker · docker-compose |
+| **Backend** | Signaling server (in progress) + archived legacy Go backend |
+| **Infra** | Docker |
 
 ---
 
@@ -57,8 +59,6 @@ Short note: Flutter runtime engine search is native-only. There is no Dart searc
 ### Prerequisites
 
 - [Flutter SDK](https://flutter.dev/docs/get-started/install) (3.x+)
-- [Go](https://go.dev/dl/) (1.21+)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - [Android Studio](https://developer.android.com/studio) (emulator) or a physical device
 
 ---
@@ -89,29 +89,10 @@ flutter build apk --release
 
 ---
 
-### 🖥️ 2. Go Backend
+### 🗄️ 2. Legacy Backend Status
 
-The backend runs via Docker Compose — PostgreSQL, Redis, and the API server all start together:
-
-```bash
-cd backend
-docker compose up -d --build
-```
-
-This starts:
-- **API server** → `http://localhost:8080` (REST + WebSocket)
-- **Metrics** → `http://localhost:9090`
-- **PostgreSQL** → `localhost:5432` (main DB)
-- **PostgreSQL Logs** → `localhost:5433` (game logs DB)
-- **Redis** → `localhost:6379`
-
-**Stop everything:**
-```bash
-cd backend
-docker compose down
-```
-
-> VS Code tasks are also available: `Backend: Start Docker Compose`, `Backend: Stop Docker Compose`, etc.
+The historical Go backend is archived at `archive/backend-go-legacy/` and is no longer part of the active run path.
+Current multiplayer work tracks the P2P/signaling migration in `docs/P2P_ROADMAP.md`.
 
 ---
 
@@ -164,10 +145,10 @@ frontend/lib/
 
 ---
 
-## 🖥️ Backend Structure
+## 🗄️ Archived Backend Structure
 
 ```
-backend/
+archive/backend-go-legacy/
 ├── docker-compose.yml              # PostgreSQL + Redis + API
 ├── Dockerfile                      # Go API build
 ├── go.mod
@@ -184,8 +165,7 @@ backend/
 │   └── storage/                    # PostgreSQL + Redis
 ```
 
-**API:** `http://localhost:8080` — REST endpoints + WebSocket at `/ws`  
-**Databases:** Main app DB (`:5432`) + Game logs DB (`:5433`)
+This tree is retained for migration reference only.
 
 ---
 
@@ -211,10 +191,6 @@ Pre-configured tasks in `.vscode/tasks.json`:
 | Task | Description |
 |------|-------------|
 | `start-emulator-Pixel9ProXL` | Launch Android emulator |
-| `Backend: Start Docker Compose` | Start Go API + DB + Redis |
-| `Backend: Stop Docker Compose` | Stop backend services |
-| `Backend: Restart Docker Compose` | Restart backend services |
-| `Backend: View Docker Logs` | Tail backend logs |
 | `Frontend: Rebuild Native Engine` | Rebuild the native C engine (`cmake --build build/native/linux`) |
 
 ---
@@ -222,13 +198,11 @@ Pre-configured tasks in `.vscode/tasks.json`:
 ## 🛠️ Development Workflow
 
 ```bash
-# 1. Start backend
-cd backend && docker compose up -d --build
-# 2. Build native C engine
+# 1. Build native C engine
 cd frontend && cmake --build build/native/linux
-# 3. Start emulator (or use VS Code task: start-emulator-Pixel9ProXL)
+# 2. Start emulator (or use VS Code task: start-emulator-Pixel9ProXL)
 emulator -avd Pixel9ProXL
-# 4. Run Flutter app
+# 3. Run Flutter app
 cd frontend && flutter run
 
 ```

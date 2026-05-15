@@ -1,12 +1,12 @@
 {
-  "run_id": "stq-gate1-regression-game23-r1b--20260508T000313Z-978105",
-  "tag": "stq-gate1-regression-game23-r1b-",
+  "run_id": "p2p-0-4-bullet-1-posttest3--20260515T090356Z-480978",
+  "tag": "p2p-0-4-bullet-1-posttest3-",
   "exit_code": 1,
-  "failed_at": "2026-05-08T03:03:19+03:00",
-  "cwd": "/home/serhatakbak/code/mine/chessrecast/frontend",
-  "cmd": "env CHESSRECAST_NATIVE_ENGINE_LIB=/home/serhatakbak/code/mine/chessrecast/frontend/build/native/linux/libchess_engine.so LD_LIBRARY_PATH=/home/serhatakbak/code/mine/chessrecast/frontend/build/native/linux:/home/serhatakbak/code/mine/chessrecast/frontend flutter test test/save_the_queen_engine_regression_test.dart -r compact",
-  "log": "/tmp/agent-runs/stq-gate1-regression-game23-r1b--20260508T000313Z-978105.log",
-  "cmd_file": "/tmp/agent-runs/stq-gate1-regression-game23-r1b--20260508T000313Z-978105.cmd",
+  "failed_at": "2026-05-15T12:04:25+03:00",
+  "cwd": "/home/tech/code/chessrecast",
+  "cmd": "bash -lc cd frontend && CHESSRECAST_NATIVE_ENGINE_LIB=$PWD/build/native/linux/libchess_engine.so LD_LIBRARY_PATH=$PWD/build/native/linux:$PWD flutter test test/perf/saved_games_local_perf_test.dart -r compact",
+  "log": "/tmp/agent-runs/p2p-0-4-bullet-1-posttest3--20260515T090356Z-480978.log",
+  "cmd_file": "/tmp/agent-runs/p2p-0-4-bullet-1-posttest3--20260515T090356Z-480978.cmd",
   "resolved": true,
   "hint": "Diagnose via the log, fix the root cause, then mark resolved:true (or delete this file) and resume the interrupted task."
 }
