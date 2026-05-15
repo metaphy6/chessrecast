@@ -1,5 +1,5 @@
 ---
-mode: p2p-roadmap-implementer
+mode: agent
 description: Walk leaves of docs/P2P_ROADMAP.md selected by INCLUDE/EXCLUDE filters; for each, write a failing proof test, implement until it passes, self-review, tick the box, log to agent/p2p_tracking.csv, commit & push. Resumable on rate limits.
 ---
 

@@ -1,5 +1,5 @@
 ---
-mode: p2p-roadmap-implementer
+mode: agent
 description: Re-audit one P2P roadmap phase that has been ticked. Re-runs every cited proof test, scans for drift (weakened tests, missing files, stale box, out-of-scope edits, CSV tamper), auto-amends what it can, files queue entries for what it can't, commits & pushes the fixes.
 ---
 

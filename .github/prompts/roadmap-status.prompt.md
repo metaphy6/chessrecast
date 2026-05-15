@@ -1,5 +1,5 @@
 ---
-mode: p2p-roadmap-implementer
+mode: agent
 description: Read-only status report on P2P roadmap progress. Counts ticked vs pending leaves per phase, flags drift candidates, lists rate-limit checkpoints and recent activity, and prints the next 5 leaves the implementer would attempt.
 ---
 
