@@ -26,7 +26,11 @@ void main() {
 
   test('README contains P2P preview banner and no backend run commands', () {
     final readme = File('$repoRoot/README.md');
-    expect(readme.existsSync(), isTrue, reason: 'README.md must exist at repo root.');
+    expect(
+      readme.existsSync(),
+      isTrue,
+      reason: 'README.md must exist at repo root.',
+    );
 
     final content = readme.readAsStringSync();
     expect(

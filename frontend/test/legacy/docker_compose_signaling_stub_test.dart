@@ -36,7 +36,8 @@ void main() {
     expect(
       signalingCompose.existsSync(),
       isTrue,
-      reason: 'Root docker-compose.signaling.yml must exist as the Phase 0.3 stub.',
+      reason:
+          'Root docker-compose.signaling.yml must exist as the Phase 0.3 stub.',
     );
   });
 }
