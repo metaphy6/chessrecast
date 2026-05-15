@@ -40,10 +40,15 @@ You may freely create / edit any file needed by a selected `docs/P2P_ROADMAP.md`
 - `frontend/test/p2p/**`
 - `frontend/test/signaling/**`
 - `signaling/**` (entire new Go module under repo root)
-- `backend/**` and `archive/**` when implementing Phase 0 archive/migration leaves
-- `README.md`, `docker-compose*.yml`, and `docs/**` when the selected leaf requires documentation or operator-surface updates
+- **Phase 0 archive work (explicitly in-scope, no shared_edit required):**
+  - `backend/**` (legacy backend code, to be moved/archived)
+  - `archive/**` (destination for legacy artefacts)
+  - `docker-compose.yml` (root level; to be removed or replaced per Phase 0.3)
+  - `docker-compose.signaling.yml` (new signaling server compose)
+  - Root `README.md` (to update per Phase 0.3 freeze and P2P preview notice)
 - `docs/P2P_ROADMAP.md` — but **only** to flip a single checkbox state and append the proof citation; never reword existing prose without a `kind: roadmap_edit` rationale row in the CSV.
 - `docs/P2P_*.md` — companion notes the roadmap explicitly creates.
+- `docs/**` (architecture and operational documentation for P2P phases)
 - `agent/tracking.csv` — exclusively via [xops/agent/tracking_append.sh](../../xops/agent/tracking_append.sh).
 - `agent/baselines/p2p_*.json` — for Phase 6/17 KPI baselines.
 - `agent/reports/p2p/**` — proof artefacts (created on demand).
@@ -57,8 +62,11 @@ You **must not** touch:
 - `frontend/lib/mods/**`
 - Any existing chess-mod test file under `frontend/test/`.
 - `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, other slash-command prompts, this chat mode file.
+- `.github/copilot-instructions.md` (engine/mod rules remain the exclusive domain of that file).
 
-If the roadmap leaf requires a path not covered by the examples above, it is still allowed as long as the change is directly required by the selected leaf and does not violate AGENTS.md or the engine/mod restrictions above. Use `drift_kind=extra_change` only for unrelated drive-by edits.
+**Exception to the rule above:** Phase 0 is a one-time legacy cleanup. The explicit path list above for Phase 0 (backend, archive, root README.md, docker-compose.yml) is comprehensive and **requires no additional shared_edit approvals**.
+
+If the roadmap leaf requires a path not covered by the examples above and is **not** Phase 0.1–0.6 work, it is still allowed as long as the change is directly required by the selected leaf and does not violate AGENTS.md or the engine/mod restrictions above. Use `drift_kind=extra_change` only for unrelated drive-by edits.
 
 ---
 

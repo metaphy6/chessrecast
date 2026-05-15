@@ -178,6 +178,21 @@ The per-mod allow-list above (Hard rules → 2) governs *engine strength* tasks.
 
 Forbidden in every area without a `kind: shared_edit` queue entry: `frontend/native/engine/search/search.c`, `frontend/native/engine/eval/eval.c`, `frontend/native/engine/bridge.c` outside `*_refine_result` blocks, `frontend/lib/engine/engine.dart`, `frontend/lib/engine/native.dart`, the chat mode file, the slash-command prompts, the `_audit_batch_test.dart` skip flags.
 
+### P2P Roadmap Phase 0 — Special exception (legacy cleanup, no shared_edit required)
+
+Phase 0 of [docs/P2P_ROADMAP.md](../docs/P2P_ROADMAP.md) is a one-time cleanup of the legacy backend and local-state migration. Per the `/implement-roadmap` chat mode (§2), Phase 0 work explicitly **does not require** `kind: shared_edit` queue entries for the following paths and operations:
+
+- `backend/**` (legacy Go backend files; to be moved/archived per Phase 0.3)
+- `archive/**` (destination directory for legacy code)
+- Root-level `docker-compose.yml` (to be removed or replaced per Phase 0.3)
+- `docker-compose.signaling.yml` (new signaling server compose file)
+- Root `README.md` (to add P2P preview notice and remove legacy backend instructions per Phase 0.3)
+- `docs/P2P_*.md` (new P2P documentation branches per roadmap leaves)
+- `frontend/lib/services/saved_games_local.dart` and related local-storage decoupling per Phase 0.2
+- Schema migrations and retention tests under `frontend/test/services/**` per Phase 0.6
+
+This exception applies **only** to Phase 0.1–0.6 boxes in the roadmap. All other cross-cutting changes must respect the per-area allow-list and file `kind: shared_edit` entries when venturing outside their zone.
+
 ## Difficulty levels (target)
 
 The engine exposes five tiers in `frontend/lib/engine/engine.dart` (`EngineLevel`):
