@@ -13,11 +13,14 @@ void main() {
       return b;
     }
 
-    test('honest path: verifyReveal returns true for matching r and commit', () {
-      final r = _randomBytes(32);
-      final commit = ColorFlip.computeCommit(r);
-      expect(ColorFlip.verifyReveal(commit, r), isTrue);
-    });
+    test(
+      'honest path: verifyReveal returns true for matching r and commit',
+      () {
+        final r = _randomBytes(32);
+        final commit = ColorFlip.computeCommit(r);
+        expect(ColorFlip.verifyReveal(commit, r), isTrue);
+      },
+    );
 
     test('bad reveal: r has one byte flipped → verifyReveal returns false', () {
       final r = _randomBytes(32);
@@ -74,8 +77,7 @@ void main() {
         commitPayload,
         sequenceNum: 1,
       );
-      final decodedCommit =
-          Frame.decode(commitFrame.encode()).decodePayload();
+      final decodedCommit = Frame.decode(commitFrame.encode()).decodePayload();
       final recoveredCommit = decodedCommit['hash'] as Uint8List;
       expect(ColorFlip.verifyReveal(recoveredCommit, r), isTrue);
 
@@ -85,8 +87,7 @@ void main() {
         revealPayload,
         sequenceNum: 2,
       );
-      final decodedReveal =
-          Frame.decode(revealFrame.encode()).decodePayload();
+      final decodedReveal = Frame.decode(revealFrame.encode()).decodePayload();
       final recoveredR = decodedReveal['r'] as Uint8List;
       expect(ColorFlip.verifyReveal(commit, recoveredR), isTrue);
     });

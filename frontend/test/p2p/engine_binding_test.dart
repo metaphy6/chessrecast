@@ -23,7 +23,10 @@ void main() {
 
       test('move in allow-list is legal', () {
         expect(binding.isMoveLegal('', ModId.classic, 'e2e4'), isTrue);
-        expect(binding.isMoveLegal('', ModId.classic, 'G1F3'), isTrue); // canonicalised
+        expect(
+          binding.isMoveLegal('', ModId.classic, 'G1F3'),
+          isTrue,
+        ); // canonicalised
       });
 
       test('move NOT in allow-list is illegal', () {
@@ -55,8 +58,9 @@ void main() {
     group('MockEngineBinding — mod isolation ×7 mods', () {
       for (final mod in ModId.values) {
         test('${mod.name}: can create binding and check move', () {
-          final binding =
-              MockEngineBinding(legalMoves: {'e2e4', 'e7e5', 'g1f3'});
+          final binding = MockEngineBinding(
+            legalMoves: {'e2e4', 'e7e5', 'g1f3'},
+          );
           expect(binding.isMoveLegal('fen', mod, 'e2e4'), isTrue);
           expect(binding.isMoveLegal('fen', mod, 'z9z9'), isFalse);
         });
@@ -67,15 +71,13 @@ void main() {
       const binding = MockEngineBinding();
 
       test('stateHash returns 32 bytes', () {
-        const fen =
-            'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+        const fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
         final h = binding.stateHash(fen, ModId.classic, Uint8List(0));
         expect(h.length, 32);
       });
 
       test('different mods produce different hashes', () {
-        const fen =
-            'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+        const fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
         final h1 = binding.stateHash(fen, ModId.classic, Uint8List(0));
         final h2 = binding.stateHash(fen, ModId.heir, Uint8List(0));
         expect(h1, isNot(equals(h2)));

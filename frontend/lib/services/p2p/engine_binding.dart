@@ -46,13 +46,15 @@ class LiveEngineBinding implements EngineBindingInterface {
   @override
   bool isMoveLegal(String fen, ModId modId, String uciMove) {
     throw UnimplementedError(
-        'LiveEngineBinding is a Phase 2 stub. Use MockEngineBinding in tests.');
+      'LiveEngineBinding is a Phase 2 stub. Use MockEngineBinding in tests.',
+    );
   }
 
   @override
   String applyMove(String fen, ModId modId, String uciMove) {
     throw UnimplementedError(
-        'LiveEngineBinding is a Phase 2 stub. Use MockEngineBinding in tests.');
+      'LiveEngineBinding is a Phase 2 stub. Use MockEngineBinding in tests.',
+    );
   }
 
   @override

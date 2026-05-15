@@ -18,10 +18,13 @@ void main() {
     });
 
     test('freshly encoded Frame is deterministic', () {
-      final payload =
-          CborCodec.encode({'uci': 'e2e4', 'hash': Uint8List(32)});
+      final payload = CborCodec.encode({'uci': 'e2e4', 'hash': Uint8List(32)});
       final frame = Frame(
-          type: FrameType.move, sequenceNum: 1, wallClock: 0, payload: payload);
+        type: FrameType.move,
+        sequenceNum: 1,
+        wallClock: 0,
+        payload: payload,
+      );
       final encoded = frame.encode();
       expect(CborCodec.isDeterministic(encoded), isTrue);
     });
@@ -32,8 +35,15 @@ void main() {
       // 0xa2 = 2-element map
       // 0x61, 0x62, 0x02 = key "b", value 2
       // 0x61, 0x61, 0x01 = key "a", value 1
-      final nonDeterministic = Uint8List.fromList(
-          [0xa2, 0x61, 0x62, 0x02, 0x61, 0x61, 0x01]);
+      final nonDeterministic = Uint8List.fromList([
+        0xa2,
+        0x61,
+        0x62,
+        0x02,
+        0x61,
+        0x61,
+        0x01,
+      ]);
       expect(CborCodec.isDeterministic(nonDeterministic), isFalse);
     });
 
@@ -45,25 +55,26 @@ void main() {
       expect(CborCodec.isDeterministic(Uint8List(0)), isFalse);
     });
 
-    test('non-shortest integer (extra leading zero byte) is not deterministic',
-        () {
-      // CBOR 0x18 0x01 encodes integer 1 as 1-byte argument, but the
-      // deterministic form of 1 is just 0x01 (direct in major byte).
-      // 0x18 0x01 = integer 1 using 1-byte arg (non-shortest).
-      final nonShortest = Uint8List.fromList([0x18, 0x01]);
-      expect(CborCodec.isDeterministic(nonShortest), isFalse);
-    });
+    test(
+      'non-shortest integer (extra leading zero byte) is not deterministic',
+      () {
+        // CBOR 0x18 0x01 encodes integer 1 as 1-byte argument, but the
+        // deterministic form of 1 is just 0x01 (direct in major byte).
+        // 0x18 0x01 = integer 1 using 1-byte arg (non-shortest).
+        final nonShortest = Uint8List.fromList([0x18, 0x01]);
+        expect(CborCodec.isDeterministic(nonShortest), isFalse);
+      },
+    );
 
     test('various frame types all produce deterministic CBOR', () {
       for (final ft in FrameType.values) {
-        final frame = Frame.withPayloadMap(
-          ft,
-          {'t': ft.id},
-          sequenceNum: 1,
-        );
+        final frame = Frame.withPayloadMap(ft, {'t': ft.id}, sequenceNum: 1);
         final encoded = frame.encode();
-        expect(CborCodec.isDeterministic(encoded), isTrue,
-            reason: 'Frame type ${ft.name} was not deterministic');
+        expect(
+          CborCodec.isDeterministic(encoded),
+          isTrue,
+          reason: 'Frame type ${ft.name} was not deterministic',
+        );
       }
     });
   });

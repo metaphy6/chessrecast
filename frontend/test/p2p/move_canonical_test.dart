@@ -69,7 +69,7 @@ void main() {
         expect(MoveCanon.isValidSyntax('e2e9'), isFalse); // row 9 invalid
         expect(MoveCanon.isValidSyntax('i2e4'), isFalse); // col i invalid
         expect(MoveCanon.isValidSyntax('e2e4z'), isFalse); // bad promo piece
-        expect(MoveCanon.isValidSyntax('e2'), isFalse);   // too short
+        expect(MoveCanon.isValidSyntax('e2'), isFalse); // too short
       });
 
       test('valid tagged king moves pass', () {

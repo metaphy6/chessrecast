@@ -20,10 +20,12 @@ void main() {
 
     // Different mods → different hashes for the same FEN.
     test('classic and heir produce different hashes for same FEN', () {
-      final hClassic =
-          StateHasher.compute(_startFen, ModId.classic, _emptyModState);
-      final hHeir =
-          StateHasher.compute(_startFen, ModId.heir, _emptyModState);
+      final hClassic = StateHasher.compute(
+        _startFen,
+        ModId.classic,
+        _emptyModState,
+      );
+      final hHeir = StateHasher.compute(_startFen, ModId.heir, _emptyModState);
       expect(hClassic, isNot(equals(hHeir)));
     });
 
@@ -33,9 +35,12 @@ void main() {
           .toList();
       for (int i = 0; i < hashes.length; i++) {
         for (int j = i + 1; j < hashes.length; j++) {
-          expect(hashes[i], isNot(equals(hashes[j])),
-              reason:
-                  '${ModId.values[i].name} and ${ModId.values[j].name} should have different hashes');
+          expect(
+            hashes[i],
+            isNot(equals(hashes[j])),
+            reason:
+                '${ModId.values[i].name} and ${ModId.values[j].name} should have different hashes',
+          );
         }
       }
     });

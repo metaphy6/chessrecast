@@ -24,8 +24,12 @@ void main() {
       final modState2 = Uint8List.fromList([0x01, 0x01]); // e.g. truce=active
       final h1 = StateHasher.compute(baseFen, ModId.truce, modState1);
       final h2 = StateHasher.compute(baseFen, ModId.truce, modState2);
-      expect(h1, isNot(equals(h2)),
-          reason: 'Same FEN but different truce state must produce different hashes');
+      expect(
+        h1,
+        isNot(equals(h2)),
+        reason:
+            'Same FEN but different truce state must produce different hashes',
+      );
     });
 
     test('same FEN + different mod → different hash', () {
@@ -35,44 +39,57 @@ void main() {
       expect(hClassic, isNot(equals(hHeir)));
     });
 
-    test('RepetitionDetector: same FEN with same modState counted together', () {
-      final modState = Uint8List.fromList([0x00]);
-      final h = StateHasher.compute(baseFen, ModId.truce, modState);
+    test(
+      'RepetitionDetector: same FEN with same modState counted together',
+      () {
+        final modState = Uint8List.fromList([0x00]);
+        final h = StateHasher.compute(baseFen, ModId.truce, modState);
 
-      final det = RepetitionDetector();
-      det.push(h);
-      det.push(h);
-      det.push(h);
-      expect(det.verifyRepetitionClaim(h, 3), isTrue);
-    });
+        final det = RepetitionDetector();
+        det.push(h);
+        det.push(h);
+        det.push(h);
+        expect(det.verifyRepetitionClaim(h, 3), isTrue);
+      },
+    );
 
-    test('RepetitionDetector: same FEN with different modStates NOT counted together', () {
-      final modStateA = Uint8List.fromList([0x00]);
-      final modStateB = Uint8List.fromList([0x01]);
-      final hA = StateHasher.compute(baseFen, ModId.truce, modStateA);
-      final hB = StateHasher.compute(baseFen, ModId.truce, modStateB);
+    test(
+      'RepetitionDetector: same FEN with different modStates NOT counted together',
+      () {
+        final modStateA = Uint8List.fromList([0x00]);
+        final modStateB = Uint8List.fromList([0x01]);
+        final hA = StateHasher.compute(baseFen, ModId.truce, modStateA);
+        final hB = StateHasher.compute(baseFen, ModId.truce, modStateB);
 
-      final det = RepetitionDetector();
-      det.push(hA);
-      det.push(hB);
-      det.push(hA);
-      // Only 2 positions with modStateA — threefold claim should fail
-      expect(det.verifyRepetitionClaim(hA, 3), isFalse);
-    });
+        final det = RepetitionDetector();
+        det.push(hA);
+        det.push(hB);
+        det.push(hA);
+        // Only 2 positions with modStateA — threefold claim should fail
+        expect(det.verifyRepetitionClaim(hA, 3), isFalse);
+      },
+    );
 
-    test('all 7 mods with same FEN and empty modState produce distinct hashes', () {
-      final hashes = ModId.values
-          .map((mod) => StateHasher.compute(baseFen, mod, Uint8List(0)))
-          .toList();
-      // All hashes should be distinct
-      for (int i = 0; i < hashes.length; i++) {
-        for (int j = i + 1; j < hashes.length; j++) {
-          expect(hashes[i], isNot(equals(hashes[j])),
-              reason: 'Mods ${ModId.values[i].name} and ${ModId.values[j].name} '
-                  'produce the same hash for the same FEN');
+    test(
+      'all 7 mods with same FEN and empty modState produce distinct hashes',
+      () {
+        final hashes = ModId.values
+            .map((mod) => StateHasher.compute(baseFen, mod, Uint8List(0)))
+            .toList();
+        // All hashes should be distinct
+        for (int i = 0; i < hashes.length; i++) {
+          for (int j = i + 1; j < hashes.length; j++) {
+            expect(
+              hashes[i],
+              isNot(equals(hashes[j])),
+              reason:
+                  'Mods ${ModId.values[i].name} and ${ModId.values[j].name} '
+                  'produce the same hash for the same FEN',
+            );
+          }
         }
-      }
-    });
+      },
+    );
 
     test('StateHasher output is always 32 bytes', () {
       for (final mod in ModId.values) {

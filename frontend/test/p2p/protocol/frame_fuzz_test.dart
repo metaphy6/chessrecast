@@ -8,11 +8,10 @@ void main() {
   group('Frame fuzz — no panics on random/malformed input (§1.1)', () {
     final iterations =
         int.tryParse(Platform.environment['P2P_FUZZ_ITERATIONS'] ?? '') ??
-            10000;
+        10000;
     final rng = Random(0xDEADBEEF);
 
-    test('random bytes never panic, always throw expected error types',
-        () {
+    test('random bytes never panic, always throw expected error types', () {
       int floatRejections = 0;
       int formatExceptions = 0;
       int argumentErrors = 0;
@@ -40,15 +39,19 @@ void main() {
           argumentErrors++; // count alongside argument errors for stats
         } catch (e) {
           // Any other exception type is a test failure
-          fail('Unexpected exception type ${e.runtimeType} on iteration $i: $e');
+          fail(
+            'Unexpected exception type ${e.runtimeType} on iteration $i: $e',
+          );
         }
       }
 
       // Logging for debug purposes
       // ignore: avoid_print
-      print('Fuzz stats ($iterations iterations): '
-          'successes=$successes floatRejections=$floatRejections '
-          'formatExceptions=$formatExceptions argumentErrors=$argumentErrors');
+      print(
+        'Fuzz stats ($iterations iterations): '
+        'successes=$successes floatRejections=$floatRejections '
+        'formatExceptions=$formatExceptions argumentErrors=$argumentErrors',
+      );
     });
 
     test('random bytes fed to Frame.decode never panic', () {
@@ -70,7 +73,9 @@ void main() {
         } on TypeError {
           // expected — random bytes may decode to map types that fail casts
         } catch (e) {
-          fail('Unexpected exception type ${e.runtimeType} on Frame.decode iteration $i: $e');
+          fail(
+            'Unexpected exception type ${e.runtimeType} on Frame.decode iteration $i: $e',
+          );
         }
       }
     });
@@ -79,7 +84,11 @@ void main() {
       // Start from a valid CBOR-encoded frame, then truncate it
       final payload = CborCodec.encode({'uci': 'e2e4', 'hash': Uint8List(32)});
       final frame = Frame(
-          type: FrameType.move, sequenceNum: 1, wallClock: 0, payload: payload);
+        type: FrameType.move,
+        sequenceNum: 1,
+        wallClock: 0,
+        payload: payload,
+      );
       final full = frame.encode();
 
       for (int len = 1; len < full.length; len++) {
@@ -94,7 +103,8 @@ void main() {
           // fine
         } catch (e) {
           fail(
-              'Truncated frame (len=$len) raised unexpected ${e.runtimeType}: $e');
+            'Truncated frame (len=$len) raised unexpected ${e.runtimeType}: $e',
+          );
         }
       }
     });
@@ -102,11 +112,19 @@ void main() {
     test('bit-flipped frames never panic', () {
       final payload = CborCodec.encode({'uci': 'e2e4', 'hash': Uint8List(32)});
       final frame = Frame(
-          type: FrameType.move, sequenceNum: 1, wallClock: 0, payload: payload);
+        type: FrameType.move,
+        sequenceNum: 1,
+        wallClock: 0,
+        payload: payload,
+      );
       final original = frame.encode();
 
       // Flip every bit in the frame, one bit at a time
-      for (int byteIdx = 0; byteIdx < original.length && byteIdx < 32; byteIdx++) {
+      for (
+        int byteIdx = 0;
+        byteIdx < original.length && byteIdx < 32;
+        byteIdx++
+      ) {
         for (int bit = 0; bit < 8; bit++) {
           final mutated = Uint8List.fromList(original);
           mutated[byteIdx] ^= (1 << bit);
@@ -119,7 +137,8 @@ void main() {
             // expected — bit flip may produce type mismatches inside Frame.decode
           } catch (e) {
             fail(
-                'Bit-flip at byte=$byteIdx bit=$bit raised ${e.runtimeType}: $e');
+              'Bit-flip at byte=$byteIdx bit=$bit raised ${e.runtimeType}: $e',
+            );
           }
         }
       }

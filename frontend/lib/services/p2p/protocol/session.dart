@@ -199,8 +199,7 @@ class ForensicBundle {
     final sessionHex = _bytesToHex(sessionId).isNotEmpty
         ? _bytesToHex(sessionId)
         : 'unknown';
-    final dir = Directory(
-        '${base.path}/p2p/forensics/$sessionHex');
+    final dir = Directory('${base.path}/p2p/forensics/$sessionHex');
     await dir.create(recursive: true);
     final file = File('${dir.path}/bundle.json');
     await file.writeAsString(jsonEncode(toJson()));

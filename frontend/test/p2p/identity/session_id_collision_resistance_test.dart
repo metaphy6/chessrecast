@@ -6,8 +6,7 @@ import '../../../lib/services/p2p/protocol/frame.dart';
 void main() {
   group('Session ID collision resistance (§1.9 — §11)', () {
     final iterations =
-        int.tryParse(Platform.environment['P2P_FUZZ_ITERATIONS'] ?? '') ??
-            1000;
+        int.tryParse(Platform.environment['P2P_FUZZ_ITERATIONS'] ?? '') ?? 1000;
 
     test('$iterations random handshakes produce no collisions', () {
       // Use a deterministic RNG to make the test reproducible.
@@ -35,8 +34,11 @@ void main() {
         sessionIds.add(hexId);
       }
 
-      expect(collisions, 0,
-          reason: '$collisions collisions found in $iterations session IDs');
+      expect(
+        collisions,
+        0,
+        reason: '$collisions collisions found in $iterations session IDs',
+      );
     });
 
     test('swapping ephPubA/ephPubB does not change session ID (symmetric)', () {
@@ -46,9 +48,17 @@ void main() {
       final nonceB = _deriveBytes(99, 3, 32);
 
       final sidAB = SessionIdDeriver.derive(
-          ephPubA: ephPubA, ephPubB: ephPubB, nonceA: nonceA, nonceB: nonceB);
+        ephPubA: ephPubA,
+        ephPubB: ephPubB,
+        nonceA: nonceA,
+        nonceB: nonceB,
+      );
       final sidBA = SessionIdDeriver.derive(
-          ephPubA: ephPubB, ephPubB: ephPubA, nonceA: nonceA, nonceB: nonceB);
+        ephPubA: ephPubB,
+        ephPubB: ephPubA,
+        nonceA: nonceA,
+        nonceB: nonceB,
+      );
 
       expect(sidAB, equals(sidBA));
     });
@@ -60,9 +70,17 @@ void main() {
       final nonceB = _deriveBytes(100, 3, 32);
 
       final sid1 = SessionIdDeriver.derive(
-          ephPubA: ephPubA, ephPubB: ephPubB, nonceA: nonceA, nonceB: nonceB);
+        ephPubA: ephPubA,
+        ephPubB: ephPubB,
+        nonceA: nonceA,
+        nonceB: nonceB,
+      );
       final sid2 = SessionIdDeriver.derive(
-          ephPubA: ephPubA, ephPubB: ephPubB, nonceA: nonceB, nonceB: nonceA);
+        ephPubA: ephPubA,
+        ephPubB: ephPubB,
+        nonceA: nonceB,
+        nonceB: nonceA,
+      );
 
       expect(sid1, equals(sid2));
     });
@@ -74,13 +92,21 @@ void main() {
       final nonceB = Uint8List(32)..fillRange(0, 32, 0x04);
 
       final original = SessionIdDeriver.derive(
-          ephPubA: ephPubA, ephPubB: ephPubB, nonceA: nonceA, nonceB: nonceB);
+        ephPubA: ephPubA,
+        ephPubB: ephPubB,
+        nonceA: nonceA,
+        nonceB: nonceB,
+      );
 
       // Flip first byte of ephPubA
       final mutated = Uint8List.fromList(ephPubA);
       mutated[0] ^= 0xFF;
       final modified = SessionIdDeriver.derive(
-          ephPubA: mutated, ephPubB: ephPubB, nonceA: nonceA, nonceB: nonceB);
+        ephPubA: mutated,
+        ephPubB: ephPubB,
+        nonceA: nonceA,
+        nonceB: nonceB,
+      );
 
       expect(original, isNot(equals(modified)));
     });

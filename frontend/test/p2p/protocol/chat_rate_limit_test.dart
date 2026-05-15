@@ -7,7 +7,11 @@ void main() {
       final limiter = ChatRateLimiter();
       final now = 0;
       for (int i = 0; i < 10; i++) {
-        expect(limiter.canSend(now), isTrue, reason: 'Message #${i + 1} should be allowed');
+        expect(
+          limiter.canSend(now),
+          isTrue,
+          reason: 'Message #${i + 1} should be allowed',
+        );
         limiter.record(now);
       }
     });
@@ -57,7 +61,11 @@ void main() {
       // Simulate 200 messages with enough time between each to pass the rate limit
       for (int i = 0; i < 200; i++) {
         final t = i * 60000; // 60s apart — each in a fresh window
-        expect(limiter.canSend(t), isTrue, reason: 'Message ${i + 1} should be allowed');
+        expect(
+          limiter.canSend(t),
+          isTrue,
+          reason: 'Message ${i + 1} should be allowed',
+        );
         limiter.record(t);
       }
       // 201st message is denied even though the window is clear

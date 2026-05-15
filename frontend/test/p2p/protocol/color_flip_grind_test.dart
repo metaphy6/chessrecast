@@ -51,8 +51,11 @@ void main() {
       // Simulate abort before reveal
       final sessionKey = _bytesToHex(rA);
       // Should NOT appear in shadow list unless added
-      expect(_abortedAfterReveal.contains(sessionKey), isFalse,
-          reason: 'Abort before reveal should not log r');
+      expect(
+        _abortedAfterReveal.contains(sessionKey),
+        isFalse,
+        reason: 'Abort before reveal should not log r',
+      );
       // Commit is discarded
       expect(commitA.length, 32);
     });
@@ -74,13 +77,22 @@ void main() {
         final rA = _rand(32);
         final rB = _rand(32);
         final color = ColorFlip.resolveColor(rA, rB);
-        if (color == 0) whites++; else blacks++;
+        if (color == 0)
+          whites++;
+        else
+          blacks++;
       }
       // With 50 flips we expect ~25 each. Accept 10..40 as CI-safe range.
-      expect(whites, greaterThan(5),
-          reason: 'Color flip heavily skewed (whites=$whites/50)');
-      expect(blacks, greaterThan(5),
-          reason: 'Color flip heavily skewed (blacks=$blacks/50)');
+      expect(
+        whites,
+        greaterThan(5),
+        reason: 'Color flip heavily skewed (whites=$whites/50)',
+      );
+      expect(
+        blacks,
+        greaterThan(5),
+        reason: 'Color flip heavily skewed (blacks=$blacks/50)',
+      );
     });
   });
 }

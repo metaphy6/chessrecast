@@ -73,44 +73,53 @@ void main() {
     group('illegal transitions raise ProtocolStateError', () {
       test('idle cannot confirm', () {
         final s = Session();
-        expect(() => s.transition('confirm'),
-            throwsA(isA<ProtocolStateError>()));
+        expect(
+          () => s.transition('confirm'),
+          throwsA(isA<ProtocolStateError>()),
+        );
       });
 
       test('idle cannot game_end', () {
         final s = Session();
-        expect(() => s.transition('game_end'),
-            throwsA(isA<ProtocolStateError>()));
+        expect(
+          () => s.transition('game_end'),
+          throwsA(isA<ProtocolStateError>()),
+        );
       });
 
       test('handshake cannot game_end', () {
         final s = Session();
         s.transition('start_handshake');
-        expect(() => s.transition('game_end'),
-            throwsA(isA<ProtocolStateError>()));
+        expect(
+          () => s.transition('game_end'),
+          throwsA(isA<ProtocolStateError>()),
+        );
       });
 
       test('handshake cannot reset', () {
         final s = Session();
         s.transition('start_handshake');
-        expect(() => s.transition('reset'),
-            throwsA(isA<ProtocolStateError>()));
+        expect(() => s.transition('reset'), throwsA(isA<ProtocolStateError>()));
       });
 
       test('playing cannot start_handshake', () {
         final s = Session();
         s.transition('start_handshake');
         s.transition('confirm');
-        expect(() => s.transition('start_handshake'),
-            throwsA(isA<ProtocolStateError>()));
+        expect(
+          () => s.transition('start_handshake'),
+          throwsA(isA<ProtocolStateError>()),
+        );
       });
 
       test('playing cannot confirm', () {
         final s = Session();
         s.transition('start_handshake');
         s.transition('confirm');
-        expect(() => s.transition('confirm'),
-            throwsA(isA<ProtocolStateError>()));
+        expect(
+          () => s.transition('confirm'),
+          throwsA(isA<ProtocolStateError>()),
+        );
       });
 
       test('finished cannot abort', () {
@@ -118,16 +127,17 @@ void main() {
         s.transition('start_handshake');
         s.transition('confirm');
         s.transition('game_end');
-        expect(() => s.transition('abort'),
-            throwsA(isA<ProtocolStateError>()));
+        expect(() => s.transition('abort'), throwsA(isA<ProtocolStateError>()));
       });
 
       test('aborted cannot game_end', () {
         final s = Session();
         s.transition('start_handshake');
         s.transition('abort');
-        expect(() => s.transition('game_end'),
-            throwsA(isA<ProtocolStateError>()));
+        expect(
+          () => s.transition('game_end'),
+          throwsA(isA<ProtocolStateError>()),
+        );
       });
     });
 

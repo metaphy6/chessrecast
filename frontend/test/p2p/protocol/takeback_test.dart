@@ -10,10 +10,7 @@ Map<String, dynamic> _capsWith({bool takeback = false}) {
 void main() {
   group('Takeback request/response (§1.6)', () {
     test('TAKEBACK_REQ frame encodes and decodes correctly', () {
-      final payload = <String, dynamic>{
-        'ply': 10,
-        'reason': 'blunder',
-      };
+      final payload = <String, dynamic>{'ply': 10, 'reason': 'blunder'};
 
       final frame = Frame.withPayloadMap(
         FrameType.takebackReq,
@@ -29,10 +26,7 @@ void main() {
     });
 
     test('TAKEBACK_RESPONSE frame with accepted=true encodes correctly', () {
-      final payload = <String, dynamic>{
-        'accepted': true,
-        'ply': 10,
-      };
+      final payload = <String, dynamic>{'accepted': true, 'ply': 10};
       final frame = Frame.withPayloadMap(
         FrameType.takebackResponse,
         payload,
@@ -46,10 +40,7 @@ void main() {
     });
 
     test('TAKEBACK_RESPONSE frame with accepted=false encodes correctly', () {
-      final payload = <String, dynamic>{
-        'accepted': false,
-        'ply': 10,
-      };
+      final payload = <String, dynamic>{'accepted': false, 'ply': 10};
       final frame = Frame.withPayloadMap(
         FrameType.takebackResponse,
         payload,
@@ -61,14 +52,16 @@ void main() {
       expect(dp['accepted'], isFalse);
     });
 
-    test('takeback is gated by capabilities: disabled → req should be rejected by app layer',
-        () {
-      // When the peer announces capabilities without takeback, the app layer
-      // should reject a TAKEBACK_REQ. The codec layer itself does not enforce
-      // capabilities — that is the session/protocol layer's responsibility.
-      final remoteCapabilities = _capsWith(takeback: false);
-      expect(remoteCapabilities['takeback'], isFalse);
-    });
+    test(
+      'takeback is gated by capabilities: disabled → req should be rejected by app layer',
+      () {
+        // When the peer announces capabilities without takeback, the app layer
+        // should reject a TAKEBACK_REQ. The codec layer itself does not enforce
+        // capabilities — that is the session/protocol layer's responsibility.
+        final remoteCapabilities = _capsWith(takeback: false);
+        expect(remoteCapabilities['takeback'], isFalse);
+      },
+    );
 
     test('takeback is gated by capabilities: enabled → req is allowed', () {
       final remoteCapabilities = _capsWith(takeback: true);

@@ -39,10 +39,7 @@ void main() {
       final hmac = _hmacSign(signingKey, toSign);
       final sig64 = Uint8List(64)..setRange(0, hmac.length, hmac);
 
-      final fullPayload = {
-        'reason': 'resign',
-        'sig': sig64,
-      };
+      final fullPayload = {'reason': 'resign', 'sig': sig64};
 
       final frame = Frame.withPayloadMap(
         FrameType.resign,

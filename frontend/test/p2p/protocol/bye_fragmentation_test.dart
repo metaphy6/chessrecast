@@ -76,17 +76,20 @@ void main() {
       expect(reassembled, equals(payload));
     });
 
-    test('fragment and reassemble are inverses (small edge case at threshold)', () {
-      // Build payload just over 12KB
-      final payload = Uint8List(kByeFragmentThresholdBytes + 1)
-        ..fillRange(0, kByeFragmentThresholdBytes + 1, 0xAB);
-      final parts = ByeFragmenter.fragment(payload);
-      final hashEntry = parts.last;
-      final expectedHash = hashEntry['hash'] as Uint8List;
-      final dataParts = parts.where((p) => p.containsKey('data')).toList();
-      final reassembled = ByeFragmenter.reassemble(dataParts, expectedHash);
-      expect(reassembled, equals(payload));
-    });
+    test(
+      'fragment and reassemble are inverses (small edge case at threshold)',
+      () {
+        // Build payload just over 12KB
+        final payload = Uint8List(kByeFragmentThresholdBytes + 1)
+          ..fillRange(0, kByeFragmentThresholdBytes + 1, 0xAB);
+        final parts = ByeFragmenter.fragment(payload);
+        final hashEntry = parts.last;
+        final expectedHash = hashEntry['hash'] as Uint8List;
+        final dataParts = parts.where((p) => p.containsKey('data')).toList();
+        final reassembled = ByeFragmenter.reassemble(dataParts, expectedHash);
+        expect(reassembled, equals(payload));
+      },
+    );
 
     test('FragmentNotAllowedError thrown for payload ≤ threshold', () {
       final smallPayload = Uint8List(100);

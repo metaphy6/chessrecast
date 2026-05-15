@@ -13,10 +13,14 @@ import '../../../lib/services/p2p/protocol/frame.dart';
 const kKatVectors = [
   _KatVector(
     // All-zero inputs: result is SHA-256 of 128 zero bytes
-    ephPubAHex: '0000000000000000000000000000000000000000000000000000000000000000',
-    ephPubBHex: '0000000000000000000000000000000000000000000000000000000000000000',
-    nonceAHex: '0000000000000000000000000000000000000000000000000000000000000000',
-    nonceBHex: '0000000000000000000000000000000000000000000000000000000000000000',
+    ephPubAHex:
+        '0000000000000000000000000000000000000000000000000000000000000000',
+    ephPubBHex:
+        '0000000000000000000000000000000000000000000000000000000000000000',
+    nonceAHex:
+        '0000000000000000000000000000000000000000000000000000000000000000',
+    nonceBHex:
+        '0000000000000000000000000000000000000000000000000000000000000000',
     // Computed manually: SHA-256(0x00 * 128) =
     // e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
     // ... wait, SHA-256 of 128 zero bytes is different from empty string.
@@ -24,10 +28,14 @@ const kKatVectors = [
     expectedHex: null,
   ),
   _KatVector(
-    ephPubAHex: '0101010101010101010101010101010101010101010101010101010101010101',
-    ephPubBHex: '0202020202020202020202020202020202020202020202020202020202020202',
-    nonceAHex: '0303030303030303030303030303030303030303030303030303030303030303',
-    nonceBHex: '0404040404040404040404040404040404040404040404040404040404040404',
+    ephPubAHex:
+        '0101010101010101010101010101010101010101010101010101010101010101',
+    ephPubBHex:
+        '0202020202020202020202020202020202020202020202020202020202020202',
+    nonceAHex:
+        '0303030303030303030303030303030303030303030303030303030303030303',
+    nonceBHex:
+        '0404040404040404040404040404040404040404040404040404040404040404',
     expectedHex: null, // computed at test runtime
   ),
 ];
@@ -104,8 +112,8 @@ void main() {
       final buf = BytesBuilder(copy: false);
       buf.add(ephPubA); // min
       buf.add(ephPubB); // max
-      buf.add(nonceA);  // min
-      buf.add(nonceB);  // max
+      buf.add(nonceA); // min
+      buf.add(nonceB); // max
       final expected = Uint8List.fromList(sha256.convert(buf.toBytes()).bytes);
       expect(sid, equals(expected));
       // ignore: avoid_print
@@ -120,9 +128,17 @@ void main() {
       final nonceB = _hexToBytes(vec.nonceBHex);
 
       final sid1 = SessionIdDeriver.derive(
-          ephPubA: ephPubA, ephPubB: ephPubB, nonceA: nonceA, nonceB: nonceB);
+        ephPubA: ephPubA,
+        ephPubB: ephPubB,
+        nonceA: nonceA,
+        nonceB: nonceB,
+      );
       final sid2 = SessionIdDeriver.derive(
-          ephPubA: ephPubB, ephPubB: ephPubA, nonceA: nonceB, nonceB: nonceA);
+        ephPubA: ephPubB,
+        ephPubB: ephPubA,
+        nonceA: nonceB,
+        nonceB: nonceA,
+      );
 
       expect(sid1, equals(sid2));
     });
@@ -133,8 +149,12 @@ void main() {
         final b = Uint8List(32)..fillRange(0, 32, i + 128);
         final na = Uint8List(32)..fillRange(0, 32, i * 3);
         final nb = Uint8List(32)..fillRange(0, 32, i * 5 + 1);
-        final sid =
-            SessionIdDeriver.derive(ephPubA: a, ephPubB: b, nonceA: na, nonceB: nb);
+        final sid = SessionIdDeriver.derive(
+          ephPubA: a,
+          ephPubB: b,
+          nonceA: na,
+          nonceB: nb,
+        );
         expect(sid.length, 32);
       }
     });

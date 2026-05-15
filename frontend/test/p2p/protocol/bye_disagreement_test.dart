@@ -7,33 +7,38 @@ void main() {
     final movesA = ['e2e4', 'e7e5', 'g1f3'];
     final movesB = ['e2e4', 'e7e5', 'g1f3', 'b8c6']; // B has one extra move
 
-    test('peers can send conflicting BYE frames (different result/move lists)', () {
-      final byeA = {
-        'result': '1-0',
-        'moves': movesA,
-        'sig': Uint8List(64),
-      };
-      final byeB = {
-        'result': '0-1',
-        'moves': movesB,
-        'sig': Uint8List(64),
-      };
+    test(
+      'peers can send conflicting BYE frames (different result/move lists)',
+      () {
+        final byeA = {'result': '1-0', 'moves': movesA, 'sig': Uint8List(64)};
+        final byeB = {'result': '0-1', 'moves': movesB, 'sig': Uint8List(64)};
 
-      final frameA = Frame.withPayloadMap(FrameType.bye, byeA, sequenceNum: 1);
-      final frameB = Frame.withPayloadMap(FrameType.bye, byeB, sequenceNum: 1);
+        final frameA = Frame.withPayloadMap(
+          FrameType.bye,
+          byeA,
+          sequenceNum: 1,
+        );
+        final frameB = Frame.withPayloadMap(
+          FrameType.bye,
+          byeB,
+          sequenceNum: 1,
+        );
 
-      // Both frames decode successfully
-      final dpA = Frame.decode(frameA.encode()).decodePayload();
-      final dpB = Frame.decode(frameB.encode()).decodePayload();
+        // Both frames decode successfully
+        final dpA = Frame.decode(frameA.encode()).decodePayload();
+        final dpB = Frame.decode(frameB.encode()).decodePayload();
 
-      expect(dpA['result'], '1-0');
-      expect(dpB['result'], '0-1');
+        expect(dpA['result'], '1-0');
+        expect(dpB['result'], '0-1');
 
-      // They disagree on result and move count
-      expect(dpA['result'], isNot(dpB['result']));
-      expect((dpA['moves'] as List).length,
-          isNot((dpB['moves'] as List).length));
-    });
+        // They disagree on result and move count
+        expect(dpA['result'], isNot(dpB['result']));
+        expect(
+          (dpA['moves'] as List).length,
+          isNot((dpB['moves'] as List).length),
+        );
+      },
+    );
 
     test('MISMATCH frame can reference both transcripts', () {
       // When peers disagree, a MISMATCH frame carries both signed transcripts
@@ -47,7 +52,10 @@ void main() {
       };
 
       final frame = Frame.withPayloadMap(
-          FrameType.mismatch, mismatchPayload, sequenceNum: 1);
+        FrameType.mismatch,
+        mismatchPayload,
+        sequenceNum: 1,
+      );
       final dp = Frame.decode(frame.encode()).decodePayload();
 
       expect(dp['local_result'], '1-0');
@@ -62,11 +70,11 @@ void main() {
       final byeB = {'result': result, 'moves': movesA, 'sig': Uint8List(64)};
 
       final dpA = Frame.decode(
-              Frame.withPayloadMap(FrameType.bye, byeA, sequenceNum: 1).encode())
-          .decodePayload();
+        Frame.withPayloadMap(FrameType.bye, byeA, sequenceNum: 1).encode(),
+      ).decodePayload();
       final dpB = Frame.decode(
-              Frame.withPayloadMap(FrameType.bye, byeB, sequenceNum: 1).encode())
-          .decodePayload();
+        Frame.withPayloadMap(FrameType.bye, byeB, sequenceNum: 1).encode(),
+      ).decodePayload();
 
       expect(dpA['result'], dpB['result']);
     });

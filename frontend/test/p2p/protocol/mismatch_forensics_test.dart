@@ -25,10 +25,20 @@ void main() {
       final emptyPayload = CborCodec.encode({'x': 0});
       for (int i = 1; i <= 70; i++) {
         s.recordLocalFrame(
-          Frame(type: FrameType.move, sequenceNum: i, wallClock: 0, payload: emptyPayload),
+          Frame(
+            type: FrameType.move,
+            sequenceNum: i,
+            wallClock: 0,
+            payload: emptyPayload,
+          ),
         );
         s.recordRemoteFrame(
-          Frame(type: FrameType.moveAck, sequenceNum: i, wallClock: 0, payload: emptyPayload),
+          Frame(
+            type: FrameType.moveAck,
+            sequenceNum: i,
+            wallClock: 0,
+            payload: emptyPayload,
+          ),
         );
       }
 
@@ -65,7 +75,12 @@ void main() {
       final bundle = ForensicBundle(
         sessionId: sessionId,
         localFrames: [
-          Frame(type: FrameType.move, sequenceNum: 1, wallClock: 0, payload: emptyPayload),
+          Frame(
+            type: FrameType.move,
+            sequenceNum: 1,
+            wallClock: 0,
+            payload: emptyPayload,
+          ),
         ],
         remoteFrames: [],
         localMoveList: ['e2e4'],
@@ -81,7 +96,10 @@ void main() {
       expect(json['remote_move_list'], ['e7e5']);
       expect(json['local_frames_count'], 1);
       expect(json['remote_frames_count'], 0);
-      expect((json['session_id'] as String).length, 64); // 32 bytes → 64 hex chars
+      expect(
+        (json['session_id'] as String).length,
+        64,
+      ); // 32 bytes → 64 hex chars
     });
 
     test('ForensicBundle.writeToDisk writes bundle.json to temp dir', () async {
@@ -110,7 +128,12 @@ void main() {
       final emptyPayload = CborCodec.encode({'x': 0});
       for (int i = 1; i <= 100; i++) {
         s.recordLocalFrame(
-          Frame(type: FrameType.move, sequenceNum: i, wallClock: 0, payload: emptyPayload),
+          Frame(
+            type: FrameType.move,
+            sequenceNum: i,
+            wallClock: 0,
+            payload: emptyPayload,
+          ),
         );
       }
       final bundle = s.buildForensicBundle(

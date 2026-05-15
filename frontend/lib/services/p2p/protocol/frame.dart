@@ -28,7 +28,8 @@ class OutOfSequenceError implements Exception {
 class ByeFragmentOutOfBoundsError implements Exception {
   const ByeFragmentOutOfBoundsError();
   @override
-  String toString() => 'ByeFragmentOutOfBoundsError: BYE_FRAGMENT_OUT_OF_BOUNDS';
+  String toString() =>
+      'ByeFragmentOutOfBoundsError: BYE_FRAGMENT_OUT_OF_BOUNDS';
 }
 
 /// Thrown when a non-BYE frame attempts fragmentation.
@@ -69,7 +70,8 @@ class CborCodec {
     final value = dec.readValue();
     if (dec.pos != data.length) {
       throw FormatException(
-          'Trailing bytes at position ${dec.pos} of ${data.length}');
+        'Trailing bytes at position ${dec.pos} of ${data.length}',
+      );
     }
     return value;
   }
@@ -125,8 +127,7 @@ class _CborEncoder {
     } else if (value is Map<String, dynamic>) {
       _writeMap(value);
     } else {
-      throw ArgumentError(
-          'CborEncoder: unsupported type ${value.runtimeType}');
+      throw ArgumentError('CborEncoder: unsupported type ${value.runtimeType}');
     }
   }
 
@@ -194,7 +195,8 @@ class _CborDecoder {
   _CborDecoder(this.data, this.pos);
 
   dynamic readValue() {
-    if (pos >= data.length) throw FormatException('Unexpected end of CBOR data');
+    if (pos >= data.length)
+      throw FormatException('Unexpected end of CBOR data');
     final b = data[pos++];
     final major = (b >> 5) & 7;
     final info = b & 0x1f;
@@ -270,7 +272,8 @@ class _CborDecoder {
     }
     if (info == 26) {
       if (pos + 4 > data.length) throw FormatException('Truncated 4-byte arg');
-      final v = (data[pos] << 24) |
+      final v =
+          (data[pos] << 24) |
           (data[pos + 1] << 16) |
           (data[pos + 2] << 8) |
           data[pos + 3];
@@ -387,7 +390,9 @@ class Frame {
       throw FormatException('Unknown frame type: 0x${t.toRadixString(16)}');
     }
 
-    final payloadBytes = p is Uint8List ? p : Uint8List.fromList(p as List<int>);
+    final payloadBytes = p is Uint8List
+        ? p
+        : Uint8List.fromList(p as List<int>);
     return Frame(
       version: v,
       type: frameType,
@@ -423,8 +428,7 @@ class Frame {
   Map<String, dynamic> decodePayload() {
     final v = CborCodec.decode(payload);
     if (v is! Map<String, dynamic>) {
-      throw FormatException(
-          'Frame payload must be a CBOR map for type $type');
+      throw FormatException('Frame payload must be a CBOR map for type $type');
     }
     return v;
   }
@@ -573,19 +577,33 @@ class SessionIdDeriver {
 /// New labels must be added here AND cited in docs/P2P_PROTOCOL.md §12.
 const Map<String, _HkdfLabel> kHkdfInfoRegistry = {
   'chessrecast/p2p/v1/master': _HkdfLabel(
-      purpose: 'Session master key from ECDH', outputLength: 32),
+    purpose: 'Session master key from ECDH',
+    outputLength: 32,
+  ),
   'chessrecast/p2p/v1/aead-salt': _HkdfLabel(
-      purpose: 'AEAD nonce salt (never transmitted)', outputLength: 15),
+    purpose: 'AEAD nonce salt (never transmitted)',
+    outputLength: 15,
+  ),
   'chessrecast/p2p/v1/kci': _HkdfLabel(
-      purpose: 'KCI defense MAC key', outputLength: 32),
+    purpose: 'KCI defense MAC key',
+    outputLength: 32,
+  ),
   'chessrecast/p2p/v1/transcript-sign': _HkdfLabel(
-      purpose: 'Transcript signing subkey seed', outputLength: 32),
+    purpose: 'Transcript signing subkey seed',
+    outputLength: 32,
+  ),
   'chessrecast/p2p/v1/transcript-backup': _HkdfLabel(
-      purpose: 'Opt-in encrypted backup key', outputLength: 32),
+    purpose: 'Opt-in encrypted backup key',
+    outputLength: 32,
+  ),
   'chessrecast/p2p/v1/rekey': _HkdfLabel(
-      purpose: 'Session re-key chained master', outputLength: 32),
+    purpose: 'Session re-key chained master',
+    outputLength: 32,
+  ),
   'chessrecast/p2p/v1/forensic-at-rest': _HkdfLabel(
-      purpose: 'At-rest forensic bundle encryption key', outputLength: 32),
+    purpose: 'At-rest forensic bundle encryption key',
+    outputLength: 32,
+  ),
 };
 
 class _HkdfLabel {
@@ -759,7 +777,11 @@ class ByeFragmenter {
     }
 
     final chunks = <Uint8List>[];
-    for (int offset = 0; offset < byePayloadBytes.length; offset += _chunkSize) {
+    for (
+      int offset = 0;
+      offset < byePayloadBytes.length;
+      offset += _chunkSize
+    ) {
       final end = (offset + _chunkSize) < byePayloadBytes.length
           ? offset + _chunkSize
           : byePayloadBytes.length;
@@ -772,11 +794,7 @@ class ByeFragmenter {
 
     final payloads = <Map<String, dynamic>>[];
     for (int i = 0; i < chunks.length; i++) {
-      payloads.add({
-        'idx': i,
-        'tot': chunks.length,
-        'data': chunks[i],
-      });
+      payloads.add({'idx': i, 'tot': chunks.length, 'data': chunks[i]});
     }
 
     // Final frame: hash of all data
@@ -784,8 +802,7 @@ class ByeFragmenter {
     for (final c in chunks) {
       allBytes.add(c);
     }
-    final hash =
-        Uint8List.fromList(sha256.convert(allBytes.toBytes()).bytes);
+    final hash = Uint8List.fromList(sha256.convert(allBytes.toBytes()).bytes);
     // The caller should append a BYE_FINAL payload separately
     // We embed the hash in the last BYE_PART and return it as-is.
     // BYE_FINAL is a separate frame with just {hash, sig}.
@@ -797,8 +814,10 @@ class ByeFragmenter {
   ///
   /// [parts] must be in order (sorted by idx).
   /// Returns reassembled bytes if valid; throws on error.
-  static Uint8List reassemble(List<Map<String, dynamic>> parts,
-      Uint8List expectedHash) {
+  static Uint8List reassemble(
+    List<Map<String, dynamic>> parts,
+    Uint8List expectedHash,
+  ) {
     if (parts.isEmpty) throw const FormatException('No BYE_PART frames');
     final total = parts.first['tot'] as int;
     if (total > kByeMaxFragments) throw const ByeFragmentOutOfBoundsError();
@@ -815,8 +834,7 @@ class ByeFragmenter {
     }
 
     final assembled = buf.toBytes();
-    final actualHash =
-        Uint8List.fromList(sha256.convert(assembled).bytes);
+    final actualHash = Uint8List.fromList(sha256.convert(assembled).bytes);
 
     // Constant-time comparison
     if (actualHash.length != expectedHash.length) {
@@ -890,7 +908,10 @@ class RepetitionDetector {
 /// where resignPayloadCbor excludes the `sig` field.
 ///
 /// Signing is done externally (Phase 2 provides the device private key).
-Uint8List resignMessageToSign(Uint8List sessionId, Uint8List resignPayloadCborWithoutSig) {
+Uint8List resignMessageToSign(
+  Uint8List sessionId,
+  Uint8List resignPayloadCborWithoutSig,
+) {
   final label = utf8.encode('resign');
   final buf = BytesBuilder(copy: false);
   buf.add(label);
@@ -912,7 +933,10 @@ Map<String, dynamic> buildResignPayload(Uint8List signature) {
 /// Computes the message to be signed for a BYE frame.
 ///
 /// message = SHA-256("bye" || sessionId || byePayloadCborWithoutSig)
-Uint8List byeMessageToSign(Uint8List sessionId, Uint8List byePayloadCborWithoutSig) {
+Uint8List byeMessageToSign(
+  Uint8List sessionId,
+  Uint8List byePayloadCborWithoutSig,
+) {
   final label = utf8.encode('bye');
   final buf = BytesBuilder(copy: false);
   buf.add(label);

@@ -5,10 +5,7 @@ import '../../../lib/services/p2p/protocol/frame.dart';
 void main() {
   group('Frame codec — encode/decode round-trip (§1.1 / §1)', () {
     test('MOVE frame round-trip preserves all envelope fields', () {
-      final payload = CborCodec.encode({
-        'uci': 'e2e4',
-        'hash': Uint8List(32),
-      });
+      final payload = CborCodec.encode({'uci': 'e2e4', 'hash': Uint8List(32)});
 
       final frame = Frame(
         type: FrameType.move,
@@ -27,11 +24,7 @@ void main() {
     });
 
     test('Frame.withPayloadMap round-trip', () {
-      final payloadMap = {
-        'uci': 'g1f3',
-        'hash': Uint8List(32),
-        'seq': 5,
-      };
+      final payloadMap = {'uci': 'g1f3', 'hash': Uint8List(32), 'seq': 5};
 
       final frame = Frame.withPayloadMap(
         FrameType.moveAck,

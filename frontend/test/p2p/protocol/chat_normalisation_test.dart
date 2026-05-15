@@ -13,8 +13,11 @@ void main() {
     test('ASCII message survives CBOR round-trip intact', () {
       const msg = 'Hello, world!';
       final payload = _buildChatPayload(msg);
-      final frame =
-          Frame.withPayloadMap(FrameType.chat, payload, sequenceNum: 1);
+      final frame = Frame.withPayloadMap(
+        FrameType.chat,
+        payload,
+        sequenceNum: 1,
+      );
       final dp = Frame.decode(frame.encode()).decodePayload();
       expect(dp['text'], msg);
     });
@@ -22,8 +25,11 @@ void main() {
     test('UTF-8 message (CJK) survives CBOR round-trip intact', () {
       const msg = '你好世界'; // CJK characters
       final payload = _buildChatPayload(msg);
-      final frame =
-          Frame.withPayloadMap(FrameType.chat, payload, sequenceNum: 1);
+      final frame = Frame.withPayloadMap(
+        FrameType.chat,
+        payload,
+        sequenceNum: 1,
+      );
       final dp = Frame.decode(frame.encode()).decodePayload();
       expect(dp['text'], msg);
     });
@@ -33,8 +39,11 @@ void main() {
       // We represent the text as a single NFC codepoint.
       const nfcText = '\u00e9'; // é as NFC
       final payload = _buildChatPayload(nfcText);
-      final frame =
-          Frame.withPayloadMap(FrameType.chat, payload, sequenceNum: 1);
+      final frame = Frame.withPayloadMap(
+        FrameType.chat,
+        payload,
+        sequenceNum: 1,
+      );
       final dp = Frame.decode(frame.encode()).decodePayload();
       // After round-trip the text should be unchanged (NFC form preserved)
       expect(dp['text'], nfcText);
@@ -50,30 +59,39 @@ void main() {
       // A real protocol layer would enforce this limit; here we test the
       // frame codec doesn't truncate.
       final payload = _buildChatPayload(text);
-      final frame =
-          Frame.withPayloadMap(FrameType.chat, payload, sequenceNum: 1);
+      final frame = Frame.withPayloadMap(
+        FrameType.chat,
+        payload,
+        sequenceNum: 1,
+      );
       final dp = Frame.decode(frame.encode()).decodePayload();
       expect((dp['text'] as String).length, 512);
     });
 
-    test('message over 512 UTF-8 bytes should be rejected by the protocol layer', () {
-      // This test verifies that 513-byte text is representable in CBOR (codec
-      // does not enforce the limit — that is the application layer's job).
-      // The purpose is to document that the codec is not the enforcement point.
-      final overLimit = 'a' * 513;
-      final payload = _buildChatPayload(overLimit);
-      // Frame codec must NOT truncate or throw — it is the app layer's job
-      expect(
-        () => Frame.withPayloadMap(FrameType.chat, payload, sequenceNum: 1),
-        returnsNormally,
-      );
-    });
+    test(
+      'message over 512 UTF-8 bytes should be rejected by the protocol layer',
+      () {
+        // This test verifies that 513-byte text is representable in CBOR (codec
+        // does not enforce the limit — that is the application layer's job).
+        // The purpose is to document that the codec is not the enforcement point.
+        final overLimit = 'a' * 513;
+        final payload = _buildChatPayload(overLimit);
+        // Frame codec must NOT truncate or throw — it is the app layer's job
+        expect(
+          () => Frame.withPayloadMap(FrameType.chat, payload, sequenceNum: 1),
+          returnsNormally,
+        );
+      },
+    );
 
     test('empty message survives round-trip', () {
       const msg = '';
       final payload = _buildChatPayload(msg);
-      final frame =
-          Frame.withPayloadMap(FrameType.chat, payload, sequenceNum: 1);
+      final frame = Frame.withPayloadMap(
+        FrameType.chat,
+        payload,
+        sequenceNum: 1,
+      );
       final dp = Frame.decode(frame.encode()).decodePayload();
       expect(dp['text'], '');
     });
@@ -81,8 +99,11 @@ void main() {
     test('message with emoji survives round-trip', () {
       const msg = 'Great move! 🎉♟️';
       final payload = _buildChatPayload(msg);
-      final frame =
-          Frame.withPayloadMap(FrameType.chat, payload, sequenceNum: 1);
+      final frame = Frame.withPayloadMap(
+        FrameType.chat,
+        payload,
+        sequenceNum: 1,
+      );
       final dp = Frame.decode(frame.encode()).decodePayload();
       expect(dp['text'], msg);
     });

@@ -27,26 +27,37 @@ void main() {
       final nonceB2 = Uint8List(32)..fillRange(0, 32, 0x44);
 
       final sid1 = SessionIdDeriver.derive(
-          ephPubA: ephPubA1, ephPubB: ephPubB1, nonceA: nonceA1, nonceB: nonceB1);
+        ephPubA: ephPubA1,
+        ephPubB: ephPubB1,
+        nonceA: nonceA1,
+        nonceB: nonceB1,
+      );
       final sid2 = SessionIdDeriver.derive(
-          ephPubA: ephPubA2, ephPubB: ephPubB2, nonceA: nonceA2, nonceB: nonceB2);
+        ephPubA: ephPubA2,
+        ephPubB: ephPubB2,
+        nonceA: nonceA2,
+        nonceB: nonceB2,
+      );
 
       expect(sid1, isNot(equals(sid2)));
     });
 
-    test('AAD binding: AEAD tag depends on session_id — different SID → different binding', () {
-      // Simulate the AAD construction: aad = session_id || frame_type || frame_seq
-      // A frame encrypted under session 1 cannot be replayed under session 2.
-      final sid1 = Uint8List(32)..fillRange(0, 32, 0xAA);
-      final sid2 = Uint8List(32)..fillRange(0, 32, 0xBB);
+    test(
+      'AAD binding: AEAD tag depends on session_id — different SID → different binding',
+      () {
+        // Simulate the AAD construction: aad = session_id || frame_type || frame_seq
+        // A frame encrypted under session 1 cannot be replayed under session 2.
+        final sid1 = Uint8List(32)..fillRange(0, 32, 0xAA);
+        final sid2 = Uint8List(32)..fillRange(0, 32, 0xBB);
 
-      // Build two AAD buffers for the same MOVE frame sequence
-      final aad1 = _buildAad(sid1, FrameType.move.id, sequenceNum: 1);
-      final aad2 = _buildAad(sid2, FrameType.move.id, sequenceNum: 1);
+        // Build two AAD buffers for the same MOVE frame sequence
+        final aad1 = _buildAad(sid1, FrameType.move.id, sequenceNum: 1);
+        final aad2 = _buildAad(sid2, FrameType.move.id, sequenceNum: 1);
 
-      // The AAD values differ because the session IDs differ
-      expect(aad1, isNot(equals(aad2)));
-    });
+        // The AAD values differ because the session IDs differ
+        expect(aad1, isNot(equals(aad2)));
+      },
+    );
 
     test('AAD binding: same session, different seq → different AAD', () {
       final sid = Uint8List(32)..fillRange(0, 32, 0xCC);
@@ -62,14 +73,24 @@ void main() {
       expect(aad1, isNot(equals(aad2)));
     });
 
-    test('HKDF label "aead-salt" is in registry (binds AAD key to session)', () {
-      expect(kHkdfInfoRegistry.containsKey('chessrecast/p2p/v1/aead-salt'), isTrue);
-    });
+    test(
+      'HKDF label "aead-salt" is in registry (binds AAD key to session)',
+      () {
+        expect(
+          kHkdfInfoRegistry.containsKey('chessrecast/p2p/v1/aead-salt'),
+          isTrue,
+        );
+      },
+    );
   });
 }
 
 /// Build an AEAD AAD buffer: session_id (32 bytes) || frame_type (1 byte) || seq (8 bytes big-endian)
-Uint8List _buildAad(Uint8List sessionId, int frameTypeId, {required int sequenceNum}) {
+Uint8List _buildAad(
+  Uint8List sessionId,
+  int frameTypeId, {
+  required int sequenceNum,
+}) {
   final buf = Uint8List(32 + 1 + 8);
   buf.setRange(0, 32, sessionId);
   buf[32] = frameTypeId;

@@ -9,46 +9,70 @@ void main() {
     //   0xfa = single-precision float (32-bit)
     //   0xfb = double-precision float (64-bit)
 
-    test('decoding a half-precision float (0xf9) throws CborFloatRejectedError',
-        () {
-      // CBOR map { "x": float16(1.5) }
-      // 0xa1 = 1-element map
-      // 0x61, 0x78 = text "x"
-      // 0xf9, 0x3e, 0x00 = half float 1.5
-      final bytes = Uint8List.fromList([0xa1, 0x61, 0x78, 0xf9, 0x3e, 0x00]);
-      expect(
-        () => CborCodec.decode(bytes),
-        throwsA(isA<CborFloatRejectedError>()),
-      );
-    });
+    test(
+      'decoding a half-precision float (0xf9) throws CborFloatRejectedError',
+      () {
+        // CBOR map { "x": float16(1.5) }
+        // 0xa1 = 1-element map
+        // 0x61, 0x78 = text "x"
+        // 0xf9, 0x3e, 0x00 = half float 1.5
+        final bytes = Uint8List.fromList([0xa1, 0x61, 0x78, 0xf9, 0x3e, 0x00]);
+        expect(
+          () => CborCodec.decode(bytes),
+          throwsA(isA<CborFloatRejectedError>()),
+        );
+      },
+    );
 
-    test('decoding a single-precision float (0xfa) throws CborFloatRejectedError',
-        () {
-      // CBOR map { "x": float32(3.14) }
-      // 0xa1 = 1-element map
-      // 0x61, 0x78 = text "x"
-      // 0xfa = single float
-      final bytes = Uint8List.fromList(
-          [0xa1, 0x61, 0x78, 0xfa, 0x40, 0x48, 0xf5, 0xc3]);
-      expect(
-        () => CborCodec.decode(bytes),
-        throwsA(isA<CborFloatRejectedError>()),
-      );
-    });
+    test(
+      'decoding a single-precision float (0xfa) throws CborFloatRejectedError',
+      () {
+        // CBOR map { "x": float32(3.14) }
+        // 0xa1 = 1-element map
+        // 0x61, 0x78 = text "x"
+        // 0xfa = single float
+        final bytes = Uint8List.fromList([
+          0xa1,
+          0x61,
+          0x78,
+          0xfa,
+          0x40,
+          0x48,
+          0xf5,
+          0xc3,
+        ]);
+        expect(
+          () => CborCodec.decode(bytes),
+          throwsA(isA<CborFloatRejectedError>()),
+        );
+      },
+    );
 
-    test('decoding a double-precision float (0xfb) throws CborFloatRejectedError',
-        () {
-      // CBOR map { "x": float64(1.0) }
-      // 0xfb, 0x3f, 0xf0... = double 1.0
-      final bytes = Uint8List.fromList([
-        0xa1, 0x61, 0x78,
-        0xfb, 0x3f, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-      ]);
-      expect(
-        () => CborCodec.decode(bytes),
-        throwsA(isA<CborFloatRejectedError>()),
-      );
-    });
+    test(
+      'decoding a double-precision float (0xfb) throws CborFloatRejectedError',
+      () {
+        // CBOR map { "x": float64(1.0) }
+        // 0xfb, 0x3f, 0xf0... = double 1.0
+        final bytes = Uint8List.fromList([
+          0xa1,
+          0x61,
+          0x78,
+          0xfb,
+          0x3f,
+          0xf0,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+          0x00,
+        ]);
+        expect(
+          () => CborCodec.decode(bytes),
+          throwsA(isA<CborFloatRejectedError>()),
+        );
+      },
+    );
 
     test('float nested inside a CBOR array is also rejected', () {
       // CBOR array [float16(1.0)]
@@ -69,7 +93,19 @@ void main() {
     });
 
     test('encode never produces float bytes', () {
-      final values = [0, 1, 42, 255, 256, 65535, 65536, 'hello', true, false, null];
+      final values = [
+        0,
+        1,
+        42,
+        255,
+        256,
+        65535,
+        65536,
+        'hello',
+        true,
+        false,
+        null,
+      ];
       for (final v in values) {
         final encoded = CborCodec.encode(v);
         for (final byte in encoded) {
@@ -83,8 +119,10 @@ void main() {
     });
 
     test('CborFloatRejectedError has meaningful toString', () {
-      expect(const CborFloatRejectedError().toString(),
-          contains('CBOR_FLOAT_REJECTED'));
+      expect(
+        const CborFloatRejectedError().toString(),
+        contains('CBOR_FLOAT_REJECTED'),
+      );
     });
   });
 
@@ -112,8 +150,10 @@ void main() {
       expect(CborCodec.encode(23), equals(Uint8List.fromList([0x17])));
       expect(CborCodec.encode(24), equals(Uint8List.fromList([0x18, 0x18])));
       expect(CborCodec.encode(255), equals(Uint8List.fromList([0x18, 0xff])));
-      expect(CborCodec.encode(256),
-          equals(Uint8List.fromList([0x19, 0x01, 0x00])));
+      expect(
+        CborCodec.encode(256),
+        equals(Uint8List.fromList([0x19, 0x01, 0x00])),
+      );
     });
   });
 }

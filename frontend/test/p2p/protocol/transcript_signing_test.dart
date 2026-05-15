@@ -24,11 +24,7 @@ Map<String, dynamic> _buildByePayload({
   });
   final toSign = byeMessageToSign(sessionId, payloadWithoutSig);
   final sig = _sign(signingKey, toSign);
-  return {
-    'result': result,
-    'moves': moves,
-    'sig': sig,
-  };
+  return {'result': result, 'moves': moves, 'sig': sig};
 }
 
 void main() {
@@ -39,11 +35,18 @@ void main() {
     final moves = ['e2e4', 'e7e5', 'g1f3', 'b8c6'];
 
     test('BYE frame is signed and sig survives round-trip', () {
-      final payload =
-          _buildByePayload(result: '1-0', moves: moves, sessionId: sessionId, signingKey: keyA);
+      final payload = _buildByePayload(
+        result: '1-0',
+        moves: moves,
+        sessionId: sessionId,
+        signingKey: keyA,
+      );
 
-      final frame =
-          Frame.withPayloadMap(FrameType.bye, payload, sequenceNum: 1);
+      final frame = Frame.withPayloadMap(
+        FrameType.bye,
+        payload,
+        sequenceNum: 1,
+      );
       final decoded = Frame.decode(frame.encode());
       expect(decoded.type, FrameType.bye);
 
@@ -68,9 +71,17 @@ void main() {
 
     test('counter-signed transcript: B countersigns A\'s BYE', () {
       // A signs the BYE
-      final payloadA =
-          _buildByePayload(result: '1-0', moves: moves, sessionId: sessionId, signingKey: keyA);
-      final frameA = Frame.withPayloadMap(FrameType.bye, payloadA, sequenceNum: 1);
+      final payloadA = _buildByePayload(
+        result: '1-0',
+        moves: moves,
+        sessionId: sessionId,
+        signingKey: keyA,
+      );
+      final frameA = Frame.withPayloadMap(
+        FrameType.bye,
+        payloadA,
+        sequenceNum: 1,
+      );
       final encodedA = frameA.encode();
 
       // B receives A's BYE and countersigns: signs the message-to-sign over
@@ -88,7 +99,11 @@ void main() {
         'sig_a': payloadA['sig'],
         'sig_b': sigB,
       };
-      final frameB = Frame.withPayloadMap(FrameType.bye, countersignedPayload, sequenceNum: 2);
+      final frameB = Frame.withPayloadMap(
+        FrameType.bye,
+        countersignedPayload,
+        sequenceNum: 2,
+      );
       final decoded = Frame.decode(frameB.encode()).decodePayload();
 
       expect((decoded['sig_a'] as Uint8List).length, 64);
@@ -101,7 +116,11 @@ void main() {
         'moves': ['d2d4', 'd7d5', 'c2c4'],
         'sig': Uint8List(64),
       };
-      final frame = Frame.withPayloadMap(FrameType.bye, payload, sequenceNum: 1);
+      final frame = Frame.withPayloadMap(
+        FrameType.bye,
+        payload,
+        sequenceNum: 1,
+      );
       final dp = Frame.decode(frame.encode()).decodePayload();
       expect(dp['result'], '0-1');
       expect((dp['moves'] as List).length, 3);

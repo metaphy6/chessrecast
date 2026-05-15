@@ -58,10 +58,12 @@ void main() {
 
     test('no state is a deadlock (every state has ≥1 legal event)', () {
       for (final state in SessionState.values) {
-        final legalCount =
-            allEvents.where((e) => _isLegal(state, e)).length;
-        expect(legalCount, greaterThan(0),
-            reason: 'State $state has no legal outgoing transitions');
+        final legalCount = allEvents.where((e) => _isLegal(state, e)).length;
+        expect(
+          legalCount,
+          greaterThan(0),
+          reason: 'State $state has no legal outgoing transitions',
+        );
       }
     });
 
