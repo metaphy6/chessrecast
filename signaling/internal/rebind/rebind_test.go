@@ -22,7 +22,6 @@ const (
 // StubRebindStore is a test double for the rebind operation.
 type StubRebindStore struct {
 	bound map[string]string // account_pub → device_pub; nil means locked
-	mu    bool              // single-mutex stub (not thread-safe; fine for serial tests)
 }
 
 func newStubRebindStore() *StubRebindStore {

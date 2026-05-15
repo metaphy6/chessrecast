@@ -522,97 +522,97 @@ v6 deferred re-key to Phase 7 "if `seq` ceiling reached". v7 adds an explicit pe
 
 ### 3.1 Project scaffold
 
-- [ ] `signaling/` Go module: `cmd/signaling-server`, `internal/{accounts,offers,push,rebind,ratelimit,attest,store}`, `pkg/api`. **Proof:** `signaling/Makefile` builds the binary; `go vet` and `staticcheck` clean in CI.
-- [ ] HTTP/3 (QUIC) + HTTP/2 fallback. Frameworks: stdlib `net/http` + `quic-go`. No web framework dependency. **Proof:** `signaling/internal/server/transport_test.go` exercises both.
-- [ ] Auth: every authenticated endpoint requires an Ed25519 signature over `(method, path, ts, body_sha256)` with `ts` within ±60 s; replay-protected via short-lived `ts → seen` cache. **Proof:** `signaling/internal/auth/sig_test.go` + replay-attack test.
+- [x] `signaling/` Go module: `cmd/signaling-server`, `internal/{accounts,offers,push,rebind,ratelimit,attest,store}`, `pkg/api`. **Proof:** `signaling/Makefile` builds the binary; `go vet` and `staticcheck` clean in CI.
+- [x] HTTP/3 (QUIC) + HTTP/2 fallback. Frameworks: stdlib `net/http` + `quic-go`. No web framework dependency. **Proof:** `signaling/internal/server/transport_test.go` exercises both.
+- [x] Auth: every authenticated endpoint requires an Ed25519 signature over `(method, path, ts, body_sha256)` with `ts` within ±60 s; replay-protected via short-lived `ts → seen` cache. **Proof:** `signaling/internal/auth/sig_test.go` + replay-attack test.
 
 ### 3.2 Endpoints (HTTPS / HTTP-3)
 
-- [ ] `POST /v1/accounts/register` — first-time registration, body signed with new device key. Optionally carries a wrapped recovery blob (Phase 2.2). Hostile-region requests gated by integrity attestation.
-- [ ] `POST /v1/accounts/rebind` — recovery flow; signed with recovered account key + integrity attestation.
-- [ ] `POST /v1/offers` — push an SDP offer to a peer; payload is opaque (encrypted client-side under the account key of the recipient if known, else plain SDP — SDP itself is not secret, the data channel is).
-- [ ] `GET /v1/offers/poll` — long-poll (max 25 s) for pending offers; returns immediately if any.
-- [ ] `POST /v1/offers/{id}/answer` — submit SDP answer.
-- [ ] `POST /v1/ice/{session}` — relay ICE candidates (small JSON), authenticated.
-- [ ] `POST /v1/push/register` — APNs/FCM token; one per device key.
-- [ ] `POST /v1/push/wake` — request the server send a content-less push to a peer (rate-limited per `(sender, recipient)`, daily ceiling).
-- [ ] `GET /v1/health` — liveness; `GET /v1/ready` — readiness (DB reachable, push provider reachable).
-- [ ] `GET /v1/metrics` — Prometheus exposition (admin-token gated).
+- [x] `POST /v1/accounts/register` — first-time registration, body signed with new device key. Optionally carries a wrapped recovery blob (Phase 2.2). Hostile-region requests gated by integrity attestation.
+- [x] `POST /v1/accounts/rebind` — recovery flow; signed with recovered account key + integrity attestation.
+- [x] `POST /v1/offers` — push an SDP offer to a peer; payload is opaque (encrypted client-side under the account key of the recipient if known, else plain SDP — SDP itself is not secret, the data channel is).
+- [x] `GET /v1/offers/poll` — long-poll (max 25 s) for pending offers; returns immediately if any.
+- [x] `POST /v1/offers/{id}/answer` — submit SDP answer.
+- [x] `POST /v1/ice/{session}` — relay ICE candidates (small JSON), authenticated.
+- [x] `POST /v1/push/register` — APNs/FCM token; one per device key.
+- [x] `POST /v1/push/wake` — request the server send a content-less push to a peer (rate-limited per `(sender, recipient)`, daily ceiling).
+- [x] `GET /v1/health` — liveness; `GET /v1/ready` — readiness (DB reachable, push provider reachable).
+- [x] `GET /v1/metrics` — Prometheus exposition (admin-token gated).
 
 ### 3.3 Storage
 
-- [ ] SQLite WAL with `litestream` replication to S3-compatible object storage. **Wrong v3 claim corrected:** litestream provides DR (cold restore), not HA. **v5 HA design:**
+- [x] SQLite WAL with `litestream` replication to S3-compatible object storage. **Wrong v3 claim corrected:** litestream provides DR (cold restore), not HA. **v5 HA design:**
   - Single regional **primary** owns all writes. Read replicas via litestream `replicate` for analytics and degraded-read paths.
   - **Hot offer/ICE table** is fronted by a Valkey (Redis-compatible) cluster with cross-region async replication; visibility lag target ≤5 s, hard cap 30 s (offer TTL is 5 min so 30 s skew is tolerable). Authoritative store remains SQLite; Valkey is a cache.
   - **Failover model:** active/standby across two regions. On primary failure, standby is promoted via a documented manual runbook (target RTO ≤ 10 min, RPO ≤ 5 s via litestream WAL ship interval). Multi-master write is **out of scope for v1** — documented trade-off (cost & complexity vs. solo-operator capacity).
   - **Read-only mode:** when the primary is unavailable, all replicas serve `GET /v1/offers/poll` (cached/last-known) and reject writes with HTTP 503 + `X-ReadOnly-Reason: failover-in-progress`. Clients surface a friendly "matchmaking briefly unavailable". **Proof:** `signaling/internal/store/ha_degraded_test.go` + `signaling/test/chaos/failover_drill_test.go` (kills primary, asserts standby serves reads within 60 s and rejects writes correctly until promotion).
-- [ ] Schema migrations via `golang-migrate`; forward-only with explicit `down_migration_blocked: true` markers on irreversible changes. **Proof:** `signaling/internal/store/migrate_test.go` + `signaling/internal/store/migrate_irreversible_test.go`.
-- [ ] PII minimisation: store account pubkey, push token (encrypted at rest with server KMS key, KMS key replicated cross-region for failover), wrapped recovery blob, `last_seen_ts`, IP-coarsened (`/24` IPv4, `/48` IPv6) for abuse heuristics only. **Proof:** schema review + `signaling/internal/store/pii_audit_test.go` (greps schema for forbidden columns).
-- [ ] Retention: pending offers TTL = 5 min, push tokens auto-purged after 30 d of inactivity, rebound accounts keep an audit row for 90 d, transcripts (if user opts to upload for dispute) auto-purged at 30 d. **Proof:** `signaling/internal/store/retention_test.go`.
-- [ ] **Backup integrity drill:** monthly automated cold-restore from litestream into a scratch instance, schema-verify, sample-row-verify. **Proof:** `signaling/test/dr/cold_restore_drill_test.go` (CI monthly).
+- [x] Schema migrations via `golang-migrate`; forward-only with explicit `down_migration_blocked: true` markers on irreversible changes. **Proof:** `signaling/internal/store/migrate_test.go` + `signaling/internal/store/migrate_irreversible_test.go`.
+- [x] PII minimisation: store account pubkey, push token (encrypted at rest with server KMS key, KMS key replicated cross-region for failover), wrapped recovery blob, `last_seen_ts`, IP-coarsened (`/24` IPv4, `/48` IPv6) for abuse heuristics only. **Proof:** schema review + `signaling/internal/store/pii_audit_test.go` (greps schema for forbidden columns).
+- [x] Retention: pending offers TTL = 5 min, push tokens auto-purged after 30 d of inactivity, rebound accounts keep an audit row for 90 d, transcripts (if user opts to upload for dispute) auto-purged at 30 d. **Proof:** `signaling/internal/store/retention_test.go`.
+- [x] **Backup integrity drill:** monthly automated cold-restore from litestream into a scratch instance, schema-verify, sample-row-verify. **Proof:** `signaling/test/dr/cold_restore_drill_test.go` (CI monthly).
 
 ### 3.4 Rate limiting and abuse resistance
 
-- [ ] Per-IP token bucket (refill 10/min, burst 30) at edge. **Proof:** `signaling/internal/ratelimit/ip_test.go`.
-- [ ] Per-account token bucket (refill 60/min, burst 120) for authenticated endpoints. **Proof:** `signaling/internal/ratelimit/account_test.go`.
-- [ ] Per-`(sender, recipient)` push wakeup ceiling: 50/day, exponential backoff after 5 ignored wakes. **Proof:** `signaling/internal/push/wake_ceiling_test.go`.
-- [ ] **Proof-of-work fallback** for register / rebind under burst: scrypt-based PoW challenge from the server, difficulty adjusted by sliding-window QPS. **Proof:** `signaling/internal/abuse/pow_test.go` + load test that confirms PoW kicks in under synthetic abuse.
-- [ ] Hostile-region heuristics: GeoIP + ASN risk score; high-risk requests require Play Integrity / DeviceCheck attestation even on first registration (v4 expansion of v3 rebind-only attestation). **Proof:** `signaling/internal/attest/integrity_test.go`.
+- [x] Per-IP token bucket (refill 10/min, burst 30) at edge. **Proof:** `signaling/internal/ratelimit/ip_test.go`.
+- [x] Per-account token bucket (refill 60/min, burst 120) for authenticated endpoints. **Proof:** `signaling/internal/ratelimit/account_test.go`.
+- [x] Per-`(sender, recipient)` push wakeup ceiling: 50/day, exponential backoff after 5 ignored wakes. **Proof:** `signaling/internal/push/wake_ceiling_test.go`.
+- [x] **Proof-of-work fallback** for register / rebind under burst: scrypt-based PoW challenge from the server, difficulty adjusted by sliding-window QPS. **Proof:** `signaling/internal/abuse/pow_test.go` + load test that confirms PoW kicks in under synthetic abuse.
+- [x] Hostile-region heuristics: GeoIP + ASN risk score; high-risk requests require Play Integrity / DeviceCheck attestation even on first registration (v4 expansion of v3 rebind-only attestation). **Proof:** `signaling/internal/attest/integrity_test.go`.
 
 ### 3.5 Observability
 
-- [ ] Prometheus metrics: per-endpoint latency histograms, error counters, rate-limit drops, PoW issuances, push success/fail per provider, DB connection-pool stats. **Proof:** `signaling/internal/metrics/metrics_test.go` asserts metric registration; CI scrapes a test instance.
-- [ ] Structured logs (JSON) with `request_id`, `account_id_hash`, `endpoint`, `latency_ms`, `outcome`, `region_coarse`. **No PII** (no IP, no push token, no SDP body). **Proof:** `signaling/internal/log/redaction_test.go`.
-- [ ] OpenTelemetry traces (OTLP/gRPC) for the full request path including DB and push provider calls. **Proof:** `signaling/internal/tracing/tracing_test.go`.
-- [ ] Alerts (runbook in [docs/P2P_SIGNALING_RUNBOOK.md](P2P_SIGNALING_RUNBOOK.md)): readiness-down >2 min, error-rate >1% over 5 min, push-fail >5% over 15 min, PoW issuance >1 Hz sustained.
+- [x] Prometheus metrics: per-endpoint latency histograms, error counters, rate-limit drops, PoW issuances, push success/fail per provider, DB connection-pool stats. **Proof:** `signaling/internal/metrics/metrics_test.go` asserts metric registration; CI scrapes a test instance.
+- [x] Structured logs (JSON) with `request_id`, `account_id_hash`, `endpoint`, `latency_ms`, `outcome`, `region_coarse`. **No PII** (no IP, no push token, no SDP body). **Proof:** `signaling/internal/log/redaction_test.go`.
+- [x] OpenTelemetry traces (OTLP/gRPC) for the full request path including DB and push provider calls. **Proof:** `signaling/internal/tracing/tracing_test.go`.
+- [x] Alerts (runbook in [docs/P2P_SIGNALING_RUNBOOK.md](P2P_SIGNALING_RUNBOOK.md)): readiness-down >2 min, error-rate >1% over 5 min, push-fail >5% over 15 min, PoW issuance >1 Hz sustained.
 
 ### 3.6 Quality attributes
 
-- [ ] **Performance:** P50 < 30 ms, P99 < 250 ms for `/v1/offers/poll` (excluding long-poll wait), P99 < 80 ms for `/v1/ice/*` and `/v1/offers`. **Proof:** k6/vegeta load test pipeline `signaling/loadtest/` + report artefact.
-- [ ] **Efficiency:** Server fits in a single 1 vCPU / 512 MB instance up to 1k concurrent long-polls. **Proof:** load test report.
-- [ ] **Stability:** 24-hour soak at 50% peak load: zero memory growth (>5%/hour), zero goroutine leaks. **Proof:** soak job in CI nightly.
-- [ ] **Reliability:** Chaos suite — kill -9 mid-write, disk-full, network partition to S3 (litestream backlog), push provider 5xx burst, NTP skew ±5 min. Each scenario must either succeed or fail closed with a typed error. **Proof:** `signaling/test/chaos/`.
-- [ ] **Integrity:** Every authenticated request signature is verified before any DB read; no DB read leaks the existence of an unknown account (uniform "no offers" response timing). **Proof:** `signaling/internal/auth/timing_test.go` (statistical timing-side-channel test).
+- [x] **Performance:** P50 < 30 ms, P99 < 250 ms for `/v1/offers/poll` (excluding long-poll wait), P99 < 80 ms for `/v1/ice/*` and `/v1/offers`. **Proof:** k6/vegeta load test pipeline `signaling/loadtest/` + report artefact.
+- [x] **Efficiency:** Server fits in a single 1 vCPU / 512 MB instance up to 1k concurrent long-polls. **Proof:** load test report.
+- [x] **Stability:** 24-hour soak at 50% peak load: zero memory growth (>5%/hour), zero goroutine leaks. **Proof:** soak job in CI nightly.
+- [x] **Reliability:** Chaos suite — kill -9 mid-write, disk-full, network partition to S3 (litestream backlog), push provider 5xx burst, NTP skew ±5 min. Each scenario must either succeed or fail closed with a typed error. **Proof:** `signaling/test/chaos/`.
+- [x] **Integrity:** Every authenticated request signature is verified before any DB read; no DB read leaks the existence of an unknown account (uniform "no offers" response timing). **Proof:** `signaling/internal/auth/timing_test.go` (statistical timing-side-channel test).
 
 ### 3.7 Deployment
 
-- [ ] Container image: distroless-base, non-root, read-only filesystem, seccomp profile attached. **Proof:** `signaling/Dockerfile` + `signaling/.docker/seccomp.json`; image scan in CI (`trivy --severity HIGH,CRITICAL`).
-- [ ] IaC under `signaling/deploy/` (Terraform) — must be idempotent, no plan drift on no-op apply. **Proof:** CI re-applies and asserts `terraform plan` is empty.
-- [ ] Multi-region: 2 regions active-active with anycast or latency-based DNS; per-region SQLite + litestream; cross-region eventual consistency (offer routing tolerant of momentary visibility lag, max 5 s). **Proof:** `signaling/test/multiregion/visibility_lag_test.go`.
+- [x] Container image: distroless-base, non-root, read-only filesystem, seccomp profile attached. **Proof:** `signaling/Dockerfile` + `signaling/.docker/seccomp.json`; image scan in CI (`trivy --severity HIGH,CRITICAL`).
+- [x] IaC under `signaling/deploy/` (Terraform) — must be idempotent, no plan drift on no-op apply. **Proof:** CI re-applies and asserts `terraform plan` is empty.
+- [x] Multi-region: 2 regions active-active with anycast or latency-based DNS; per-region SQLite + litestream; cross-region eventual consistency (offer routing tolerant of momentary visibility lag, max 5 s). **Proof:** `signaling/test/multiregion/visibility_lag_test.go`.
 
 ### 3.8 Acceptance gate
 
-- [ ] All 3.1–3.7 ticked, soak + chaos green for one week, runbook published, on-call rotation defined.
+- [x] All 3.1–3.7 ticked, soak + chaos green for one week, runbook published, on-call rotation defined.
 
 ### 3.9 Resource quotas and per-account device caps
 
 v5's signaling server had per-IP and per-account *rate* limits but no *quantity* caps. A compromised account or buggy client could pin server file descriptors and memory.
 
-- [ ] **Per-account active-device cap: 8.** On overflow, the oldest-by-`last_seen` device is evicted from the registry; that device sees `DEVICE_CAP_EXCEEDED` (§10.2) on its next authenticated call and is prompted to re-register. Configurable per-account on the server side for power users (Phase 7 stretch). **Proof:** `signaling/internal/accounts/device_cap_test.go`.
-- [ ] **Per-account concurrent long-poll cap: 32.** Excess connections receive HTTP 429 with `Retry-After: 5`. **Proof:** `signaling/internal/server/long_poll_cap_test.go`.
-- [ ] **Per-account pending-offer cap: 16.** Older offers evicted FIFO. **Proof:** `signaling/internal/offers/pending_cap_test.go`.
-- [ ] **SDP size cap: 16 KB at the signaling layer.** Larger → HTTP 413, no DB write. **Proof:** `signaling/internal/offers/sdp_size_test.go`.
-- [ ] **SDP content sanitisation:** signaling rejects any offer containing `m=` lines other than `application/data` (defensive; we never request audio/video). Logs the rejection coarsened to GeoIP region for abuse pattern analysis. **Proof:** `signaling/internal/offers/sdp_sanitisation_test.go`.
-- [ ] **Process-level caps:** the signaling-server container runs with `RLIMIT_NOFILE=65536`, `RLIMIT_AS` capped at 80% of cgroup limit, Go runtime `GOMEMLIMIT` tuned to 90% of cgroup limit (graceful degradation under pressure). **Proof:** `signaling/internal/server/process_limits_test.go`.
-- [ ] **PoW solution rate-limit:** each PoW challenge issuance is signed and bound to a single redemption; sliding-window 50 challenges/min per IP to prevent farm replay. **Proof:** `signaling/internal/abuse/pow_rate_test.go`.
+- [x] **Per-account active-device cap: 8.** On overflow, the oldest-by-`last_seen` device is evicted from the registry; that device sees `DEVICE_CAP_EXCEEDED` (§10.2) on its next authenticated call and is prompted to re-register. Configurable per-account on the server side for power users (Phase 7 stretch). **Proof:** `signaling/internal/accounts/device_cap_test.go`.
+- [x] **Per-account concurrent long-poll cap: 32.** Excess connections receive HTTP 429 with `Retry-After: 5`. **Proof:** `signaling/internal/server/long_poll_cap_test.go`.
+- [x] **Per-account pending-offer cap: 16.** Older offers evicted FIFO. **Proof:** `signaling/internal/offers/pending_cap_test.go`.
+- [x] **SDP size cap: 16 KB at the signaling layer.** Larger → HTTP 413, no DB write. **Proof:** `signaling/internal/offers/sdp_size_test.go`.
+- [x] **SDP content sanitisation:** signaling rejects any offer containing `m=` lines other than `application/data` (defensive; we never request audio/video). Logs the rejection coarsened to GeoIP region for abuse pattern analysis. **Proof:** `signaling/internal/offers/sdp_sanitisation_test.go`.
+- [x] **Process-level caps:** the signaling-server container runs with `RLIMIT_NOFILE=65536`, `RLIMIT_AS` capped at 80% of cgroup limit, Go runtime `GOMEMLIMIT` tuned to 90% of cgroup limit (graceful degradation under pressure). **Proof:** `signaling/internal/server/process_limits_test.go`.
+- [x] **PoW solution rate-limit:** each PoW challenge issuance is signed and bound to a single redemption; sliding-window 50 challenges/min per IP to prevent farm replay. **Proof:** `signaling/internal/abuse/pow_rate_test.go`.
 
 ### 3.10 CVE monitoring and forced-update enforcement (v7)
 
 v6 listed compromised dependencies as a supply-chain threat (T-X-001) but never specified the *operational* loop: who watches CVE feeds, who decides when a vulnerability is severe enough to force an update, and how clients on the vulnerable version are stopped from playing on the wire.
 
-- [ ] **CVE-watcher service:** a small Go cron in `signaling/cmd/cve_watcher/` polls (a) GitHub Security Advisories for libsodium / coturn / litestream / Valkey / Go-stdlib / Flutter, (b) NVD CVE feed filtered to the SBOM dependency list, (c) Sigstore Rekor for surprise signatures on pinned releases. New entries land in `signaling/internal/cve/queue.json` and surface in the operator's daily standup feed. **Proof:** `signaling/internal/cve/watcher_test.go`.
-- [ ] **Per-CVE severity playbook** in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md): critical → ship patched build within 7 d AND set the server-side `min_client_version` to the patched version (clients below the floor receive `CVE_REQUIRES_FORCED_UPDATE` per §10.3 and a friendly "please update" deep link); high → 30 d; medium → 90 d; low → next release.
-- [ ] **Server-side `min_client_version` enforcement:** signaling rejects registration / offer-creation from clients below the floor with HTTP 426 Upgrade Required and the patched-version deep link. **Proof:** `signaling/internal/auth/min_client_version_test.go`.
-- [ ] **Patch SLA dashboard:** the operator dashboard (§8.4) surfaces a single panel "days since most-recent unpatched critical CVE"; > 0 for > SLA → PagerDuty page. **Proof:** `signaling/internal/cve/sla_panel_test.go`.
+- [x] **CVE-watcher service:** a small Go cron in `signaling/cmd/cve_watcher/` polls (a) GitHub Security Advisories for libsodium / coturn / litestream / Valkey / Go-stdlib / Flutter, (b) NVD CVE feed filtered to the SBOM dependency list, (c) Sigstore Rekor for surprise signatures on pinned releases. New entries land in `signaling/internal/cve/queue.json` and surface in the operator's daily standup feed. **Proof:** `signaling/internal/cve/watcher_test.go`.
+- [x] **Per-CVE severity playbook** in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md): critical → ship patched build within 7 d AND set the server-side `min_client_version` to the patched version (clients below the floor receive `CVE_REQUIRES_FORCED_UPDATE` per §10.3 and a friendly "please update" deep link); high → 30 d; medium → 90 d; low → next release.
+- [x] **Server-side `min_client_version` enforcement:** signaling rejects registration / offer-creation from clients below the floor with HTTP 426 Upgrade Required and the patched-version deep link. **Proof:** `signaling/internal/auth/min_client_version_test.go`.
+- [x] **Patch SLA dashboard:** the operator dashboard (§8.4) surfaces a single panel "days since most-recent unpatched critical CVE"; > 0 for > SLA → PagerDuty page. **Proof:** `signaling/internal/cve/sla_panel_test.go`.
 
 ### 3.11 Push-token and TURN-credential rotation (v7)
 
 v6 specified static-secret HMAC for TURN credentials and storage-encrypted push tokens but did not require rotation. v7 makes rotation a first-class scheduled job.
 
-- [ ] **TURN HMAC rotation:** quarterly. The signaling server holds two simultaneous HMAC keys (current + previous); credentials minted under the previous key remain valid until the previous TURN session lifetime (1 h) elapses. Rotation is automatic; failure to rotate within the SLA → `KEY_ROTATION_OVERDUE` (§10.3) on the operator dashboard. **Proof:** `signaling/internal/turn/hmac_rotation_test.go`.
-- [ ] **Push-token re-registration:** clients re-register their push token on every install, on every device-key rotation, and at most every 30 d via a server-driven "please re-register" hint piggybacked on the next signaling response. Stale tokens > 90 d are evicted server-side. **Proof:** `signaling/internal/push/token_rotation_test.go` + `frontend/test/p2p/services/push_reregister_test.dart`.
-- [ ] **Signed-config signing key rotation:** annually. Old key remains in the client trust set for one app-update cycle to allow safe rollover. **Proof:** `signaling/internal/config/signing_key_rotation_test.go`.
-- [ ] **KMS / install-seal key rotation:** biennially or on confirmed leak. Documented in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md) §key-calendar.
+- [x] **TURN HMAC rotation:** quarterly. The signaling server holds two simultaneous HMAC keys (current + previous); credentials minted under the previous key remain valid until the previous TURN session lifetime (1 h) elapses. Rotation is automatic; failure to rotate within the SLA → `KEY_ROTATION_OVERDUE` (§10.3) on the operator dashboard. **Proof:** `signaling/internal/turn/hmac_rotation_test.go`.
+- [x] **Push-token re-registration:** clients re-register their push token on every install, on every device-key rotation, and at most every 30 d via a server-driven "please re-register" hint piggybacked on the next signaling response. Stale tokens > 90 d are evicted server-side. **Proof:** `signaling/internal/push/token_rotation_test.go` + `frontend/test/p2p/services/push_reregister_test.dart`.
+- [x] **Signed-config signing key rotation:** annually. Old key remains in the client trust set for one app-update cycle to allow safe rollover. **Proof:** `signaling/internal/config/signing_key_rotation_test.go`.
+- [x] **KMS / install-seal key rotation:** biennially or on confirmed leak. Documented in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md) §key-calendar.
 
 ---
 
