@@ -14,41 +14,57 @@ void main() {
 
   setUpAll(() {
     final cwd = Directory.current.path;
-    manifestContent =
-        File('$cwd/android/app/src/main/AndroidManifest.xml').readAsStringSync();
-    backupRulesContent =
-        File('$cwd/android/app/src/main/res/xml/backup_rules.xml')
-            .readAsStringSync();
+    manifestContent = File(
+      '$cwd/android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
+    backupRulesContent = File(
+      '$cwd/android/app/src/main/res/xml/backup_rules.xml',
+    ).readAsStringSync();
   });
 
   test('1. AndroidManifest.xml has android:allowBackup="false"', () {
-    expect(manifestContent, contains('android:allowBackup="false"'),
-        reason:
-            'The <application> element must declare android:allowBackup="false" '
-            'to prevent automatic cloud backup of P2P game data and forensics.');
+    expect(
+      manifestContent,
+      contains('android:allowBackup="false"'),
+      reason:
+          'The <application> element must declare android:allowBackup="false" '
+          'to prevent automatic cloud backup of P2P game data and forensics.',
+    );
   });
 
   test('2. AndroidManifest.xml references a fullBackupContent rule file', () {
-    expect(manifestContent, contains('android:fullBackupContent='),
-        reason:
-            'The <application> element should reference a backup_rules.xml via '
-            'android:fullBackupContent so that any future SDK-version upgrade '
-            'that relaxes allowBackup still respects the exclusion rules.');
+    expect(
+      manifestContent,
+      contains('android:fullBackupContent='),
+      reason:
+          'The <application> element should reference a backup_rules.xml via '
+          'android:fullBackupContent so that any future SDK-version upgrade '
+          'that relaxes allowBackup still respects the exclusion rules.',
+    );
   });
 
   test('3. backup_rules.xml excludes file domain', () {
-    expect(backupRulesContent, contains('domain="file"'),
-        reason:
-            'backup_rules.xml must have at least one <exclude domain="file" .../> '
-            'to cover the app documents directory.');
-    expect(backupRulesContent, contains('<exclude'),
-        reason: 'Must contain an <exclude> element.');
+    expect(
+      backupRulesContent,
+      contains('domain="file"'),
+      reason:
+          'backup_rules.xml must have at least one <exclude domain="file" .../> '
+          'to cover the app documents directory.',
+    );
+    expect(
+      backupRulesContent,
+      contains('<exclude'),
+      reason: 'Must contain an <exclude> element.',
+    );
   });
 
   test('4. backup_rules.xml excludes database domain', () {
-    expect(backupRulesContent, contains('domain="database"'),
-        reason:
-            'backup_rules.xml must have at least one <exclude domain="database" .../> '
-            'to cover SQLite databases (saved_games.db, saved_games_enc.db).');
+    expect(
+      backupRulesContent,
+      contains('domain="database"'),
+      reason:
+          'backup_rules.xml must have at least one <exclude domain="database" .../> '
+          'to cover SQLite databases (saved_games.db, saved_games_enc.db).',
+    );
   });
 }

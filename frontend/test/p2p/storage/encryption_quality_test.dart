@@ -46,30 +46,43 @@ void main() {
   test('1. cold-list of 1000 encrypted games completes within 2000 ms', () async {
     final tmp = Directory.systemTemp.createTempSync('enc_quality_perf_');
     addTearDown(() => tmp.deleteSync(recursive: true));
-    final db = SavedGamesLocalEncrypted.forTesting(inMemory: false, dbDir: tmp.path);
+    final db = SavedGamesLocalEncrypted.forTesting(
+      inMemory: false,
+      dbDir: tmp.path,
+    );
     await db.init();
     // Use batchSave (single transaction) so the setup phase completes quickly.
     final games = List.generate(1000, (i) => _makeGame('game_$i', i));
     await db.batchSave(games);
     await db.close();
-    final db2 = SavedGamesLocalEncrypted.forTesting(inMemory: false, dbDir: tmp.path);
+    final db2 = SavedGamesLocalEncrypted.forTesting(
+      inMemory: false,
+      dbDir: tmp.path,
+    );
     await db2.init();
     addTearDown(() => db2.close());
     final sw = Stopwatch()..start();
     final result = await db2.listGames();
     sw.stop();
     expect(result.length, 1000);
-    expect(sw.elapsedMilliseconds, lessThan(2000),
-        reason: 'Cold-list of 1000 encrypted games should be < 2000 ms '
-            '(Dart AES-GCM layer; Phase 2.1 SQLCipher will meet 8% overhead target), '
-            'got ${sw.elapsedMilliseconds} ms');
+    expect(
+      sw.elapsedMilliseconds,
+      lessThan(2000),
+      reason:
+          'Cold-list of 1000 encrypted games should be < 2000 ms '
+          '(Dart AES-GCM layer; Phase 2.1 SQLCipher will meet 8% overhead target), '
+          'got ${sw.elapsedMilliseconds} ms',
+    );
   });
 
   // 2. Stability
   test('2. corrupt kdf_params raises SQLCIPHER_KEY_UNWRAP_FAIL', () async {
     final tmp = Directory.systemTemp.createTempSync('enc_quality_stable_');
     addTearDown(() => tmp.deleteSync(recursive: true));
-    final db1 = SavedGamesLocalEncrypted.forTesting(inMemory: false, dbDir: tmp.path);
+    final db1 = SavedGamesLocalEncrypted.forTesting(
+      inMemory: false,
+      dbDir: tmp.path,
+    );
     await db1.init();
     await db1.saveGame(_makeGame('g1', 0));
     await db1.close();
@@ -84,14 +97,19 @@ void main() {
       whereArgs: ['kdf_params'],
     );
     await rawDb.close();
-    final db2 = SavedGamesLocalEncrypted.forTesting(inMemory: false, dbDir: tmp.path);
+    final db2 = SavedGamesLocalEncrypted.forTesting(
+      inMemory: false,
+      dbDir: tmp.path,
+    );
     await expectLater(
       db2.init(),
-      throwsA(isA<StateError>().having(
-        (e) => e.message,
-        'message',
-        contains('SQLCIPHER_KEY_UNWRAP_FAIL'),
-      )),
+      throwsA(
+        isA<StateError>().having(
+          (e) => e.message,
+          'message',
+          contains('SQLCIPHER_KEY_UNWRAP_FAIL'),
+        ),
+      ),
     );
   });
 

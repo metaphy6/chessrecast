@@ -43,8 +43,8 @@ class SavedGamesLocalEncrypted {
 
   /// Test constructor.
   SavedGamesLocalEncrypted.forTesting({required bool inMemory, String? dbDir})
-      : _inMemory = inMemory,
-        _dbDir = dbDir;
+    : _inMemory = inMemory,
+      _dbDir = dbDir;
 
   // ---------------------------------------------------------------------------
   // Initialisation
@@ -76,15 +76,11 @@ class SavedGamesLocalEncrypted {
   Future<void> saveGame(SavedGame game) async {
     _listCache = null;
     final ciphertext = _cipher!.encryptPayload(game.toJsonString());
-    await _db!.insert(
-      'games',
-      {
-        'id': game.id,
-        'timestamp': game.timestamp.toIso8601String(),
-        'payload': ciphertext,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db!.insert('games', {
+      'id': game.id,
+      'timestamp': game.timestamp.toIso8601String(),
+      'payload': ciphertext,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   /// Insert multiple games in a single transaction — much faster than calling
@@ -95,15 +91,11 @@ class SavedGamesLocalEncrypted {
     await _db!.transaction((txn) async {
       for (final game in games) {
         final ciphertext = _cipher!.encryptPayload(game.toJsonString());
-        await txn.insert(
-          'games',
-          {
-            'id': game.id,
-            'timestamp': game.timestamp.toIso8601String(),
-            'payload': ciphertext,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+        await txn.insert('games', {
+          'id': game.id,
+          'timestamp': game.timestamp.toIso8601String(),
+          'payload': ciphertext,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
       }
     });
   }
@@ -118,7 +110,9 @@ class SavedGamesLocalEncrypted {
     final rows = await _db!.query('games', where: 'id = ?', whereArgs: [id]);
     if (rows.isEmpty) return null;
     try {
-      final plaintext = _cipher!.decryptPayload(rows.first['payload'] as String);
+      final plaintext = _cipher!.decryptPayload(
+        rows.first['payload'] as String,
+      );
       return SavedGame.fromJsonString(plaintext);
     } catch (e) {
       debugPrint('[SavedGamesLocalEncrypted] failed to decrypt $id: $e');
@@ -177,16 +171,14 @@ class SavedGamesLocalEncrypted {
     if (rows.isEmpty) {
       // First-time setup: generate a random KEK and persist it.
       final cipher = AtRestCipher.generate();
-      await _db!.insert(
-        'meta',
-        {'key': 'cipher_version', 'value': '${AtRestCipher.cipherVersion}'},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-      await _db!.insert(
-        'meta',
-        {'key': 'kdf_params', 'value': cipher.exportKeyBase64()},
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await _db!.insert('meta', {
+        'key': 'cipher_version',
+        'value': '${AtRestCipher.cipherVersion}',
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      await _db!.insert('meta', {
+        'key': 'kdf_params',
+        'value': cipher.exportKeyBase64(),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
       _cipher = cipher;
     } else {
       // Reload existing KEK from the meta table.
@@ -216,20 +208,22 @@ class SavedGamesLocalEncrypted {
       try {
         final plaintext = _cipher!.decryptPayload(row['payload'] as String);
         final game = SavedGame.fromJsonString(plaintext);
-        result.add(SavedGame(
-          id: game.id,
-          timestamp: game.timestamp,
-          gameType: game.gameType,
-          whiteLevel: game.whiteLevel,
-          blackLevel: game.blackLevel,
-          result: game.result,
-          resultReason: game.resultReason,
-          moveLog: const [],
-          totalMoves: game.totalMoves,
-          startingFEN: game.startingFEN,
-          finalFEN: game.finalFEN,
-          fenHistory: null,
-        ));
+        result.add(
+          SavedGame(
+            id: game.id,
+            timestamp: game.timestamp,
+            gameType: game.gameType,
+            whiteLevel: game.whiteLevel,
+            blackLevel: game.blackLevel,
+            result: game.result,
+            resultReason: game.resultReason,
+            moveLog: const [],
+            totalMoves: game.totalMoves,
+            startingFEN: game.startingFEN,
+            finalFEN: game.finalFEN,
+            fenHistory: null,
+          ),
+        );
       } catch (e) {
         debugPrint('[SavedGamesLocalEncrypted] skipping malformed row $id: $e');
       }

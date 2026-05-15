@@ -26,8 +26,7 @@ SavedGame _makeRealisticGame(int index) {
   // 40 plies of fake (but non-trivial length) FEN strings
   final fenHistory = List<String>.generate(
     40,
-    (i) =>
-        'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 ${i + 1}',
+    (i) => 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 ${i + 1}',
   );
   final moveLog = List<String>.generate(40, (i) => 'e2e4');
   return SavedGame(
@@ -58,7 +57,10 @@ void main() {
     addTearDown(() => tempDir.delete(recursive: true));
 
     // ── Seed phase ──────────────────────────────────────────────────────────
-    final seed = SavedGamesLocal.forTesting(inMemory: false, dbDir: tempDir.path);
+    final seed = SavedGamesLocal.forTesting(
+      inMemory: false,
+      dbDir: tempDir.path,
+    );
     await seed.init();
     for (var i = 0; i < 1000; i++) {
       await seed.saveGame(_makeRealisticGame(i));
@@ -67,7 +69,10 @@ void main() {
 
     // ── Cold measurement ─────────────────────────────────────────────────────
     // Open a fresh instance so the DB page cache is cold.
-    final cold = SavedGamesLocal.forTesting(inMemory: false, dbDir: tempDir.path);
+    final cold = SavedGamesLocal.forTesting(
+      inMemory: false,
+      dbDir: tempDir.path,
+    );
     await cold.init();
 
     final sw1 = Stopwatch()..start();
@@ -78,7 +83,8 @@ void main() {
     expect(
       sw1.elapsedMilliseconds,
       lessThan(50),
-      reason: 'Cold list must complete in < 50 ms (got ${sw1.elapsedMilliseconds} ms)',
+      reason:
+          'Cold list must complete in < 50 ms (got ${sw1.elapsedMilliseconds} ms)',
     );
 
     // ── Warm measurement ─────────────────────────────────────────────────────
@@ -90,7 +96,8 @@ void main() {
     expect(
       sw2.elapsedMilliseconds,
       lessThan(10),
-      reason: 'Warm list must complete in < 10 ms (got ${sw2.elapsedMilliseconds} ms)',
+      reason:
+          'Warm list must complete in < 10 ms (got ${sw2.elapsedMilliseconds} ms)',
     );
 
     await cold.close();

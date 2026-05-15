@@ -42,18 +42,23 @@ void main() {
     );
     await svc.init();
 
-    await svc.saveGame(SavedGame(
-      id: gameId,
-      timestamp: DateTime(2025, 7, 1),
-      gameType: gameType,
-      whiteLevel: 'medium',
-      blackLevel: 'hard',
-      result: 'draw',
-      resultReason: 'agreement',
-      moveLog: [sentinelMove, 'e7e5'],
-      fenHistory: [sentinelFen, 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR'],
-      totalMoves: 2,
-    ));
+    await svc.saveGame(
+      SavedGame(
+        id: gameId,
+        timestamp: DateTime(2025, 7, 1),
+        gameType: gameType,
+        whiteLevel: 'medium',
+        blackLevel: 'hard',
+        result: 'draw',
+        resultReason: 'agreement',
+        moveLog: [sentinelMove, 'e7e5'],
+        fenHistory: [
+          sentinelFen,
+          'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR',
+        ],
+        totalMoves: 2,
+      ),
+    );
 
     // Close the connection so all pages are flushed to disk.
     await svc.close();
@@ -74,7 +79,8 @@ void main() {
       expect(
         rawStr.contains(marker),
         isFalse,
-        reason: 'Plaintext marker "$marker" found in raw DB file — '
+        reason:
+            'Plaintext marker "$marker" found in raw DB file — '
             'payload is NOT encrypted',
       );
     }

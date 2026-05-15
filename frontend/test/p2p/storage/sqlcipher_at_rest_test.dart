@@ -19,16 +19,16 @@ import '../../../lib/services/saved_game.dart';
 import '../../../lib/services/saved_games_local_encrypted.dart';
 
 SavedGame _makeGame(String id) => SavedGame(
-      id: id,
-      timestamp: DateTime(2025, 6, 1),
-      gameType: 'classic',
-      whiteLevel: 'hard',
-      blackLevel: 'expert',
-      result: 'white',
-      resultReason: 'checkmate',
-      moveLog: ['e2e4', 'e7e5', 'g1f3', 'b8c6'],
-      totalMoves: 4,
-    );
+  id: id,
+  timestamp: DateTime(2025, 6, 1),
+  gameType: 'classic',
+  whiteLevel: 'hard',
+  blackLevel: 'expert',
+  result: 'white',
+  resultReason: 'checkmate',
+  moveLog: ['e2e4', 'e7e5', 'g1f3', 'b8c6'],
+  totalMoves: 4,
+);
 
 void main() {
   setUpAll(() {
@@ -71,10 +71,11 @@ void main() {
     // Access the underlying DB via a second plain sqflite open to read meta.
     final dbPath = p.join(dbDir.path, 'saved_games_enc.db');
     final db = await databaseFactory.openDatabase(dbPath);
-    final rows = await db.query('meta', where: 'key IN (?, ?)', whereArgs: [
-      'cipher_version',
-      'kdf_params',
-    ]);
+    final rows = await db.query(
+      'meta',
+      where: 'key IN (?, ?)',
+      whereArgs: ['cipher_version', 'kdf_params'],
+    );
     await db.close();
     await svc.close();
 
@@ -87,69 +88,75 @@ void main() {
     expect(keyBytes.length, 32, reason: 'KEK must be 256 bits');
   });
 
-  test('3. cipher is reconstructible from kdf_params (key reload test)', () async {
-    final dbDir = Directory.systemTemp.createTempSync('enc_reload_');
-    addTearDown(() => dbDir.deleteSync(recursive: true));
+  test(
+    '3. cipher is reconstructible from kdf_params (key reload test)',
+    () async {
+      final dbDir = Directory.systemTemp.createTempSync('enc_reload_');
+      addTearDown(() => dbDir.deleteSync(recursive: true));
 
-    final svc1 = SavedGamesLocalEncrypted.forTesting(
-      inMemory: false,
-      dbDir: dbDir.path,
-    );
-    await svc1.init();
-    await svc1.saveGame(_makeGame('reload-1'));
-    await svc1.close();
+      final svc1 = SavedGamesLocalEncrypted.forTesting(
+        inMemory: false,
+        dbDir: dbDir.path,
+      );
+      await svc1.init();
+      await svc1.saveGame(_makeGame('reload-1'));
+      await svc1.close();
 
-    // Re-open — should reload the key from kdf_params and decrypt correctly.
-    final svc2 = SavedGamesLocalEncrypted.forTesting(
-      inMemory: false,
-      dbDir: dbDir.path,
-    );
-    await svc2.init();
-    final loaded = await svc2.loadGame('reload-1');
-    await svc2.close();
+      // Re-open — should reload the key from kdf_params and decrypt correctly.
+      final svc2 = SavedGamesLocalEncrypted.forTesting(
+        inMemory: false,
+        dbDir: dbDir.path,
+      );
+      await svc2.init();
+      final loaded = await svc2.loadGame('reload-1');
+      await svc2.close();
 
-    expect(loaded, isNotNull, reason: 'Game must survive DB close/reopen');
-    expect(loaded!.id, 'reload-1');
-  });
+      expect(loaded, isNotNull, reason: 'Game must survive DB close/reopen');
+      expect(loaded!.id, 'reload-1');
+    },
+  );
 
-  test('4. tampered ciphertext is detected (AEAD authentication fails)', () async {
-    final dbDir = Directory.systemTemp.createTempSync('enc_tamper_');
-    addTearDown(() => dbDir.deleteSync(recursive: true));
+  test(
+    '4. tampered ciphertext is detected (AEAD authentication fails)',
+    () async {
+      final dbDir = Directory.systemTemp.createTempSync('enc_tamper_');
+      addTearDown(() => dbDir.deleteSync(recursive: true));
 
-    final svc = SavedGamesLocalEncrypted.forTesting(
-      inMemory: false,
-      dbDir: dbDir.path,
-    );
-    await svc.init();
-    await svc.saveGame(_makeGame('tamper-1'));
+      final svc = SavedGamesLocalEncrypted.forTesting(
+        inMemory: false,
+        dbDir: dbDir.path,
+      );
+      await svc.init();
+      await svc.saveGame(_makeGame('tamper-1'));
 
-    // Directly corrupt the payload in the DB.
-    final dbPath = p.join(dbDir.path, 'saved_games_enc.db');
-    final db = await databaseFactory.openDatabase(dbPath);
-    await db.update(
-      'games',
-      {'payload': 'AAAA_tampered_ciphertext_ZZZZ'},
-      where: 'id = ?',
-      whereArgs: ['tamper-1'],
-    );
-    await db.close();
+      // Directly corrupt the payload in the DB.
+      final dbPath = p.join(dbDir.path, 'saved_games_enc.db');
+      final db = await databaseFactory.openDatabase(dbPath);
+      await db.update(
+        'games',
+        {'payload': 'AAAA_tampered_ciphertext_ZZZZ'},
+        where: 'id = ?',
+        whereArgs: ['tamper-1'],
+      );
+      await db.close();
 
-    // Reopen the encrypted service — loadGame must return null, not a garbled
-    // game (the decrypt error is caught and logged).
-    final svc2 = SavedGamesLocalEncrypted.forTesting(
-      inMemory: false,
-      dbDir: dbDir.path,
-    );
-    await svc2.init();
-    final loaded = await svc2.loadGame('tamper-1');
-    await svc2.close();
+      // Reopen the encrypted service — loadGame must return null, not a garbled
+      // game (the decrypt error is caught and logged).
+      final svc2 = SavedGamesLocalEncrypted.forTesting(
+        inMemory: false,
+        dbDir: dbDir.path,
+      );
+      await svc2.init();
+      final loaded = await svc2.loadGame('tamper-1');
+      await svc2.close();
 
-    expect(
-      loaded,
-      isNull,
-      reason:
-          'Tampered ciphertext must not produce a usable game; '
-          'loadGame must return null',
-    );
-  });
+      expect(
+        loaded,
+        isNull,
+        reason:
+            'Tampered ciphertext must not produce a usable game; '
+            'loadGame must return null',
+      );
+    },
+  );
 }

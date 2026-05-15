@@ -38,11 +38,11 @@ void main() {
     final frontendDir = Directory.current.path;
     final scanScript = p.join(frontendDir, 'tool', 'scan_secrets.dart');
 
-    final result = await Process.run(
-      'dart',
-      ['run', scanScript, 'HEAD'],
-      workingDirectory: frontendDir,
-    );
+    final result = await Process.run('dart', [
+      'run',
+      scanScript,
+      'HEAD',
+    ], workingDirectory: frontendDir);
 
     expect(
       result.exitCode,
@@ -65,15 +65,16 @@ void main() {
       if (!entity.path.endsWith('.dart')) continue;
 
       final rel = p.relative(entity.path, from: frontendDir);
-      final isAllowListed = _urlAllowList.any((allowed) => rel.endsWith(allowed));
+      final isAllowListed = _urlAllowList.any(
+        (allowed) => rel.endsWith(allowed),
+      );
 
       final lines = entity.readAsLinesSync();
       for (var i = 0; i < lines.length; i++) {
         final line = lines[i];
         for (final pattern in _forbiddenPatterns) {
           // For URL-based patterns, skip allow-listed files.
-          if (isAllowListed &&
-              pattern.pattern.contains(r'https?://')) {
+          if (isAllowListed && pattern.pattern.contains(r'https?://')) {
             continue;
           }
           if (pattern.hasMatch(line)) {

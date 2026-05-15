@@ -50,21 +50,22 @@ class SavedGamesLocal {
   Database? _db;
   bool _wasQuarantined = false;
   bool _dbWasFromDifferentInstall = false;
-  String? _currentInstallId; // set during init/openSafe; written to meta on creation
+  String?
+  _currentInstallId; // set during init/openSafe; written to meta on creation
   // Warm-path cache — invalidated on every write so it is always consistent.
   List<SavedGame>? _listCache;
 
   SavedGamesLocal._({bool inMemory = false, String? dbDir})
-      : _inMemory = inMemory,
-        _dbDir = dbDir;
+    : _inMemory = inMemory,
+      _dbDir = dbDir;
 
   /// Production constructor — uses the app's documents directory.
   SavedGamesLocal() : _inMemory = false, _dbDir = null;
 
   /// Test constructor: allows in-memory or file-based with a custom directory.
   SavedGamesLocal.forTesting({required bool inMemory, String? dbDir})
-      : _inMemory = inMemory,
-        _dbDir = dbDir;
+    : _inMemory = inMemory,
+      _dbDir = dbDir;
 
   /// True if the previous [openSafe] call had to quarantine a corrupt DB file.
   bool get dbWasQuarantined => _wasQuarantined;
@@ -80,7 +81,10 @@ class SavedGamesLocal {
 
   /// The underlying [Database] instance (exposed for test introspection only).
   Database get database {
-    assert(_db != null, 'Call init() or openSafe() before accessing the database.');
+    assert(
+      _db != null,
+      'Call init() or openSafe() before accessing the database.',
+    );
     return _db!;
   }
 
@@ -99,8 +103,9 @@ class SavedGamesLocal {
       _currentInstallId = await _loadOrCreateInstallId();
     } else {
       final markerInstallId = await _loadOrCreateInstallMarker();
-      _currentInstallId =
-          await _loadOrCreateInstallId(fallback: markerInstallId);
+      _currentInstallId = await _loadOrCreateInstallId(
+        fallback: markerInstallId,
+      );
     }
   }
 
@@ -135,11 +140,15 @@ class SavedGamesLocal {
       // Cross-install detection: compare the DB's stored install_id against
       // the per-install marker file stored next to the DB.
       final markerInstallId = await _loadOrCreateInstallMarker();
-      _currentInstallId = await _loadOrCreateInstallId(fallback: markerInstallId);
+      _currentInstallId = await _loadOrCreateInstallId(
+        fallback: markerInstallId,
+      );
       if (_currentInstallId != markerInstallId) {
         _dbWasFromDifferentInstall = true;
-        debugPrint('[SavedGamesLocal] cross-install restore detected: '
-            'db_install_id=$_currentInstallId marker_id=$markerInstallId');
+        debugPrint(
+          '[SavedGamesLocal] cross-install restore detected: '
+          'db_install_id=$_currentInstallId marker_id=$markerInstallId',
+        );
       }
     } catch (e) {
       debugPrint('[SavedGamesLocal] DB corrupt ($e), quarantining $dbPath');
@@ -184,15 +193,11 @@ class SavedGamesLocal {
   /// Persist [game], overwriting any existing record with the same [SavedGame.id].
   Future<void> saveGame(SavedGame game) async {
     _listCache = null;
-    await _db!.insert(
-      'games',
-      {
-        'id': game.id,
-        'timestamp': game.timestamp.toIso8601String(),
-        'payload': game.toJsonString(),
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db!.insert('games', {
+      'id': game.id,
+      'timestamp': game.timestamp.toIso8601String(),
+      'payload': game.toJsonString(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
     debugPrint('[SavedGamesLocal] saved ${game.id}');
   }
 
@@ -233,24 +238,28 @@ class SavedGamesLocal {
       // json_extract returns NULL for any key when the payload is corrupt.
       final gameType = row['gameType'] as String?;
       if (gameType == null) {
-        debugPrint('[SavedGamesLocal] skipping malformed row $id: json_extract returned null');
+        debugPrint(
+          '[SavedGamesLocal] skipping malformed row $id: json_extract returned null',
+        );
         continue;
       }
       try {
-        result.add(SavedGame(
-          id: id,
-          timestamp: DateTime.parse(row['timestamp'] as String),
-          gameType: gameType,
-          whiteLevel: row['whiteLevel'] as String? ?? '',
-          blackLevel: row['blackLevel'] as String? ?? '',
-          result: row['result'] as String? ?? '',
-          resultReason: row['resultReason'] as String? ?? '',
-          moveLog: const [],
-          totalMoves: row['totalMoves'] as int? ?? 0,
-          startingFEN: row['startingFEN'] as String?,
-          finalFEN: row['finalFEN'] as String?,
-          fenHistory: null,
-        ));
+        result.add(
+          SavedGame(
+            id: id,
+            timestamp: DateTime.parse(row['timestamp'] as String),
+            gameType: gameType,
+            whiteLevel: row['whiteLevel'] as String? ?? '',
+            blackLevel: row['blackLevel'] as String? ?? '',
+            result: row['result'] as String? ?? '',
+            resultReason: row['resultReason'] as String? ?? '',
+            moveLog: const [],
+            totalMoves: row['totalMoves'] as int? ?? 0,
+            startingFEN: row['startingFEN'] as String?,
+            finalFEN: row['finalFEN'] as String?,
+            fenHistory: null,
+          ),
+        );
       } catch (e) {
         debugPrint('[SavedGamesLocal] skipping malformed row $id: $e');
       }
@@ -306,12 +315,15 @@ class SavedGamesLocal {
   Future<int> evictOldestGames(int count) async {
     if (count <= 0) return 0;
     _listCache = null;
-    final deleted = await _db!.rawDelete('''
+    final deleted = await _db!.rawDelete(
+      '''
       DELETE FROM games
       WHERE id IN (
         SELECT id FROM games ORDER BY timestamp ASC LIMIT ?
       )
-    ''', [count]);
+    ''',
+      [count],
+    );
     debugPrint('[SavedGamesLocal] evicted $deleted oldest games');
     return deleted;
   }
@@ -400,18 +412,16 @@ class SavedGamesLocal {
       try {
         game = SavedGame.fromJsonString(content);
       } catch (e) {
-        debugPrint('[SavedGamesLocal] migration: skipping malformed ${file.path}: $e');
+        debugPrint(
+          '[SavedGamesLocal] migration: skipping malformed ${file.path}: $e',
+        );
         continue;
       }
-      final rows = await _db!.insert(
-        'games',
-        {
-          'id': game.id,
-          'timestamp': game.timestamp.toIso8601String(),
-          'payload': game.toJsonString(),
-        },
-        conflictAlgorithm: ConflictAlgorithm.ignore,
-      );
+      final rows = await _db!.insert('games', {
+        'id': game.id,
+        'timestamp': game.timestamp.toIso8601String(),
+        'payload': game.toJsonString(),
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
       if (rows > 0) {
         _listCache = null;
         imported++;
@@ -423,11 +433,10 @@ class SavedGamesLocal {
   }
 
   Future<void> _markLegacyMigrated() async {
-    await _db!.insert(
-      'meta',
-      {'key': 'legacy_migrated', 'value': '1'},
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await _db!.insert('meta', {
+      'key': 'legacy_migrated',
+      'value': '1',
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   // ---------------------------------------------------------------------------
@@ -507,11 +516,10 @@ class SavedGamesLocal {
       return rows.first['value'] as String;
     }
     final newId = fallback ?? _generateInstallId();
-    await _db!.insert(
-      'meta',
-      {'key': 'install_id', 'value': newId},
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    await _db!.insert('meta', {
+      'key': 'install_id',
+      'value': newId,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
     return newId;
   }
 
@@ -521,9 +529,7 @@ class SavedGamesLocal {
     final bytes = List.generate(16, (_) => rng.nextInt(256));
     bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
     bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10xx
-    final hex = bytes
-        .map((b) => b.toRadixString(16).padLeft(2, '0'))
-        .join();
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
     return '${hex.substring(0, 8)}-${hex.substring(8, 12)}'
         '-${hex.substring(12, 16)}-${hex.substring(16, 20)}'
         '-${hex.substring(20)}';

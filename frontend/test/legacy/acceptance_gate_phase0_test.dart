@@ -28,8 +28,7 @@ void main() {
     expect(
       content,
       contains('P2P preview not yet shipped'),
-      reason:
-          'README.md must contain the "P2P preview not yet shipped" banner',
+      reason: 'README.md must contain the "P2P preview not yet shipped" banner',
     );
   });
 

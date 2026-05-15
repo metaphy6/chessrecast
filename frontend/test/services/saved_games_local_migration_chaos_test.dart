@@ -69,61 +69,79 @@ void main() {
     await svc.close();
   });
 
-  test('2. migration is idempotent — running twice creates no duplicates', () async {
-    final jsonDir = Directory.systemTemp.createTempSync('legacy_idem_');
-    final dbDir = Directory.systemTemp.createTempSync('sqlite_idem_');
-    addTearDown(() {
-      jsonDir.deleteSync(recursive: true);
-      dbDir.deleteSync(recursive: true);
-    });
+  test(
+    '2. migration is idempotent — running twice creates no duplicates',
+    () async {
+      final jsonDir = Directory.systemTemp.createTempSync('legacy_idem_');
+      final dbDir = Directory.systemTemp.createTempSync('sqlite_idem_');
+      addTearDown(() {
+        jsonDir.deleteSync(recursive: true);
+        dbDir.deleteSync(recursive: true);
+      });
 
-    _writeGameFile(jsonDir, 'idem-1');
-    _writeGameFile(jsonDir, 'idem-2');
+      _writeGameFile(jsonDir, 'idem-1');
+      _writeGameFile(jsonDir, 'idem-2');
 
-    final svc = SavedGamesLocal.forTesting(inMemory: false, dbDir: dbDir.path);
-    await svc.init();
+      final svc = SavedGamesLocal.forTesting(
+        inMemory: false,
+        dbDir: dbDir.path,
+      );
+      await svc.init();
 
-    final first = await svc.migrateFromLegacyJsonDirectory(jsonDir);
-    expect(first, 2);
+      final first = await svc.migrateFromLegacyJsonDirectory(jsonDir);
+      expect(first, 2);
 
-    // Second run must be a no-op (already migrated).
-    final second = await svc.migrateFromLegacyJsonDirectory(jsonDir);
-    expect(second, 0, reason: 'Second migration must import 0 new games');
+      // Second run must be a no-op (already migrated).
+      final second = await svc.migrateFromLegacyJsonDirectory(jsonDir);
+      expect(second, 0, reason: 'Second migration must import 0 new games');
 
-    final list = await svc.listGames();
-    expect(list.length, 2, reason: 'No duplicates must exist after double migration');
+      final list = await svc.listGames();
+      expect(
+        list.length,
+        2,
+        reason: 'No duplicates must exist after double migration',
+      );
 
-    await svc.close();
-  });
+      await svc.close();
+    },
+  );
 
-  test('3. corrupt / partial files are skipped; valid ones are imported', () async {
-    final jsonDir = Directory.systemTemp.createTempSync('legacy_corrupt_');
-    final dbDir = Directory.systemTemp.createTempSync('sqlite_corrupt_');
-    addTearDown(() {
-      jsonDir.deleteSync(recursive: true);
-      dbDir.deleteSync(recursive: true);
-    });
+  test(
+    '3. corrupt / partial files are skipped; valid ones are imported',
+    () async {
+      final jsonDir = Directory.systemTemp.createTempSync('legacy_corrupt_');
+      final dbDir = Directory.systemTemp.createTempSync('sqlite_corrupt_');
+      addTearDown(() {
+        jsonDir.deleteSync(recursive: true);
+        dbDir.deleteSync(recursive: true);
+      });
 
-    _writeGameFile(jsonDir, 'valid-1');
-    _writeGameFile(jsonDir, 'valid-2');
-    // Corrupt files
-    File(p.join(jsonDir.path, 'corrupt-a.json'))
-        .writeAsStringSync('{not valid json >>>');
-    File(p.join(jsonDir.path, 'corrupt-b.json'))
-        .writeAsStringSync(''); // empty file
+      _writeGameFile(jsonDir, 'valid-1');
+      _writeGameFile(jsonDir, 'valid-2');
+      // Corrupt files
+      File(
+        p.join(jsonDir.path, 'corrupt-a.json'),
+      ).writeAsStringSync('{not valid json >>>');
+      File(
+        p.join(jsonDir.path, 'corrupt-b.json'),
+      ).writeAsStringSync(''); // empty file
 
-    final svc = SavedGamesLocal.forTesting(inMemory: false, dbDir: dbDir.path);
-    await svc.init();
+      final svc = SavedGamesLocal.forTesting(
+        inMemory: false,
+        dbDir: dbDir.path,
+      );
+      await svc.init();
 
-    final imported = await svc.migrateFromLegacyJsonDirectory(jsonDir);
-    expect(imported, 2, reason: 'Only valid files are counted as imported');
+      final imported = await svc.migrateFromLegacyJsonDirectory(jsonDir);
+      expect(imported, 2, reason: 'Only valid files are counted as imported');
 
-    final list = await svc.listGames();
-    expect(list.length, 2);
-    expect(list.map((g) => g.id), containsAll(['valid-1', 'valid-2']));
+      final list = await svc.listGames();
+      expect(list.length, 2);
+      expect(list.map((g) => g.id), containsAll(['valid-1', 'valid-2']));
 
-    await svc.close();
-  });
+      await svc.close();
+    },
+  );
 
   test('4. simulated partial migration + resume leaves no gaps', () async {
     final jsonDir = Directory.systemTemp.createTempSync('legacy_partial_');
@@ -150,7 +168,11 @@ void main() {
 
     // Resume: migrateFromLegacyJsonDirectory should pick up the remaining 2.
     final resumed = await svc.migrateFromLegacyJsonDirectory(jsonDir);
-    expect(resumed, 2, reason: 'Resume must import only the 2 not-yet-migrated games');
+    expect(
+      resumed,
+      2,
+      reason: 'Resume must import only the 2 not-yet-migrated games',
+    );
 
     final list = await svc.listGames();
     expect(list.length, 5, reason: 'All 5 games must be present after resume');
@@ -158,24 +180,34 @@ void main() {
     await svc.close();
   });
 
-  test('5. migration marks completion in meta (legacy_migrated flag)', () async {
-    final jsonDir = Directory.systemTemp.createTempSync('legacy_flag_');
-    final dbDir = Directory.systemTemp.createTempSync('sqlite_flag_');
-    addTearDown(() {
-      jsonDir.deleteSync(recursive: true);
-      dbDir.deleteSync(recursive: true);
-    });
+  test(
+    '5. migration marks completion in meta (legacy_migrated flag)',
+    () async {
+      final jsonDir = Directory.systemTemp.createTempSync('legacy_flag_');
+      final dbDir = Directory.systemTemp.createTempSync('sqlite_flag_');
+      addTearDown(() {
+        jsonDir.deleteSync(recursive: true);
+        dbDir.deleteSync(recursive: true);
+      });
 
-    _writeGameFile(jsonDir, 'flag-1');
+      _writeGameFile(jsonDir, 'flag-1');
 
-    final svc = SavedGamesLocal.forTesting(inMemory: false, dbDir: dbDir.path);
-    await svc.init();
+      final svc = SavedGamesLocal.forTesting(
+        inMemory: false,
+        dbDir: dbDir.path,
+      );
+      await svc.init();
 
-    await svc.migrateFromLegacyJsonDirectory(jsonDir);
+      await svc.migrateFromLegacyJsonDirectory(jsonDir);
 
-    final migrated = await svc.legacyMigrated();
-    expect(migrated, isTrue, reason: 'legacy_migrated flag must be set after migration');
+      final migrated = await svc.legacyMigrated();
+      expect(
+        migrated,
+        isTrue,
+        reason: 'legacy_migrated flag must be set after migration',
+      );
 
-    await svc.close();
-  });
+      await svc.close();
+    },
+  );
 }

@@ -34,7 +34,10 @@ void main() {
 
     final violations = <String>[];
 
-    await for (final entity in libRoot.list(recursive: true, followLinks: false)) {
+    await for (final entity in libRoot.list(
+      recursive: true,
+      followLinks: false,
+    )) {
       if (entity is! File) continue;
       if (!entity.path.endsWith('.dart')) continue;
 
@@ -101,16 +104,21 @@ Future<void> _writeSizeReport({
     ..writeln('| **Total**             | **≥1.2 MB**     |')
     ..writeln()
     ..writeln('## Status')
-    ..writeln(violations.isEmpty
-        ? 'PASS — zero non-legacy files import these packages.'
-        : 'FAIL — violations: ${violations.join(", ")}')
+    ..writeln(
+      violations.isEmpty
+          ? 'PASS — zero non-legacy files import these packages.'
+          : 'FAIL — violations: ${violations.join(", ")}',
+    )
     ..writeln()
     ..writeln('## Retained legacy stubs (kUseLegacyBackend = true path only)')
     ..writeAll(allowedFiles.map((f) => '  $f\n'))
     ..writeln()
     ..writeln('## Methodology')
-    ..writeln('Import-scan over frontend/lib/**/*.dart excluding legacy stubs.');
+    ..writeln(
+      'Import-scan over frontend/lib/**/*.dart excluding legacy stubs.',
+    );
 
-  File(p.join(buildDir.path, 'size-report.txt'))
-      .writeAsStringSync(report.toString());
+  File(
+    p.join(buildDir.path, 'size-report.txt'),
+  ).writeAsStringSync(report.toString());
 }

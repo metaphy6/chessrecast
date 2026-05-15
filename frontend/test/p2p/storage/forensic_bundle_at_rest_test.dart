@@ -49,8 +49,11 @@ void main() {
     final expectedFile = File(
       '${dir.path}/p2p/forensics/sess-path-test/bundle.enc',
     );
-    expect(expectedFile.existsSync(), isTrue,
-        reason: 'Bundle must be at the expected path');
+    expect(
+      expectedFile.existsSync(),
+      isTrue,
+      reason: 'Bundle must be at the expected path',
+    );
   });
 
   test('3. raw bundle file contains no known plaintext', () async {
@@ -66,8 +69,9 @@ void main() {
       payload: Uint8List.fromList(sentinel.codeUnits),
     );
 
-    final raw = File('${dir.path}/p2p/forensics/sess-plain/bundle.enc')
-        .readAsStringSync();
+    final raw = File(
+      '${dir.path}/p2p/forensics/sess-plain/bundle.enc',
+    ).readAsStringSync();
     expect(
       raw.contains(sentinel),
       isFalse,
@@ -75,27 +79,33 @@ void main() {
     );
   });
 
-  test('4. tampered ciphertext returns null (authentication fails gracefully)',
-      () async {
-    final dir = Directory.systemTemp.createTempSync('fstor_tamper_');
-    addTearDown(() => dir.deleteSync(recursive: true));
+  test(
+    '4. tampered ciphertext returns null (authentication fails gracefully)',
+    () async {
+      final dir = Directory.systemTemp.createTempSync('fstor_tamper_');
+      addTearDown(() => dir.deleteSync(recursive: true));
 
-    final store = ForensicStore(docsDir: dir.path);
-    await store.init();
+      final store = ForensicStore(docsDir: dir.path);
+      await store.init();
 
-    await store.writeBundle(
-      sessionId: 'sess-tamper',
-      payload: Uint8List.fromList([10, 20, 30]),
-    );
+      await store.writeBundle(
+        sessionId: 'sess-tamper',
+        payload: Uint8List.fromList([10, 20, 30]),
+      );
 
-    // Corrupt the bundle file.
-    File('${dir.path}/p2p/forensics/sess-tamper/bundle.enc')
-        .writeAsStringSync('AAAA_tampered_BBBB');
+      // Corrupt the bundle file.
+      File(
+        '${dir.path}/p2p/forensics/sess-tamper/bundle.enc',
+      ).writeAsStringSync('AAAA_tampered_BBBB');
 
-    final result = await store.readBundle(sessionId: 'sess-tamper');
-    expect(result, isNull,
-        reason: 'Tampered bundle must return null, not garbage data');
-  });
+      final result = await store.readBundle(sessionId: 'sess-tamper');
+      expect(
+        result,
+        isNull,
+        reason: 'Tampered bundle must return null, not garbage data',
+      );
+    },
+  );
 
   test('5. bundles survive store close and reopen (key persistence)', () async {
     final dir = Directory.systemTemp.createTempSync('fstor_persist_');

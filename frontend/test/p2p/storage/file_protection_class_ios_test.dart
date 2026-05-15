@@ -18,25 +18,32 @@ void main() {
 
   test('1. Info.plist declares NSFileProtectionKey', () {
     final content = File(infoPlistPath).readAsStringSync();
-    expect(content, contains('<key>NSFileProtectionKey</key>'),
-        reason:
-            'Info.plist must declare NSFileProtectionKey so iOS applies the '
-            'requested file-protection class to app data at rest.');
+    expect(
+      content,
+      contains('<key>NSFileProtectionKey</key>'),
+      reason:
+          'Info.plist must declare NSFileProtectionKey so iOS applies the '
+          'requested file-protection class to app data at rest.',
+    );
   });
 
   test(
-      '2. Info.plist NSFileProtection value is CompleteUntilFirstUserAuthentication or stricter',
-      () {
-    final content = File(infoPlistPath).readAsStringSync();
-    // Accept Complete (most strict) or CompleteUntilFirstUserAuthentication.
-    final hasProtection =
-        content.contains('NSFileProtectionComplete') ||
-        content.contains('NSFileProtectionCompleteUnlessOpen');
-    expect(hasProtection, isTrue,
+    '2. Info.plist NSFileProtection value is CompleteUntilFirstUserAuthentication or stricter',
+    () {
+      final content = File(infoPlistPath).readAsStringSync();
+      // Accept Complete (most strict) or CompleteUntilFirstUserAuthentication.
+      final hasProtection =
+          content.contains('NSFileProtectionComplete') ||
+          content.contains('NSFileProtectionCompleteUnlessOpen');
+      expect(
+        hasProtection,
+        isTrue,
         reason:
             'NSFileProtectionKey value must be NSFileProtectionComplete or '
             'NSFileProtectionCompleteUntilFirstUserAuthentication; '
             'NSFileProtectionNone or NSFileProtectionCompleteUnlessOpen are '
-            'insufficient for stored game and forensic data.');
-  });
+            'insufficient for stored game and forensic data.',
+      );
+    },
+  );
 }

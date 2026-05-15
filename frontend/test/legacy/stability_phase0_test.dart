@@ -59,7 +59,8 @@ void main() {
       expect(
         file.existsSync(),
         isTrue,
-        reason: 'Mod regression test missing: $relPath '
+        reason:
+            'Mod regression test missing: $relPath '
             '(Phase 0 cleanup must not delete engine test files)',
       );
     }
@@ -73,7 +74,8 @@ void main() {
       expect(
         file.existsSync(),
         isTrue,
-        reason: 'Shared engine file missing: $relPath '
+        reason:
+            'Shared engine file missing: $relPath '
             '(Phase 0 must not modify shared engine code)',
       );
     }
@@ -81,9 +83,12 @@ void main() {
 
   test('kUseLegacyBackend is false (engine code path unchanged)', () {
     // Read constants.dart and assert kUseLegacyBackend = false.
-    final constantsFile =
-        File(p.join(frontendRoot, 'lib/constants.dart'));
-    expect(constantsFile.existsSync(), isTrue, reason: 'constants.dart missing');
+    final constantsFile = File(p.join(frontendRoot, 'lib/constants.dart'));
+    expect(
+      constantsFile.existsSync(),
+      isTrue,
+      reason: 'constants.dart missing',
+    );
 
     final contents = constantsFile.readAsStringSync();
     expect(

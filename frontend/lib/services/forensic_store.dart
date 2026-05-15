@@ -75,18 +75,13 @@ class ForensicStore {
     final base = Directory(_forensicsPath);
     if (!base.existsSync()) return 0;
 
-    final sessions = base
-        .listSync()
-        .whereType<Directory>()
-        .map((d) {
-          final f = File(path_pkg.join(d.path, 'bundle.enc'));
-          final mtime = f.existsSync()
-              ? f.statSync().modified
-              : DateTime.fromMillisecondsSinceEpoch(0);
-          return (dir: d, mtime: mtime);
-        })
-        .toList()
-      ..sort((a, b) => a.mtime.compareTo(b.mtime)); // oldest first
+    final sessions = base.listSync().whereType<Directory>().map((d) {
+      final f = File(path_pkg.join(d.path, 'bundle.enc'));
+      final mtime = f.existsSync()
+          ? f.statSync().modified
+          : DateTime.fromMillisecondsSinceEpoch(0);
+      return (dir: d, mtime: mtime);
+    }).toList()..sort((a, b) => a.mtime.compareTo(b.mtime)); // oldest first
 
     if (sessions.length <= maxBundles) return 0;
 
@@ -121,9 +116,7 @@ class ForensicStore {
   String _encrypt(Uint8List plaintext) {
     final rng = Random.secure();
     final iv = IV(
-      Uint8List.fromList(
-        List.generate(_nonceBytes, (_) => rng.nextInt(256)),
-      ),
+      Uint8List.fromList(List.generate(_nonceBytes, (_) => rng.nextInt(256))),
     );
     final encrypter = Encrypter(AES(_kek!, mode: AESMode.gcm));
     final encrypted = encrypter.encrypt(base64.encode(plaintext), iv: iv);
