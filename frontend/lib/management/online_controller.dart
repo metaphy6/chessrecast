@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../board/utils/exporter.dart';
+import '../constants.dart';
 import '../debug.dart';
 import '../mods/enums.dart';
 import '../services/api_service.dart';
@@ -80,6 +81,11 @@ class OnlineController extends Controller {
 
   /// Setup online game from route arguments
   Future<void> _setupOnlineGame(Map<String, dynamic>? args) async {
+    if (!AppConstants.kUseLegacyBackend) {
+      _connectionStatus.value = 'Offline (P2P mode — legacy backend disabled)';
+      debugPrint('[OnlineController] kUseLegacyBackend=false; skipping backend setup.');
+      return;
+    }
     _isOnlineMode.value = true;
     _isSpectator.value = args?['isSpectator'] ?? false;
     _connectionStatus.value = 'Initializing...';

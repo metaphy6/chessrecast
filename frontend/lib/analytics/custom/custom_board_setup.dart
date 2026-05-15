@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../board/utils/exporter.dart';
+import '../../constants.dart';
 import '../../mods/enums.dart';
 import '../../ui/piece_renderer.dart';
 import '../../ui/board_theme.dart';
@@ -1050,6 +1051,15 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
   }
 
   Future<void> _startVsBot(BuildContext context) async {
+    if (!AppConstants.kUseLegacyBackend) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Legacy backend disabled. Online play is unavailable in P2P mode.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
     // Validate board
     final (isValid, errorMessage) = widget.controller.validateBoard();
     if (!isValid) {
@@ -1173,6 +1183,15 @@ class _CustomActionButtonsState extends State<_CustomActionButtons> {
   }
 
   Future<void> _startOnlineBotVsBot(BuildContext context) async {
+    if (!AppConstants.kUseLegacyBackend) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Legacy backend disabled. Online play is unavailable in P2P mode.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
     // Validate board
     final (isValid, errorMessage) = widget.controller.validateBoard();
     if (!isValid) {

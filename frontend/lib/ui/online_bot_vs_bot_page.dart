@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../constants.dart';
 import '../mods/enums.dart';
 import 'shared.dart';
 import '../services/api_service.dart';
@@ -457,6 +458,13 @@ class _OnlineBotVsBotState extends State<OnlineBotVsBot> {
   // Difficulty label & color mapping now handled by shared DifficultySelector
 
   Future<void> _startGame() async {
+    if (!AppConstants.kUseLegacyBackend) {
+      setState(() {
+        _statusMessage = 'Legacy backend disabled (kUseLegacyBackend=false). '
+            'Online bot-vs-bot is not available in P2P mode.';
+      });
+      return;
+    }
     setState(() {
       _isCreating = true;
       _statusMessage = 'Creating game...';
