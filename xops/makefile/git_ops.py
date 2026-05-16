@@ -10,8 +10,8 @@ ordinator — run via `make git` (push) or `make git.dry` (preview only).
 
 Commands:
   dry   Preview staged changes, derived commit messages, and push queue.
-  push  Commit each pending run_id group as its own commit, write real SHAs
-        back to tracking.csv in-place (no sha-update commit), then push.
+  push  Commit each pending run_id group as its own commit (group 1 = all
+        staged files; groups 2+ = empty commits), then push. No write-back.
 """
 
 import csv
@@ -76,18 +76,28 @@ def _pending_csv() -> list[dict]:
       commit_sha == 'pending'  AND
       action     == 'commit'   AND
       status     == 'completed'  (also accepts legacy typo 'complete')
-    Results are ordered by ts_utc (file order = append order).
+    Additionally filters out run_ids already present in git log (idempotency
+    guard — no SHA write-back required).
+    Results are ordered by file (append) order.
     """
     if not CSV_FILE.exists():
         return []
     try:
         with CSV_FILE.open(newline="", encoding="utf-8") as f:
             rows = list(csv.DictReader(f))
-        return [
+        pending = [
             r for r in rows
             if r.get("commit_sha", "").strip().lower() == "pending"
             and r.get("action",     "").strip().lower() == "commit"
             and r.get("status",     "").strip().lower() in ("completed", "complete")
+        ]
+        if not pending:
+            return []
+        # Idempotency: skip run_ids already in git history.
+        log_text = _out(["git", "log", "--all", "--format=%B"])
+        return [
+            r for r in pending
+            if f"[{r.get('run_id', '').strip()}]" not in log_text
         ]
     except Exception as exc:
         print(f"{WARN} CSV parse error: {exc}")
@@ -129,38 +139,6 @@ def _msg_from_csv(row: dict) -> str:
     return f"p2p({scope}): {title}{suffix}"
 
 
-# ── CSV: write real SHA back ────────────────────────────────────────────────────
-def _write_sha(run_ids: set[str], sha: str) -> bool:
-    """Replace commit_sha='pending' with `sha` for matching run_ids in tracking.csv.
-    Updates the file in-place (no git staging / no separate commit).
-    Returns True if the file was modified."""
-    if not CSV_FILE.exists() or not run_ids:
-        return False
-    try:
-        with CSV_FILE.open(newline="", encoding="utf-8") as f:
-            reader     = csv.DictReader(f)
-            fieldnames = list(reader.fieldnames or [])
-            rows       = list(reader)
-        changed = 0
-        for row in rows:
-            if (
-                row.get("run_id", "") in run_ids
-                and row.get("commit_sha", "").strip().lower() == "pending"
-            ):
-                row["commit_sha"] = sha
-                changed += 1
-        if not changed:
-            return False
-        with CSV_FILE.open("w", newline="", encoding="utf-8") as f:
-            w = csv.DictWriter(f, fieldnames=fieldnames)
-            w.writeheader()
-            w.writerows(rows)
-        return True
-    except Exception as exc:
-        print(f"{WARN} Could not write SHA back to CSV: {exc}")
-        return False
-
-
 # ── grouped commit message ─────────────────────────────────────────────────────
 _CC_RE = re.compile(
     r"^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)"
@@ -173,7 +151,7 @@ def _is_conventional(msg: str) -> bool:
 
 
 def _build_single_msg(csv_rows: list[dict]) -> str:
-    """Return one commit message covering all rows in a single run_id group.
+    """One commit message for a single run_id group.
 
     - Single row  → use its commit_message directly.
     - Multiple rows → first row's message as title, rest as body bullets.
@@ -280,7 +258,7 @@ def dry():
         groups = _group_by_run_id(csv_rows)
         n = len(groups)
         for i, (run_id, rows) in enumerate(groups):
-            files_label = "all staged files" if i == 0 else "tracking.csv only"
+            files_label = "all staged files" if i == 0 else "empty commit (run_id record)"
             _section(CSV_E,
                 f"Commit {i+1}/{n}  "
                 f"[{run_id} · {len(rows)} row(s) · {files_label}]")
@@ -318,11 +296,14 @@ def push():
     One commit per run_id group — rows with the same run_id are one task and
     land in a single commit; different run_ids become separate commits.
 
+    No SHA write-back: idempotency is handled by cross-checking run_ids
+    against git log in _pending_csv().  re-running `make git` safely skips
+    run_ids already in history.
+
     Commit ordering:
-      Group 1  — all staged implementation files + tracking.csv  (pending SHAs)
-      Group 2+ — tracking.csv only (SHA from previous group now filled in)
-    After the last commit, SHA is written back to tracking.csv in-place
-    (no extra sha-update commit).
+      Group 1  — all staged implementation files (normal commit)
+      Group 2+ — empty commits (`--allow-empty`) that record the run_id
+                 message in git log without touching the working tree
 
     Fallback mode (no pending CSV rows):
       Commit all staged changes with an auto-derived conventional message.
@@ -344,11 +325,9 @@ def push():
             n = len(groups)
 
             for i, (run_id, rows) in enumerate(groups):
-                is_first = (i == 0)
-                is_last  = (i == n - 1)
-
+                is_first    = (i == 0)
+                files_label = "all staged files" if is_first else "empty commit (run_id record)"
                 msg         = _build_single_msg(rows)
-                files_label = "all staged files" if is_first else "tracking.csv only"
 
                 _section(CSV_E,
                     f"Commit {i+1}/{n}  "
@@ -363,23 +342,16 @@ def push():
                     _section(FILES, "Files in this commit")
                     for f in staged_list:
                         print(f"   {FILE}  {f}")
+                    r = _run(["git", "commit", "-m", msg])
+                else:
+                    r = _run(["git", "commit", "--allow-empty", "-m", msg])
 
-                r = _run(["git", "commit", "-m", msg])
                 if r.returncode != 0:
                     print(f"\n{ERR}  Commit {i+1}/{n} failed.")
                     sys.exit(r.returncode)
 
                 sha = _out(["git", "rev-parse", "--short", "HEAD"])
                 print(f"\n{SHA}  SHA: {sha}")
-
-                # Write this group's SHA back to tracking.csv.
-                _write_sha({run_id}, sha)
-
-                if not is_last:
-                    # Stage updated tracking.csv so the next group's commit picks it up.
-                    _run(["git", "add", CSV_REL])
-                else:
-                    print(f"{OK}  tracking.csv SHA updated locally (not a separate commit)")
 
         else:
             # ── Fallback mode ────────────────────────────────────────────────
