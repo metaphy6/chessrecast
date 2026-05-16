@@ -28,26 +28,28 @@ Future<bool> _waitFor(bool Function() cond, {int maxMs = 2000}) async {
 
 void main() {
   group('Transport stack composability §5.5', () {
-    test('LossyTransport(JitterTransport(FakeTransport)) delivers all frames',
-        () async {
-      final (innerA, innerB) = FakeTransport.pair();
-      // Wrap innerA: no loss, wifiGood jitter
-      final jittered = JitterTransport.wifiGood(innerA);
-      final stacked = LossyTransport(jittered, lossRate: 0.0);
+    test(
+      'LossyTransport(JitterTransport(FakeTransport)) delivers all frames',
+      () async {
+        final (innerA, innerB) = FakeTransport.pair();
+        // Wrap innerA: no loss, wifiGood jitter
+        final jittered = JitterTransport.wifiGood(innerA);
+        final stacked = LossyTransport(jittered, lossRate: 0.0);
 
-      int count = 0;
-      innerB.incoming.listen((_) => count++);
+        int count = 0;
+        innerB.incoming.listen((_) => count++);
 
-      const n = 10;
-      for (var i = 0; i < n; i++) {
-        stacked.send('chess', Uint8List.fromList([i]));
-      }
+        const n = 10;
+        for (var i = 0; i < n; i++) {
+          stacked.send('chess', Uint8List.fromList([i]));
+        }
 
-      final ok = await _waitFor(() => count == n, maxMs: 3000);
-      expect(ok, isTrue, reason: 'Expected $n frames through stack');
+        final ok = await _waitFor(() => count == n, maxMs: 3000);
+        expect(ok, isTrue, reason: 'Expected $n frames through stack');
 
-      await stacked.close();
-    });
+        await stacked.close();
+      },
+    );
 
     test('LossyTransport(FakeTransport) with 50% loss drops ~half', () async {
       final (innerA, innerB) = FakeTransport.pair();
@@ -67,29 +69,32 @@ void main() {
       stacked.close();
     });
 
-    test('ReorderingTransport(LossyTransport(FakeTransport)) composes', () async {
-      final (innerA, innerB) = FakeTransport.pair();
-      final lossy = LossyTransport(innerA, lossRate: 0.0);
-      final reorder = ReorderingTransport(
-        lossy,
-        swapProbability: 0.5,
-        bufferSize: 3,
-        rng: Random(7),
-      );
+    test(
+      'ReorderingTransport(LossyTransport(FakeTransport)) composes',
+      () async {
+        final (innerA, innerB) = FakeTransport.pair();
+        final lossy = LossyTransport(innerA, lossRate: 0.0);
+        final reorder = ReorderingTransport(
+          lossy,
+          swapProbability: 0.5,
+          bufferSize: 3,
+          rng: Random(7),
+        );
 
-      int count = 0;
-      innerB.incoming.listen((_) => count++);
+        int count = 0;
+        innerB.incoming.listen((_) => count++);
 
-      const n = 9; // divisible by bufferSize=3 → no leftover
-      for (var i = 0; i < n; i++) {
-        reorder.send('clock', Uint8List.fromList([i]));
-      }
+        const n = 9; // divisible by bufferSize=3 → no leftover
+        for (var i = 0; i < n; i++) {
+          reorder.send('clock', Uint8List.fromList([i]));
+        }
 
-      final ok = await _waitFor(() => count == n);
-      expect(ok, isTrue);
+        final ok = await _waitFor(() => count == n);
+        expect(ok, isTrue);
 
-      await reorder.close();
-    });
+        await reorder.close();
+      },
+    );
 
     test('close() on outermost closes entire stack', () async {
       final (innerA, _) = FakeTransport.pair();

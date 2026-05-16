@@ -13,8 +13,7 @@ import '../../../lib/services/p2p/transport/fake/jitter_transport.dart';
 
 /// Pump the event loop for up to [maxMs] milliseconds, checking [condition]
 /// every 5 ms.  Returns true if [condition] becomes true in time.
-Future<bool> _waitFor(bool Function() condition,
-    {int maxMs = 2000}) async {
+Future<bool> _waitFor(bool Function() condition, {int maxMs = 2000}) async {
   final deadline = DateTime.now().add(Duration(milliseconds: maxMs));
   while (!condition()) {
     if (DateTime.now().isAfter(deadline)) return false;

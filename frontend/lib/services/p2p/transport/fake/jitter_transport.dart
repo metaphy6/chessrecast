@@ -38,9 +38,9 @@ class JitterTransport implements P2PTransport {
     required double meanMs,
     required double stdDevMs,
     math.Random? rng,
-  })  : _meanMs = meanMs,
-        _stdDevMs = stdDevMs,
-        _rng = rng ?? math.Random() {
+  }) : _meanMs = meanMs,
+       _stdDevMs = stdDevMs,
+       _rng = rng ?? math.Random() {
     _inController = StreamController(sync: true);
     _innerSub = _inner.incoming.listen(_scheduleDelayed);
   }
@@ -67,8 +67,7 @@ class JitterTransport implements P2PTransport {
     required double meanMs,
     required double stdDevMs,
     math.Random? rng,
-  }) =>
-      JitterTransport._(inner, meanMs: meanMs, stdDevMs: stdDevMs, rng: rng);
+  }) => JitterTransport._(inner, meanMs: meanMs, stdDevMs: stdDevMs, rng: rng);
 
   // Box–Muller transform: produces one standard-normal sample.
   double _gaussian() {
@@ -76,8 +75,7 @@ class JitterTransport implements P2PTransport {
     final u2 = _rng.nextDouble();
     // Guard against log(0).
     final safe1 = u1 == 0.0 ? double.minPositive : u1;
-    return math.sqrt(-2.0 * math.log(safe1)) *
-        math.cos(2.0 * math.pi * u2);
+    return math.sqrt(-2.0 * math.log(safe1)) * math.cos(2.0 * math.pi * u2);
   }
 
   Duration _sampleDelay() {

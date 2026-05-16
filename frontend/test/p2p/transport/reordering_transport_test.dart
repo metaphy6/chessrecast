@@ -24,8 +24,11 @@ void main() {
   group('ReorderingTransport §5.5', () {
     test('swapProbability=0 preserves FIFO on clock channel', () async {
       final (innerA, innerB) = FakeTransport.pair();
-      final reorder =
-          ReorderingTransport(innerA, swapProbability: 0.0, bufferSize: 3);
+      final reorder = ReorderingTransport(
+        innerA,
+        swapProbability: 0.0,
+        bufferSize: 3,
+      );
 
       final received = <int>[];
       innerB.incoming.listen((t) => received.add(t.$2[0]));
@@ -147,8 +150,11 @@ void main() {
 
     test('close() propagates to inner transport', () {
       final (innerA, _) = FakeTransport.pair();
-      final reorder =
-          ReorderingTransport(innerA, swapProbability: 0.0, bufferSize: 2);
+      final reorder = ReorderingTransport(
+        innerA,
+        swapProbability: 0.0,
+        bufferSize: 2,
+      );
       reorder.close();
       expect(() => innerA.send('chess', Uint8List(0)), throwsStateError);
     });

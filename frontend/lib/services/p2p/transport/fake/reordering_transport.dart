@@ -41,9 +41,9 @@ class ReorderingTransport implements P2PTransport {
     required double swapProbability,
     required int bufferSize,
     math.Random? rng,
-  })  : _swapProbability = swapProbability,
-        _bufferSize = bufferSize,
-        _rng = rng ?? math.Random() {
+  }) : _swapProbability = swapProbability,
+       _bufferSize = bufferSize,
+       _rng = rng ?? math.Random() {
     _inController = StreamController(sync: true);
     _innerSub = _inner.incoming.listen(_onIncoming);
   }
@@ -64,7 +64,9 @@ class ReorderingTransport implements P2PTransport {
   }
 
   void _flushBuffer(
-      List<(String, Uint8List)> buf, void Function((String, Uint8List)) emit) {
+    List<(String, Uint8List)> buf,
+    void Function((String, Uint8List)) emit,
+  ) {
     _maybeShuffle(buf);
     for (final msg in buf) {
       emit(msg);

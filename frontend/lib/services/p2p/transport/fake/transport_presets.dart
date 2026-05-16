@@ -59,8 +59,7 @@ abstract final class TransportPresets {
   /// (10 % good-state loss, 30 % bad-state loss, pG→B = 0.05, pB→G = 0.10).
   static P2PTransport roaming(P2PTransport inner, {Random? rng}) =>
       LossyTransport.burst(
-        JitterTransport.custom(inner,
-            meanMs: 300, stdDevMs: 120, rng: rng),
+        JitterTransport.custom(inner, meanMs: 300, stdDevMs: 120, rng: rng),
         goodLossRate: 0.10,
         badLossRate: 0.30,
         pGoodToBad: 0.05,

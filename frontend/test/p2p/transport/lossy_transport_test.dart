@@ -45,8 +45,7 @@ void main() {
 
     test('lossRate=0.5 drops roughly half (within 20% for 1000 frames)', () {
       final (innerA, innerB) = FakeTransport.pair();
-      final lossy =
-          LossyTransport(innerA, lossRate: 0.5, rng: Random(42));
+      final lossy = LossyTransport(innerA, lossRate: 0.5, rng: Random(42));
 
       int count = 0;
       innerB.incoming.listen((_) => count++);
@@ -136,8 +135,7 @@ void main() {
 
     test('incoming frames are filtered by loss rate', () {
       final (innerA, innerB) = FakeTransport.pair();
-      final lossyB =
-          LossyTransport(innerB, lossRate: 1.0); // drop all incoming
+      final lossyB = LossyTransport(innerB, lossRate: 1.0); // drop all incoming
 
       final received = <Uint8List>[];
       lossyB.incoming.listen((t) => received.add(t.$2));

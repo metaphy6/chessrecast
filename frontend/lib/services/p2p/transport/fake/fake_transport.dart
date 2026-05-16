@@ -20,8 +20,9 @@ class FakeTransport implements P2PTransport {
   // add() is called.  This is the correct behaviour for an in-process fake
   // transport: the caller "sends" a frame and the receiver "gets" it
   // immediately, with no microtask delay that could race test assertions.
-  final StreamController<(String, Uint8List)> _controller =
-      StreamController(sync: true);
+  final StreamController<(String, Uint8List)> _controller = StreamController(
+    sync: true,
+  );
 
   FakeTransport? _peer;
   bool _closed = false;

@@ -51,14 +51,14 @@ class LossyTransport implements P2PTransport {
     double? pGoodToBad,
     double? pBadToGood,
     bool startInBadState = false,
-  })  : _inner = inner,
-        _channelRates = channelRates,
-        _rng = rng,
-        _goodLossRate = goodLossRate,
-        _badLossRate = badLossRate,
-        _pGoodToBad = pGoodToBad,
-        _pBadToGood = pBadToGood,
-        _inBadState = startInBadState {
+  }) : _inner = inner,
+       _channelRates = channelRates,
+       _rng = rng,
+       _goodLossRate = goodLossRate,
+       _badLossRate = badLossRate,
+       _pGoodToBad = pGoodToBad,
+       _pBadToGood = pBadToGood,
+       _inBadState = startInBadState {
     _inController = StreamController(sync: true);
     _innerSub = _inner.incoming.listen(_onIncoming);
   }
