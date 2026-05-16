@@ -84,3 +84,85 @@ kubectl scale deployment signaling --replicas=1
 | p99 latency (`POST /v1/offers`) | < 200 ms | 5-min window |
 | Error rate | < 0.1% | 1-min window |
 | Recovery from cold restore | < 10 min | Per DR drill |
+
+---
+
+## 6. Rollback
+
+This section documents the full rollback procedure for disabling P2P at the
+server level.  The client-side kill-switch (`kEnableP2P`) is documented in
+`frontend/lib/services/p2p/config/remote_config.dart`; this section covers the
+**signaling-server** side.
+
+### 6.1 Immediate disable (< 1 minute)
+
+The fastest path: hit the admin endpoint on the running instance.
+
+```bash
+# 1. Open an authenticated shell to the signaling server.
+kubectl exec -it deploy/signaling -- /bin/sh   # Kubernetes
+# OR: fly ssh console -a chessrecast-signaling  # Fly.io
+
+# 2. Toggle the kill-switch.  This causes every subsequent request to
+#    /v1/offers to receive HTTP 503 + Retry-After: 600.
+curl -s -X POST http://localhost:8080/admin/v1/disable \
+  -H "Authorization: Bearer $SIGNALING_ADMIN_TOKEN"
+
+# 3. Verify the endpoint is now returning 503.
+curl -I http://localhost:8080/v1/offers
+# Expected: HTTP/1.1 503 Service Unavailable
+#           Retry-After: 600
+```
+
+### 6.2 Re-enable (after incident resolved)
+
+```bash
+curl -s -X POST http://localhost:8080/admin/v1/enable \
+  -H "Authorization: Bearer $SIGNALING_ADMIN_TOKEN"
+
+# Verify:
+curl -I http://localhost:8080/v1/offers
+# Expected: HTTP/1.1 200 OK  (or 401 if not authenticated — that is correct)
+```
+
+### 6.3 Deploy-based rollback (if binary is broken)
+
+Use this when the running binary itself is broken and must be replaced.
+
+```bash
+# 1. Identify the last-known-good image tag in the deployment history.
+kubectl rollout history deployment/signaling
+
+# 2. Roll back to the previous revision.
+kubectl rollout undo deployment/signaling
+
+# 3. Wait for rollout to finish and confirm all pods are healthy.
+kubectl rollout status deployment/signaling --timeout=5m
+kubectl get pods -l app=signaling
+
+# 4. Run the smoke test.
+curl -s https://signaling.chessrecast.example/health | jq .status
+# Expected: "ok"
+```
+
+### 6.4 Decision matrix
+
+| Symptom | First action | Owner |
+|---|---|---|
+| KPI regression > 5% on any P2P metric | Client kill-switch via remote config (§6.1.1 `kEnableP2P=false`) | On-call |
+| `/v1/offers` returning 5xx at > 0.1% error rate | Admin disable (§6.1 above) | On-call |
+| Native-engine regression (chess quality) | Admin disable + queue `kind: kpi_regression` entry | Engine team |
+| Security incident (auth bypass / data leak) | Admin disable + escalate to L3 immediately | Security lead |
+| Signaling binary crash-loop | Deploy-based rollback (§6.3 above) | SRE |
+
+### 6.5 Post-incident checklist
+
+1. [ ] All KPIs confirmed back in `ok` state on the dashboard.
+2. [ ] Root cause documented in `agent/reports/p2p/<date>-incident.md`.
+3. [ ] Queue entry filed (`kind: kpi_regression` or `kind: crash`) if applicable.
+4. [ ] Baseline regenerated for any affected mod (`agent/baselines/<mod>.json`).
+5. [ ] Re-enable issued and smoke test passed.
+6. [ ] Incident summary sent to `#backend-oncall`.
+
+> **§6.3.3 proof:** This §6 "Rollback" section satisfies the rollback runbook
+> requirement for leaf 6.3.3 of `docs/P2P_ROADMAP.md` [p2p-20260516-105107-14206].
