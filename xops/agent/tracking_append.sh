@@ -10,7 +10,7 @@
 # count comma positions. Empty values are written as empty cells.
 #
 # Usage:
-#   xops/agent/p2p_tracking_append.sh \
+#   xops/agent/tracking_append.sh \
 #     --run-id=<slug> --command=/implement-roadmap --model=<m> \
 #     --phase=<p> --phase-title="<t>" --action=<a> --status=<s> \
 #     [--commit-sha=pending|<sha>] [--files-changed=N] [--tests-added=N] \

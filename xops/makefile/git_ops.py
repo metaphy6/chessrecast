@@ -10,8 +10,8 @@ ordinator — run via `make git` (push) or `make git.dry` (preview only).
 
 Commands:
   dry   Preview staged changes, derived commit messages, and push queue.
-  push  Commit staged changes (messages from CSV rows), write real SHAs
-        back to tracking.csv, then push to origin/main.
+  push  Commit each pending run_id group as its own commit, write real SHAs
+        back to tracking.csv in-place (no sha-update commit), then push.
 """
 
 import csv
@@ -69,44 +69,13 @@ def _pending_log() -> list[str]:
     return [l for l in raw.splitlines() if l.strip()]
 
 
-# ── conventional-commits enforcement ───────────────────────────────────────────
-# type(scope)?: description    (scope and ! are optional)
-_CC_TYPES = (
-    "feat", "fix", "docs", "style", "refactor", "perf", "test",
-    "chore", "ci", "build", "revert",
-)
-_CC_RE = re.compile(
-    r"^(?P<type>" + "|".join(_CC_TYPES) + r")"
-    r"(?:\((?P<scope>[a-z0-9._\-/]+)\))?"
-    r"(?P<bang>!)?"
-    r": (?P<desc>\S.*\S|\S)$"
-)
-
-
-def _is_conventional(msg: str) -> bool:
-    if not msg:
-        return False
-    head = msg.splitlines()[0].strip()
-    return bool(_CC_RE.match(head))
-
-
-def _normalize_to_conventional(msg: str, fallback_type: str = "chore",
-                                fallback_scope: str = "workspace") -> str:
-    """If `msg` is already conventional, return as-is. Otherwise wrap it."""
-    if _is_conventional(msg):
-        return msg
-    head = (msg.splitlines()[0] if msg else "").strip() or "update"
-    print(f"{WARN} Commit message not conventional — normalising: {head!r}")
-    return f"{fallback_type}({fallback_scope}): {head}"
-
-
 # ── CSV: read pending rows ──────────────────────────────────────────────────────
 def _pending_csv() -> list[dict]:
     """
     Return rows from tracking.csv where:
       commit_sha == 'pending'  AND
       action     == 'commit'   AND
-      status     == 'completed'
+      status     == 'completed'  (also accepts legacy typo 'complete')
     Results are ordered by ts_utc (file order = append order).
     """
     if not CSV_FILE.exists():
@@ -118,7 +87,7 @@ def _pending_csv() -> list[dict]:
             r for r in rows
             if r.get("commit_sha", "").strip().lower() == "pending"
             and r.get("action",     "").strip().lower() == "commit"
-            and r.get("status",     "").strip().lower() == "completed"
+            and r.get("status",     "").strip().lower() in ("completed", "complete")
         ]
     except Exception as exc:
         print(f"{WARN} CSV parse error: {exc}")
@@ -138,11 +107,7 @@ def _msg_from_csv(row: dict) -> str:
     """
     explicit = (row.get("commit_message") or "").strip()
     if explicit:
-        return _normalize_to_conventional(
-            explicit,
-            fallback_type="auto",
-            fallback_scope=(row.get("component") or "workspace").split("/")[0] or "workspace",
-        )
+        return explicit
 
     # ── fallback: derive from phase / phase_title / run_id ──────────────────
     phase  = (row.get("phase")       or "").strip()
@@ -150,23 +115,24 @@ def _msg_from_csv(row: dict) -> str:
     run_id = (row.get("run_id")      or "").strip()
 
     if not phase:
-        print(f"{WARN} CSV row missing 'phase' — using fallback scope 'workspace'")
-        phase = "workspace"
+        print(f"{WARN} CSV row missing 'phase' — using fallback scope 'p2p'")
+        phase = "p2p"
     if not title:
         print(f"{WARN} CSV row missing 'phase_title' — using fallback 'update'")
         title = "update"
     if not run_id:
         print(f"{WARN} CSV row missing 'run_id' — no run-id suffix")
 
-    # Build a valid scope: keep 'p2p-' prefix so P2P work is identifiable
-    scope  = phase if phase.lower().startswith("p2p-") else f"p2p-{phase}"
+    # Strip leading 'p2p-' to avoid 'p2p(p2p-phase-1)'
+    scope  = phase[len("p2p-"):] if phase.lower().startswith("p2p-") else phase
     suffix = f" [{run_id}]" if run_id else ""
-    return f"chore({scope}): {title}{suffix}"
+    return f"p2p({scope}): {title}{suffix}"
 
 
 # ── CSV: write real SHA back ────────────────────────────────────────────────────
 def _write_sha(run_ids: set[str], sha: str) -> bool:
-    """Replace commit_sha='pending' with `sha` for matching run_ids.
+    """Replace commit_sha='pending' with `sha` for matching run_ids in tracking.csv.
+    Updates the file in-place (no git staging / no separate commit).
     Returns True if the file was modified."""
     if not CSV_FILE.exists() or not run_ids:
         return False
@@ -195,108 +161,46 @@ def _write_sha(run_ids: set[str], sha: str) -> bool:
         return False
 
 
-# ── grouped commit helpers ─────────────────────────────────────────────────────
-def _common_phase_prefix(phases: list[str]) -> str:
-    """Return the longest common dot-separated prefix across all phase strings.
-
-    Examples:
-      ['0.1.bullet-1', '0.2.bullet-1', '0.3.bullet-1'] → '0'
-      ['1.9.alpha',    '1.9.beta']                      → '1.9'
-      ['config',       'config']                         → 'config'
-      []                                                 → ''
-    """
-    if not phases:
-        return ""
-    if len(phases) == 1:
-        return phases[0]
-    split = [p.split(".") for p in phases]
-    common: list[str] = []
-    for parts in zip(*split):
-        if len(set(parts)) == 1:
-            common.append(parts[0])
-        else:
-            break
-    return ".".join(common)
+# ── grouped commit message ─────────────────────────────────────────────────────
+_CC_RE = re.compile(
+    r"^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)"
+    r"(?:\([a-z0-9._\-/]+\))?!?: .+"
+)
 
 
-_TYPE_PRIORITY = [
-    "feat", "fix", "perf", "refactor", "test",
-    "docs", "style", "chore", "ci", "build", "revert",
-]
+def _is_conventional(msg: str) -> bool:
+    return bool(_CC_RE.match((msg.splitlines()[0] if msg else "").strip()))
 
 
-def _dominant_type(csv_rows: list[dict]) -> str:
-    """Return the highest-priority CC type seen across all rows' commit_message."""
-    types_seen: set[str] = set()
-    for row in csv_rows:
-        msg = (row.get("commit_message") or "").strip()
-        if not msg:
-            continue
-        m = _CC_RE.match(msg.splitlines()[0])
-        if m:
-            types_seen.add(m.group("type"))
-    for t in _TYPE_PRIORITY:
-        if t in types_seen:
-            return t
-    return "chore"
+def _build_single_msg(csv_rows: list[dict]) -> str:
+    """Return one commit message covering all rows in a single run_id group.
 
-
-def _build_grouped_msg(csv_rows: list[dict]) -> str:
-    """Build a single grouped commit message from N pending CSV rows.
-
-    Format::
-
-        type(phase-scope): N implementation(s)[, N drift(s)][, N tests added] [run_id]
-         * individual commit message 1
-         * individual commit message 2
-         …
+    - Single row  → use its commit_message directly.
+    - Multiple rows → first row's message as title, rest as body bullets.
     """
     if not csv_rows:
         return "chore(workspace): no pending rows"
+    first_msg = _msg_from_csv(csv_rows[0])
+    if not _is_conventional(first_msg):
+        first_msg = f"chore(workspace): {first_msg}"
+    if len(csv_rows) == 1:
+        return first_msg
+    bullets = [f" * {_msg_from_csv(r)}" for r in csv_rows[1:]]
+    return first_msg + "\n\n" + "\n".join(bullets)
 
-    # — stats —
-    n_impl = sum(
-        1 for r in csv_rows
-        if r.get("action", "").strip().lower() == "commit"
-        and r.get("drift_kind", "none").strip().lower() == "none"
-    )
-    n_drift = sum(
-        1 for r in csv_rows
-        if r.get("drift_kind", "none").strip().lower() not in ("none", "")
-    )
-    n_tests = sum(int(r.get("tests_added") or 0) for r in csv_rows)
 
-    # — scope from common phase prefix —
-    phases = [r.get("phase", "").strip() for r in csv_rows if r.get("phase", "").strip()]
-    common = _common_phase_prefix(phases)
-    # Replace dots with dashes so the scope is a valid CC scope token.
-    scope = f"phase-{common.replace('.', '-')}" if common else "workspace"
-
-    # — header type —
-    head_type = _dominant_type(csv_rows)
-
-    # — description —
-    desc_parts: list[str] = []
-    if n_impl:
-        desc_parts.append(f"{n_impl} implementation{'s' if n_impl != 1 else ''}")
-    if n_drift:
-        desc_parts.append(f"{n_drift} drift{'s' if n_drift != 1 else ''}")
-    if n_tests:
-        desc_parts.append(f"{n_tests} test{'s' if n_tests != 1 else ''} added")
-    desc = ", ".join(desc_parts) if desc_parts else "various changes"
-
-    # — run_id suffix (first unique run_id) —
-    run_ids = list(dict.fromkeys(
-        r.get("run_id", "").strip() for r in csv_rows if r.get("run_id", "").strip()
-    ))
-    run_id_suffix = f" [{run_ids[0]}]" if run_ids else ""
-
-    header = f"{head_type}({scope}): {desc}{run_id_suffix}"
-
-    # — bullet points —
-    bullets = [f" * {_msg_from_csv(r)}" for r in csv_rows]
-
-    return header + "\n" + "\n".join(bullets)
+def _group_by_run_id(csv_rows: list[dict]) -> list[tuple[str, list[dict]]]:
+    """Group pending rows by run_id, preserving first-occurrence order.
+    Returns [(run_id, [rows]), ...] in the order run_ids first appear."""
+    seen: dict[str, list[dict]] = {}
+    order: list[str] = []
+    for row in csv_rows:
+        rid = (row.get("run_id") or "unknown").strip()
+        if rid not in seen:
+            seen[rid] = []
+            order.append(rid)
+        seen[rid].append(row)
+    return [(rid, seen[rid]) for rid in order]
 
 
 # ── fallback: auto-derive conventional commit from file paths ──────────────────
@@ -328,29 +232,13 @@ def _auto_msg(files: list[str]) -> str:
     if not files:
         return "chore(workspace): sync workspace [auto]"
     names   = [Path(f).name for f in files[:3]]
-    summary = " ".join(names) + (f" (+{len(files)-3} more)" if len(files) > 3 else "")
+    summary = ", ".join(names) + (f" (+{len(files)-3} more)" if len(files) > 3 else "")
     ts      = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    msg     = f"{_auto_type(files)}({_auto_scope(files)}): update {summary} [auto-{ts}]"
-    # Defensive: ensure the auto-derived line is itself conventional.
-    return _normalize_to_conventional(msg, fallback_type=_auto_type(files),
-                                      fallback_scope=_auto_scope(files))
+    return f"{_auto_type(files)}({_auto_scope(files)}): {summary} [auto-{ts}]"
 
 
 # ── display helpers ────────────────────────────────────────────────────────────
 WIDTH = 60
-
-
-def _dirty_paths(dirty: list[str]) -> list[str]:
-    """Extract clean file paths from `git status --short` lines."""
-    paths = []
-    for line in dirty:
-        if len(line) > 3 and line[2] == " ":
-            path = line[3:].strip()
-            # Renames: "old -> new" — take the new path
-            if " -> " in path:
-                path = path.split(" -> ", 1)[1].strip()
-            paths.append(path)
-    return paths
 
 
 def _section(icon: str, title: str) -> None:
@@ -372,16 +260,11 @@ def _file_line(path: str) -> None:
 
 # ── commands ───────────────────────────────────────────────────────────────────
 def dry():
-    """Read-only preview: staged changes, derived commit messages, push queue."""
+    """Read-only preview: staged changes, one commit per run_id group, push queue."""
     dirty_list  = _dirty()
     staged_list = _staged()
     csv_rows    = _pending_csv()
     git_log     = _pending_log()
-
-    # Effective file set: everything `push()` would include after `git add -A`.
-    # Preserves order, deduplicates (staged paths already appear in dirty_list
-    # as "M " / "A " prefix lines, so use dirty_paths as the canonical list).
-    all_paths = list(dict.fromkeys(_dirty_paths(dirty_list) + staged_list))
 
     # — uncommitted / staged files —
     if dirty_list:
@@ -391,37 +274,35 @@ def dry():
     else:
         print(f"\n{NONE}  No uncommitted changes")
 
-    # — commit message preview — always show what commits would be created —
-    if csv_rows:
-        _section(CSV_E, f"Grouped commit that would be created  (tracking.csv — {len(csv_rows)} row(s))")
-        grouped = _build_grouped_msg(csv_rows)
-        for line in grouped.splitlines():
-            bullet = line.startswith(" *")
-            prefix = "   " if bullet else f"   {ARROW} "
-            print(f"{prefix} {line.lstrip()}")
-        # Final tracking SHA-update commit
-        run_id_label = csv_rows[0].get("run_id", "auto")
-        print(f"   {ARROW}  chore(tracking): sha update [{run_id_label}]")
-        print(f"         (tracking.csv SHA back-fill)")
-    elif all_paths:
-        _section(FILE, "Commit that would be created  (auto-derived — no pending CSV rows)")
-        print(f"   {ARROW}  {_auto_msg(all_paths)}")
-    else:
-        print(f"\n{NONE}  No changes and no pending CSV rows — nothing to commit")
-
-    # — what would be pushed —
-    # Tally commits that would be created from dirty/staged changes.
+    # — commit preview — one block per run_id group —
     new_commits: list[str] = []
     if csv_rows:
-        grouped = _build_grouped_msg(csv_rows)
-        new_commits.append(grouped.splitlines()[0])   # header line only
-        run_id_label = csv_rows[0].get("run_id", "auto")
-        new_commits.append(f"chore(tracking): sha update [{run_id_label}]")
-    elif all_paths:
-        new_commits.append(_auto_msg(all_paths))
+        groups = _group_by_run_id(csv_rows)
+        n = len(groups)
+        for i, (run_id, rows) in enumerate(groups):
+            files_label = "all staged files" if i == 0 else "tracking.csv only"
+            _section(CSV_E,
+                f"Commit {i+1}/{n}  "
+                f"[{run_id} · {len(rows)} row(s) · {files_label}]")
+            msg = _build_single_msg(rows)
+            for line in msg.splitlines():
+                if not line.strip():
+                    continue
+                prefix = "   " if line.startswith(" *") else f"   {ARROW} "
+                print(f"{prefix} {line.lstrip()}")
+            new_commits.append(msg.splitlines()[0])
+    elif dirty_list or staged_list:
+        all_paths = list(dict.fromkeys(
+            [p[3:].strip() for p in dirty_list if len(p) > 3 and p[2] == " "]
+            + staged_list
+        ))
+        msg = _auto_msg(all_paths)
+        _section(FILE, "Commit message  (auto-derived — no pending CSV rows)")
+        print(f"   {ARROW}  {msg}")
+        new_commits.append(msg)
 
-    push_queue = new_commits + git_log   # new commits land first, then existing ones
-
+    # — what would be pushed —
+    push_queue = new_commits + git_log
     if push_queue:
         _section(PUSH, f"Would be pushed to origin/main  ({len(push_queue)} commit(s))")
         for c in new_commits:
@@ -434,18 +315,17 @@ def dry():
 
 def push():
     """
-    Commit staged changes (messages from tracking.csv rows), write real SHAs
-    back to tracking.csv in a follow-up commit, then push to origin/main.
+    One commit per run_id group — rows with the same run_id are one task and
+    land in a single commit; different run_ids become separate commits.
 
-    Tracked mode  (CSV pending rows present):
-      For each pending row (in append order):
-        - Row 1: commit all implementation files with that row's message.
-        - Rows 2+: no new impl files; each gets its own commit (tracking entry
-          + message from its CSV row) once the SHA from row 1 is resolved.
-      Finally: commit the tracking.csv SHA updates.
+    Commit ordering:
+      Group 1  — all staged implementation files + tracking.csv  (pending SHAs)
+      Group 2+ — tracking.csv only (SHA from previous group now filled in)
+    After the last commit, SHA is written back to tracking.csv in-place
+    (no extra sha-update commit).
 
-    Fallback mode  (no pending CSV rows):
-      Stage all changes, commit with an auto-derived conventional message.
+    Fallback mode (no pending CSV rows):
+      Commit all staged changes with an auto-derived conventional message.
     """
     dirty_list  = _dirty()
     staged_list = _staged()
@@ -459,52 +339,47 @@ def push():
         csv_rows = _pending_csv()
 
         if csv_rows:
-            # ── Tracked mode ────────────────────────────────────────────────
-            # All pending rows are folded into ONE grouped commit, then a
-            # separate tracking-CSV SHA-update commit follows.
+            # ── Tracked mode: one commit per run_id group ────────────────────
+            groups = _group_by_run_id(csv_rows)
+            n = len(groups)
 
-            # Remove tracking CSV from staging — it gets its own commit.
-            if CSV_REL in staged_list:
-                _run(["git", "restore", "--staged", CSV_REL])
+            for i, (run_id, rows) in enumerate(groups):
+                is_first = (i == 0)
+                is_last  = (i == n - 1)
 
-            impl_files = [f for f in staged_list if f != CSV_REL]
+                msg         = _build_single_msg(rows)
+                files_label = "all staged files" if is_first else "tracking.csv only"
 
-            msg = _build_grouped_msg(csv_rows)
-            _section(CSV_E, f"Grouped commit  ({len(csv_rows)} CSV row(s))")
-            for line in msg.splitlines():
-                print(f"   {ARROW if not line.startswith(' *') else ' '}  {line.lstrip()}")
+                _section(CSV_E,
+                    f"Commit {i+1}/{n}  "
+                    f"[{run_id} · {len(rows)} row(s) · {files_label}]")
+                for line in msg.splitlines():
+                    if not line.strip():
+                        continue
+                    prefix = "   " if line.startswith(" *") else f"   {ARROW} "
+                    print(f"{prefix} {line.lstrip()}")
 
-            if impl_files:
-                _section(FILES, "Files in this commit")
-                for f in impl_files:
-                    print(f"   {FILE}  {f}")
+                if is_first:
+                    _section(FILES, "Files in this commit")
+                    for f in staged_list:
+                        print(f"   {FILE}  {f}")
 
                 r = _run(["git", "commit", "-m", msg])
                 if r.returncode != 0:
-                    print(f"\n{ERR}  Commit failed.")
+                    print(f"\n{ERR}  Commit {i+1}/{n} failed.")
                     sys.exit(r.returncode)
 
                 sha = _out(["git", "rev-parse", "--short", "HEAD"])
                 print(f"\n{SHA}  SHA: {sha}")
-            else:
-                sha = _out(["git", "rev-parse", "--short", "HEAD"])
-                print(f"{WARN} No implementation files staged; only updating tracking.csv.")
 
-            # Write the real SHA back for every pending row.
-            all_run_ids = {r.get("run_id", "") for r in csv_rows}
-            _write_sha(all_run_ids, sha)
+                # Write this group's SHA back to tracking.csv.
+                _write_sha({run_id}, sha)
 
-            # Final: commit tracking.csv SHA updates (only if something is staged).
-            _run(["git", "add", CSV_REL])
-            if _staged():
-                run_id_label = csv_rows[0].get("run_id", "auto")
-                csv_msg = f"chore(tracking): sha update [{run_id_label}]"
-                r = _run(["git", "commit", "-m", csv_msg])
-                if r.returncode == 0:
-                    sha2 = _out(["git", "rev-parse", "--short", "HEAD"])
-                    print(f"\n{SHA}  CSV update: {sha2}  — {csv_msg}")
+                if not is_last:
+                    # Stage updated tracking.csv so the next group's commit picks it up.
+                    _run(["git", "add", CSV_REL])
                 else:
-                    print(f"{WARN}  Final CSV update commit failed; continuing to push.")
+                    print(f"{OK}  tracking.csv SHA updated locally (not a separate commit)")
 
         else:
             # ── Fallback mode ────────────────────────────────────────────────

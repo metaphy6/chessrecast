@@ -1,5 +1,5 @@
 ---
-description: Autonomous P2P-roadmap implementation loop. Walks docs/P2P_ROADMAP.md leaf checkboxes selected by INCLUDE/EXCLUDE filters, implements each, writes failing-then-passing proof tests, self-reviews, ticks the box, logs every action to agent/p2p_tracking.csv, and commits locally after green gates (user pushes via `make git`). Model-agnostic; safe to run under GPT, Claude, or "auto".
+description: Autonomous P2P-roadmap implementation loop. Walks docs/P2P_ROADMAP.md leaf checkboxes selected by INCLUDE/EXCLUDE filters, implements each, writes failing-then-passing proof tests, self-reviews, ticks the box, logs every action to agent/tracking.csv, and stages locally (user commits+pushes via `make git`). Model-agnostic; safe to run under GPT, Claude, or "auto".
 tools: ['codebase', 'editFiles', 'runCommands', 'runTests', 'problems', 'changes', 'terminalLastCommand', 'githubRepo']
 ---
 
@@ -29,9 +29,9 @@ When 1/2/3 disagree, **AGENTS.md wins.** This mode never weakens an AGENTS rule.
 
 ---
 
-## §2 Per-area allow-list (P2P + roadmap scope)
+## §2 Per-area allow-list (P2P scope)
 
-You may freely create / edit any file needed by a selected `docs/P2P_ROADMAP.md` leaf, including (non-exhaustive examples):
+You may freely create / edit:
 
 - `frontend/lib/services/p2p/**`
 - `frontend/lib/services/identity/**`
@@ -40,33 +40,24 @@ You may freely create / edit any file needed by a selected `docs/P2P_ROADMAP.md`
 - `frontend/test/p2p/**`
 - `frontend/test/signaling/**`
 - `signaling/**` (entire new Go module under repo root)
-- **Phase 0 archive work (explicitly in-scope, no shared_edit required):**
-  - `backend/**` (legacy backend code, to be moved/archived)
-  - `archive/**` (destination for legacy artefacts)
-  - `docker-compose.yml` (root level; to be removed or replaced per Phase 0.3)
-  - `docker-compose.signaling.yml` (new signaling server compose)
-  - Root `README.md` (to update per Phase 0.3 freeze and P2P preview notice)
 - `docs/P2P_ROADMAP.md` — but **only** to flip a single checkbox state and append the proof citation; never reword existing prose without a `kind: roadmap_edit` rationale row in the CSV.
 - `docs/P2P_*.md` — companion notes the roadmap explicitly creates.
-- `docs/**` (architecture and operational documentation for P2P phases)
 - `agent/tracking.csv` — exclusively via [xops/agent/tracking_append.sh](../../xops/agent/tracking_append.sh).
 - `agent/baselines/p2p_*.json` — for Phase 6/17 KPI baselines.
 - `agent/reports/p2p/**` — proof artefacts (created on demand).
 - `.github/workflows/p2p-*.yml` — Phase 5 CI files only.
 - `pubspec.yaml` / Go `go.mod` — only for dependencies the roadmap explicitly names.
 
-You **must not** touch:
+You **must not** touch (without an explicit `kind: shared_edit` queue entry citing this run-id):
 
 - `frontend/native/engine/**`
 - `frontend/lib/engine/**`
 - `frontend/lib/mods/**`
 - Any existing chess-mod test file under `frontend/test/`.
+- `backend/**` — being archived under Phase 0.3; only the archive *move* is allowed and must be done via `git mv`.
 - `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, other slash-command prompts, this chat mode file.
-- `.github/copilot-instructions.md` (engine/mod rules remain the exclusive domain of that file).
 
-**Exception to the rule above:** Phase 0 is a one-time legacy cleanup. The explicit path list above for Phase 0 (backend, archive, root README.md, docker-compose.yml) is comprehensive and **requires no additional shared_edit approvals**.
-
-If the roadmap leaf requires a path not covered by the examples above and is **not** Phase 0.1–0.6 work, it is still allowed as long as the change is directly required by the selected leaf and does not violate AGENTS.md or the engine/mod restrictions above. Use `drift_kind=extra_change` only for unrelated drive-by edits.
+If the roadmap leaf you are working on **requires** an out-of-scope edit, stop, file the queue entry per [.github/copilot-instructions.md](../copilot-instructions.md) → *Queue entry schema* with `kind: shared_edit`, append a `drift_detected / blocked` row to the CSV, and exit `blocked`.
 
 ---
 
@@ -93,13 +84,11 @@ The selector resolves to a *flat ordered list* of leaf bullets (each `[ ]` line)
 
 For each leaf in the resolved list whose roadmap box is `[ ]`, run the following ten steps. Steps are atomic — finish all of them or revert.
 
-**No-hesitation mandate.** The loop never pauses between leaves to ask for confirmation, approval, or guidance. If a leaf is blocked (3-attempt limit in §4.5), record it and continue immediately to the next leaf without stopping the session. The only legitimate pause is a rate-limit cooldown (§4.8) or a `agent/STOP` file.
-
 ### 4.1 Pre-flight (once per session, not per leaf)
 
 1. Run [xops/agent/session-bootstrap.sh](../../xops/agent/session-bootstrap.sh). If it surfaces an unresolved `agent/state/last_failure.json`, triage it first (read its `.log`, fix root cause, mark `resolved: true`), then continue.
 2. `git switch main && git pull --ff-only`. Bail if dirty.
-3. Confirm `agent/p2p_tracking.csv` header is byte-identical to the schema; if not → `drift_kind=csv_tamper`, exit `blocked`.
+3. Confirm `agent/tracking.csv` header is byte-identical to the schema; if not → `drift_kind=csv_tamper`, exit `blocked`.
 4. Generate a `run_id` once (`p2p-$(date -u +%Y%m%d-%H%M%S)-$RANDOM`); reuse it on every CSV row this session writes.
 5. Detect the live model name (or `auto`) and reuse it on every row.
 6. Append one row: `action=plan, status=started, phase=<first>, files_changed=0, …` listing the planned leaves in `notes`.
@@ -137,7 +126,7 @@ This is a hard rule (AGENTS §3 + user requirement "tests are in place with no f
 ### 4.5 Implement (minimum diff)
 
 1. Edit only the planned files. No drive-by refactors. No comments / docstrings on untouched code (per discipline rules).
-2. Re-run the proof test; iterate until it passes. If it does not pass after **3 implementation attempts**, append `action=gate_fail, status=failed`, revert all edits (`git restore .`), file a queue entry of `kind: blocked_implementation`, exit `blocked` for **this leaf**, **continue with the next leaf immediately** (do not abort the session, do not ask the user). After all other selected leaves are finished, attempt this leaf one additional time if time permits.
+2. Re-run the proof test; iterate until it passes. If it does not pass after **3 implementation attempts**, append `action=gate_fail, status=failed`, revert all edits (`git restore .`), file a queue entry of `kind: blocked_implementation`, exit `blocked` for this leaf, **continue with the next leaf** (do not abort the whole session for one stuck leaf).
 3. Append: `action=implement, status=passed, files_changed=N, tests_added=M, tests_run=K, tests_passed=K, tests_failed=0, proof_test_paths="<paths>"`.
 
 ### 4.6 Self-review (mandatory, per leaf)
@@ -197,15 +186,9 @@ If any tool call returns 429 / "rate limit" / "quota exceeded":
 
 ### 4.9 Phase-completion review
 
-When the **last leaf in a top-level phase** flips to `[x]`, run [/review-roadmap-phase](../prompts/review-roadmap-phase.prompt.md) inline (don't ask the user) for that phase id. The review is **fully automated and mandatory**:
+When the **last leaf in a top-level phase** flips to `[x]`, run [/review-roadmap-phase](../prompts/review-roadmap-phase.prompt.md) inline (don't ask the user) for that phase id. The review's findings (drift, weakened tests, missing files) are auto-amended in the same loop and committed as `p2p(<phase>): phase-review fixes [<run-id>]`. Only after the review row's `status=passed` is the phase considered complete.
 
-1. For every finding (drift, weakened test, missing file, failing proof test), apply the prescribed fix immediately — do not ask the user before amending.
-2. Re-run all proof tests for the phase after amendments.
-3. Repeat the review loop up to **3 rounds**. Each round appends `action=amend` rows; the final round appends `action=review, status=passed`.
-4. If, after 3 rounds, any finding remains unresolved: downgrade the affected leaf from `[x]` to `[~]`, append `action=review, status=failed, drift_kind=<k>`, file a `kind: blocked_implementation` queue entry, and continue — do **not** block the rest of the phase.
-5. Only when the review row is `status=passed` **and** all proof tests are green is the phase considered complete.
-
-This satisfies the user requirement: *"agent review the phases when they complete it, and apply fixes if needed, automatically."*
+This satisfies the user requirement: "agent review the phases when they complete it, and apply fixes if needed."
 
 ### 4.10 Stop conditions
 
@@ -214,7 +197,7 @@ Halt the loop when (any one):
 - All selected leaves are `[x]` and their phase-review rows are `passed`.
 - `agent/STOP` exists (delete only on explicit user "go").
 - 3 consecutive leaves ended in `blocked`.
-- Per-session leaf budget exhausted **and** INCLUDE does not resolve to one or more complete top-level phases. When INCLUDE resolves to a complete top-level phase (integer token, no dot), the budget is never exhausted — the loop continues until every leaf in the phase is done.
+- Per-session leaf budget exhausted (default 8; the prompt may override via `MAX=<N>`).
 - The user types `stop`.
 - Hard rate-limit exit (§4.8 step 3 long cooldown).
 
@@ -251,6 +234,6 @@ Every invocation of `/implement-roadmap`, `/review-roadmap-phase`, `/roadmap-sta
 - Skip the failing-then-passing test discipline (§4.4 → §4.5).
 - Tick a box without a passing proof test cited in the same commit.
 - Force-push, rewrite history, `--no-verify`, or `git reset --hard` on a pushed commit.
-- Hand-edit `agent/p2p_tracking.csv`.
+- Hand-edit `agent/tracking.csv`.
 - Wait silently on rate limits without writing the checkpoint and a CSV row.
 - Mark a phase complete without the §4.9 phase-review pass.

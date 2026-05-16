@@ -18,7 +18,7 @@ Operate per the [`p2p-roadmap-implementer`](../chatmodes/p2p-roadmap-implementer
 2. Read [docs/P2P_ROADMAP.md](../../docs/P2P_ROADMAP.md). For each phase in scope, count:
    - total `[ ]` / `[~]` / `[x]` leaves,
    - leaves whose bullet text contains `**Proof:**` vs. those that don't (`missing_proof_clause` candidates).
-3. Read [agent/p2p_tracking.csv](../../agent/p2p_tracking.csv). Tabulate:
+3. Read [agent/tracking.csv](../../agent/tracking.csv). Tabulate:
    - last `ts_utc`,
    - distinct `run_id`s in scope,
    - per-phase row counts split by `action`,

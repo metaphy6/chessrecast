@@ -10,9 +10,9 @@
 | [.github/prompts/implement-roadmap.prompt.md](../../../.github/prompts/implement-roadmap.prompt.md) | `/implement-roadmap` — selects leaves via `INCLUDE`/`EXCLUDE`, writes failing test → implements → reviews → ticks → commits + pushes. |
 | [.github/prompts/review-roadmap-phase.prompt.md](../../../.github/prompts/review-roadmap-phase.prompt.md) | `/review-roadmap-phase` — re-audits a ticked phase, auto-amends drift, downgrades dishonest ticks. |
 | [.github/prompts/roadmap-status.prompt.md](../../../.github/prompts/roadmap-status.prompt.md) | `/roadmap-status` — read-only progress + drift report. |
-| [agent/p2p_tracking.csv](../../../agent/p2p_tracking.csv) | Append-only audit log; **the only artefact written by these three commands** outside source code. |
-| [agent/p2p_tracking.schema.md](../../../agent/p2p_tracking.schema.md) | Column definitions, drift kinds, invariants. |
-| [xops/agent/p2p_tracking_append.sh](../../../xops/agent/p2p_tracking_append.sh) | The **only** sanctioned writer of the CSV; enforces every invariant under `flock`. |
+| [agent/tracking.csv](../../../agent/tracking.csv) | Append-only audit log; **the only artefact written by these three commands** outside source code. |
+| [agent/tracking.schema.md](../../../agent/tracking.schema.md) | Column definitions, drift kinds, invariants. |
+| [xops/agent/tracking_append.sh](../../../xops/agent/tracking_append.sh) | The **only** sanctioned writer of the CSV; enforces every invariant under `flock`. |
 
 ## Usage
 
@@ -40,7 +40,7 @@
    - re-run the test until green; if not green after 3 attempts → revert, file `kind: blocked_implementation`, move on,
    - self-review (spec match, test honesty, allow-list, cross-bullet drift),
    - flip the box, commit with `feat(p2p-<phase>): <summary> [<run-id>]` or `chore(p2p-<phase>): <summary> [<run-id>]`, `git pull --ff-only`, push,
-   - log every action to `agent/p2p_tracking.csv` via the appender script.
+   - log every action to `agent/tracking.csv` via the appender script.
 3. When the **last leaf in a top-level phase** ticks, the loop runs `/review-roadmap-phase` inline for that phase before moving on.
 4. End in one of `pushed` / `reverted` / `no-op` / `blocked` per [AGENTS.md](../../../AGENTS.md) §2.
 
@@ -73,7 +73,7 @@ Tested with `auto` model selection. No provider-private features are used.
 
 ## Allow-list (full list in chat mode §2)
 
-Edits restricted to: `frontend/lib/services/p2p/**`, `frontend/lib/services/identity/**`, `frontend/lib/services/clock/**`, `frontend/lib/services/replay/**`, `frontend/test/p2p/**`, `frontend/test/signaling/**`, `signaling/**`, `docs/P2P_ROADMAP.md` (single-box edits only), `docs/P2P_*.md`, `agent/p2p_tracking.csv` (via appender only), `agent/baselines/p2p_*.json`, `agent/reports/p2p/**`, `.github/workflows/p2p-*.yml`, plus dependency-manifest entries the roadmap explicitly names. Everything else requires a `kind: shared_edit` queue entry per [.github/copilot-instructions.md](../../../.github/copilot-instructions.md).
+Edits restricted to: `frontend/lib/services/p2p/**`, `frontend/lib/services/identity/**`, `frontend/lib/services/clock/**`, `frontend/lib/services/replay/**`, `frontend/test/p2p/**`, `frontend/test/signaling/**`, `signaling/**`, `docs/P2P_ROADMAP.md` (single-box edits only), `docs/P2P_*.md`, `agent/tracking.csv` (via appender only), `agent/baselines/p2p_*.json`, `agent/reports/p2p/**`, `.github/workflows/p2p-*.yml`, plus dependency-manifest entries the roadmap explicitly names. Everything else requires a `kind: shared_edit` queue entry per [.github/copilot-instructions.md](../../../.github/copilot-instructions.md).
 
 ## What this harness does not do
 

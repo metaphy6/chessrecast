@@ -55,7 +55,7 @@ For each leaf in the resolved list:
 
 ### F. CSV invariants
 
-- Re-run the schema invariants from [agent/p2p_tracking.schema.md](../../agent/p2p_tracking.schema.md) §"Invariants the appender script enforces" against the file. Any violation → `drift_kind=csv_tamper`, exit `blocked`. Do **not** edit the CSV by hand to "fix" tampering — write a new `action=drift_detected` row via the appender.
+- Re-run the schema invariants from [agent/tracking.schema.md](../../agent/tracking.schema.md) §"Invariants the appender script enforces" against the file. Any violation → `drift_kind=csv_tamper`, exit `blocked`. Do **not** edit the CSV by hand to "fix" tampering — write a new `action=drift_detected` row via the appender.
 
 ### G. Roadmap-edit audit
 

@@ -2,7 +2,7 @@
 #
 # Single source of truth for the current version of every tracked component.
 # Agents read this file when writing `component` + `component_version` columns
-# to agent/p2p_tracking.csv.
+# to agent/tracking.csv.
 #
 # Version bump rules:
 #   - patch (0.0.x): bug fix or non-functional change in a component

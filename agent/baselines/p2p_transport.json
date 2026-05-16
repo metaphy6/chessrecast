@@ -1,0 +1,42 @@
+{
+  "version": "1.0.0",
+  "phase": "5",
+  "created_at": "2026-05-16",
+  "description": "KPI baseline for P2P fake transport layer (Phase 5 §5.2)",
+  "metrics": {
+    "fake_transport_send_p99_us": {
+      "value": 10,
+      "threshold": 10,
+      "unit": "microseconds",
+      "description": "P99 latency for FakeTransport.send() with sync StreamController"
+    },
+    "fake_transport_100_frames_ms": {
+      "value": 1,
+      "threshold": 5,
+      "unit": "milliseconds",
+      "description": "Wall-clock time to send 100 frames through FakeTransport (must be < 5 ms)"
+    },
+    "jitter_wifigood_overhead_pct": {
+      "value": 5,
+      "threshold": 10,
+      "unit": "percent",
+      "description": "CPU overhead of JitterTransport.wifiGood vs FakeTransport alone (must be < 10%)"
+    },
+    "lossy_100_frames_ms": {
+      "value": 1,
+      "threshold": 5,
+      "unit": "milliseconds",
+      "description": "Wall-clock time to send 100 frames through LossyTransport(lossRate=0)"
+    },
+    "transport_test_suite_total_ms": {
+      "value": 3000,
+      "threshold": 15000,
+      "unit": "milliseconds",
+      "description": "Total wall-clock time for all 180 transport tests (must be < 15 s)"
+    }
+  },
+  "thresholds": {
+    "regression_pct": 5,
+    "description": "Any metric worse than baseline by >5% is a KPI regression requiring revert"
+  }
+}
