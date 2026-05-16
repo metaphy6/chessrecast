@@ -22,7 +22,8 @@ type Credential struct {
 }
 
 // TTL is the lifetime of a TURN credential.
-const TTL = time.Hour
+// §4.1 requires short-lived credentials: 5 minutes.
+const TTL = 5 * time.Minute
 
 // KeyPair holds a current HMAC key and an optional previous key that remains
 // valid during the overlap window after rotation.
@@ -86,6 +87,21 @@ func (kp *KeyPair) verifyWithKey(username, password string, key []byte) bool {
 	mac.Write([]byte(username))
 	expected := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 	return hmac.Equal([]byte(expected), []byte(password))
+}
+
+// VerifyWithExpiry checks that the username encodes a future expiry AND that
+// the HMAC matches.  Username format: "<unix_ts>:<base_user>".
+// Returns an error if the timestamp is in the past regardless of HMAC.
+func (kp *KeyPair) VerifyWithExpiry(username, password string) error {
+	// Parse expiry from username.
+	var expireUnix int64
+	if _, err := fmt.Sscanf(username, "%d:", &expireUnix); err != nil {
+		return fmt.Errorf("username format invalid: %w", err)
+	}
+	if time.Unix(expireUnix, 0).Before(time.Now()) {
+		return errors.New("TURN credential has expired")
+	}
+	return kp.Verify(username, password)
 }
 
 // RotatedAt returns the timestamp of the last rotation.

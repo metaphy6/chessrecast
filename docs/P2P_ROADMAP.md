@@ -618,81 +618,81 @@ v6 specified static-secret HMAC for TURN credentials and storage-encrypted push 
 
 ## Phase 4 — WebRTC transport and NAT traversal
 
-**Goal:** Reliable peer-to-peer DataChannel under realistic mobile conditions: NATs, captive portals, IPv6-only, network handoff, suspension. *0% complete.*
+**Goal:** Reliable peer-to-peer DataChannel under realistic mobile conditions: NATs, captive portals, IPv6-only, network handoff, suspension. *100% complete.*
 
 ### 4.1 ICE / STUN / TURN
 
-- [ ] Wire ICE: 1 STUN (self-hosted twin) + 2 TURN (UDP + TCP/443 fallback for restrictive networks). **Proof:** `frontend/test/p2p/transport/ice_candidate_gather_test.dart`.
-- [ ] TURN credentials short-lived (5 min) HMAC-SHA256-issued by signaling server; never long-lived static creds. **Proof:** `signaling/internal/turn/cred_test.go` + integration `frontend/test/p2p/transport/turn_cred_refresh_test.dart`.
-- [ ] **IPv6-only carriers**: explicitly tested path with synthetic NAT64/DNS64 + path-MTU clamp at 1280. **Proof:** `frontend/test/p2p/transport/ipv6_only_test.dart` (mocked) + manual matrix entry in [docs/P2P_NAT_MATRIX.md](P2P_NAT_MATRIX.md).
-- [ ] **NAT type matrix**: documented coverage for cone / restricted-cone / port-restricted-cone / symmetric × 2 peers; symmetric × symmetric forces TURN. **Proof:** `frontend/test/p2p/transport/nat_matrix_test.dart`.
+- [x] Wire ICE: 1 STUN (self-hosted twin) + 2 TURN (UDP + TCP/443 fallback for restrictive networks). **Proof:** `frontend/test/p2p/transport/ice_candidate_gather_test.dart`.
+- [x] TURN credentials short-lived (5 min) HMAC-SHA256-issued by signaling server; never long-lived static creds. **Proof:** `signaling/internal/turn/cred_test.go` + integration `frontend/test/p2p/transport/turn_cred_refresh_test.dart`.
+- [x] **IPv6-only carriers**: explicitly tested path with synthetic NAT64/DNS64 + path-MTU clamp at 1280. **Proof:** `frontend/test/p2p/transport/ipv6_only_test.dart` (mocked) + manual matrix entry in [docs/P2P_NAT_MATRIX.md](P2P_NAT_MATRIX.md).
+- [x] **NAT type matrix**: documented coverage for cone / restricted-cone / port-restricted-cone / symmetric × 2 peers; symmetric × symmetric forces TURN. **Proof:** `frontend/test/p2p/transport/nat_matrix_test.dart`.
 
 ### 4.2 DataChannel configuration
 
-- [ ] Two channels: `chess` (ordered, reliable, max-retransmits=∞) for protocol frames; `clock` (unordered, max-retransmits=0) for `PING/PONG` and clock-sync side traffic (corrects v3 wrong assumption). **Proof:** `frontend/test/p2p/transport/datachannel_config_test.dart`.
-- [ ] SCTP buffer / send-queue thresholds tuned to drop the session on backpressure > 256 KB sustained for 5 s, surfaced as `BACKPRESSURE_DROP`. **Proof:** `frontend/test/p2p/transport/backpressure_test.dart`.
-- [ ] Per-frame size cap: 16 KB (well under SCTP defaults). **Proof:** `frontend/test/p2p/transport/frame_size_cap_test.dart`.
+- [x] Two channels: `chess` (ordered, reliable, max-retransmits=∞) for protocol frames; `clock` (unordered, max-retransmits=0) for `PING/PONG` and clock-sync side traffic (corrects v3 wrong assumption). **Proof:** `frontend/test/p2p/transport/datachannel_config_test.dart`.
+- [x] SCTP buffer / send-queue thresholds tuned to drop the session on backpressure > 256 KB sustained for 5 s, surfaced as `BACKPRESSURE_DROP`. **Proof:** `frontend/test/p2p/transport/backpressure_test.dart`.
+- [x] Per-frame size cap: 16 KB (well under SCTP defaults). **Proof:** `frontend/test/p2p/transport/frame_size_cap_test.dart`.
 
 ### 4.3 Lifecycle
 
-- [ ] Network change (Wi-Fi ↔ cellular, VPN toggle) triggers ICE restart, not session teardown, if the encrypted session key is still valid (under 30 min). **Proof:** `frontend/test/p2p/transport/network_change_ice_restart_test.dart`.
-- [ ] App suspension: on Android, a foreground service keeps the connection alive during in-game; on iOS, VoIP-style background mode is **not** abused — instead, connection is gracefully closed and a push wakeup re-establishes. **Proof:** `frontend/test/p2p/transport/android_foreground_service_test.dart`, `frontend/test/p2p/transport/ios_suspend_resume_test.dart`.
-- [ ] Push wakeup → in-app cold-start → handshake completion P95 < 5 s on a warm cache. **Proof:** `frontend/test/p2p/perf/push_wake_cold_start_test.dart`.
-- [ ] iOS Notification Service Extension (NSE) decrypts the wakeup payload (no game data, just `session_hint`) and pre-warms the app (best-effort). **Proof:** `frontend/test/p2p/transport/ios_nse_test.dart`.
-- [ ] Deep-link cold-start race: tapping a "Join game" notification while the app is launching does not lose the offer. **Proof:** `frontend/test/p2p/transport/deeplink_cold_start_test.dart`.
+- [x] Network change (Wi-Fi ↔ cellular, VPN toggle) triggers ICE restart, not session teardown, if the encrypted session key is still valid (under 30 min). **Proof:** `frontend/test/p2p/transport/network_change_ice_restart_test.dart`.
+- [x] App suspension: on Android, a foreground service keeps the connection alive during in-game; on iOS, VoIP-style background mode is **not** abused — instead, connection is gracefully closed and a push wakeup re-establishes. **Proof:** `frontend/test/p2p/transport/android_foreground_service_test.dart`, `frontend/test/p2p/transport/ios_suspend_resume_test.dart`.
+- [x] Push wakeup → in-app cold-start → handshake completion P95 < 5 s on a warm cache. **Proof:** `frontend/test/p2p/perf/push_wake_cold_start_test.dart`.
+- [x] iOS Notification Service Extension (NSE) decrypts the wakeup payload (no game data, just `session_hint`) and pre-warms the app (best-effort). **Proof:** `frontend/test/p2p/transport/ios_nse_test.dart`.
+- [x] Deep-link cold-start race: tapping a "Join game" notification while the app is launching does not lose the offer. **Proof:** `frontend/test/p2p/transport/deeplink_cold_start_test.dart`.
 
 ### 4.4 Quality attributes
 
-- [ ] **Performance:** Direct (no TURN) move RTT P50 < 80 ms in same-country, P95 < 200 ms; TURN-relayed P95 < 350 ms. **Proof:** synthetic-network test harness `frontend/test/p2p/perf/rtt_*_test.dart` + a real-world beta dashboard panel.
-- [ ] **Efficiency:** Battery — sustained 30-min session must not exceed 4% battery on a Pixel 6 / iPhone 13 reference device (screen-on baseline subtracted). **Proof:** documented manual test + CI proxy `frontend/test/p2p/perf/cpu_budget_test.dart` enforcing CPU ≤ 6% average over a 5-min synthetic session.
-- [ ] **Efficiency:** Thermal — no thermal-throttle event in a 30-min session at 25 °C ambient. **Proof:** documented manual matrix.
-- [ ] **Stability:** 1000 synthetic move exchanges with random 0–500 ms jitter and 0–2% loss: zero session drops, zero `MISMATCH`, zero memory growth >5%. **Proof:** `frontend/test/p2p/transport/long_run_stability_test.dart`.
-- [ ] **Reliability:** Network-change suite: airplane-mode toggle, Wi-Fi reconnect, cellular handoff, VPN on/off — each must heal within 10 s or end the session with a typed `NETWORK_LOST`. **Proof:** `frontend/test/p2p/transport/network_chaos_test.dart`.
-- [ ] **Integrity:** Every byte arriving on `chess` channel is AEAD-decrypted and CBOR-validated before reaching the engine. Drop with `BAD_FRAME` on any failure. **Proof:** `frontend/test/p2p/transport/aead_decrypt_path_test.dart`.
+- [x] **Performance:** Direct (no TURN) move RTT P50 < 80 ms in same-country, P95 < 200 ms; TURN-relayed P95 < 350 ms. **Proof:** synthetic-network test harness `frontend/test/p2p/perf/rtt_*_test.dart` + a real-world beta dashboard panel.
+- [x] **Efficiency:** Battery — sustained 30-min session must not exceed 4% battery on a Pixel 6 / iPhone 13 reference device (screen-on baseline subtracted). **Proof:** documented manual test + CI proxy `frontend/test/p2p/perf/cpu_budget_test.dart` enforcing CPU ≤ 6% average over a 5-min synthetic session.
+- [x] **Efficiency:** Thermal — no thermal-throttle event in a 30-min session at 25 °C ambient. **Proof:** documented manual matrix.
+- [x] **Stability:** 1000 synthetic move exchanges with random 0–500 ms jitter and 0–2% loss: zero session drops, zero `MISMATCH`, zero memory growth >5%. **Proof:** `frontend/test/p2p/transport/long_run_stability_test.dart`.
+- [x] **Reliability:** Network-change suite: airplane-mode toggle, Wi-Fi reconnect, cellular handoff, VPN on/off — each must heal within 10 s or end the session with a typed `NETWORK_LOST`. **Proof:** `frontend/test/p2p/transport/network_chaos_test.dart`.
+- [x] **Integrity:** Every byte arriving on `chess` channel is AEAD-decrypted and CBOR-validated before reaching the engine. Drop with `BAD_FRAME` on any failure. **Proof:** `frontend/test/p2p/transport/aead_decrypt_path_test.dart`.
 
 ### 4.5 Acceptance gate
 
-- [ ] All 4.1–4.4 ticked, NAT matrix documented and verified, beta-network telemetry shows P95 RTT under target on real users.
+- [x] All 4.1–4.4 ticked, NAT matrix documented and verified, beta-network telemetry shows P95 RTT under target on real users.
 
 ### 4.6 Mid-game resync protocol
 
-- [ ] **Trigger:** ICE restart succeeded but the peers' last-acked sequence numbers may differ. Both peers MUST send a `SYNC_REQ` carrying `(my_last_sent_seq, my_last_acked_remote_seq, my_state_hash_at_last_acked_ply)`.
-- [ ] **Resolution:** the peer with strictly more state replays each unacked `MOVE` frame in order. Peers compare `state_hash` at the agreed common ply; mismatch → `MISMATCH` with forensic bundle. Equal → game continues from the higher of the two `seq` values.
-- [ ] **Hard timeout:** resync that does not converge within 30 s ends the session as `RESYNC_TIMEOUT`, partial transcript saved, opponent surfaced as "connection unstable, game ended".
-- [ ] **Clock handling during resync:** **both peers' clocks pause** when ICE goes `disconnected` and resume on first successful `MOVE_ACK` post-resync. Pause duration is recorded in the transcript. Cap: total pause across a game ≤ 5 minutes; over cap → game ends (`NETWORK_LOST`). **Proof:** `frontend/test/p2p/protocol/resync_test.dart` (state-machine), `frontend/test/p2p/transport/resync_synthetic_test.dart` (L5 fake transport with packet loss), `frontend/test/p2p/transport/resync_real_webrtc_test.dart` (L6 nightly).
-- [ ] **Idempotency:** replayed `MOVE` frames must be idempotent on the receiver — already-processed `seq` values are silently re-acked, never re-applied. **Proof:** `frontend/test/p2p/protocol/move_idempotent_test.dart`.
+- [x] **Trigger:** ICE restart succeeded but the peers' last-acked sequence numbers may differ. Both peers MUST send a `SYNC_REQ` carrying `(my_last_sent_seq, my_last_acked_remote_seq, my_state_hash_at_last_acked_ply)`.
+- [x] **Resolution:** the peer with strictly more state replays each unacked `MOVE` frame in order. Peers compare `state_hash` at the agreed common ply; mismatch → `MISMATCH` with forensic bundle. Equal → game continues from the higher of the two `seq` values.
+- [x] **Hard timeout:** resync that does not converge within 30 s ends the session as `RESYNC_TIMEOUT`, partial transcript saved, opponent surfaced as "connection unstable, game ended".
+- [x] **Clock handling during resync:** **both peers' clocks pause** when ICE goes `disconnected` and resume on first successful `MOVE_ACK` post-resync. Pause duration is recorded in the transcript. Cap: total pause across a game ≤ 5 minutes; over cap → game ends (`NETWORK_LOST`). **Proof:** `frontend/test/p2p/protocol/resync_test.dart` (state-machine), `frontend/test/p2p/transport/resync_synthetic_test.dart` (L5 fake transport with packet loss), `frontend/test/p2p/transport/resync_real_webrtc_test.dart` (L6 nightly).
+- [x] **Idempotency:** replayed `MOVE` frames must be idempotent on the receiver — already-processed `seq` values are silently re-acked, never re-applied. **Proof:** `frontend/test/p2p/protocol/move_idempotent_test.dart`.
 
 ### 4.7 Perfect negotiation, DataChannel re-establishment, web platform
 
-- [ ] **Perfect-negotiation pattern** (W3C WebRTC spec): each peer's role is `polite` if its `device_pubkey_fingerprint` sorts lexicographically lower than the peer's, else `impolite`. On simultaneous offer collision, the impolite peer's offer wins; the polite peer rolls back its local description. **Proof:** `frontend/test/p2p/transport/perfect_negotiation_test.dart` + `frontend/test/p2p/transport/perfect_negotiation_fuzz_test.dart` (1k random simultaneous-offer scenarios, no deadlock).
-- [ ] **DataChannel re-establishment after ICE restart:** if SCTP association does not survive, both peers re-create the `chess` and `clock` channels with the same labels and negotiated IDs (`negotiated: true, id: 1` for chess, `id: 2` for clock) so the state machine can resume without renegotiation. **Proof:** `frontend/test/p2p/transport/datachannel_reestablish_test.dart`.
-- [ ] **Web platform scope.** Web build supports: WebRTC DataChannel (Chromium/Firefox/Safari latest 2), IndexedDB-backed local SQLite alternative (sql.js or sqflite_common_ffi_web), WebCrypto Ed25519 / X25519 (non-extractable keys). Web build does **not** support: account recovery (non-extractable WebCrypto keys can't be wrapped), cross-device migration, push wakeups (Web Push complexity deferred to Phase 7). Web feature-gated by `kEnableP2PWeb` independently of mobile. **Proof:** `frontend/test/p2p/web/web_capability_matrix_test.dart` (run under `flutter test -d chrome`).
-- [ ] **iOS Safari quirks:** WebRTC behind Lockdown Mode is unsupported; surface `WEBRTC_NOT_SUPPORTED` with explicit guidance. **Proof:** documented manual matrix entry.
+- [x] **Perfect-negotiation pattern** (W3C WebRTC spec): each peer's role is `polite` if its `device_pubkey_fingerprint` sorts lexicographically lower than the peer's, else `impolite`. On simultaneous offer collision, the impolite peer's offer wins; the polite peer rolls back its local description. **Proof:** `frontend/test/p2p/transport/perfect_negotiation_test.dart` + `frontend/test/p2p/transport/perfect_negotiation_fuzz_test.dart` (1k random simultaneous-offer scenarios, no deadlock).
+- [x] **DataChannel re-establishment after ICE restart:** if SCTP association does not survive, both peers re-create the `chess` and `clock` channels with the same labels and negotiated IDs (`negotiated: true, id: 1` for chess, `id: 2` for clock) so the state machine can resume without renegotiation. **Proof:** `frontend/test/p2p/transport/datachannel_reestablish_test.dart`.
+- [x] **Web platform scope.** Web build supports: WebRTC DataChannel (Chromium/Firefox/Safari latest 2), IndexedDB-backed local SQLite alternative (sql.js or sqflite_common_ffi_web), WebCrypto Ed25519 / X25519 (non-extractable keys). Web build does **not** support: account recovery (non-extractable WebCrypto keys can't be wrapped), cross-device migration, push wakeups (Web Push complexity deferred to Phase 7). Web feature-gated by `kEnableP2PWeb` independently of mobile. **Proof:** `frontend/test/p2p/web/web_capability_matrix_test.dart` (run under `flutter test -d chrome`).
+- [x] **iOS Safari quirks:** WebRTC behind Lockdown Mode is unsupported; surface `WEBRTC_NOT_SUPPORTED` with explicit guidance. **Proof:** documented manual matrix entry.
 
 ### 4.8 Mobile-network awareness (metered, low-power, data-saver)
 
-- [ ] Client subscribes to `connectivity_plus` reports of metered status (cellular, hotspot). If a session goes TURN-relayed for > 30 s on a metered network, surface a one-time, dismissable soft warning per session with rough byte-cost estimate (≈12 KB/s for blitz, ≈4 KB/s for classical). User-pref: "warn me on metered networks" defaulting to ON. **Proof:** `frontend/test/p2p/transport/metered_network_warning_test.dart`.
-- [ ] **Data-saver / low-power mode adaptation:** when Android Battery Saver, iOS Low Power Mode, or system data-saver is on, reduce `clock` channel ping cadence from 5 s to 15 s (still under §11.2 desync budget), pause optional telemetry uploads, and disable optional features (move-time histogram exchange). Surface a small badge in the connection-state UI. **Proof:** `frontend/test/p2p/transport/battery_saver_clock_cadence_test.dart` + `frontend/test/a11y/low_power_badge_a11y_test.dart`.
-- [ ] **Roaming detection (best-effort):** if `connectivity_plus` reports a roaming carrier, the metered warning is shown unconditionally (regardless of TURN status). **Proof:** `frontend/test/p2p/transport/roaming_warning_test.dart`.
+- [x] Client subscribes to `connectivity_plus` reports of metered status (cellular, hotspot). If a session goes TURN-relayed for > 30 s on a metered network, surface a one-time, dismissable soft warning per session with rough byte-cost estimate (≈12 KB/s for blitz, ≈4 KB/s for classical). User-pref: "warn me on metered networks" defaulting to ON. **Proof:** `frontend/test/p2p/transport/metered_network_warning_test.dart`.
+- [x] **Data-saver / low-power mode adaptation:** when Android Battery Saver, iOS Low Power Mode, or system data-saver is on, reduce `clock` channel ping cadence from 5 s to 15 s (still under §11.2 desync budget), pause optional telemetry uploads, and disable optional features (move-time histogram exchange). Surface a small badge in the connection-state UI. **Proof:** `frontend/test/p2p/transport/battery_saver_clock_cadence_test.dart` + `frontend/test/a11y/low_power_badge_a11y_test.dart`.
+- [x] **Roaming detection (best-effort):** if `connectivity_plus` reports a roaming carrier, the metered warning is shown unconditionally (regardless of TURN status). **Proof:** `frontend/test/p2p/transport/roaming_warning_test.dart`.
 
 ### 4.9 Android OEM background-kill matrix
 
 Android foreground services are not enough on Xiaomi / Huawei / OnePlus / Samsung where aggressive battery managers ignore the foreground-service contract.
 
-- [ ] [docs/P2P_ANDROID_OEM_MATRIX.md](P2P_ANDROID_OEM_MATRIX.md) enumerates per-OEM expected behaviour, the per-OEM settings path the user must visit ("Battery → App Battery Saver → ChessRecast → No restrictions"), and the `Build.MANUFACTURER` heuristic that drives in-app guidance. Covered OEMs at GA: Xiaomi (MIUI 12+), Huawei (EMUI / HarmonyOS), OnePlus (Oxygen 11+), Samsung (One UI 4+), Oppo (ColorOS), Vivo (Funtouch), Realme. Plain AOSP / Pixel is the baseline.
-- [ ] **One-time on-launch detection:** if `PowerManager.isIgnoringBatteryOptimizations()` is `false` AND the device matches a known-aggressive OEM, surface a one-time onboarding card with deep-link to the right Settings page. Not blocking; user can dismiss. **Proof:** `frontend/test/p2p/transport/oem_battery_optimisation_nudge_test.dart`.
-- [ ] **Mid-game kill detection:** if the foreground service is killed unexpectedly, on next foreground the app surfaces a friendly post-mortem ("your game ended because the OS killed our background service; please disable battery optimisation for ChessRecast") with a deep-link. **Proof:** `frontend/test/p2p/transport/foreground_service_killed_postmortem_test.dart`.
-- [ ] **Graceful degradation:** when battery optimisation IS active and the user declines to change it, the app caps session length at 10 minutes and warns at session start ("long games may be interrupted on this device"). **Proof:** `frontend/test/p2p/transport/restricted_mode_session_cap_test.dart`.
+- [x] [docs/P2P_ANDROID_OEM_MATRIX.md](P2P_ANDROID_OEM_MATRIX.md) enumerates per-OEM expected behaviour, the per-OEM settings path the user must visit ("Battery → App Battery Saver → ChessRecast → No restrictions"), and the `Build.MANUFACTURER` heuristic that drives in-app guidance. Covered OEMs at GA: Xiaomi (MIUI 12+), Huawei (EMUI / HarmonyOS), OnePlus (Oxygen 11+), Samsung (One UI 4+), Oppo (ColorOS), Vivo (Funtouch), Realme. Plain AOSP / Pixel is the baseline.
+- [x] **One-time on-launch detection:** if `PowerManager.isIgnoringBatteryOptimizations()` is `false` AND the device matches a known-aggressive OEM, surface a one-time onboarding card with deep-link to the right Settings page. Not blocking; user can dismiss. **Proof:** `frontend/test/p2p/transport/oem_battery_optimisation_nudge_test.dart`.
+- [x] **Mid-game kill detection:** if the foreground service is killed unexpectedly, on next foreground the app surfaces a friendly post-mortem ("your game ended because the OS killed our background service; please disable battery optimisation for ChessRecast") with a deep-link. **Proof:** `frontend/test/p2p/transport/foreground_service_killed_postmortem_test.dart`.
+- [x] **Graceful degradation:** when battery optimisation IS active and the user declines to change it, the app caps session length at 10 minutes and warns at session start ("long games may be interrupted on this device"). **Proof:** `frontend/test/p2p/transport/restricted_mode_session_cap_test.dart`.
 
 ### 4.10 TURNS, DPI-resistance, and metered-network UX (v7)
 
 v6 specified TURN over UDP/TCP but not TURNS-over-TLS. On networks that DPI-block plain WebRTC (corporate / hotel / state-level), `TURN_UNAVAILABLE` is the user's only signal and they have no recourse. v7 adds TURNS as a fallback, surfaces metered-network warnings, and documents the limits honestly.
 
-- [ ] **TURNS over TLS-443:** coturn deployment additionally listens on `:5349` (TURN-TLS) and `:443` (TURN-TLS, port-shared with the signaling HTTPS service via SNI). Client ICE config includes `turns:` URLs alongside `turn:`/`stun:`. **Proof:** `signaling/internal/turn/turns_listener_test.go` + `frontend/test/p2p/transport/turns_failover_test.dart`.
-- [ ] **Auto-promote to TURNS on TURN-blocked path:** if `turn:` candidate gathering fails AND `turns:` candidate gathering succeeds within the 8 s ICE budget, surface a one-time toast "Connected via secure relay (your network blocks direct WebRTC)". **Proof:** `frontend/test/p2p/transport/turns_auto_promote_test.dart`.
-- [ ] **Metered-network detection:** when ICE selects a TURN-relayed candidate AND the platform reports a metered network (Android `ConnectivityManager.isActiveNetworkMetered()`, iOS `NWPath.isExpensive`), prompt user before continuing: "This game will use your mobile data via a relay (≈1 KB/s). Continue?" Decline → graceful end with `METERED_NETWORK_USER_DECLINED` (§10.2). **Proof:** `frontend/test/p2p/transport/metered_network_prompt_test.dart`.
-- [ ] **DPI-resistance honesty:** TURNS-on-443 fools generic port-based filters but a determined SNI-inspecting middlebox can still block. v1 does not implement domain-fronting or pluggable-transports (Tor / Snowflake) — documented as future work in OQ-31. UX copy: "If your network blocks ChessRecast entirely, try a different network or a personal hotspot."
-- [ ] **`TURNS_HANDSHAKE_FAILED`** (§10.3) when the TLS handshake to TURNS fails distinctly from a plain `TURN_UNAVAILABLE`; the operator dashboard separates the two so DPI prevalence can be measured.
+- [x] **TURNS over TLS-443:** coturn deployment additionally listens on `:5349` (TURN-TLS) and `:443` (TURN-TLS, port-shared with the signaling HTTPS service via SNI). Client ICE config includes `turns:` URLs alongside `turn:`/`stun:`. **Proof:** `signaling/internal/turn/turns_listener_test.go` + `frontend/test/p2p/transport/turns_failover_test.dart`.
+- [x] **Auto-promote to TURNS on TURN-blocked path:** if `turn:` candidate gathering fails AND `turns:` candidate gathering succeeds within the 8 s ICE budget, surface a one-time toast "Connected via secure relay (your network blocks direct WebRTC)". **Proof:** `frontend/test/p2p/transport/turns_auto_promote_test.dart`.
+- [x] **Metered-network detection:** when ICE selects a TURN-relayed candidate AND the platform reports a metered network (Android `ConnectivityManager.isActiveNetworkMetered()`, iOS `NWPath.isExpensive`), prompt user before continuing: "This game will use your mobile data via a relay (≈1 KB/s). Continue?" Decline → graceful end with `METERED_NETWORK_USER_DECLINED` (§10.2). **Proof:** `frontend/test/p2p/transport/metered_network_prompt_test.dart`.
+- [x] **DPI-resistance honesty:** TURNS-on-443 fools generic port-based filters but a determined SNI-inspecting middlebox can still block. v1 does not implement domain-fronting or pluggable-transports (Tor / Snowflake) — documented as future work in OQ-31. UX copy: "If your network blocks ChessRecast entirely, try a different network or a personal hotspot."
+- [x] **`TURNS_HANDSHAKE_FAILED`** (§10.3) when the TLS handshake to TURNS fails distinctly from a plain `TURN_UNAVAILABLE`; the operator dashboard separates the two so DPI prevalence can be measured.
 
 ---
 
