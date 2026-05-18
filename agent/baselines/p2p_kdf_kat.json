@@ -1,0 +1,64 @@
+{
+  "version": "1.0.0",
+  "phase": "7",
+  "created_at": "2026-05-18",
+  "description": "Known-answer test (KAT) vectors for P2P spectator key derivation (§7.9.1). HKDF-SHA256, RFC 5869. All salts are 32-byte zero unless noted.",
+  "algorithm": "HKDF-SHA256 (RFC 5869) — extract then expand",
+  "vectors": [
+    {
+      "id": "spectator-kview-01",
+      "description": "K_view derivation: HKDF(session_master, salt=zero32, info='chessrecast/p2p/v1/spectator/view-only/<spectator_pubkey_hex>', L=32)",
+      "function": "deriveKView",
+      "inputs": {
+        "session_master_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+        "spectator_pub_key_hex": "4242424242424242424242424242424242424242424242424242424242424242",
+        "salt_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "info_string": "chessrecast/p2p/v1/spectator/view-only/4242424242424242424242424242424242424242424242424242424242424242",
+      "output_hex": "357de3e4fc8bbbbaca738ff01da5119dc3adcc9a90ad317b31428f3640d662e7",
+      "output_length_bytes": 32
+    },
+    {
+      "id": "spectator-chat-spec-to-host-01",
+      "description": "K_chat_spec_dir (specToHost): HKDF(K_view, salt=zero32, info='chessrecast/p2p/v1/spectator-chat/spec→host', L=32)",
+      "function": "deriveKChatSpecDir",
+      "inputs": {
+        "k_view_hex": "357de3e4fc8bbbbaca738ff01da5119dc3adcc9a90ad317b31428f3640d662e7",
+        "dir": "specToHost",
+        "dir_label": "spec→host",
+        "salt_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "info_string": "chessrecast/p2p/v1/spectator-chat/spec→host",
+      "output_hex": "68abe81cbd4b251ef8aa2ba19ef0e7d1908366f8a2f42965070c1108f5bf0eef",
+      "output_length_bytes": 32
+    },
+    {
+      "id": "spectator-chat-host-to-spec-01",
+      "description": "K_chat_spec_dir (hostToSpec): HKDF(K_view, salt=zero32, info='chessrecast/p2p/v1/spectator-chat/host→spec', L=32)",
+      "function": "deriveKChatSpecDir",
+      "inputs": {
+        "k_view_hex": "357de3e4fc8bbbbaca738ff01da5119dc3adcc9a90ad317b31428f3640d662e7",
+        "dir": "hostToSpec",
+        "dir_label": "host→spec",
+        "salt_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "info_string": "chessrecast/p2p/v1/spectator-chat/host→spec",
+      "output_hex": "1bd88265f7004df4c7ff091bd1230a964ac317fd5a147ebba36c12d17f148e6f",
+      "output_length_bytes": 32
+    },
+    {
+      "id": "spectator-chat-host-to-spec-broadcast-01",
+      "description": "K_chat_spec_dir (hostToSpecBroadcast): HKDF(K_view, salt=zero32, info='chessrecast/p2p/v1/spectator-chat/host→spec_broadcast', L=32)",
+      "function": "deriveKChatSpecDir",
+      "inputs": {
+        "k_view_hex": "357de3e4fc8bbbbaca738ff01da5119dc3adcc9a90ad317b31428f3640d662e7",
+        "dir": "hostToSpecBroadcast",
+        "dir_label": "host→spec_broadcast",
+        "salt_hex": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "info_string": "chessrecast/p2p/v1/spectator-chat/host→spec_broadcast",
+      "output_hex": "df8271520b19570d63b2b9b84f1778d14618c4b7a4a34192bdf2bbd090b4a292",
+      "output_length_bytes": 32
+    }
+  ]
+}
