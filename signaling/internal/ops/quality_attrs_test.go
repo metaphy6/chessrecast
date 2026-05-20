@@ -3,11 +3,14 @@
 //
 // §16.8.1 Performance: ops work does not slow user-visible code paths.
 // §16.8.2 Efficiency: dead-man-switch + restore drill + CVE watcher run
-//         inside the existing signaling-server budget.
+//
+//	inside the existing signaling-server budget.
+//
 // §16.8.3 Stability: every mutation op has a dry-run mode.
 // §16.8.4 Reliability: rotation jobs are idempotent; partial runs resume cleanly.
 // §16.8.5 Integrity: rotation events sign their successors using the predecessor
-//         key.
+//
+//	key.
 package ops_test
 
 import (
