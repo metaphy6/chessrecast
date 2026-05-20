@@ -1,0 +1,131 @@
+# §12.1 ENGINE_REPLAY_VERSION bump-required gate
+#
+# Proof artefact for Phase 12 leaves §12.1.bullet-2 (CI gate),
+# §12.3.bullet-4 (reliability — PR fails before merge if rule semantics
+# change without a version bump).
+#
+# Purpose:
+#   When any source file that affects chess-rule semantics (legality, draw
+#   rules, mod-specific rules, canonical state hash) is changed in a PR,
+#   this workflow FAILS if `replay_version.h` was NOT also changed.
+#
+#   This enforces the invariant: you can't silently change rule semantics
+#   without bumping ENGINE_REPLAY_VERSION.
+#
+# Watched paths (files whose change requires a version bump):
+#   Board layer         frontend/native/engine/board/** and board.c/h
+#   Bridge layer        frontend/native/engine/bridge/** and bridge.c
+#   Eval layer          frontend/native/engine/eval/** and evaluate.c/h
+#   Move-gen layer      frontend/native/engine/movegen/** and movegen.c/h
+#   Fundamental types   frontend/native/engine/types.h
+#
+# Excluded paths (NOT watched — see replay_version_excluded_paths.txt):
+#   replay_version.h/c  (version file itself — bumping it is the fix)
+#   bridge.h            (EXPORT macro + declarations only)
+#   search/**           (move quality, not legality)
+#   search.c/h          (search algorithm, not rule semantics)
+
+name: Engine replay-version bump required
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      # Board layer
+      - 'frontend/native/engine/board/**'
+      - 'frontend/native/engine/board.c'
+      - 'frontend/native/engine/board.h'
+      # Bridge layer (rule-applying code per mod)
+      - 'frontend/native/engine/bridge/**'
+      - 'frontend/native/engine/bridge.c'
+      # Eval layer (contains mod-specific draw rules)
+      - 'frontend/native/engine/eval/**'
+      - 'frontend/native/engine/evaluate.c'
+      - 'frontend/native/engine/evaluate.h'
+      # Move-gen layer
+      - 'frontend/native/engine/movegen/**'
+      - 'frontend/native/engine/movegen.c'
+      - 'frontend/native/engine/movegen.h'
+      # Fundamental types
+      - 'frontend/native/engine/types.h'
+
+jobs:
+  version-bump-check:
+    name: Check ENGINE_REPLAY_VERSION was bumped
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+      contents: read
+
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify replay_version.h was modified
+        id: check
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+
+          CHANGED=$(git diff --name-only "$BASE" "$HEAD")
+
+          echo "Changed files in this PR:"
+          echo "$CHANGED"
+
+          REPLAY_CHANGED=$(echo "$CHANGED" | grep -c \
+            'frontend/native/engine/replay_version\.h' || true)
+
+          if [ "$REPLAY_CHANGED" -eq 0 ]; then
+            echo ""
+            echo "::error file=frontend/native/engine/replay_version.h::" \
+              "ENGINE_REPLAY_VERSION must be bumped when rule-semantics files" \
+              "are changed. Edit replay_version.h and increment" \
+              "ENGINE_REPLAY_VERSION, then update kEngineReplayVersion in" \
+              "frontend/lib/services/p2p/protocol/engine_replay_version.dart" \
+              "to match."
+            exit 1
+          fi
+
+          echo "replay_version.h was modified — ENGINE_REPLAY_VERSION bump confirmed."
+
+  golden-regression:
+    name: Replay-version golden regression
+    runs-on: ubuntu-latest
+    needs: version-bump-check
+    if: always()  # run even if version-bump-check failed; surface both issues
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+          channel: 'stable'
+          cache: true
+
+      - name: Flutter pub get
+        working-directory: frontend
+        run: flutter pub get
+
+      - name: Build native engine
+        working-directory: frontend
+        run: |
+          mkdir -p build/native/linux
+          cd build/native/linux
+          cmake ../../.. -DCMAKE_BUILD_TYPE=Release
+          cmake --build . --config Release
+
+      - name: Run replay-version tests (FFI + watched-paths + golden)
+        working-directory: frontend
+        env:
+          CHESSRECAST_NATIVE_ENGINE_LIB: ${{ github.workspace }}/frontend/build/native/linux/libchess_engine.so
+        run: |
+          flutter test \
+            test/native/replay_version_ffi_test.dart \
+            test/native/replay_version_watched_paths_complete_test.dart \
+            test/native/replay_version_golden_test.dart \
+            -r compact

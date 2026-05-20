@@ -1,0 +1,34 @@
+# replay_version_excluded_paths.txt
+#
+# Files under frontend/native/engine/ that are intentionally excluded from
+# the ENGINE_REPLAY_VERSION bump gate.
+#
+# Rationale for each exclusion:
+#   - A change to these files does NOT affect chess-rule semantics (move
+#     legality, draw rules, canonical state hash, mod-specific rules).
+#   - Therefore they do NOT require a manual ENGINE_REPLAY_VERSION bump.
+#
+# Format: one path per line, relative to frontend/native/engine/.
+# Blank lines and lines beginning with '#' are ignored.
+#
+# To add a new file: add it here AND justify the exclusion with a comment.
+# To WATCH a new file: add it to .github/workflows/engine-replay-version-bump-required.yml
+
+# The version file itself — circular to watch it.
+replay_version.h
+replay_version.c
+
+# EXPORT macro and public API declarations only; no rule logic.
+bridge.h
+
+# Search algorithm and heuristics — affect move-quality/selection, NOT
+# legality or canonical draw-rule detection.  Game replay does not re-run
+# the search; it replays the recorded moves.
+search.c
+search.h
+search/variant_heuristics.h
+search/heuristics_heir.c
+search/heuristics_truce.c
+search/heuristics_friendly_fire.c
+search/heuristics_kings_battle.c
+search/heuristics_mercenary.c

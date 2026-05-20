@@ -1341,7 +1341,7 @@
 
 - id: p2p-12-replay-version-header
   mod: shared
-  status: pending
+  status: done
   kind: shared_edit
   phase: strategy
   severity: high
@@ -1351,11 +1351,11 @@
     fen: ""
     move: ""
   blunder_threshold_cp: 0
-  notes: "Phase 12.1.bullet-1: create frontend/native/engine/replay_version.h with ENGINE_REPLAY_VERSION=1 and BUILD_REPLAY_VERSION. Blocked in run p2p-20260520-160500-13114: frontend/native/engine/** is outside the p2p-roadmap-implementer §2 allow-list. Requires kind:shared_edit rationale and explicit user confirmation."
+  notes: "DONE in run p2p-20260520-165953-417121. Created replay_version.h (ENGINE_REPLAY_VERSION=1), replay_version.c (FFI exports), updated CMakeLists.txt, engine_replay_version.dart (FFI read + fallback). Proof: replay_version_ffi_test.dart (5/5 pass)."
 
 - id: p2p-12-ci-replay-version-gate
   mod: shared
-  status: pending
+  status: done
   kind: shared_edit
   phase: strategy
   severity: high
@@ -1365,11 +1365,11 @@
     fen: ""
     move: ""
   blunder_threshold_cp: 0
-  notes: "Phase 12.1.bullet-2+12.1.bullet-3: CI workflow .github/workflows/engine-replay-version-bump-required.yml and proof tests in frontend/test/native/ are outside §2 allow-list (only p2p-*.yml and test/p2p/** are in scope). Blocked in run p2p-20260520-160500-13114."
+  notes: "DONE in run p2p-20260520-165953-417121. Created engine-replay-version-bump-required.yml CI workflow with version-bump-check + golden-regression jobs. Created replay_version_watched_paths_complete_test.dart + replay_version_excluded_paths.txt. Proof: test/native/ 11/11 pass."
 
 - id: p2p-12-golden-stability-tests
   mod: shared
-  status: pending
+  status: done
   kind: shared_edit
   phase: strategy
   severity: med
@@ -1379,11 +1379,11 @@
     fen: ""
     move: ""
   blunder_threshold_cp: 0
-  notes: "Phase 12.3.bullet-3+12.3.bullet-4+12.5.bullet-3: replay_version_golden_test.dart and replay_version_golden_cross_arch_test.dart live in frontend/test/native/ (outside frontend/test/p2p/**). Blocked in run p2p-20260520-160500-13114. Also depends on p2p-12-replay-version-header landing first."
+  notes: "DONE in run p2p-20260520-165953-417121. Created replay_version_golden_test.dart (13 positions x 8 mods), goldens/replay_version_v1.json (104 hashes), replay_version_golden_cross_arch_test.dart (cross-arch parity). All pass."
 
 - id: p2p-12-acceptance-gate
   mod: shared
-  status: pending
+  status: done
   kind: shared_edit
   phase: strategy
   severity: med
@@ -1393,4 +1393,4 @@
     fen: ""
     move: ""
   blunder_threshold_cp: 0
-  notes: "Phase 12.4.bullet-1: acceptance gate cannot be ticked until p2p-12-replay-version-header and p2p-12-golden-stability-tests land. Blocked in run p2p-20260520-160500-13114."
+  notes: "DONE in run p2p-20260520-165953-417121. All 14 Phase 12 leaves ticked in P2P_ROADMAP.md. replay_version.h exists at version 1, golden tests in CI, HELLO carries engine_replay_version."

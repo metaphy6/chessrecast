@@ -36,6 +36,7 @@ add_library(chess_engine SHARED
     bridge/bridge_succession.c
     bridge/bridge_save_queen.c
     bridge/bridge_king_discipline.c
+    replay_version.c
 )
 
 # Optimisation: Release builds get -O3
