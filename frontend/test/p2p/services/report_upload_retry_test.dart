@@ -70,14 +70,14 @@ Future<void> _runWithRetry(
 // Helpers to build a valid bundle.
 // ---------------------------------------------------------------------------
 AbuseReportBundle _makeBundle() => AbuseReportBundle(
-      opponentFingerprint: 'fp-opp',
-      reason: AbuseReportReason.harassment,
-      transcriptHash: List.filled(32, 0),
-      chatHistoryBytes: List.filled(100, 42),
-      reporterFingerprintHashed: List.filled(32, 0),
-      sessionId: 'sess-1',
-      createdAt: DateTime(2025),
-    );
+  opponentFingerprint: 'fp-opp',
+  reason: AbuseReportReason.harassment,
+  transcriptHash: List.filled(32, 0),
+  chatHistoryBytes: List.filled(100, 42),
+  reporterFingerprintHashed: List.filled(32, 0),
+  sessionId: 'sess-1',
+  createdAt: DateTime(2025),
+);
 
 void main() {
   group('§14.7 — Report upload retry and offline queue', () {
@@ -90,12 +90,20 @@ void main() {
       await _runWithRetry(
         job,
         service,
-        backoffSchedule: [const Duration(seconds: 5), const Duration(seconds: 15)],
-        onQueued: (_) { queuedCalled = true; },
+        backoffSchedule: [
+          const Duration(seconds: 5),
+          const Duration(seconds: 15),
+        ],
+        onQueued: (_) {
+          queuedCalled = true;
+        },
       );
 
-      expect(queuedCalled, isTrue,
-          reason: 'first failure must trigger queued callback');
+      expect(
+        queuedCalled,
+        isTrue,
+        reason: 'first failure must trigger queued callback',
+      );
     });
 
     test('retries with increasing back-off durations', () async {
@@ -107,13 +115,19 @@ void main() {
       await _runWithRetry(
         job,
         service,
-        backoffSchedule: [const Duration(seconds: 5), const Duration(seconds: 15)],
+        backoffSchedule: [
+          const Duration(seconds: 5),
+          const Duration(seconds: 15),
+        ],
         onQueued: (j) => backoffs.add(j.lastBackoff),
       );
 
       expect(backoffs.length, equals(2));
-      expect(backoffs[1], greaterThan(backoffs[0]),
-          reason: 'back-off must increase each retry');
+      expect(
+        backoffs[1],
+        greaterThan(backoffs[0]),
+        reason: 'back-off must increase each retry',
+      );
     });
 
     test('successful retry transitions to uploaded state', () async {
@@ -146,13 +160,17 @@ void main() {
         job,
         service,
         backoffSchedule: [const Duration(seconds: 5)],
-        onQueued: (j) { capturedJob = j; },
+        onQueued: (j) {
+          capturedJob = j;
+        },
       );
 
       expect(capturedJob, isNotNull);
-      expect(capturedJob!.bundle.opponentFingerprint,
-          equals('fp-opp'),
-          reason: 'queued bundle must preserve opponent fingerprint');
+      expect(
+        capturedJob!.bundle.opponentFingerprint,
+        equals('fp-opp'),
+        reason: 'queued bundle must preserve opponent fingerprint',
+      );
     });
 
     test('AbuseReportBundle validates size limit ≤ 256 KB', () {

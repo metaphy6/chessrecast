@@ -21,7 +21,10 @@ void main() {
       });
 
       test('name with spaces is ok', () {
-        expect(validateHandle('Chess Player'), equals(HandleValidationResult.ok));
+        expect(
+          validateHandle('Chess Player'),
+          equals(HandleValidationResult.ok),
+        );
       });
 
       test('name with numbers is ok', () {
@@ -29,7 +32,10 @@ void main() {
       });
 
       test('name with emoji is ok (within grapheme limit)', () {
-        expect(validateHandle('Cool ♟ Player'), equals(HandleValidationResult.ok));
+        expect(
+          validateHandle('Cool ♟ Player'),
+          equals(HandleValidationResult.ok),
+        );
       });
 
       test('exactly 32 ASCII characters is ok', () {
@@ -105,50 +111,72 @@ void main() {
 
     group('impersonationRisk (protected names)', () {
       test('"admin" is rejected', () {
-        expect(validateHandle('admin'), equals(HandleValidationResult.impersonationRisk));
+        expect(
+          validateHandle('admin'),
+          equals(HandleValidationResult.impersonationRisk),
+        );
       });
 
       test('"Admin" (mixed case) is rejected', () {
-        expect(validateHandle('Admin'), equals(HandleValidationResult.impersonationRisk));
+        expect(
+          validateHandle('Admin'),
+          equals(HandleValidationResult.impersonationRisk),
+        );
       });
 
       test('"chessrecast" is rejected', () {
-        expect(validateHandle('chessrecast'), equals(HandleValidationResult.impersonationRisk));
+        expect(
+          validateHandle('chessrecast'),
+          equals(HandleValidationResult.impersonationRisk),
+        );
       });
 
       test('"moderator123" is rejected', () {
-        expect(validateHandle('moderator123'), equals(HandleValidationResult.impersonationRisk));
+        expect(
+          validateHandle('moderator123'),
+          equals(HandleValidationResult.impersonationRisk),
+        );
       });
 
       test('"TheOfficialBot" is rejected (contains "official")', () {
-        expect(validateHandle('TheOfficialBot'), equals(HandleValidationResult.impersonationRisk));
+        expect(
+          validateHandle('TheOfficialBot'),
+          equals(HandleValidationResult.impersonationRisk),
+        );
       });
 
       test('"support_team" is rejected', () {
-        expect(validateHandle('support_team'), equals(HandleValidationResult.impersonationRisk));
+        expect(
+          validateHandle('support_team'),
+          equals(HandleValidationResult.impersonationRisk),
+        );
       });
 
       // NOTE: Cyrillic homoglyph "аdmin" (Cyrillic 'а' + Latin 'dmin') is
       // intentionally NOT rejected by v1 — see §14.9.2 for the UTS#39 follow-up.
       // This test documents the known gap so it is not silently ignored.
-      test('Cyrillic homoglyph of "admin" is NOT rejected by v1 (known gap § 14.9.2)', () {
-        // U+0430 is Cyrillic 'а'; the rest is Latin.
-        const cyrillicA = '\u0430';
-        final homoglyph = '${cyrillicA}dmin';
-        // v1 does not catch this — the test documents it will fail when UTS#39 is added.
-        final result = validateHandle(homoglyph);
-        // The test asserts the *current* behaviour, not the desired future behaviour.
-        expect(result, isNot(HandleValidationResult.impersonationRisk),
-            reason: 'v1 does not implement confusables skeleton — this gap is tracked in §14.9.2');
-      });
+      test(
+        'Cyrillic homoglyph of "admin" is NOT rejected by v1 (known gap § 14.9.2)',
+        () {
+          // U+0430 is Cyrillic 'а'; the rest is Latin.
+          const cyrillicA = '\u0430';
+          final homoglyph = '${cyrillicA}dmin';
+          // v1 does not catch this — the test documents it will fail when UTS#39 is added.
+          final result = validateHandle(homoglyph);
+          // The test asserts the *current* behaviour, not the desired future behaviour.
+          expect(
+            result,
+            isNot(HandleValidationResult.impersonationRisk),
+            reason:
+                'v1 does not implement confusables skeleton — this gap is tracked in §14.9.2',
+          );
+        },
+      );
     });
 
     group('extractDisplayName()', () {
       test('valid display_name is extracted', () {
-        expect(
-          extractDisplayName({'display_name': 'Alice'}),
-          equals('Alice'),
-        );
+        expect(extractDisplayName({'display_name': 'Alice'}), equals('Alice'));
       });
 
       test('missing display_name returns null', () {

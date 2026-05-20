@@ -53,12 +53,11 @@ class SocialEngineeringDetectionResult {
   factory SocialEngineeringDetectionResult.match({
     required SocialEngineeringKind kind,
     required String matched,
-  }) =>
-      SocialEngineeringDetectionResult._(
-        detected: true,
-        kind: kind,
-        matchedSubstring: matched,
-      );
+  }) => SocialEngineeringDetectionResult._(
+    detected: true,
+    kind: kind,
+    matchedSubstring: matched,
+  );
 }
 
 /// Chat message direction (important for UX copy on detection).
@@ -191,27 +190,27 @@ String warningCopyFor({
     case SocialEngineeringKind.urlShortener:
       return direction == MessageDirection.incoming
           ? 'This message contains a shortened link. Shortened links can hide '
-            'dangerous websites. Do not tap it — use "Reveal link" to inspect '
-            'the destination first.'
+                'dangerous websites. Do not tap it — use "Reveal link" to inspect '
+                'the destination first.'
           : 'Your message contains a shortened link. Are you sure you want to '
-            'send it? Shortened links look suspicious to your opponent.';
+                'send it? Shortened links look suspicious to your opponent.';
     case SocialEngineeringKind.seedPhraseRequest:
     case SocialEngineeringKind.credentialHarvestPhrase:
       return direction == MessageDirection.incoming
           ? 'Warning: this message asks for sensitive information (seed phrase / '
-            'recovery phrase). Never share this with anyone.'
+                'recovery phrase). Never share this with anyone.'
           : 'Your message appears to ask for sensitive information. Are you sure?';
     case SocialEngineeringKind.passwordRequest:
       return direction == MessageDirection.incoming
           ? 'Warning: this message asks for a password. Legitimate services '
-            'never ask for passwords over chat.'
+                'never ask for passwords over chat.'
           : 'Your message appears to ask for a password. Are you sure?';
     case SocialEngineeringKind.mnemonicSequence:
       return direction == MessageDirection.incoming
           ? 'This message may contain a wallet recovery phrase. Do not enter '
-            'these words anywhere.'
+                'these words anywhere.'
           : 'Your message may contain a recovery phrase. Are you sure you want '
-            'to send it?';
+                'to send it?';
   }
 }
 

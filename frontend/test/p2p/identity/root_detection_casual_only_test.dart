@@ -43,7 +43,10 @@ void main() {
       });
 
       test('unknown device does not allow rated games', () {
-        expect(RootedDevicePolicy.allowsRatedGames(RootStatus.unknown), isFalse);
+        expect(
+          RootedDevicePolicy.allowsRatedGames(RootStatus.unknown),
+          isFalse,
+        );
       });
     });
 
@@ -60,10 +63,20 @@ void main() {
         );
       });
 
-      test('root warning mentions rated/tournament games being unavailable', () {
-        final lower = RootedDevicePolicy.kRootWarning.toLowerCase();
-        expect(lower, anyOf(contains('casual'), contains('rated'), contains('tournament')));
-      });
+      test(
+        'root warning mentions rated/tournament games being unavailable',
+        () {
+          final lower = RootedDevicePolicy.kRootWarning.toLowerCase();
+          expect(
+            lower,
+            anyOf(
+              contains('casual'),
+              contains('rated'),
+              contains('tournament'),
+            ),
+          );
+        },
+      );
 
       test('root warning mentions engine integrity concern', () {
         expect(
@@ -78,14 +91,20 @@ void main() {
         // This test documents the contract: when allowsRatedGames() is false,
         // the HELLO builder must include casual_mode=true in capabilities.
         final status = RootStatus.rooted;
-        expect(RootedDevicePolicy.allowsRatedGames(status), isFalse,
-            reason: 'rooted device must set casual_mode=true in HELLO');
+        expect(
+          RootedDevicePolicy.allowsRatedGames(status),
+          isFalse,
+          reason: 'rooted device must set casual_mode=true in HELLO',
+        );
       });
 
       test('casual_mode=false is appropriate for a clean device', () {
         final status = RootStatus.clean;
-        expect(RootedDevicePolicy.allowsRatedGames(status), isTrue,
-            reason: 'clean device should not force casual_mode');
+        expect(
+          RootedDevicePolicy.allowsRatedGames(status),
+          isTrue,
+          reason: 'clean device should not force casual_mode',
+        );
       });
     });
   });

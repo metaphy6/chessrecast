@@ -44,8 +44,16 @@ void main() {
       // Duplicate fingerprints in source list (should not crash, deduped).
       final when = DateTime(2025);
       final entries = [
-        BlockEntry(fingerprint: 'fp-dup', kind: BlockKind.device, addedAt: when),
-        BlockEntry(fingerprint: 'fp-dup', kind: BlockKind.device, addedAt: when),
+        BlockEntry(
+          fingerprint: 'fp-dup',
+          kind: BlockKind.device,
+          addedAt: when,
+        ),
+        BlockEntry(
+          fingerprint: 'fp-dup',
+          kind: BlockKind.device,
+          addedAt: when,
+        ),
       ];
       final list = BlockList();
       list.loadFrom(entries);

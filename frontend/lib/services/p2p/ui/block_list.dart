@@ -63,11 +63,13 @@ final class BlockList {
     DateTime? addedAt,
   }) {
     if (_blocked.add(fingerprint)) {
-      _entries.add(BlockEntry(
-        fingerprint: fingerprint,
-        kind: kind,
-        addedAt: addedAt ?? DateTime.now().toUtc(),
-      ));
+      _entries.add(
+        BlockEntry(
+          fingerprint: fingerprint,
+          kind: kind,
+          addedAt: addedAt ?? DateTime.now().toUtc(),
+        ),
+      );
     }
   }
 

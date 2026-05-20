@@ -28,25 +28,34 @@ void main() {
       final elapsed = sw.elapsedMicroseconds;
 
       expect(found, isTrue, reason: 'last entry must be found');
-      expect(elapsed, lessThan(5000 /* µs = 5 ms */),
-          reason: 'lookup took ${elapsed}µs — expected < 5000µs');
+      expect(
+        elapsed,
+        lessThan(5000 /* µs = 5 ms */),
+        reason: 'lookup took ${elapsed}µs — expected < 5000µs',
+      );
     });
 
-    test('isBlocked() for an absent key on 10 000 entries completes within 5 ms', () {
-      final bl = BlockList();
-      final addedAt = DateTime(2025);
-      for (int i = 0; i < 10000; i++) {
-        bl.block('fp-$i', kind: BlockKind.device, addedAt: addedAt);
-      }
+    test(
+      'isBlocked() for an absent key on 10 000 entries completes within 5 ms',
+      () {
+        final bl = BlockList();
+        final addedAt = DateTime(2025);
+        for (int i = 0; i < 10000; i++) {
+          bl.block('fp-$i', kind: BlockKind.device, addedAt: addedAt);
+        }
 
-      final sw = Stopwatch()..start();
-      final found = bl.isBlocked('fp-absent');
-      final elapsed = sw.elapsedMicroseconds;
+        final sw = Stopwatch()..start();
+        final found = bl.isBlocked('fp-absent');
+        final elapsed = sw.elapsedMicroseconds;
 
-      expect(found, isFalse);
-      expect(elapsed, lessThan(5000),
-          reason: 'miss-lookup took ${elapsed}µs — expected < 5000µs');
-    });
+        expect(found, isFalse);
+        expect(
+          elapsed,
+          lessThan(5000),
+          reason: 'miss-lookup took ${elapsed}µs — expected < 5000µs',
+        );
+      },
+    );
 
     test('block/unblock cycle does not degrade subsequent lookup time', () {
       final bl = BlockList();

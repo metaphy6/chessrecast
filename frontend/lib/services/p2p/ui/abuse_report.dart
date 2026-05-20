@@ -50,7 +50,9 @@ final class AbuseReportBundle {
 
   /// Estimated bundle size in bytes (transcript hash + chat + metadata).
   int get estimatedSizeBytes =>
-      transcriptHash.length + chatHistoryBytes.length + 512 /* metadata overhead */;
+      transcriptHash.length +
+      chatHistoryBytes.length +
+      512 /* metadata overhead */;
 
   /// Returns `true` when the bundle is within the 256 KB upload limit.
   bool get isWithinSizeLimit => estimatedSizeBytes <= 256 * 1024;

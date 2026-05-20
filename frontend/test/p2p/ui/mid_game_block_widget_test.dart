@@ -93,14 +93,8 @@ void main() {
       final session2 = _MockPeerSession();
       final blockList = BlockList();
 
-      session1.blockOpponent(
-        blockList: blockList,
-        opponentFingerprint: 'fp-A',
-      );
-      session2.blockOpponent(
-        blockList: blockList,
-        opponentFingerprint: 'fp-B',
-      );
+      session1.blockOpponent(blockList: blockList, opponentFingerprint: 'fp-A');
+      session2.blockOpponent(blockList: blockList, opponentFingerprint: 'fp-B');
 
       expect(blockList.isBlocked('fp-A'), isTrue);
       expect(blockList.isBlocked('fp-B'), isTrue);

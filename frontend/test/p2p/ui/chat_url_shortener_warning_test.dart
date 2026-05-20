@@ -64,9 +64,14 @@ void main() {
 
   group('§14.6 — Seed/recovery phrase detection', () {
     test('seed phrase request is detected', () {
-      final result = scanMessage('Please send me your seed phrase to recover the game.');
+      final result = scanMessage(
+        'Please send me your seed phrase to recover the game.',
+      );
       expect(result.detected, isTrue);
-      expect(result.kind, equals(SocialEngineeringKind.credentialHarvestPhrase));
+      expect(
+        result.kind,
+        equals(SocialEngineeringKind.credentialHarvestPhrase),
+      );
     });
 
     test('recovery phrase mention is detected', () {
@@ -81,14 +86,17 @@ void main() {
       expect(result.kind, equals(SocialEngineeringKind.passwordRequest));
     });
 
-    test('incoming credential-harvest triggers warning with "sensitive information"', () {
-      final copy = warningCopyFor(
-        kind: SocialEngineeringKind.credentialHarvestPhrase,
-        direction: MessageDirection.incoming,
-      );
-      expect(copy.toLowerCase(), contains('sensitive information'));
-      expect(copy.toLowerCase(), contains('never share'));
-    });
+    test(
+      'incoming credential-harvest triggers warning with "sensitive information"',
+      () {
+        final copy = warningCopyFor(
+          kind: SocialEngineeringKind.credentialHarvestPhrase,
+          direction: MessageDirection.incoming,
+        );
+        expect(copy.toLowerCase(), contains('sensitive information'));
+        expect(copy.toLowerCase(), contains('never share'));
+      },
+    );
   });
 
   group('§14.6 — Mnemonic sequence detection', () {
@@ -108,11 +116,17 @@ void main() {
   });
 
   group('§14.6 — Severity ordering', () {
-    test('credential-harvest takes priority over URL shortener in same message', () {
-      final result = scanMessage('Send me your seed phrase at bit.ly/abc');
-      expect(result.detected, isTrue);
-      // Credential-harvest has higher severity than URL shortener.
-      expect(result.kind, equals(SocialEngineeringKind.credentialHarvestPhrase));
-    });
+    test(
+      'credential-harvest takes priority over URL shortener in same message',
+      () {
+        final result = scanMessage('Send me your seed phrase at bit.ly/abc');
+        expect(result.detected, isTrue);
+        // Credential-harvest has higher severity than URL shortener.
+        expect(
+          result.kind,
+          equals(SocialEngineeringKind.credentialHarvestPhrase),
+        );
+      },
+    );
   });
 }
