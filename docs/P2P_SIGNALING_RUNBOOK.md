@@ -166,3 +166,101 @@ curl -s https://signaling.chessrecast.example/health | jq .status
 
 > **§6.3.3 proof:** This §6 "Rollback" section satisfies the rollback runbook
 > requirement for leaf 6.3.3 of `docs/P2P_ROADMAP.md` [p2p-20260516-105107-14206].
+
+---
+
+## §7 Standby region promotion
+
+*Drill cadence: quarterly. Log drills in `docs/P2P_OPERATIONS_DRILL_LOG.md`.*
+
+| Step | Command / action | Drill date column |
+|---|---|---|
+| 7.1 | Confirm standby DB is < 5 s behind primary via litestream metrics. | last_drill |
+| 7.2 | Update DNS / load-balancer to point to standby region. | last_drill |
+| 7.3 | Set `SIGNALING_READ_ONLY=false` on standby; set `SIGNALING_READ_ONLY=true` on old primary. | last_drill |
+| 7.4 | Smoke test: `curl -s https://<new-primary>/health \| jq .status` → `"ok"`. | last_drill |
+| 7.5 | Verify litestream replication resumed (new primary → old primary now replicates). | last_drill |
+| 7.6 | Update `docs/P2P_OPERATIONS.md` §1 operator table with new region. | last_drill |
+
+```bash
+# Example (replace <standby> and <primary> with actual hostnames):
+kubectl config use-context <standby-cluster>
+kubectl set env deployment/signaling SIGNALING_READ_ONLY=false
+kubectl config use-context <primary-cluster>
+kubectl set env deployment/signaling SIGNALING_READ_ONLY=true
+```
+
+---
+
+## §8 KMS key rotation
+
+*Drill cadence: annually or on confirmed leak. Log in `docs/P2P_OPERATIONS_DRILL_LOG.md`.*
+
+| Step | Action | Drill date |
+|---|---|---|
+| 8.1 | Generate new AEAD key via cloud KMS or `openssl rand -hex 32`. | last_drill |
+| 8.2 | Update SOPS-encrypted secret store: `sops -e -i secrets/kms.enc.yaml`. | last_drill |
+| 8.3 | Roll out new key to all signaling pods (rolling restart). | last_drill |
+| 8.4 | Verify `KEY_LAST_ROTATED_AT` updated; suppress `KEY_ROTATION_OVERDUE` alert. | last_drill |
+| 8.5 | Re-encrypt all install-sealed blobs with new key (offline batch job). | last_drill |
+| 8.6 | Delete old key from KMS after one rotation-window overlap (7 days). | last_drill |
+
+---
+
+## §9 litestream cold backup restore
+
+*Drill cadence: quarterly. Log in `docs/P2P_OPERATIONS_DRILL_LOG.md`.*
+
+Extends §3 (DB recovery) with full cold-restore procedure from object storage.
+
+| Step | Action | Drill date |
+|---|---|---|
+| 9.1 | Stop signaling: `kubectl scale deployment signaling --replicas=0`. | last_drill |
+| 9.2 | Locate latest snapshot: `litestream snapshots -config /etc/litestream.yml`. | last_drill |
+| 9.3 | Restore: `litestream restore -config /etc/litestream.yml /data/signaling.db`. | last_drill |
+| 9.4 | Verify integrity: `sqlite3 /data/signaling.db "PRAGMA integrity_check;"` → `ok`. | last_drill |
+| 9.5 | Restart: `kubectl scale deployment signaling --replicas=1`. | last_drill |
+| 9.6 | Smoke test `/v1/health` → `200 ok`. | last_drill |
+
+---
+
+## §10 Scaling out coturn
+
+*Drill cadence: as needed / pre-traffic-spike. Log in `docs/P2P_OPERATIONS_DRILL_LOG.md`.*
+
+| Step | Action | Drill date |
+|---|---|---|
+| 10.1 | Increase coturn deployment replica count. | last_drill |
+| 10.2 | Verify all replicas share the same TURN HMAC secret (from sealed secret). | last_drill |
+| 10.3 | Update signaling `TURN_URLS` env var with new coturn IPs. | last_drill |
+| 10.4 | Smoke-test TURN allocation: `turnutils_uclient -u test -w $HMAC_SECRET <new-turn-ip>`. | last_drill |
+
+---
+
+## §11 Rotating TURN HMAC secret
+
+*Drill cadence: annually or on confirmed leak. Log in `docs/P2P_OPERATIONS_DRILL_LOG.md`.*
+
+| Step | Action | Drill date |
+|---|---|---|
+| 11.1 | Generate new HMAC: `openssl rand -hex 32`. | last_drill |
+| 11.2 | Update SOPS store: `sops -e -i secrets/turn.enc.yaml` with new value. | last_drill |
+| 11.3 | Apply to all coturn pods via rolling restart. | last_drill |
+| 11.4 | Update `TURN_HMAC_SECRET` env var in signaling deployment; rolling restart. | last_drill |
+| 11.5 | Smoke-test TURN credential issuance via `/v1/turn_credential`. | last_drill |
+
+---
+
+## §12 Push-provider revocation (compromised FCM/APNs key)
+
+*Drill cadence: on confirmed leak only. Log in `docs/P2P_OPERATIONS_DRILL_LOG.md`.*
+
+| Step | Action | Drill date |
+|---|---|---|
+| 12.1 | Revoke compromised key in Firebase Console / Apple Developer portal immediately. | on-breach |
+| 12.2 | Generate new service-account JSON (FCM) or `.p8` key (APNs). | on-breach |
+| 12.3 | Update SOPS store; roll out to signaling pods. | on-breach |
+| 12.4 | Verify push delivery to a test device. | on-breach |
+| 12.5 | Audit `dsar_audit` table for any push delivery during the window of compromise. | on-breach |
+| 12.6 | Notify affected users if any personal data was accessible to the compromised key. | on-breach |
+

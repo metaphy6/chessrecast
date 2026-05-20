@@ -1,0 +1,86 @@
+name: L10n Completeness Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/lib/l10n/**'
+  pull_request:
+    paths:
+      - 'frontend/lib/l10n/**'
+
+# Roadmap §8.6 / leaf 8.6.b3
+# CI gate: asserts that every key present in the canonical English ARB
+# (app_en.arb) also exists in every other locale ARB file, and that no
+# locale has empty string values for any key.
+
+jobs:
+  l10n-completeness:
+    name: L10n completeness check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check all ARB keys present in all locales
+        run: |
+          set -euo pipefail
+          L10N_DIR="frontend/lib/l10n"
+          EN_ARB="${L10N_DIR}/app_en.arb"
+
+          if [[ ! -f "${EN_ARB}" ]]; then
+            echo "ERROR: canonical ARB not found at ${EN_ARB}"
+            exit 1
+          fi
+
+          # Extract all translation keys from the English ARB
+          # (lines like "  "keyName": "..." — skip @-prefixed metadata).
+          mapfile -t EN_KEYS < <(
+            python3 -c "
+          import json, sys
+          with open('${EN_ARB}') as f:
+              d = json.load(f)
+          for k in d:
+              if not k.startswith('@'):
+                  print(k)
+          "
+          )
+
+          echo "Canonical keys (${#EN_KEYS[@]}): ${EN_KEYS[*]}"
+
+          exit_code=0
+
+          for arb in "${L10N_DIR}"/app_*.arb; do
+            locale=$(basename "${arb}" .arb | sed 's/app_//')
+            [[ "${locale}" == "en" ]] && continue
+
+            echo "--- Checking locale: ${locale} (${arb}) ---"
+            python3 - "${arb}" "${EN_KEYS[@]}" <<'PYEOF'
+          import json, sys
+
+          arb_path = sys.argv[1]
+          expected_keys = sys.argv[2:]
+
+          with open(arb_path) as f:
+              d = json.load(f)
+
+          missing = []
+          empty = []
+          for k in expected_keys:
+              if k not in d:
+                  missing.append(k)
+              elif d[k] == "":
+                  empty.append(k)
+
+          if missing:
+              print(f"  MISSING keys: {missing}")
+              sys.exit(1)
+          if empty:
+              print(f"  EMPTY values: {empty}")
+              sys.exit(1)
+          print("  OK")
+          PYEOF
+            rc=$?
+            [[ $rc -ne 0 ]] && exit_code=$rc
+          done
+
+          exit "${exit_code}"

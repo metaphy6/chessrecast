@@ -3,6 +3,37 @@
 This document covers the per-CVE severity playbook, forced-update procedure,
 and the key-rotation calendar required by §3.10 and §3.11 of the P2P Roadmap.
 
+---
+
+## §1 Ownership declaration (§8.8 / roadmap leaf 8.8.b1)
+
+### Current operators
+
+| Role | Identity | Contact method | Access scope |
+|---|---|---|---|
+| Primary operator | Project maintainer | GitHub @-mention on `main` or issue tracker | All: region promotion, KMS rotation, kill-switch, standby failover |
+
+**Bus-factor acknowledgement:** this is a solo-maintained deployment. Bus factor = 1.
+
+**Degraded-mode default (bus factor = 1):** if the on-call operator cannot acknowledge a `P2P_HEALTH_CRITICAL` or `KEY_ROTATION_OVERDUE` alert within **60 minutes**, the alerting system automatically:
+1. Calls the signed-config endpoint to set `kEnableP2P=false`.
+2. Surfaces a maintenance banner to all connected clients.
+3. Opens an incident issue in the tracker.
+
+This "fail closed" policy ensures that a sleeping or unavailable operator never leaves a brittle service running unattended. See §8.8 roadmap for the auto-kill-switch proof test.
+
+### Promotion authorisation matrix
+
+| Operation | Who can initiate | Who must verify | Runbook section |
+|---|---|---|---|
+| Standby region promotion | Primary operator | — (solo) | §6 of P2P_SIGNALING_RUNBOOK.md |
+| KMS key rotation | Primary operator | — (solo) | Key-rotation calendar below |
+| Kill-switch toggle (`kEnableP2P`) | Primary operator or auto-failover | — | §7 of P2P_SIGNALING_RUNBOOK.md |
+| TURN HMAC rotation | Primary operator | — | §8 of P2P_SIGNALING_RUNBOOK.md |
+| litestream cold restore | Primary operator | — | §9 of P2P_SIGNALING_RUNBOOK.md |
+
+---
+
 ## CVE Severity Playbook (§3.10)
 
 When the CVE-watcher surfaces a new advisory, the on-call operator follows this

@@ -327,6 +327,11 @@ class RecoveryCode {
     return _cachedWordlist!;
   }
 
+  /// Returns the English BIP-39 wordlist used by [RecoveryCode].
+  /// Exposed for [RecoveryWordlistLocalizer] and other callers that need the
+  /// canonical English word list without instantiating a full [RecoveryCode].
+  static List<String> generateWordlistForTest() => _wordlist();
+
   static List<String> _generateMinimalWordlist() {
     // Generate 2048 unique 4-8 letter words deterministically from SHA-256.
     // The first 2048 real BIP-39 words approximated by hash-derived slugs.

@@ -1,0 +1,33 @@
+{
+  "@@locale": "ar",
+  "@@last_modified": "2026-05-20",
+
+  "p2pConnecting": "جارٍ الاتصال…",
+  "p2pConnected": "متصل",
+  "p2pDisconnected": "غير متصل",
+  "p2pReconnecting": "إعادة الاتصال…",
+  "p2pFailed": "فشل الاتصال",
+  "p2pWaiting": "في انتظار الخصم…",
+
+  "p2pInviteFriend": "دعوة صديق",
+  "p2pShareLink": "مشاركة الرابط",
+  "p2pJoinGame": "الانضمام للعبة",
+  "p2pCancelInvite": "إلغاء الدعوة",
+
+  "p2pRecoveryCodeTitle": "كلمات الاسترداد",
+  "p2pRecoveryCodeInstructions": "اكتب هذه الكلمات الـ {wordCount} بالترتيب واحتفظ بها في مكان آمن. إنها الطريقة الوحيدة لاسترداد حسابك على جهاز جديد.",
+  "p2pRecoveryCodeCopy": "نسخ الكلمات",
+  "p2pRecoveryCodeVerify": "التحقق من الكلمات",
+  "p2pRecoveryCodeSuccess": "تم تأكيد كلمات الاسترداد",
+  "p2pRecoveryWordlistFallbackNote": "لغة جهازك غير مدعومة بعد. يتم عرض الكلمات الإنجليزية بدلاً من ذلك.",
+
+  "p2pOpponentLeft": "غادر الخصم اللعبة",
+  "p2pYouLeft": "غادرت اللعبة",
+  "p2pGameDraw": "انتهت اللعبة بالتعادل",
+  "p2pGameResign": "استسلام",
+
+  "p2pErrorIceFailed": "تعذّر إنشاء اتصال. يرجى المحاولة مرة أخرى.",
+  "p2pErrorVersionMismatch": "يرجى تحديث التطبيق — خصمك يستخدم إصداراً مختلفاً.",
+  "p2pErrorModMismatch": "عدم تطابق الوضع — يجب أن يختار كلا اللاعبين نفس متغير اللعبة.",
+  "p2pErrorGeneric": "حدث خطأ ما. يرجى المحاولة مرة أخرى."
+}

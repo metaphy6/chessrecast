@@ -1,0 +1,60 @@
+name: SBOM
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sbom:
+    name: Generate CycloneDX SBOMs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: signaling/go.mod
+
+      - name: Install cyclonedx-dart
+        run: dart pub global activate cyclonedx_dart 2>/dev/null || true
+
+      - name: Install cyclonedx-gomod
+        run: |
+          go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest || true
+
+      - name: Flutter pub get
+        working-directory: frontend
+        run: flutter pub get
+
+      - name: Generate SBOMs
+        run: bash xops/p2p/generate-sbom.sh --out-dir "$GITHUB_WORKSPACE"
+
+      - name: Validate SBOM files exist
+        run: |
+          test -f sbom-client.cdx.json   || { echo "sbom-client.cdx.json missing"; exit 1; }
+          test -f sbom-signaling.cdx.json || { echo "sbom-signaling.cdx.json missing"; exit 1; }
+          echo "Both SBOM artefacts present."
+
+      - name: Upload SBOMs as artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.sha }}
+          path: |
+            sbom-client.cdx.json
+            sbom-signaling.cdx.json
+          if-no-files-found: error
+          retention-days: 90

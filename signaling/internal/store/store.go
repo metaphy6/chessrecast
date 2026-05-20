@@ -70,6 +70,11 @@ func (d *DB) QueryRow(query string, args ...any) *sql.Row {
 	return d.db.QueryRow(query, args...)
 }
 
+// Query executes a read query returning multiple rows (allowed in both modes).
+func (d *DB) Query(query string, args ...any) (*sql.Rows, error) {
+	return d.db.Query(query, args...)
+}
+
 // Schema is the canonical DDL for the signaling server database.
 const Schema = `
 CREATE TABLE IF NOT EXISTS accounts (

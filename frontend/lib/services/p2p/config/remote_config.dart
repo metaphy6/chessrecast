@@ -92,10 +92,20 @@ class RemoteConfigService {
   static const bool kDefaultEnableP2P = false;
 
   final List<int> _trustedKeyBytes;
+
+  /// Optional previous key retained for the one-step-back trust window
+  /// (§8.8: clients ship current key + one-step-back key).
+  /// After the overlap period expires, redeploy without [previousKeyBytes].
+  final List<int>? _previousKeyBytes;
+
   RemoteConfigBlob? _cached;
 
-  RemoteConfigService({required List<int> trustedKeyBytes})
-      : _trustedKeyBytes = List.unmodifiable(trustedKeyBytes);
+  RemoteConfigService({
+    required List<int> trustedKeyBytes,
+    List<int>? previousKeyBytes,
+  })  : _trustedKeyBytes = List.unmodifiable(trustedKeyBytes),
+        _previousKeyBytes =
+            previousKeyBytes == null ? null : List.unmodifiable(previousKeyBytes);
 
   // ── Accessors ────────────────────────────────────────────────────────────
 
@@ -108,12 +118,18 @@ class RemoteConfigService {
 
   // ── Accept ───────────────────────────────────────────────────────────────
 
-  /// Verifies [sig] against [blob] and, if valid, replaces the in-memory
-  /// cache (subject to the replay guard).
+  /// Verifies [sig] against [blob] using the current key and (if configured)
+  /// the previous key (one-step-back trust window).  Replaces the in-memory
+  /// cache (subject to the replay guard) on success.
   ///
-  /// Throws [RemoteConfigSignatureError] if the signature is invalid.
+  /// Throws [RemoteConfigSignatureError] if the signature is invalid against
+  /// all trusted keys.
   void acceptBlob(RemoteConfigBlob blob, List<int> sig) {
-    if (!blob.verify(sig, _trustedKeyBytes)) {
+    final validCurrent = blob.verify(sig, _trustedKeyBytes);
+    final validPrevious =
+        _previousKeyBytes != null && blob.verify(sig, _previousKeyBytes!);
+
+    if (!validCurrent && !validPrevious) {
       throw const RemoteConfigSignatureError('HMAC signature mismatch');
     }
     // Replay guard: ignore blobs older than the current cache.

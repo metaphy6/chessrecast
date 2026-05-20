@@ -1,0 +1,88 @@
+name: Release Signing (Sigstore/cosign)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      artefact_path:
+        description: "Path to artefact to sign (relative to workspace)"
+        required: true
+        default: ""
+
+# Roadmap §8.4 / leaf 8.4.b5
+# Signs release artefacts with Sigstore/cosign and attaches provenance
+# attestation (SLSA level 1) to the GitHub release.
+
+permissions:
+  contents: write       # upload signed artefacts to release
+  id-token: write       # needed for keyless cosign signing via OIDC
+
+jobs:
+  sign:
+    name: Sign release artefacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: v2.2.4
+
+      - name: Download release artefacts
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "${{ github.event.release.tag_name }}" \
+            --dir release-artefacts/ \
+            --pattern "*.apk" \
+            --pattern "sbom-*.cdx.json" \
+            || true
+
+      - name: Sign with cosign (keyless, OIDC)
+        run: |
+          shopt -s nullglob
+          for f in release-artefacts/*; do
+            echo "Signing: $f"
+            cosign sign-blob \
+              --yes \
+              --bundle "${f}.bundle.json" \
+              "$f"
+          done
+
+      - name: Generate SLSA provenance attestation
+        run: |
+          shopt -s nullglob
+          for f in release-artefacts/*.apk release-artefacts/*.cdx.json; do
+            echo "Attesting: $f"
+            cosign attest-blob \
+              --yes \
+              --predicate /dev/stdin \
+              --type slsaprovenance \
+              --bundle "${f}.provenance.json" \
+              "$f" <<'PREDICATE'
+          {
+            "buildType": "https://github.com/chessrecast/chessrecast",
+            "builder": { "id": "https://github.com/actions/runner" },
+            "invocation": {
+              "configSource": {
+                "uri": "git+https://github.com/${{ github.repository }}",
+                "digest": { "sha1": "${{ github.sha }}" }
+              }
+            }
+          }
+          PREDICATE
+          done
+
+      - name: Upload signatures to release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          files=(release-artefacts/*.bundle.json release-artefacts/*.provenance.json)
+          if [[ ${#files[@]} -gt 0 ]]; then
+            gh release upload "${{ github.event.release.tag_name }}" "${files[@]}"
+          fi

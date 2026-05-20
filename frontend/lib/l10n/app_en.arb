@@ -1,0 +1,81 @@
+{
+  "@@locale": "en",
+  "@@last_modified": "2026-05-20",
+
+  "p2pConnecting": "Connecting…",
+  "@p2pConnecting": { "description": "P2P connection state: connecting in progress" },
+
+  "p2pConnected": "Connected",
+  "@p2pConnected": { "description": "P2P connection state: peers connected" },
+
+  "p2pDisconnected": "Disconnected",
+  "@p2pDisconnected": { "description": "P2P connection state: peers disconnected" },
+
+  "p2pReconnecting": "Reconnecting…",
+  "@p2pReconnecting": { "description": "P2P connection state: attempting reconnection" },
+
+  "p2pFailed": "Connection failed",
+  "@p2pFailed": { "description": "P2P connection state: connection permanently failed" },
+
+  "p2pWaiting": "Waiting for opponent…",
+  "@p2pWaiting": { "description": "P2P connection state: waiting for opponent to join" },
+
+  "p2pInviteFriend": "Invite a Friend",
+  "@p2pInviteFriend": { "description": "Lobby action: invite a friend to play" },
+
+  "p2pShareLink": "Share Link",
+  "@p2pShareLink": { "description": "Lobby action: share an invite link" },
+
+  "p2pJoinGame": "Join Game",
+  "@p2pJoinGame": { "description": "Lobby action: join an existing game" },
+
+  "p2pCancelInvite": "Cancel Invite",
+  "@p2pCancelInvite": { "description": "Lobby action: cancel a pending invite" },
+
+  "p2pRecoveryCodeTitle": "Your Recovery Words",
+  "@p2pRecoveryCodeTitle": { "description": "Recovery code screen: title" },
+
+  "p2pRecoveryCodeInstructions": "Write down these {wordCount} words in order and keep them safe. They are the only way to recover your account on a new device.",
+  "@p2pRecoveryCodeInstructions": {
+    "description": "Recovery code screen: instructions paragraph",
+    "placeholders": {
+      "wordCount": { "type": "int", "example": "16" }
+    }
+  },
+
+  "p2pRecoveryCodeCopy": "Copy words",
+  "@p2pRecoveryCodeCopy": { "description": "Recovery code screen: copy action label (not used in production — clipboard is disabled per spec, but the key must be present)" },
+
+  "p2pRecoveryCodeVerify": "Verify words",
+  "@p2pRecoveryCodeVerify": { "description": "Recovery code screen: verification step button" },
+
+  "p2pRecoveryCodeSuccess": "Recovery words confirmed",
+  "@p2pRecoveryCodeSuccess": { "description": "Recovery code screen: success message after verification" },
+
+  "p2pRecoveryWordlistFallbackNote": "Your device language is not supported yet. English words are shown instead.",
+  "@p2pRecoveryWordlistFallbackNote": { "description": "Recovery code: note when locale wordlist is unavailable, falls back to English" },
+
+  "p2pOpponentLeft": "Opponent left the game",
+  "@p2pOpponentLeft": { "description": "Game event: opponent disconnected or resigned" },
+
+  "p2pYouLeft": "You left the game",
+  "@p2pYouLeft": { "description": "Game event: local player left the game" },
+
+  "p2pGameDraw": "Game drawn",
+  "@p2pGameDraw": { "description": "Game event: the game ended in a draw" },
+
+  "p2pGameResign": "Resign",
+  "@p2pGameResign": { "description": "Game event: resign action label" },
+
+  "p2pErrorIceFailed": "Could not establish a connection. Please try again.",
+  "@p2pErrorIceFailed": { "description": "Error: ICE negotiation failed" },
+
+  "p2pErrorVersionMismatch": "Please update the app — your opponent is using a different version.",
+  "@p2pErrorVersionMismatch": { "description": "Error: engine or wire version mismatch between peers" },
+
+  "p2pErrorModMismatch": "Mod mismatch — both players must select the same game variant.",
+  "@p2pErrorModMismatch": { "description": "Error: mod/variant mismatch in HELLO handshake" },
+
+  "p2pErrorGeneric": "Something went wrong. Please try again.",
+  "@p2pErrorGeneric": { "description": "Error: generic P2P error fallback" }
+}
