@@ -16,8 +16,9 @@ bool extractCasualMode(Map<String, bool> capabilities) =>
     capabilities[kCasualModeKey] ?? false;
 
 /// Builds the single-entry capabilities fragment for the HELLO message.
-Map<String, bool> buildCasualModeCapability({required bool isCasual}) =>
-    {kCasualModeKey: isCasual};
+Map<String, bool> buildCasualModeCapability({required bool isCasual}) => {
+  kCasualModeKey: isCasual,
+};
 
 /// Returns `true` when **both** peers opted into casual mode.
 ///
@@ -26,8 +27,7 @@ Map<String, bool> buildCasualModeCapability({required bool isCasual}) =>
 bool isTakebackAllowed({
   required bool localCasualMode,
   required bool remoteCasualMode,
-}) =>
-    localCasualMode && remoteCasualMode;
+}) => localCasualMode && remoteCasualMode;
 
 /// Returns `true` when histogram sharing should be enabled for this session.
 ///
@@ -36,5 +36,4 @@ bool isTakebackAllowed({
 bool isHistogramSharingEnabled({
   required bool localCasualMode,
   required bool remoteCasualMode,
-}) =>
-    !localCasualMode && !remoteCasualMode;
+}) => !localCasualMode && !remoteCasualMode;

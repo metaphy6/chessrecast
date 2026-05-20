@@ -60,8 +60,7 @@ void main() {
       expect(
         _content,
         contains('casual play'),
-        reason:
-            'P2P_FAIR_PLAY.md must include the casual-play disclosure copy',
+        reason: 'P2P_FAIR_PLAY.md must include the casual-play disclosure copy',
       );
     });
   });

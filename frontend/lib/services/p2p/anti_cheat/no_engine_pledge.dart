@@ -31,5 +31,6 @@ bool extractNoEnginePledge(Map<String, bool> capabilities) =>
 ///   },
 /// );
 /// ```
-Map<String, bool> buildNoEnginePledgeCapability({required bool pledges}) =>
-    {kNoEnginePledgeKey: pledges};
+Map<String, bool> buildNoEnginePledgeCapability({required bool pledges}) => {
+  kNoEnginePledgeKey: pledges,
+};

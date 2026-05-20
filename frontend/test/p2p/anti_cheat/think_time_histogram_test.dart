@@ -86,24 +86,24 @@ void main() {
     test('moveTimes is an unmodifiable view', () {
       hist.record(1000);
       // Attempting to modify the returned list should throw.
-      expect(
-        () => hist.moveTimes.add(999),
-        throwsA(isA<UnsupportedError>()),
-      );
+      expect(() => hist.moveTimes.add(999), throwsA(isA<UnsupportedError>()));
     });
   });
 
-  group('§13.4.b1 — Performance: histogram record is O(1) / trivially fast', () {
-    test('recording 10 000 moves completes quickly', () {
-      final sw = Stopwatch()..start();
-      for (var i = 0; i < 10000; i++) {
-        hist.record(i);
-      }
-      sw.stop();
-      // Even on a slow CI machine, 10k list appends should be < 100 ms.
-      expect(sw.elapsedMilliseconds, lessThan(100));
-    });
-  });
+  group(
+    '§13.4.b1 — Performance: histogram record is O(1) / trivially fast',
+    () {
+      test('recording 10 000 moves completes quickly', () {
+        final sw = Stopwatch()..start();
+        for (var i = 0; i < 10000; i++) {
+          hist.record(i);
+        }
+        sw.stop();
+        // Even on a slow CI machine, 10k list appends should be < 100 ms.
+        expect(sw.elapsedMilliseconds, lessThan(100));
+      });
+    },
+  );
 
   group('§13.4.b4 — Integrity: histogram uses local data only', () {
     test('record accepts only int (local-clock measurement type)', () {

@@ -39,40 +39,28 @@ void main() {
   group('§13.2.b3 — isTakebackAllowed (both must opt in)', () {
     test('allowed when both peers casual', () {
       expect(
-        isTakebackAllowed(
-          localCasualMode: true,
-          remoteCasualMode: true,
-        ),
+        isTakebackAllowed(localCasualMode: true, remoteCasualMode: true),
         isTrue,
       );
     });
 
     test('not allowed when only local is casual', () {
       expect(
-        isTakebackAllowed(
-          localCasualMode: true,
-          remoteCasualMode: false,
-        ),
+        isTakebackAllowed(localCasualMode: true, remoteCasualMode: false),
         isFalse,
       );
     });
 
     test('not allowed when only remote is casual', () {
       expect(
-        isTakebackAllowed(
-          localCasualMode: false,
-          remoteCasualMode: true,
-        ),
+        isTakebackAllowed(localCasualMode: false, remoteCasualMode: true),
         isFalse,
       );
     });
 
     test('not allowed when neither is casual', () {
       expect(
-        isTakebackAllowed(
-          localCasualMode: false,
-          remoteCasualMode: false,
-        ),
+        isTakebackAllowed(localCasualMode: false, remoteCasualMode: false),
         isFalse,
       );
     });
@@ -126,10 +114,7 @@ void main() {
     });
 
     test('unknown keys in capabilities do not throw', () {
-      expect(
-        () => extractCasualMode({'unknown_key': true}),
-        returnsNormally,
-      );
+      expect(() => extractCasualMode({'unknown_key': true}), returnsNormally);
     });
   });
 }
