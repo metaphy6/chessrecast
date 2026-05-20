@@ -64,10 +64,7 @@ Map<String, dynamic> addEngineVersionToHello(
   Map<String, dynamic> payload,
   int engineReplayVersion,
 ) {
-  return {
-    ...payload,
-    kEngineReplayVersionKey: engineReplayVersion,
-  };
+  return {...payload, kEngineReplayVersionKey: engineReplayVersion};
 }
 
 /// Extract the `engine_replay_version` field from a received HELLO payload.

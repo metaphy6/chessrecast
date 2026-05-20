@@ -149,14 +149,17 @@ void main() {
       expect(aad1, equals(aad2));
     });
 
-    test('domain separator is present (first bytes identify move-zero context)', () {
-      final aad = buildMoveZeroAad(
-        engineReplayVersion: kEngineReplayVersion,
-        sessionId: sessionId,
-      );
-      // The spec requires a domain separator prefix; AAD must be longer than
-      // version (4) + sessionId (32) = 36 bytes alone.
-      expect(aad.length, greaterThan(36));
-    });
+    test(
+      'domain separator is present (first bytes identify move-zero context)',
+      () {
+        final aad = buildMoveZeroAad(
+          engineReplayVersion: kEngineReplayVersion,
+          sessionId: sessionId,
+        );
+        // The spec requires a domain separator prefix; AAD must be longer than
+        // version (4) + sessionId (32) = 36 bytes alone.
+        expect(aad.length, greaterThan(36));
+      },
+    );
   });
 }

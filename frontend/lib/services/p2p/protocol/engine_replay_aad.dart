@@ -39,8 +39,10 @@ Uint8List buildMoveZeroAad({
   required Uint8List sessionId,
 }) {
   assert(sessionId.length == 32, 'sessionId must be 32 bytes');
-  assert(engineReplayVersion >= 0 && engineReplayVersion <= 0xFFFFFFFF,
-      'engineReplayVersion must fit in u32');
+  assert(
+    engineReplayVersion >= 0 && engineReplayVersion <= 0xFFFFFFFF,
+    'engineReplayVersion must fit in u32',
+  );
 
   const domainLen = 8;
   const versionLen = 4;

@@ -21,25 +21,31 @@ void main() {
       );
     });
 
-    test('remote version higher than local throws EngineVersionMismatchError', () {
-      expect(
-        () => validateHelloEngineReplayVersion(
-          localVersion: 1,
-          remoteVersion: 2,
-        ),
-        throwsA(isA<EngineVersionMismatchError>()),
-      );
-    });
+    test(
+      'remote version higher than local throws EngineVersionMismatchError',
+      () {
+        expect(
+          () => validateHelloEngineReplayVersion(
+            localVersion: 1,
+            remoteVersion: 2,
+          ),
+          throwsA(isA<EngineVersionMismatchError>()),
+        );
+      },
+    );
 
-    test('remote version lower than local throws EngineVersionMismatchError', () {
-      expect(
-        () => validateHelloEngineReplayVersion(
-          localVersion: 2,
-          remoteVersion: 1,
-        ),
-        throwsA(isA<EngineVersionMismatchError>()),
-      );
-    });
+    test(
+      'remote version lower than local throws EngineVersionMismatchError',
+      () {
+        expect(
+          () => validateHelloEngineReplayVersion(
+            localVersion: 2,
+            remoteVersion: 1,
+          ),
+          throwsA(isA<EngineVersionMismatchError>()),
+        );
+      },
+    );
 
     test('EngineVersionMismatchError carries local and remote versions', () {
       try {
@@ -59,7 +65,10 @@ void main() {
     });
 
     test('addEngineVersionToHello injects engine_replay_version field', () {
-      final payload = <String, dynamic>{'pub': [1, 2, 3], 'mod': 1};
+      final payload = <String, dynamic>{
+        'pub': [1, 2, 3],
+        'mod': 1,
+      };
       final updated = addEngineVersionToHello(payload, kEngineReplayVersion);
       expect(updated['engine_replay_version'], equals(kEngineReplayVersion));
       // Original fields preserved.
@@ -76,7 +85,9 @@ void main() {
     });
 
     test('extractEngineVersionFromHello missing field returns null', () {
-      final payload = <String, dynamic>{'pub': [1, 2, 3]};
+      final payload = <String, dynamic>{
+        'pub': [1, 2, 3],
+      };
       expect(extractEngineVersionFromHello(payload), isNull);
     });
 

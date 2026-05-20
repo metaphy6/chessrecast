@@ -43,28 +43,34 @@ void main() {
       expect(policy.highWaterMark, equals(3));
     });
 
-    test('lower version than HWM throws EngineReplayDowngradeDetectedError', () {
-      final store = InMemoryEngineReplayHwmStore();
-      final policy = EngineReplayHwmPolicy(store);
-      policy.observeRemoteVersion(5);
-      expect(
-        () => policy.observeRemoteVersion(4),
-        throwsA(isA<EngineReplayDowngradeDetectedError>()),
-      );
-    });
+    test(
+      'lower version than HWM throws EngineReplayDowngradeDetectedError',
+      () {
+        final store = InMemoryEngineReplayHwmStore();
+        final policy = EngineReplayHwmPolicy(store);
+        policy.observeRemoteVersion(5);
+        expect(
+          () => policy.observeRemoteVersion(4),
+          throwsA(isA<EngineReplayDowngradeDetectedError>()),
+        );
+      },
+    );
 
-    test('EngineReplayDowngradeDetectedError carries observed and hwm versions', () {
-      final store = InMemoryEngineReplayHwmStore();
-      final policy = EngineReplayHwmPolicy(store);
-      policy.observeRemoteVersion(5);
-      try {
-        policy.observeRemoteVersion(3);
-        fail('Expected EngineReplayDowngradeDetectedError');
-      } on EngineReplayDowngradeDetectedError catch (e) {
-        expect(e.observedVersion, equals(3));
-        expect(e.highWaterMark, equals(5));
-      }
-    });
+    test(
+      'EngineReplayDowngradeDetectedError carries observed and hwm versions',
+      () {
+        final store = InMemoryEngineReplayHwmStore();
+        final policy = EngineReplayHwmPolicy(store);
+        policy.observeRemoteVersion(5);
+        try {
+          policy.observeRemoteVersion(3);
+          fail('Expected EngineReplayDowngradeDetectedError');
+        } on EngineReplayDowngradeDetectedError catch (e) {
+          expect(e.observedVersion, equals(3));
+          expect(e.highWaterMark, equals(5));
+        }
+      },
+    );
 
     test('HWM not advanced on downgrade attempt', () {
       final store = InMemoryEngineReplayHwmStore();
@@ -79,25 +85,31 @@ void main() {
       expect(policy.highWaterMark, equals(5));
     });
 
-    test('InMemoryEngineReplayHwmStore persists HWM across policy instances', () {
-      final store = InMemoryEngineReplayHwmStore();
-      final policy1 = EngineReplayHwmPolicy(store);
-      policy1.observeRemoteVersion(7);
+    test(
+      'InMemoryEngineReplayHwmStore persists HWM across policy instances',
+      () {
+        final store = InMemoryEngineReplayHwmStore();
+        final policy1 = EngineReplayHwmPolicy(store);
+        policy1.observeRemoteVersion(7);
 
-      // Same store, new policy instance (simulates reload).
-      final policy2 = EngineReplayHwmPolicy(store);
-      expect(policy2.highWaterMark, equals(7));
-    });
+        // Same store, new policy instance (simulates reload).
+        final policy2 = EngineReplayHwmPolicy(store);
+        expect(policy2.highWaterMark, equals(7));
+      },
+    );
 
-    test('EngineReplayDowngradeDetectedError.toString() contains both versions', () {
-      final e = EngineReplayDowngradeDetectedError(
-        observedVersion: 2,
-        highWaterMark: 5,
-      );
-      final s = e.toString();
-      expect(s, contains('2'));
-      expect(s, contains('5'));
-    });
+    test(
+      'EngineReplayDowngradeDetectedError.toString() contains both versions',
+      () {
+        final e = EngineReplayDowngradeDetectedError(
+          observedVersion: 2,
+          highWaterMark: 5,
+        );
+        final s = e.toString();
+        expect(s, contains('2'));
+        expect(s, contains('5'));
+      },
+    );
 
     test('multiple sequential advances accumulate correctly', () {
       final store = InMemoryEngineReplayHwmStore();
