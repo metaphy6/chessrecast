@@ -22,16 +22,24 @@ void main() {
       final localizer = RecoveryWordlistLocalizer();
       final result = localizer.wordlistForLocale('zh');
       expect(result.words, hasLength(2048));
-      expect(result.isFallback, isTrue,
-          reason: 'Chinese locale is not yet supported; must use English fallback');
+      expect(
+        result.isFallback,
+        isTrue,
+        reason:
+            'Chinese locale is not yet supported; must use English fallback',
+      );
     });
 
     test('isFallback is false for all supported locales', () {
       final localizer = RecoveryWordlistLocalizer();
       for (final locale in RecoveryWordlistLocalizer.supportedLocales) {
         final result = localizer.wordlistForLocale(locale);
-        expect(result.isFallback, isFalse,
-            reason: 'Locale "$locale" is listed as supported but returned isFallback=true');
+        expect(
+          result.isFallback,
+          isFalse,
+          reason:
+              'Locale "$locale" is listed as supported but returned isFallback=true',
+        );
       }
     });
 
@@ -46,8 +54,11 @@ void main() {
       final localizer = RecoveryWordlistLocalizer();
       final result = localizer.wordlistForLocale('en');
       final unique = result.words.toSet();
-      expect(unique.length, equals(2048),
-          reason: 'Wordlist must have 2048 unique entries (no duplicates)');
+      expect(
+        unique.length,
+        equals(2048),
+        reason: 'Wordlist must have 2048 unique entries (no duplicates)',
+      );
     });
   });
 }

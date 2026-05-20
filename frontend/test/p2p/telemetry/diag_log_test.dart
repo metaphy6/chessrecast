@@ -27,8 +27,11 @@ void main() {
         0,
         (sum, e) => sum + e.codeUnits.length,
       );
-      expect(total, lessThanOrEqualTo(maxBytes),
-          reason: 'Ring buffer must cap at 256 KB');
+      expect(
+        total,
+        lessThanOrEqualTo(maxBytes),
+        reason: 'Ring buffer must cap at 256 KB',
+      );
     });
 
     test('oldest entries are evicted when the buffer overflows', () {

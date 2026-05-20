@@ -15,15 +15,11 @@
 /// Replaces PII patterns in a diagnostic log entry with placeholder tokens.
 class DiagRedactor {
   // IPv4: e.g. 192.168.1.42 or 10.0.0.1:3478
-  static final _ipv4 = RegExp(
-    r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b',
-  );
+  static final _ipv4 = RegExp(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b');
 
   // IPv6: covers full form and compressed :: notation, e.g. 2001:db8::1
   // Matches 2+ colon-delimited hex groups (each 0-4 hex digits).
-  static final _ipv6 = RegExp(
-    r'(?:[0-9a-fA-F]{0,4}:){2,8}[0-9a-fA-F]{0,4}',
-  );
+  static final _ipv6 = RegExp(r'(?:[0-9a-fA-F]{0,4}:){2,8}[0-9a-fA-F]{0,4}');
 
   // Email addresses
   static final _email = RegExp(

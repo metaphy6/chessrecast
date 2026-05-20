@@ -85,7 +85,8 @@ void main() {
         isTrue,
         reason: 'lib/l10n/app_ar.arb must exist for RTL verification',
       );
-      final arArb = jsonDecode(arFile.readAsStringSync()) as Map<String, dynamic>;
+      final arArb =
+          jsonDecode(arFile.readAsStringSync()) as Map<String, dynamic>;
 
       final enKeys = enArb.keys.where((k) => !k.startsWith('@')).toSet();
       final arKeys = arArb.keys.where((k) => !k.startsWith('@')).toSet();
@@ -104,7 +105,8 @@ void main() {
 
     test('app_ar.arb has @@locale set to ar', () {
       final arFile = File('lib/l10n/app_ar.arb');
-      final arArb = jsonDecode(arFile.readAsStringSync()) as Map<String, dynamic>;
+      final arArb =
+          jsonDecode(arFile.readAsStringSync()) as Map<String, dynamic>;
       expect(arArb['@@locale'], equals('ar'));
     });
   });

@@ -13,8 +13,8 @@ import '../../../lib/services/p2p/config/remote_config.dart';
 
 void main() {
   // Two fixed 32-byte keys for deterministic tests.
-  final oldKey = List<int>.generate(32, (i) => i + 1);     // key epoch 1
-  final newKey = List<int>.generate(32, (i) => i + 33);    // key epoch 2
+  final oldKey = List<int>.generate(32, (i) => i + 1); // key epoch 1
+  final newKey = List<int>.generate(32, (i) => i + 33); // key epoch 2
   final unknownKey = List<int>.generate(32, (i) => i + 65); // not trusted
 
   RemoteConfigBlob makeBlob({bool enable = true, int offsetMs = 0}) =>
@@ -43,15 +43,18 @@ void main() {
       expect(svc.isP2PEnabled, isTrue);
     });
 
-    test('blob signed with previous (rotated-out) key is accepted within window', () {
-      final svc = RemoteConfigService(
-        trustedKeyBytes: newKey,
-        previousKeyBytes: oldKey,
-      );
-      final blob = makeBlob(enable: true);
-      svc.acceptBlob(blob, blob.sign(oldKey));
-      expect(svc.isP2PEnabled, isTrue);
-    });
+    test(
+      'blob signed with previous (rotated-out) key is accepted within window',
+      () {
+        final svc = RemoteConfigService(
+          trustedKeyBytes: newKey,
+          previousKeyBytes: oldKey,
+        );
+        final blob = makeBlob(enable: true);
+        svc.acceptBlob(blob, blob.sign(oldKey));
+        expect(svc.isP2PEnabled, isTrue);
+      },
+    );
 
     test('blob signed with unknown key is rejected', () {
       final svc = RemoteConfigService(
@@ -66,17 +69,20 @@ void main() {
       expect(svc.isP2PEnabled, isFalse);
     });
 
-    test('after trust window closes (previous key removed), old signature is rejected', () {
-      // Simulate the trust-window expiry by creating a service with only the
-      // new key (previousKeyBytes: null).
-      final svc = RemoteConfigService(trustedKeyBytes: newKey);
-      final blob = makeBlob(enable: true);
-      expect(
-        () => svc.acceptBlob(blob, blob.sign(oldKey)),
-        throwsA(isA<RemoteConfigSignatureError>()),
-      );
-      expect(svc.isP2PEnabled, isFalse);
-    });
+    test(
+      'after trust window closes (previous key removed), old signature is rejected',
+      () {
+        // Simulate the trust-window expiry by creating a service with only the
+        // new key (previousKeyBytes: null).
+        final svc = RemoteConfigService(trustedKeyBytes: newKey);
+        final blob = makeBlob(enable: true);
+        expect(
+          () => svc.acceptBlob(blob, blob.sign(oldKey)),
+          throwsA(isA<RemoteConfigSignatureError>()),
+        );
+        expect(svc.isP2PEnabled, isFalse);
+      },
+    );
 
     test('rotation: enable with old key, then re-enable with new key', () {
       final svc = RemoteConfigService(

@@ -11,7 +11,10 @@ void main() {
   group('DiagRedactor — PII redaction', () {
     test('IPv4 addresses are redacted', () {
       final r = DiagRedactor();
-      expect(r.redact('connection from 192.168.1.42'), isNot(contains('192.168.1.42')));
+      expect(
+        r.redact('connection from 192.168.1.42'),
+        isNot(contains('192.168.1.42')),
+      );
       expect(r.redact('peer=10.0.0.1:3478'), isNot(contains('10.0.0.1')));
     });
 
@@ -25,7 +28,10 @@ void main() {
 
     test('email addresses are redacted', () {
       final r = DiagRedactor();
-      expect(r.redact('user: alice@example.com joined'), isNot(contains('alice@example.com')));
+      expect(
+        r.redact('user: alice@example.com joined'),
+        isNot(contains('alice@example.com')),
+      );
     });
 
     test('peer public keys (64-char hex) are redacted', () {
@@ -40,12 +46,16 @@ void main() {
       expect(r.redact(entry), equals(entry));
     });
 
-    test('session_id is NOT redacted by default (not PII in non-detailed mode)', () {
-      // Session IDs are UUIDs and are acceptable in default mode.
-      final r = DiagRedactor();
-      const entry = 'session_id=550e8400-e29b-41d4-a716-446655440000 event=start';
-      // UUIDs should be preserved (they are not PII).
-      expect(r.redact(entry), equals(entry));
-    });
+    test(
+      'session_id is NOT redacted by default (not PII in non-detailed mode)',
+      () {
+        // Session IDs are UUIDs and are acceptable in default mode.
+        final r = DiagRedactor();
+        const entry =
+            'session_id=550e8400-e29b-41d4-a716-446655440000 event=start';
+        // UUIDs should be preserved (they are not PII).
+        expect(r.redact(entry), equals(entry));
+      },
+    );
   });
 }

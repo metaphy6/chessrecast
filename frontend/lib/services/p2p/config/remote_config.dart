@@ -103,9 +103,10 @@ class RemoteConfigService {
   RemoteConfigService({
     required List<int> trustedKeyBytes,
     List<int>? previousKeyBytes,
-  })  : _trustedKeyBytes = List.unmodifiable(trustedKeyBytes),
-        _previousKeyBytes =
-            previousKeyBytes == null ? null : List.unmodifiable(previousKeyBytes);
+  }) : _trustedKeyBytes = List.unmodifiable(trustedKeyBytes),
+       _previousKeyBytes = previousKeyBytes == null
+           ? null
+           : List.unmodifiable(previousKeyBytes);
 
   // ── Accessors ────────────────────────────────────────────────────────────
 

@@ -24,13 +24,13 @@ enum P2pConnectionState {
 /// Real apps should pass the localised string from AppLocalizations instead.
 extension P2pConnectionStateLabel on P2pConnectionState {
   String get accessibilityLabel => const {
-        P2pConnectionState.connecting: 'Connecting…',
-        P2pConnectionState.connected: 'Connected',
-        P2pConnectionState.disconnected: 'Disconnected',
-        P2pConnectionState.reconnecting: 'Reconnecting…',
-        P2pConnectionState.failed: 'Connection failed',
-        P2pConnectionState.waiting: 'Waiting for opponent…',
-      }[this]!;
+    P2pConnectionState.connecting: 'Connecting…',
+    P2pConnectionState.connected: 'Connected',
+    P2pConnectionState.disconnected: 'Disconnected',
+    P2pConnectionState.reconnecting: 'Reconnecting…',
+    P2pConnectionState.failed: 'Connection failed',
+    P2pConnectionState.waiting: 'Waiting for opponent…',
+  }[this]!;
 }
 
 /// A small status badge that renders the current P2P connection state as an
@@ -40,11 +40,7 @@ extension P2pConnectionStateLabel on P2pConnectionState {
 /// Colour is never the sole visual indicator: an icon and a text label are
 /// always present (§8.2.b3 — colour-blind safety).
 class P2pConnectionStateBadge extends StatelessWidget {
-  const P2pConnectionStateBadge({
-    super.key,
-    required this.state,
-    this.label,
-  });
+  const P2pConnectionStateBadge({super.key, required this.state, this.label});
 
   final P2pConnectionState state;
 
@@ -69,10 +65,7 @@ class P2pConnectionStateBadge extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               effectiveLabel,
-              style: TextStyle(
-                fontSize: 12,
-                color: _colorForState(state),
-              ),
+              style: TextStyle(fontSize: 12, color: _colorForState(state)),
             ),
           ],
         ),

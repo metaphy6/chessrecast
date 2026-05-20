@@ -46,17 +46,11 @@ class RecoveryWordlistLocalizer {
   /// Otherwise returns the English fallback with [WordlistResult.isFallback] == true.
   WordlistResult wordlistForLocale(String languageCode) {
     if (supportedLocales.contains(languageCode)) {
-      return WordlistResult(
-        words: _englishWordlist(),
-        isFallback: false,
-      );
+      return WordlistResult(words: _englishWordlist(), isFallback: false);
     }
     // Locale not supported — fall back to English, set isFallback so the UI
     // can display p2pRecoveryWordlistFallbackNote.
-    return WordlistResult(
-      words: _englishWordlist(),
-      isFallback: true,
-    );
+    return WordlistResult(words: _englishWordlist(), isFallback: true);
   }
 
   // Delegate to the same deterministic wordlist used by RecoveryCode so

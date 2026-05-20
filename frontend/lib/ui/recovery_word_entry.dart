@@ -45,7 +45,10 @@ class RecoveryWordEntryWidget extends StatelessWidget {
           decoration: InputDecoration(
             labelText: semanticsLabel,
             border: const OutlineInputBorder(),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
           ),
           // Use auto-wrap; never clip text in large-font mode.
           maxLines: 1,

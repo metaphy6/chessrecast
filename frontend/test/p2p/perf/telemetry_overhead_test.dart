@@ -21,7 +21,9 @@ void main() {
 
       // Warm up (JIT / AOT priming).
       for (var i = 0; i < 20; i++) {
-        final entry = redactor.redact('move e2e4 ts=${DateTime.now().millisecondsSinceEpoch} peer=192.168.1.1');
+        final entry = redactor.redact(
+          'move e2e4 ts=${DateTime.now().millisecondsSinceEpoch} peer=192.168.1.1',
+        );
         log.append(entry);
       }
       log.clear();
@@ -39,12 +41,15 @@ void main() {
 
       final avgMicros = sw.elapsedMicroseconds / iterations;
       // ignore: avoid_print
-      print('TelemetryOverhead: avg=${avgMicros.toStringAsFixed(2)} µs/append+redact');
+      print(
+        'TelemetryOverhead: avg=${avgMicros.toStringAsFixed(2)} µs/append+redact',
+      );
 
       expect(
         avgMicros,
         lessThanOrEqualTo(budgetMicros.toDouble()),
-        reason: 'telemetry path exceeds $budgetMicros µs budget; avg=$avgMicros µs',
+        reason:
+            'telemetry path exceeds $budgetMicros µs budget; avg=$avgMicros µs',
       );
     });
 
@@ -69,7 +74,8 @@ void main() {
       expect(
         sw.elapsedMilliseconds,
         lessThanOrEqualTo(budgetMs),
-        reason: 'DiagLog.export() took ${sw.elapsedMilliseconds} ms (budget $budgetMs ms)',
+        reason:
+            'DiagLog.export() took ${sw.elapsedMilliseconds} ms (budget $budgetMs ms)',
       );
     });
   });

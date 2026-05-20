@@ -19,11 +19,13 @@ void main() {
       const int appendsEach = 500;
 
       // Schedule [writers] async tasks, each appending [appendsEach] entries.
-      await Future.wait(List.generate(writers, (w) async {
-        for (var i = 0; i < appendsEach; i++) {
-          await Future.microtask(() => log.append('writer-$w entry-$i'));
-        }
-      }));
+      await Future.wait(
+        List.generate(writers, (w) async {
+          for (var i = 0; i < appendsEach; i++) {
+            await Future.microtask(() => log.append('writer-$w entry-$i'));
+          }
+        }),
+      );
 
       // All entries are within the 256 KB cap — no data loss.
       final exported = log.export();
@@ -43,8 +45,11 @@ void main() {
         log.append('${'x' * chunkSize} seq=$i');
       }
 
-      expect(log.totalBytes, lessThanOrEqualTo(256 * 1024),
-          reason: 'Buffer exceeded 256 KB cap');
+      expect(
+        log.totalBytes,
+        lessThanOrEqualTo(256 * 1024),
+        reason: 'Buffer exceeded 256 KB cap',
+      );
     });
 
     test('clear() during export does not throw', () async {
@@ -64,26 +69,32 @@ void main() {
       expect(results, hasLength(3));
     });
 
-    test('append interleaves with other microtasks (no event loop starvation)', () async {
-      final log = DiagLog();
-      final List<String> order = [];
+    test(
+      'append interleaves with other microtasks (no event loop starvation)',
+      () async {
+        final log = DiagLog();
+        final List<String> order = [];
 
-      // Schedule a competing microtask before the rotation loop starts.
-      unawaited(Future.microtask(() => order.add('other')));
+        // Schedule a competing microtask before the rotation loop starts.
+        unawaited(Future.microtask(() => order.add('other')));
 
-      const int iterations = 50;
-      for (var i = 0; i < iterations; i++) {
-        if (i % 10 == 0) {
-          // Yield to allow other microtasks to run.
-          await Future.delayed(Duration.zero);
+        const int iterations = 50;
+        for (var i = 0; i < iterations; i++) {
+          if (i % 10 == 0) {
+            // Yield to allow other microtasks to run.
+            await Future.delayed(Duration.zero);
+          }
+          log.append('${'z' * 1024} seq=$i');
         }
-        log.append('${'z' * 1024} seq=$i');
-      }
 
-      // At least one 'other' microtask must have run during the rotation,
-      // proving the log loop yields control.
-      expect(order, contains('other'),
-          reason: 'Competing microtask never ran — event loop may be starved');
-    });
+        // At least one 'other' microtask must have run during the rotation,
+        // proving the log loop yields control.
+        expect(
+          order,
+          contains('other'),
+          reason: 'Competing microtask never ran — event loop may be starved',
+        );
+      },
+    );
   });
 }

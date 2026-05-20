@@ -30,38 +30,46 @@ List<SemanticsNode> _walkSemantics(
       return true;
     });
   }
+
   walk(root);
   return result;
 }
 
 void main() {
   group('P2pConnectionStateBadge — semantic golden', () {
-    testWidgets('connecting state: liveRegion + non-empty label', (tester) async {
+    testWidgets('connecting state: liveRegion + non-empty label', (
+      tester,
+    ) async {
       final handle = tester.ensureSemantics();
 
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: P2pConnectionStateBadge(
-              state: P2pConnectionState.connecting,
-            ),
+            body: P2pConnectionStateBadge(state: P2pConnectionState.connecting),
           ),
         ),
       );
 
-      final root = tester.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!;
+      final root =
+          tester.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!;
       final liveRegions = _walkSemantics(
         root,
         (n) => n.getSemanticsData().hasFlag(SemanticsFlag.isLiveRegion),
       );
 
-      expect(liveRegions, isNotEmpty,
-          reason: 'Expected at least one liveRegion node for connecting state');
+      expect(
+        liveRegions,
+        isNotEmpty,
+        reason: 'Expected at least one liveRegion node for connecting state',
+      );
 
       for (final node in liveRegions) {
         final label = node.getSemanticsData().label;
-        expect(label, isNotEmpty,
-            reason: 'liveRegion node must have non-empty label');
+        expect(
+          label,
+          isNotEmpty,
+          reason: 'liveRegion node must have non-empty label',
+        );
       }
 
       handle.dispose();
@@ -73,20 +81,22 @@ void main() {
 
         await tester.pumpWidget(
           MaterialApp(
-            home: Scaffold(
-              body: P2pConnectionStateBadge(state: state),
-            ),
+            home: Scaffold(body: P2pConnectionStateBadge(state: state)),
           ),
         );
 
-        final root = tester.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!;
+        final root =
+            tester.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!;
         final allNodes = _walkSemantics(root, (_) => true);
         final hasLabel = allNodes.any(
           (n) => n.getSemanticsData().label.isNotEmpty,
         );
 
-        expect(hasLabel, isTrue,
-            reason: 'State $state: no semantic node with non-empty label found');
+        expect(
+          hasLabel,
+          isTrue,
+          reason: 'State $state: no semantic node with non-empty label found',
+        );
 
         handle.dispose();
       }
@@ -94,7 +104,9 @@ void main() {
   });
 
   group('RecoveryWordEntryWidget — semantic golden', () {
-    testWidgets('word-1 field has textField semantics with label "Word 1"', (tester) async {
+    testWidgets('word-1 field has textField semantics with label "Word 1"', (
+      tester,
+    ) async {
       final handle = tester.ensureSemantics();
 
       await tester.pumpWidget(
@@ -109,14 +121,18 @@ void main() {
         ),
       );
 
-      final root = tester.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!;
+      final root =
+          tester.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!;
       final textFields = _walkSemantics(
         root,
         (n) => n.getSemanticsData().hasFlag(SemanticsFlag.isTextField),
       );
 
-      expect(textFields, isNotEmpty,
-          reason: 'Expected a text-field semantics node for word entry');
+      expect(
+        textFields,
+        isNotEmpty,
+        reason: 'Expected a text-field semantics node for word entry',
+      );
 
       // Find one that mentions "Word 1" (label or hint).
       final wordNode = textFields.firstWhere(
@@ -127,13 +143,18 @@ void main() {
       );
       final data = wordNode.getSemanticsData();
       final combined = '${data.label} ${data.hint}';
-      expect(combined.trim(), contains('Word 1'),
-          reason: 'Word entry field must announce "Word 1" in label or hint');
+      expect(
+        combined.trim(),
+        contains('Word 1'),
+        reason: 'Word entry field must announce "Word 1" in label or hint',
+      );
 
       handle.dispose();
     });
 
-    testWidgets('each widget uses its own word index in semantics', (tester) async {
+    testWidgets('each widget uses its own word index in semantics', (
+      tester,
+    ) async {
       final handle = tester.ensureSemantics();
 
       await tester.pumpWidget(
@@ -153,7 +174,8 @@ void main() {
         ),
       );
 
-      final root = tester.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!;
+      final root =
+          tester.binding.pipelineOwner.semanticsOwner!.rootSemanticsNode!;
       for (var idx = 1; idx <= 3; idx++) {
         final label = 'Word $idx';
         final nodes = _walkSemantics(
@@ -162,8 +184,11 @@ void main() {
               n.getSemanticsData().label.contains(label) ||
               n.getSemanticsData().hint.contains(label),
         );
-        expect(nodes, isNotEmpty,
-            reason: '"$label" not found in semantic tree');
+        expect(
+          nodes,
+          isNotEmpty,
+          reason: '"$label" not found in semantic tree',
+        );
       }
 
       handle.dispose();
