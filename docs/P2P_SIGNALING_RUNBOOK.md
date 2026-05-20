@@ -264,3 +264,88 @@ Extends §3 (DB recovery) with full cold-restore procedure from object storage.
 | 12.5 | Audit `dsar_audit` table for any push delivery during the window of compromise. | on-breach |
 | 12.6 | Notify affected users if any personal data was accessible to the compromised key. | on-breach |
 
+---
+
+## §13 Forced-update drill (§16.1.3)
+
+> **Purpose:** Verify the end-to-end forced-update path — from setting
+> `min_client_version` on the signaling server to clients receiving HTTP 426
+> `CVE_REQUIRES_FORCED_UPDATE` — without affecting real users.
+>
+> **Cadence:** Monthly (or within 48 h of any Critical CVE advisory).
+> **Log drills in:** `docs/P2P_OPERATIONS_DRILL_LOG.md`.
+
+### Pre-conditions
+
+- Staging signaling server running at `https://signaling-staging.chessrecast.example`.
+- At least two staging test accounts available.
+- An old client build (version < the drill target version) available on the
+  device under test.
+
+### Drill steps
+
+| Step | Command / action | Expected outcome |
+|---|---|---|
+| 13.1 | Set `MIN_CLIENT_VERSION` on staging to a version **higher** than the test device's build: `export MIN_CLIENT_VERSION=99.0.0`. | — |
+| 13.2 | Restart staging signaling with the new floor: `kubectl set env deployment/signaling-staging MIN_CLIENT_VERSION=99.0.0`. | `kubectl rollout status deployment/signaling-staging` → `successfully rolled out`. |
+| 13.3 | From the test device (old build), attempt to open a P2P match. | Client receives HTTP 426. `"code": "CVE_REQUIRES_FORCED_UPDATE"` in the JSON body. |
+| 13.4 | Verify the deep-link in the 426 body points to the correct store page. | URL is non-empty and resolves. |
+| 13.5 | From a test device with a current build (version ≥ `99.0.0` — use a staging build that is patched), repeat the P2P match attempt. | Match proceeds normally; no 426 received. |
+| 13.6 | Restore staging floor: `kubectl set env deployment/signaling-staging MIN_CLIENT_VERSION=`. | Staging floor cleared. Old-client test device can connect again. |
+| 13.7 | Verify the CVE queue entry's `MinClientVersion` field is honoured by running: `go test ./internal/cve/... -run TestForcedUpdate -v`. | All tests pass. |
+| 13.8 | Record the drill outcome in `docs/P2P_OPERATIONS_DRILL_LOG.md` with: drill date, operator, outcome (pass/fail), P50/P95 latency of the 426 response (from curl timing), and any deviations. | — |
+
+### Post-drill checklist
+
+- [ ] Staging `MIN_CLIENT_VERSION` cleared (Step 13.6 confirmed).
+- [ ] Drill logged in `docs/P2P_OPERATIONS_DRILL_LOG.md`.
+- [ ] If the drill failed, a `kind: p2p_security / severity: high` entry filed in `agent/queue.yaml`.
+
+### Drill failure criteria
+
+The drill is **failed** if any of the following:
+- The old client does not receive HTTP 426 within 5 seconds.
+- The 426 body does not contain `"code": "CVE_REQUIRES_FORCED_UPDATE"`.
+- The deep-link URL is empty or does not resolve.
+- The new-build client is also rejected (false positive).
+- `go test ./internal/cve/... -run TestForcedUpdate` exits non-zero.
+
+> **§16.1.3 proof:** This §13 satisfies the forced-update drill procedure
+> requirement for leaf 16.1.3 of `docs/P2P_ROADMAP.md`.
+
+---
+
+## §14 Backup restore drill (§16.3.1–16.3.2)
+
+> **Purpose:** Monthly verification that the litestream backup can be restored
+> within the P50/P95 latency budget (≤ production + 10%) and that the restored
+> DB passes integrity checks and the Phase 5 L7 chaos smoke suite.
+>
+> **Cadence:** Monthly. Maximum gap between successful drills: **60 days**
+> (`MaxDrillAge`). Exceeding this threshold auto-suspends the GA gate
+> (`GAGateStatus` returns `DrillStatusFailed`).
+>
+> **Log reports in:** `agent/reports/p2p/restore-drill-YYYY-MM.md`.
+
+### Drill steps
+
+| Step | Command / action | Expected outcome |
+|---|---|---|
+| 14.1 | Record production P50 and P95 restore latency from Grafana as of drill date. | Values noted in the report. |
+| 14.2 | Run dry-run drill on staging: `DRY_RUN=1 go test ./test/dr/... -run TestColdRestore -v`. | All assertions pass. |
+| 14.3 | Record actual P50 and P95 latency from the drill run. | Both ≤ production + 10%. |
+| 14.4 | Verify DB integrity: `sqlite3 /tmp/drill_restore.db "PRAGMA integrity_check;"`. | `ok` |
+| 14.5 | Run Phase 5 L7 chaos smoke suite: `go test ./test/integration/... -count=1`. | All pass. |
+| 14.6 | Create `agent/reports/p2p/restore-drill-YYYY-MM.md` using the template. | File committed. |
+
+### DrillResult status codes
+
+The drill is captured as a `DrillResult` struct (defined in
+`signaling/internal/ops/restore_drill.go`):
+
+- `DrillResult.Success = true` + `DrillResult.WithinBounds() = true` → drill passes.
+- Either `false` → drill fails; `GAGateStatus` returns `DrillStatusFailed`; GA gate suspended.
+
+> **§16.3.1–16.3.2 proof:** This §14 satisfies the restore-drill runbook
+> requirement for leaves 16.3.1 and 16.3.2 of `docs/P2P_ROADMAP.md`.
+

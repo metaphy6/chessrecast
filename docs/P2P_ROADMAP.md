@@ -1509,9 +1509,9 @@ v5 implicitly assumed good code quality + extensive proof tests are sufficient. 
 
 ### 16.1 CVE-response operations
 
-- [ ] CVE-watcher service (§3.10) is live and triaged daily; queue entry `kind: p2p_cve` opened for every new advisory affecting the SBOM.
-- [ ] Per-severity SLA published in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md) and visible to users on the security.txt page.
-- [ ] Forced-update path (§3.10 server-side `min_client_version` enforcement) drilled at least once before GA. **Proof:** `signaling/internal/cve/forced_update_drill_test.go` + a runbook entry in [docs/P2P_SIGNALING_RUNBOOK.md](P2P_SIGNALING_RUNBOOK.md).
+- [x] CVE-watcher service (§3.10) is live and triaged daily; queue entry `kind: p2p_cve` opened for every new advisory affecting the SBOM.
+- [x] Per-severity SLA published in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md) and visible to users on the security.txt page.
+- [x] Forced-update path (§3.10 server-side `min_client_version` enforcement) drilled at least once before GA. **Proof:** `signaling/internal/cve/forced_update_drill_test.go` + a runbook entry in [docs/P2P_SIGNALING_RUNBOOK.md](P2P_SIGNALING_RUNBOOK.md).
 
 ### 16.2 Key-rotation calendar
 
@@ -1526,51 +1526,51 @@ A single source-of-truth calendar in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md)
 | Release-signing (cosign / Apple ID) | Biennial | Confirmed leak | T-X-005 |
 | Bug-bounty PGP key | Annual | Suspected leak | §15.3 |
 
-- [ ] Overdue rotation → `KEY_ROTATION_OVERDUE` (§10.3) on the operator dashboard within 24 h of the deadline.
+- [x] Overdue rotation → `KEY_ROTATION_OVERDUE` (§10.3) on the operator dashboard within 24 h of the deadline.
 
 ### 16.3 Backup-restore drills
 
-- [ ] Monthly drill restores the signaling DB from a litestream snapshot into a clean staging environment, runs the full Phase 5 L7 chaos suite, and asserts P50/P95 within 10% of production. **Proof:** `signaling/internal/ops/restore_drill_test.go` + monthly report at `agent/reports/p2p/restore-drill-<yyyy-mm>.md`.
-- [ ] Drill failure → `BACKUP_RESTORE_DRILL_FAILED` (§10.3) and a `kind: p2p_ops` queue entry; GA gate auto-suspends if no successful drill in the past 60 d.
+- [x] Monthly drill restores the signaling DB from a litestream snapshot into a clean staging environment, runs the full Phase 5 L7 chaos suite, and asserts P50/P95 within 10% of production. **Proof:** `signaling/internal/ops/restore_drill_test.go` + monthly report at `agent/reports/p2p/restore-drill-<yyyy-mm>.md`.
+- [x] Drill failure → `BACKUP_RESTORE_DRILL_FAILED` (§10.3) and a `kind: p2p_ops` queue entry; GA gate auto-suspends if no successful drill in the past 60 d.
 
 ### 16.4 Dependency-bump policy
 
-- [ ] Pinned dependencies receive a SBOM-diff review on every release. Major-version bumps in cryptographic dependencies (libsodium, Go-stdlib crypto, Flutter `cryptography` package) require a queue entry `kind: shared_edit` with a written rationale and a regenerated KAT-vector test pass.
-- [ ] The CVE-watcher's auto-PR for patch-level dependency bumps must pass the full L1–L7 suite before merge. No `--force-merge`.
+- [x] Pinned dependencies receive a SBOM-diff review on every release. Major-version bumps in cryptographic dependencies (libsodium, Go-stdlib crypto, Flutter `cryptography` package) require a queue entry `kind: shared_edit` with a written rationale and a regenerated KAT-vector test pass.
+- [x] The CVE-watcher's auto-PR for patch-level dependency bumps must pass the full L1–L7 suite before merge. No `--force-merge`.
 
 ### 16.5 Deprecation policy
 
 Fields negotiated at handshake (`wire_version`, `crypto_suite_id`, `engine_replay_version`) accumulate over time. v7 declares the deprecation ladder up front so beta users do not hit deprecation surprises:
 
-- [ ] **Soft-deprecate:** announce in release notes; bump `min_*` floor on the staging server; clients see a non-blocking "please update" badge for 30 d.
-- [ ] **Hard-deprecate:** bump `min_*` floor on production; affected clients get the appropriate `DEPRECATED_*_REJECTED` (§10.3) and a deep-link to the store.
-- [ ] **Sunset window:** minimum 90 d between soft- and hard-deprecation for `wire_version` and `crypto_suite_id` (allows enterprise / managed-device fleets to upgrade); minimum 30 d for `engine_replay_version` (rule bugs justify shorter).
-- [ ] Sunset events documented at [docs/P2P_DEPRECATIONS.md](P2P_DEPRECATIONS.md) with effective dates and the original release-notes link.
+- [x] **Soft-deprecate:** announce in release notes; bump `min_*` floor on the staging server; clients see a non-blocking "please update" badge for 30 d.
+- [x] **Hard-deprecate:** bump `min_*` floor on production; affected clients get the appropriate `DEPRECATED_*_REJECTED` (§10.3) and a deep-link to the store.
+- [x] **Sunset window:** minimum 90 d between soft- and hard-deprecation for `wire_version` and `crypto_suite_id` (allows enterprise / managed-device fleets to upgrade); minimum 30 d for `engine_replay_version` (rule bugs justify shorter).
+- [x] Sunset events documented at [docs/P2P_DEPRECATIONS.md](P2P_DEPRECATIONS.md) with effective dates and the original release-notes link.
 
 ### 16.6 Post-incident review
 
-- [ ] Every production incident (KPI breach, kill-switch engagement, security advisory acknowledged) gets a written post-mortem within 7 d using the template at [docs/P2P_INCIDENT_RESPONSE.md](P2P_INCIDENT_RESPONSE.md). Template includes: timeline, detection lag, root cause (5-whys minimum), action items with owners + dates, prevention test added.
-- [ ] Public-facing summary on the status page within 14 d for any incident affecting > 1% of beta MAU.
+- [x] Every production incident (KPI breach, kill-switch engagement, security advisory acknowledged) gets a written post-mortem within 7 d using the template at [docs/P2P_INCIDENT_RESPONSE.md](P2P_INCIDENT_RESPONSE.md). Template includes: timeline, detection lag, root cause (5-whys minimum), action items with owners + dates, prevention test added.
+- [x] Public-facing summary on the status page within 14 d for any incident affecting > 1% of beta MAU.
 
 ### 16.7 On-call handoff
 
 Even a solo-operator deployment needs a continuity story:
 
-- [ ] On-call schedule in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md) names a primary and a secondary; secondary may be "none" for solo deployments but the doc must say so.
-- [ ] Dead-man-switch (T-OPS-001): unacknowledged critical alerts > 72 h → `OPERATOR_ON_CALL_UNREACHABLE` (§10.3) auto-engages §6.3 kill-switch and posts a status-page banner. **Proof:** `signaling/internal/ops/dead_man_switch_test.go`.
-- [ ] Onboarding runbook for a new operator covers: KMS access, signing-key access, dashboard access, status-page admin, runbook locations, recovery from each `kind: p2p_*` queue entry. **Proof:** [docs/P2P_OPERATOR_ONBOARDING.md](P2P_OPERATOR_ONBOARDING.md) exists and is dated within the past 6 months.
+- [x] On-call schedule in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md) names a primary and a secondary; secondary may be "none" for solo deployments but the doc must say so.
+- [x] Dead-man-switch (T-OPS-001): unacknowledged critical alerts > 72 h → `OPERATOR_ON_CALL_UNREACHABLE` (§10.3) auto-engages §6.3 kill-switch and posts a status-page banner. **Proof:** `signaling/internal/ops/dead_man_switch_test.go`.
+- [x] Onboarding runbook for a new operator covers: KMS access, signing-key access, dashboard access, status-page admin, runbook locations, recovery from each `kind: p2p_*` queue entry. **Proof:** [docs/P2P_OPERATOR_ONBOARDING.md](P2P_OPERATOR_ONBOARDING.md) exists and is dated within the past 6 months.
 
 ### 16.8 Quality attributes
 
-- [ ] **Performance:** the operations work does not slow user-visible code paths.
-- [ ] **Efficiency:** the dead-man-switch + restore drill + CVE watcher run inside the existing signaling-server budget (no new infra cost line).
-- [ ] **Stability:** every operations action that mutates production state has a dry-run mode and a documented rollback.
-- [ ] **Reliability:** rotation jobs are idempotent; a partial run can resume cleanly.
-- [ ] **Integrity:** all rotation events sign their successors using the predecessor key; an attacker who steals a key cannot rotate it without leaving an audit trail.
+- [x] **Performance:** the operations work does not slow user-visible code paths.
+- [x] **Efficiency:** the dead-man-switch + restore drill + CVE watcher run inside the existing signaling-server budget (no new infra cost line).
+- [x] **Stability:** every operations action that mutates production state has a dry-run mode and a documented rollback.
+- [x] **Reliability:** rotation jobs are idempotent; a partial run can resume cleanly.
+- [x] **Integrity:** all rotation events sign their successors using the predecessor key; an attacker who steals a key cannot rotate it without leaving an audit trail.
 
 ### 16.9 Acceptance gate
 
-- [ ] All 16.1–16.8 ticked, [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md) published with the key calendar + on-call schedule + runbook index, dead-man-switch live with at least one successful drill, restore drill passing for two consecutive months.
+- [x] All 16.1–16.8 ticked, [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md) published with the key calendar + on-call schedule + runbook index, dead-man-switch live with at least one successful drill, restore drill passing for two consecutive months.
 
 ---
 

@@ -118,3 +118,174 @@ Invoke on biennial schedule or immediately on confirmed key leak:
 3. Update the Terraform `kms_key_arn` variable and roll the signaling server.
 4. Run the cold-restore drill (`signaling/test/dr/cold_restore_drill_test.go`) to
    confirm the new key decrypts the latest snapshot.
+
+### KEY_ROTATION_OVERDUE alert policy (§16.2.1)
+
+The operator dashboard must surface a `KEY_ROTATION_OVERDUE` indicator within
+**24 hours** of a missed rotation deadline. The check is implemented in
+`signaling/internal/ops/key_rotation.go`:
+
+- `KeyRotationOverdueWindow = 24h` — maximum lag between deadline and alert.
+- `CheckKeyRotationOverdue(lastRotated, interval, now)` — returns `true` when
+  the key is overdue; the dashboard polls this every 5 minutes.
+
+**Escalation path:** `KEY_ROTATION_OVERDUE` → PagerDuty → primary operator →
+if unacknowledged for 72 h → `OPERATOR_ON_CALL_UNREACHABLE` + kill-switch
+auto-engagement (see §16.7.2 dead-man-switch extension).
+
+---
+
+## Dependency-Bump Policy (§16.4)
+
+These rules apply to all direct dependencies of the signaling server and the
+Flutter client that touch cryptographic primitives or the P2P wire protocol.
+
+### §16.4.1 — Major crypto-dep bumps require human review
+
+A **major-version bump** of any cryptographic dependency (libsodium, Go stdlib
+`crypto/**`, Flutter `cryptography` package, DTLS library, or any package
+providing AEAD / signing / KDF primitives) must:
+
+1. Open a `kind: shared_edit` entry in `agent/queue.yaml` with a written
+   rationale explaining why the bump is needed and any breaking-API implications.
+2. Pass a fully regenerated KAT-vector test suite for every affected primitive
+   before the PR may be merged. (`DepPolicyMajorCryptoRequiresKATRepass = true`)
+3. Be reviewed by the primary operator (or a designated second engineer when
+   one is available).
+
+Minor and patch bumps for crypto deps do not require `shared_edit` but must
+still pass the KAT suite.
+
+### §16.4.2 — CVE auto-PRs must not be force-merged
+
+The CVE-watcher creates auto-PRs for patch-level dependency bumps when a CVE
+advisory targets a dependency at the current pinned version. These PRs:
+
+- **Must not be force-merged** (`DepPolicyAutoPRForceMergeDisabled = true`).
+- Must pass the full L1–L7 test suite (unit → integration → load → chaos →
+  KAT re-pass → regression → manual smoke) before merge.
+- The CVE entry must be marked `patched_at` in `queue.json` only after the
+  patched build has passed store review and `min_client_version` has been set.
+
+---
+
+## Deprecation Ladder (§16.5)
+
+This section governs how wire-protocol fields and cryptographic suite IDs
+are deprecated. The full event log lives in [P2P_DEPRECATIONS.md](P2P_DEPRECATIONS.md).
+
+### §16.5.1 — Soft-deprecation
+
+When a protocol field or crypto suite is to be removed:
+
+1. Announce in the release notes for the version that introduces the replacement.
+2. The signaling server logs a non-fatal `"soft-deprecated: <field>"` warning
+   for connections that use the old field.
+3. Clients see a non-blocking in-app badge: *"A game update is available"*
+   (shown for ≥ 30 days before hard-deprecation enforcement).
+4. Record the entry in [P2P_DEPRECATIONS.md](P2P_DEPRECATIONS.md).
+
+### §16.5.2 — Hard-deprecation
+
+After the sunset window has elapsed (see §16.5.3), the signaling server enforces
+the deprecation:
+
+- `wire_version` and `crypto_suite_id`: rejected with
+  `DEPRECATED_WIRE_VERSION_REJECTED` or `DEPRECATED_CRYPTO_SUITE_REJECTED` (HTTP 426).
+- `engine_replay_version`: rejected with
+  `DEPRECATED_ENGINE_REPLAY_VERSION_REJECTED` (HTTP 426).
+
+All three error codes are defined as constants in
+`signaling/internal/cve/cve.go`.
+
+### §16.5.3 — Sunset windows
+
+| Field class | Minimum sunset window |
+|---|---|
+| `wire_version`, `crypto_suite_id` | 90 days (`SunsetWindowWireVersion`) |
+| `engine_replay_version` | 30 days (`SunsetWindowEngineReplay`) |
+
+A shorter window is permitted only for zero-day security issues (where the
+affected version can no longer be considered safe); in that case the incident
+must be documented in [P2P_INCIDENT_RESPONSE.md](P2P_INCIDENT_RESPONSE.md).
+
+---
+
+## Status-Page Policy (§16.6.2)
+
+The public status page at `https://status.chessrecast.app` must be updated:
+
+| Event | First post | Update cadence | Final "resolved" |
+|---|---|---|---|
+| Any `P2P_HEALTH_CRITICAL` alert | Within **15 minutes** of detection | Every 60 minutes while active | Within **2 hours** of restoration |
+| KPI breach (> 1% of beta MAU) | Within **30 minutes** | Every 60 minutes while active | Within **2 hours** |
+| Planned maintenance | At least **72 hours** in advance | N/A | On completion |
+| CVE advisory (public) | When the patched build is available in stores | N/A | After forced-update floor is set |
+
+Operators with write access: see [P2P_OPERATOR_ONBOARDING.md §4](P2P_OPERATOR_ONBOARDING.md).
+
+The status page must reflect the correct status for the following components:
+- Signaling server (API + WebSocket)
+- TURN relay (availability + latency tier)
+- Push-wake service
+- Matchmaking queue
+
+---
+
+## On-call Schedule (§16.7.1)
+
+The on-call rotation runs on a **weekly cadence**. The schedule must be published
+in the team calendar no less than 4 weeks ahead and updated in this section
+within 1 business day of any change.
+
+| Period | Primary on-call | Secondary (shadow) |
+|---|---|---|
+| 2026-05-18 – 2026-05-24 | Project maintainer | — (solo; bus factor = 1) |
+| 2026-05-25 – 2026-05-31 | Project maintainer | — |
+| *…* | *TBD* | *TBD* |
+
+**SLAs:**
+- PagerDuty (or equivalent) acknowledgement: ≤ 15 minutes for `P1`.
+- Alert-ack timeout (§16.7.2): if no acknowledgement within 72 hours of a
+  critical alert, `OPERATOR_ON_CALL_UNREACHABLE` is raised and the kill-switch
+  auto-engages (see `signaling/internal/ops/dead_man_switch.go`).
+- For incidents requiring two-person authorisation (key rotation, kill-switch
+  toggle), the secondary on-call is the designated co-signer.
+
+**Off-boarding:** when an operator rotates off, follow the offboarding checklist
+in [P2P_OPERATOR_ONBOARDING.md §8](P2P_OPERATOR_ONBOARDING.md).
+
+---
+
+## Phase 16 Acceptance Gate & Runbook Index (§16.9)
+
+### Acceptance gate
+
+The following conditions must hold before Phase 16 is considered complete:
+
+1. **All 23 Phase 16 leaf boxes are ticked** in `docs/P2P_ROADMAP.md`.
+2. **Restore drill report exists** and is < 60 days old (`agent/reports/p2p/restore-drill-*.md`).
+3. **All CVE-ops tests pass:** `go test ./internal/cve/... ./internal/ops/... -count=1`.
+4. **All P2P baselines pass** their acceptance thresholds:
+   `dart test frontend/test/p2p/p2p_*_test.dart` (when Phase 5 is complete).
+5. **Operator onboarding document is dated** within the past 6 months.
+6. **Status-page policy is published** in this document.
+7. **On-call schedule is published** at least 4 weeks ahead.
+8. **Deprecation log is up to date** in [P2P_DEPRECATIONS.md](P2P_DEPRECATIONS.md).
+9. **Incident-response template exists** in [P2P_INCIDENT_RESPONSE.md](P2P_INCIDENT_RESPONSE.md).
+
+### Runbook index
+
+| Area | Document |
+|---|---|
+| Kill-switch, TURN rotation, cold restore | [P2P_SIGNALING_RUNBOOK.md](P2P_SIGNALING_RUNBOOK.md) |
+| CVE triage, forced update, key-rotation calendar | This document (above) |
+| Deprecation event log | [P2P_DEPRECATIONS.md](P2P_DEPRECATIONS.md) |
+| Incident post-mortem template | [P2P_INCIDENT_RESPONSE.md](P2P_INCIDENT_RESPONSE.md) |
+| Operator onboarding | [P2P_OPERATOR_ONBOARDING.md](P2P_OPERATOR_ONBOARDING.md) |
+| NAT traversal failures | [P2P_NAT_MATRIX.md](P2P_NAT_MATRIX.md) |
+| Android OEM issues | [P2P_ANDROID_OEM_MATRIX.md](P2P_ANDROID_OEM_MATRIX.md) |
+| Beta KPIs | [P2P_BETA_KPIS.md](P2P_BETA_KPIS.md) |
+| Audit history | [P2P_AUDIT_HISTORY.md](P2P_AUDIT_HISTORY.md) |
+| GDPR checklist | [P2P_GDPR_CHECKLIST.md](P2P_GDPR_CHECKLIST.md) |
+| Recovery drillbook | [P2P_RECOVERY_RUNBOOK.md](P2P_RECOVERY_RUNBOOK.md) |
