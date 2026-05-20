@@ -1,0 +1,56 @@
+# §9.6 T-X-004 — Prevent `pull_request_target` in P2P workflows.
+#
+# pull_request_target runs with write permissions on the base branch and has
+# access to secrets, even when triggered from a forked PR.  Any workflow that
+# combines pull_request_target with a checkout step can be exploited to exfiltrate
+# secrets.
+#
+# This workflow scans all .github/workflows/*.yml files on push and on
+# pull_request to verify that no P2P-related workflow uses pull_request_target.
+# A violation immediately fails the job.
+name: No pull_request_target (T-X-004)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+
+jobs:
+  check-no-pull-request-target:
+    name: Verify no pull_request_target in P2P workflows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Only need the workflow files — shallow clone is fine.
+          fetch-depth: 1
+
+      - name: Scan for pull_request_target
+        run: |
+          set -euo pipefail
+          echo "Scanning .github/workflows/ for pull_request_target..."
+          VIOLATIONS=""
+          while IFS= read -r -d '' file; do
+            if grep -q 'pull_request_target' "$file"; then
+              VIOLATIONS="$VIOLATIONS\n  $file"
+            fi
+          done < <(find .github/workflows -name '*.yml' -print0)
+
+          if [[ -n "$VIOLATIONS" ]]; then
+            echo "ERROR: The following workflow files use pull_request_target:"
+            echo -e "$VIOLATIONS"
+            echo ""
+            echo "pull_request_target runs with write access and secret access,"
+            echo "even from fork PRs.  This is a P2P security violation (T-X-004)."
+            echo "Replace with 'pull_request' (read-only, no secrets) or"
+            echo "use a separate trusted workflow with explicit permissions."
+            exit 1
+          fi
+          echo "OK: no pull_request_target found in any workflow ✓"
