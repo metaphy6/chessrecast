@@ -31,9 +31,12 @@ void main() {
 
   group('§15.3.1 — security.txt exists and is RFC 9116 compliant', () {
     test('security.txt file exists', () {
-      expect(securityTxt.existsSync(), isTrue,
-          reason:
-              'frontend/web/.well-known/security.txt must exist (roadmap §15.3.1)');
+      expect(
+        securityTxt.existsSync(),
+        isTrue,
+        reason:
+            'frontend/web/.well-known/security.txt must exist (roadmap §15.3.1)',
+      );
     });
 
     test('security.txt is non-empty', () {
@@ -65,8 +68,11 @@ void main() {
 
   group('§15.3.2 — bug bounty scope declaration', () {
     test('P2P_BUG_BOUNTY.md exists', () {
-      expect(bugBountyDoc.existsSync(), isTrue,
-          reason: 'docs/P2P_BUG_BOUNTY.md must exist (roadmap §15.3.2)');
+      expect(
+        bugBountyDoc.existsSync(),
+        isTrue,
+        reason: 'docs/P2P_BUG_BOUNTY.md must exist (roadmap §15.3.2)',
+      );
     });
 
     test('P2P_BUG_BOUNTY.md is non-empty', () {
@@ -85,7 +91,10 @@ void main() {
 
     test('bug bounty doc has out-of-scope section', () {
       final content = bugBountyDoc.readAsStringSync().toLowerCase();
-      expect(content, anyOf(contains('out of scope'), contains('out-of-scope')));
+      expect(
+        content,
+        anyOf(contains('out of scope'), contains('out-of-scope')),
+      );
     });
   });
 
@@ -100,7 +109,14 @@ void main() {
     });
 
     test('acknowledgement timeline present', () {
-      expect(content, anyOf(contains('acknowledgement'), contains('acknowledgment'), contains('ack')));
+      expect(
+        content,
+        anyOf(
+          contains('acknowledgement'),
+          contains('acknowledgment'),
+          contains('ack'),
+        ),
+      );
     });
 
     test('critical remediation timeline present', () {
@@ -121,7 +137,14 @@ void main() {
   group('§15.3.4 — hall of fame section present', () {
     test('hall of fame section in bug bounty doc', () {
       final content = bugBountyDoc.readAsStringSync().toLowerCase();
-      expect(content, anyOf(contains('hall of fame'), contains('acknowledgments'), contains('attribution')));
+      expect(
+        content,
+        anyOf(
+          contains('hall of fame'),
+          contains('acknowledgments'),
+          contains('attribution'),
+        ),
+      );
     });
   });
 
@@ -132,7 +155,10 @@ void main() {
     setUpAll(() => content = bugBountyDoc.readAsStringSync().toLowerCase());
 
     test('coordinated disclosure section present', () {
-      expect(content, anyOf(contains('coordinated disclosure'), contains('disclosure')));
+      expect(
+        content,
+        anyOf(contains('coordinated disclosure'), contains('disclosure')),
+      );
     });
 
     test('disclosure window specified', () {
@@ -140,7 +166,10 @@ void main() {
     });
 
     test('CVE handling described', () {
-      expect(content, anyOf(contains('cve'), contains('embargo'), contains('advisory')));
+      expect(
+        content,
+        anyOf(contains('cve'), contains('embargo'), contains('advisory')),
+      );
     });
   });
 }

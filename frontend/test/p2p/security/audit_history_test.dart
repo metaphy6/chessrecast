@@ -25,13 +25,19 @@ void main() {
   });
 
   test('P2P_AUDIT_HISTORY.md exists', () {
-    expect(historyDoc.existsSync(), isTrue,
-        reason: 'docs/P2P_AUDIT_HISTORY.md must exist (roadmap §15.1.4)');
+    expect(
+      historyDoc.existsSync(),
+      isTrue,
+      reason: 'docs/P2P_AUDIT_HISTORY.md must exist (roadmap §15.1.4)',
+    );
   });
 
   test('P2P_AUDIT_HISTORY.md is non-empty', () {
-    expect(historyDoc.readAsStringSync().length, greaterThan(200),
-        reason: 'Audit history document must be substantive (>200 chars)');
+    expect(
+      historyDoc.readAsStringSync().length,
+      greaterThan(200),
+      reason: 'Audit history document must be substantive (>200 chars)',
+    );
   });
 
   group('§15.1.4 — audit history has required structure', () {
@@ -40,32 +46,45 @@ void main() {
 
     test('title/header present', () {
       final raw = historyDoc.readAsStringSync();
-      expect(raw, anyOf(contains('Audit History'), contains('# P2P'), contains('Security Audit')),
-          reason: 'Audit history must have a clear title/header');
+      expect(
+        raw,
+        anyOf(
+          contains('Audit History'),
+          contains('# P2P'),
+          contains('Security Audit'),
+        ),
+        reason: 'Audit history must have a clear title/header',
+      );
     });
 
     test('references audit scope or engagement', () {
-      expect(content,
-          anyOf(contains('audit'), contains('engagement'), contains('security')),
-          reason: 'Document must reference the security audit context');
+      expect(
+        content,
+        anyOf(contains('audit'), contains('engagement'), contains('security')),
+        reason: 'Document must reference the security audit context',
+      );
     });
 
     test('contains summary or entry structure', () {
       expect(
-          content,
-          anyOf(
-            contains('audit date'),
-            contains('finding'),
-            contains('summary'),
-            contains('entry'),
-            contains('no audits'),
-          ),
-          reason: 'Document must describe how audit entries are recorded');
+        content,
+        anyOf(
+          contains('audit date'),
+          contains('finding'),
+          contains('summary'),
+          contains('entry'),
+          contains('no audits'),
+        ),
+        reason: 'Document must describe how audit entries are recorded',
+      );
     });
 
     test('references P2P_AUDIT_SCOPE.md', () {
-      expect(content, anyOf(contains('p2p_audit_scope'), contains('audit_scope')),
-          reason: 'History document must reference the scope document');
+      expect(
+        content,
+        anyOf(contains('p2p_audit_scope'), contains('audit_scope')),
+        reason: 'History document must reference the scope document',
+      );
     });
   });
 }

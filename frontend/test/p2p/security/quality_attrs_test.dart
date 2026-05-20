@@ -26,8 +26,11 @@ void main() {
   });
 
   test('P2P_AUDIT_SCOPE.md exists', () {
-    expect(auditScopeDoc.existsSync(), isTrue,
-        reason: 'docs/P2P_AUDIT_SCOPE.md must exist');
+    expect(
+      auditScopeDoc.existsSync(),
+      isTrue,
+      reason: 'docs/P2P_AUDIT_SCOPE.md must exist',
+    );
   });
 
   // §15.4.1  Performance ─────────────────────────────────────────────────────
@@ -45,7 +48,14 @@ void main() {
 
     test('does not block other phases statement present', () {
       final content = auditScopeDoc.readAsStringSync().toLowerCase();
-      expect(content, anyOf(contains('does not block'), contains('not block'), contains('block any other')));
+      expect(
+        content,
+        anyOf(
+          contains('does not block'),
+          contains('not block'),
+          contains('block any other'),
+        ),
+      );
     });
   });
 
@@ -59,7 +69,14 @@ void main() {
 
     test('"proof-test" or "proof test" reference present', () {
       final content = auditScopeDoc.readAsStringSync().toLowerCase();
-      expect(content, anyOf(contains('proof-test'), contains('proof test'), contains('proof test references')));
+      expect(
+        content,
+        anyOf(
+          contains('proof-test'),
+          contains('proof test'),
+          contains('proof test references'),
+        ),
+      );
     });
   });
 
@@ -73,7 +90,14 @@ void main() {
 
     test('tests-with-code rule referenced', () {
       final content = auditScopeDoc.readAsStringSync().toLowerCase();
-      expect(content, anyOf(contains('tests-with-code'), contains('tests with code'), contains('agents.md')));
+      expect(
+        content,
+        anyOf(
+          contains('tests-with-code'),
+          contains('tests with code'),
+          contains('agents.md'),
+        ),
+      );
     });
   });
 
@@ -82,12 +106,26 @@ void main() {
   group('§15.4.4 — Reliability: report reproducibly verifiable', () {
     test('"reproducibly verifiable" or "reproducible" present', () {
       final content = auditScopeDoc.readAsStringSync().toLowerCase();
-      expect(content, anyOf(contains('reproducibly verifiable'), contains('reproducibly'), contains('reproducible')));
+      expect(
+        content,
+        anyOf(
+          contains('reproducibly verifiable'),
+          contains('reproducibly'),
+          contains('reproducible'),
+        ),
+      );
     });
 
     test('"audited commit sha" or "commit sha" present', () {
       final content = auditScopeDoc.readAsStringSync().toLowerCase();
-      expect(content, anyOf(contains('audited commit sha'), contains('commit sha'), contains('commit sha')));
+      expect(
+        content,
+        anyOf(
+          contains('audited commit sha'),
+          contains('commit sha'),
+          contains('commit sha'),
+        ),
+      );
     });
   });
 
@@ -96,7 +134,14 @@ void main() {
   group('§15.4.5 — Integrity: firm paid for time not findings', () {
     test('"paid for" its time present', () {
       final content = auditScopeDoc.readAsStringSync().toLowerCase();
-      expect(content, anyOf(contains('paid for'), contains('paid for its time'), contains('zero findings')));
+      expect(
+        content,
+        anyOf(
+          contains('paid for'),
+          contains('paid for its time'),
+          contains('zero findings'),
+        ),
+      );
     });
   });
 }

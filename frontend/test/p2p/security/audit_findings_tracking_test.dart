@@ -34,65 +34,96 @@ void main() {
     setUpAll(() => content = scopeDoc.readAsStringSync().toLowerCase());
 
     test('severity ladder present', () {
-      expect(content, contains('severity ladder'),
-          reason: 'P2P_AUDIT_SCOPE.md must define a severity ladder');
+      expect(
+        content,
+        contains('severity ladder'),
+        reason: 'P2P_AUDIT_SCOPE.md must define a severity ladder',
+      );
     });
 
     test('critical severity defined', () {
-      expect(content, contains('critical'),
-          reason: 'Severity ladder must define Critical');
+      expect(
+        content,
+        contains('critical'),
+        reason: 'Severity ladder must define Critical',
+      );
     });
 
     test('high severity defined', () {
-      expect(content, contains('high'),
-          reason: 'Severity ladder must define High');
+      expect(
+        content,
+        contains('high'),
+        reason: 'Severity ladder must define High',
+      );
     });
 
     test('medium severity defined', () {
-      expect(content, contains('medium'),
-          reason: 'Severity ladder must define Medium');
+      expect(
+        content,
+        contains('medium'),
+        reason: 'Severity ladder must define Medium',
+      );
     });
 
     test('low severity defined', () {
-      expect(content, contains('low'),
-          reason: 'Severity ladder must define Low');
+      expect(
+        content,
+        contains('low'),
+        reason: 'Severity ladder must define Low',
+      );
     });
 
     test('kind p2p_audit_finding queue schema documented', () {
-      expect(content, contains('p2p_audit_finding'),
-          reason: 'Queue entry kind p2p_audit_finding must be documented');
+      expect(
+        content,
+        contains('p2p_audit_finding'),
+        reason: 'Queue entry kind p2p_audit_finding must be documented',
+      );
     });
 
     test('closure criteria documented', () {
       expect(
-          content,
-          anyOf(contains('closure'), contains('closed when'), contains('close')),
-          reason: 'Closure criteria for findings must be documented');
+        content,
+        anyOf(contains('closure'), contains('closed when'), contains('close')),
+        reason: 'Closure criteria for findings must be documented',
+      );
     });
 
     test('pre-GA requirement for critical/high', () {
-      expect(content, anyOf(contains('before ga'), contains('ga gate'), contains('pre-ga'), contains('ga-rollout')),
-          reason: 'Critical/High findings must be remediated before GA');
+      expect(
+        content,
+        anyOf(
+          contains('before ga'),
+          contains('ga gate'),
+          contains('pre-ga'),
+          contains('ga-rollout'),
+        ),
+        reason: 'Critical/High findings must be remediated before GA',
+      );
     });
   });
 
   group('§15.2.2 — pentest uses same severity ladder', () {
     test('P2P_PENTEST_SCOPE.md exists', () {
-      expect(pentestDoc.existsSync(), isTrue,
-          reason: 'docs/P2P_PENTEST_SCOPE.md must exist (roadmap §15.2)');
+      expect(
+        pentestDoc.existsSync(),
+        isTrue,
+        reason: 'docs/P2P_PENTEST_SCOPE.md must exist (roadmap §15.2)',
+      );
     });
 
     test('pentest doc references same severity ladder', () {
       final content = pentestDoc.readAsStringSync().toLowerCase();
       expect(
-          content,
-          anyOf(
-            contains('severity ladder'),
-            contains('same severity'),
-            contains('15.1'),
-          ),
-          reason:
-              'P2P_PENTEST_SCOPE.md must reference the same severity ladder as the crypto audit');
+        content,
+        anyOf(
+          contains('severity ladder'),
+          contains('same severity'),
+          contains('15.1'),
+        ),
+        reason:
+            'P2P_PENTEST_SCOPE.md must reference the same severity ladder as the crypto audit',
+      );
     });
   });
 }
