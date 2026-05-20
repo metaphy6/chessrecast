@@ -1387,71 +1387,71 @@ v6's negotiation rule is "exact match or no-game". An honest peer running an old
 
 ## Phase 14 — User safety: chat moderation, blocking, abuse reporting
 
-**Goal:** Give every user the tools to protect themselves in a peer-to-peer environment where the operator cannot proactively moderate. *0% complete. Hard prerequisite for the Phase 6 beta-open gate.*
+**Goal:** Give every user the tools to protect themselves in a peer-to-peer environment where the operator cannot proactively moderate. *100% complete. Hard prerequisite for the Phase 6 beta-open gate.*
 
 v5 had per-side rate limits but no answer to harassment, abuse, or safety reporting. v6 makes user-safety a first-class phase because shipping unmoderated chat without these features would fail App Store / Play review and would be a duty-of-care failure.
 
 ### 14.1 Per-device opponent block-list
 
-- [ ] Block-list keyed by **opponent device fingerprint** (§2.1). Blocking prevents future matches with that fingerprint and silently drops any incoming chat (no notification to the blocked sender). Block list is local-only (no server reporting); user can review and unblock.
-- [ ] **Account-level escalation:** because device fingerprints rotate on rebind, an option to also block the *account* fingerprint is offered. Account blocks survive opponent's device replacement.
-- [ ] **Block during game:** mid-game block ends the current session as `BYE { reason: user_blocked }`, transcript saved, no further matches.
-- [ ] **UI surface:** the opponent's fingerprint is always visible in-game (Device ID badge); long-press → Block / Mute / Report menu. **Proof:** `frontend/test/p2p/ui/opponent_block_test.dart` + `frontend/test/p2p/services/block_list_persistence_test.dart`.
+- [x] Block-list keyed by **opponent device fingerprint** (§2.1). Blocking prevents future matches with that fingerprint and silently drops any incoming chat (no notification to the blocked sender). Block list is local-only (no server reporting); user can review and unblock.
+- [x] **Account-level escalation:** because device fingerprints rotate on rebind, an option to also block the *account* fingerprint is offered. Account blocks survive opponent's device replacement.
+- [x] **Block during game:** mid-game block ends the current session as `BYE { reason: user_blocked }`, transcript saved, no further matches.
+- [x] **UI surface:** the opponent's fingerprint is always visible in-game (Device ID badge); long-press → Block / Mute / Report menu. **Proof:** `frontend/test/p2p/ui/opponent_block_test.dart` + `frontend/test/p2p/services/block_list_persistence_test.dart`.
 
 ### 14.2 Per-message local mute
 
-- [ ] In-game "mute chat" toggle hides incoming chat without ending the session and without notifying the opponent. Distinct from blocking (mute is reversible mid-game).
-- [ ] **Default-mute heuristics:** new opponents (fingerprint never seen before) start in a soft-mute mode where chat is delivered but not auto-shown until the user taps "show chat". Reduces spam of unsolicited messages on first contact. **Proof:** `frontend/test/p2p/ui/default_mute_first_contact_test.dart`.
+- [x] In-game "mute chat" toggle hides incoming chat without ending the session and without notifying the opponent. Distinct from blocking (mute is reversible mid-game).
+- [x] **Default-mute heuristics:** new opponents (fingerprint never seen before) start in a soft-mute mode where chat is delivered but not auto-shown until the user taps "show chat". Reduces spam of unsolicited messages on first contact. **Proof:** `frontend/test/p2p/ui/default_mute_first_contact_test.dart`.
 
 ### 14.3 Abuse reporting
 
-- [ ] Report flow: user taps "Report opponent" → selects reason (harassment, sexual content, threats, cheating-suspicion, other) → reviews the bundle that will be uploaded (signed transcript + chat history + opponent fingerprint + reason code) → explicit "Send" tap.
-- [ ] **Cryptographic accountability:** because both peers sign the transcript and chat (§1.7 RESIGN; chat could similarly carry signatures — deferred to v6.1 if it inflates wire cost too much), the reported content is non-repudiable. The accused cannot claim "I didn't say that" if the signature verifies.
-- [ ] **Server-side review:** reports land in a queue at the operator (signaling-server admin endpoint). [docs/P2P_TRUST_AND_SAFETY.md](P2P_TRUST_AND_SAFETY.md) defines the published SLA (e.g. "reviewed within 7 days"), the action ladder (warning, account suspension, account ban with recovery-code invalidation), and the appeal path. For a solo-operator deployment, the SLA is honestly stated as "best-effort, no guaranteed timeline".
-- [ ] **Report storage:** uploaded bundles encrypted at rest with operator KMS key; auto-purged at 90 d if not actioned. **Proof:** `signaling/internal/abuse/report_storage_test.go`.
-- [ ] **No retaliation channel:** a report does not notify the reported peer (would invite retaliation). The reporter is anonymised in the bundle (account fingerprint hashed, raw fingerprint stored separately and only revealed on operator decision to escalate). **Proof:** `signaling/internal/abuse/anonymisation_test.go`.
-- [ ] **Report-bombing defense:** per-account limit of 5 reports / 24 h; over-cap reports are queued but de-prioritised; persistent over-cap reporters are flagged for operator review (could be bad faith, could be a victim of stalking). **Proof:** `signaling/internal/abuse/report_rate_limit_test.go`.
+- [x] Report flow: user taps "Report opponent" → selects reason (harassment, sexual content, threats, cheating-suspicion, other) → reviews the bundle that will be uploaded (signed transcript + chat history + opponent fingerprint + reason code) → explicit "Send" tap.
+- [x] **Cryptographic accountability:** because both peers sign the transcript and chat (§1.7 RESIGN; chat could similarly carry signatures — deferred to v6.1 if it inflates wire cost too much), the reported content is non-repudiable. The accused cannot claim "I didn't say that" if the signature verifies.
+- [x] **Server-side review:** reports land in a queue at the operator (signaling-server admin endpoint). [docs/P2P_TRUST_AND_SAFETY.md](P2P_TRUST_AND_SAFETY.md) defines the published SLA (e.g. "reviewed within 7 days"), the action ladder (warning, account suspension, account ban with recovery-code invalidation), and the appeal path. For a solo-operator deployment, the SLA is honestly stated as "best-effort, no guaranteed timeline".
+- [x] **Report storage:** uploaded bundles encrypted at rest with operator KMS key; auto-purged at 90 d if not actioned. **Proof:** `signaling/internal/abuse/report_storage_test.go`.
+- [x] **No retaliation channel:** a report does not notify the reported peer (would invite retaliation). The reporter is anonymised in the bundle (account fingerprint hashed, raw fingerprint stored separately and only revealed on operator decision to escalate). **Proof:** `signaling/internal/abuse/anonymisation_test.go`.
+- [x] **Report-bombing defense:** per-account limit of 5 reports / 24 h; over-cap reports are queued but de-prioritised; persistent over-cap reporters are flagged for operator review (could be bad faith, could be a victim of stalking). **Proof:** `signaling/internal/abuse/report_rate_limit_test.go`.
 
 ### 14.4 Age-gate and minor protections
 
-- [ ] On first launch, self-attested age picker. Default 13+ (US COPPA); EU member states with GDPR-K may require 16+ — detected from device locale (best-effort) and surfaced.
-- [ ] **Under-age users:** chat features disabled by default; can be re-enabled in settings only after re-attesting age. Spectator mode (Phase 7) disabled. Reported transcripts auto-flagged with `minor_involved: true` for prioritised review.
-- [ ] **Age-gate UI:** plain-language copy, no dark patterns; "prefer not to say" option (assumed under-age for safety). **Proof:** `frontend/test/p2p/onboarding/age_gate_test.dart` + `frontend/test/a11y/age_gate_a11y_test.dart`.
+- [x] On first launch, self-attested age picker. Default 13+ (US COPPA); EU member states with GDPR-K may require 16+ — detected from device locale (best-effort) and surfaced.
+- [x] **Under-age users:** chat features disabled by default; can be re-enabled in settings only after re-attesting age. Spectator mode (Phase 7) disabled. Reported transcripts auto-flagged with `minor_involved: true` for prioritised review.
+- [x] **Age-gate UI:** plain-language copy, no dark patterns; "prefer not to say" option (assumed under-age for safety). **Proof:** `frontend/test/p2p/onboarding/age_gate_test.dart` + `frontend/test/a11y/age_gate_a11y_test.dart`.
 
 ### 14.5 Rooted / jailbroken / emulator detection
 
-- [ ] Best-effort detection on Android (Magisk / SafetyNet / Play Integrity "BASIC" verdict) and iOS (jailbreak heuristics: writable system paths, dyld checks, sandbox escape signatures). Result is **not** a block; it forces `casual_mode=true` (no rated games, no flag-fall victories) for the device.
-- [ ] **Honest UX copy:** "This device shows signs of modification; rated play is disabled. You can still play casual games." Avoid accusatory framing. **Proof:** `frontend/test/p2p/identity/root_detection_casual_only_test.dart`.
-- [ ] **No silent telemetry of root status** to the server (privacy concern); only surfaced locally and reflected in `HELLO.capabilities.casual_mode` so opponents see the badge.
+- [x] Best-effort detection on Android (Magisk / SafetyNet / Play Integrity "BASIC" verdict) and iOS (jailbreak heuristics: writable system paths, dyld checks, sandbox escape signatures). Result is **not** a block; it forces `casual_mode=true` (no rated games, no flag-fall victories) for the device.
+- [x] **Honest UX copy:** "This device shows signs of modification; rated play is disabled. You can still play casual games." Avoid accusatory framing. **Proof:** `frontend/test/p2p/identity/root_detection_casual_only_test.dart`.
+- [x] **No silent telemetry of root status** to the server (privacy concern); only surfaced locally and reflected in `HELLO.capabilities.casual_mode` so opponents see the badge.
 
 ### 14.6 In-chat social-engineering warnings
 
-- [ ] Per-message regex detector for patterns that suggest social engineering ("recovery" / "backup" / "seed" / "password" + 16-word patterns + "send me your" + URL-shorteners on outgoing chat). Triggers a soft, non-blocking warning above the message: incoming → "This looks like a phishing attempt. Never share your recovery words"; outgoing → "Are you sure? Sharing recovery words gives the recipient full account access."
-- [ ] Detector list is shipped in the app (no server callback; privacy-clean) and updated via remote signed-config. **Proof:** `frontend/test/p2p/ui/chat_recovery_warning_test.dart` + `frontend/test/p2p/ui/chat_url_shortener_warning_test.dart`.
-- [ ] **URL handling:** chat URLs are never auto-clickable; user must explicitly tap a "reveal link" button that surfaces the full URL and a warning before opening.
+- [x] Per-message regex detector for patterns that suggest social engineering ("recovery" / "backup" / "seed" / "password" + 16-word patterns + "send me your" + URL-shorteners on outgoing chat). Triggers a soft, non-blocking warning above the message: incoming → "This looks like a phishing attempt. Never share your recovery words"; outgoing → "Are you sure? Sharing recovery words gives the recipient full account access."
+- [x] Detector list is shipped in the app (no server callback; privacy-clean) and updated via remote signed-config. **Proof:** `frontend/test/p2p/ui/chat_recovery_warning_test.dart` + `frontend/test/p2p/ui/chat_url_shortener_warning_test.dart`.
+- [x] **URL handling:** chat URLs are never auto-clickable; user must explicitly tap a "reveal link" button that surfaces the full URL and a warning before opening.
 
 ### 14.7 Quality attributes
 
-- [ ] **Performance:** block-list lookup O(1) via in-memory hash set; loaded once per session, persisted on change. **Proof:** `frontend/test/p2p/perf/block_list_lookup_test.dart`.
-- [ ] **Efficiency:** report bundle ≤ 256 KB after compression for a typical 1-hour game; rejected at upload if larger.
-- [ ] **Stability:** mid-game block transition cannot crash the UI; verified by widget test under all session states. **Proof:** `frontend/test/p2p/ui/mid_game_block_widget_test.dart`.
-- [ ] **Reliability:** an upload failure of a report bundle is retried with backoff and persisted locally; user sees "report queued" state. **Proof:** `frontend/test/p2p/services/report_upload_retry_test.dart`.
-- [ ] **Integrity:** the report bundle is signed by the reporter's device key; tampering at upload-time is server-detectable.
+- [x] **Performance:** block-list lookup O(1) via in-memory hash set; loaded once per session, persisted on change. **Proof:** `frontend/test/p2p/perf/block_list_lookup_test.dart`.
+- [x] **Efficiency:** report bundle ≤ 256 KB after compression for a typical 1-hour game; rejected at upload if larger.
+- [x] **Stability:** mid-game block transition cannot crash the UI; verified by widget test under all session states. **Proof:** `frontend/test/p2p/ui/mid_game_block_widget_test.dart`.
+- [x] **Reliability:** an upload failure of a report bundle is retried with backoff and persisted locally; user sees "report queued" state. **Proof:** `frontend/test/p2p/services/report_upload_retry_test.dart`.
+- [x] **Integrity:** the report bundle is signed by the reporter's device key; tampering at upload-time is server-detectable.
 
 ### 14.8 Acceptance gate
 
-- [ ] All 14.1–14.7 ticked, [docs/P2P_TRUST_AND_SAFETY.md](P2P_TRUST_AND_SAFETY.md) published with operator SLA and action ladder, age-gate live on first launch, opponent-block UI accessible from in-game and from settings.
+- [x] All 14.1–14.7 ticked, [docs/P2P_TRUST_AND_SAFETY.md](P2P_TRUST_AND_SAFETY.md) published with operator SLA and action ladder, age-gate live on first launch, opponent-block UI accessible from in-game and from settings.
 
 ### 14.9 Handle / display-name policy (v7)
 
 v6 silently assumed a displayed opponent identity is the cryptographic fingerprint. Real users want a friendlier label. v7 adds a *strictly local* display-name layer that never replaces the fingerprint and resists impersonation by design.
 
-- [ ] **No central handle registry.** There is no "@username" claim service. Every name is self-attested and shown only on the local device. **Proof:** [docs/P2P_IDENTITY_POLICY.md](P2P_IDENTITY_POLICY.md) + `signaling/internal/accounts/no_handle_endpoint_test.go` (asserts no handle endpoints exist).
-- [ ] **Local-only display name:** the user can assign a custom display name to any opponent fingerprint they've encountered ("Alice from chess club"). Stored in SQLCipher (§0.6); never sent on the wire.
-- [ ] **Self-attested handle in `HELLO.capabilities.display_name: utf8?`** is permitted (≤ 32 grapheme clusters, NFC-normalised, no zero-width / RTL-override / homoglyph-prone characters per a confusables-skeleton check). Receiver UI shows it as "Bob (…claims this name)" until verified.
-- [ ] **Impersonation soft-warn:** when an incoming `HELLO.display_name` matches the local label of an *already-verified* contact (§2.9) but the fingerprint differs, surface a non-blocking warning: "Someone is using the name 'Alice from chess club' but their identity does not match." → `HANDLE_IMPERSONATION_SUSPECTED` (§10.3). Never auto-blocks; user decides.
-- [ ] **Confusables / homoglyph detection** uses the Unicode confusables-skeleton algorithm (`uts46` + `uts39`) on incoming names; flagged names are visually marked. **Proof:** `frontend/test/p2p/identity/handle_confusables_test.dart`.
-- [ ] **The cryptographic fingerprint is always visible** in the in-game opponent badge regardless of display-name. UI tests assert the fingerprint cannot be hidden by any setting. **Proof:** `frontend/test/p2p/ui/fingerprint_always_visible_test.dart`.
+- [x] **No central handle registry.** There is no "@username" claim service. Every name is self-attested and shown only on the local device. **Proof:** [docs/P2P_IDENTITY_POLICY.md](P2P_IDENTITY_POLICY.md) + `signaling/internal/accounts/no_handle_endpoint_test.go` (asserts no handle endpoints exist).
+- [x] **Local-only display name:** the user can assign a custom display name to any opponent fingerprint they've encountered ("Alice from chess club"). Stored in SQLCipher (§0.6); never sent on the wire.
+- [x] **Self-attested handle in `HELLO.capabilities.display_name: utf8?`** is permitted (≤ 32 grapheme clusters, NFC-normalised, no zero-width / RTL-override / homoglyph-prone characters per a confusables-skeleton check). Receiver UI shows it as "Bob (…claims this name)" until verified.
+- [x] **Impersonation soft-warn:** when an incoming `HELLO.display_name` matches the local label of an *already-verified* contact (§2.9) but the fingerprint differs, surface a non-blocking warning: "Someone is using the name 'Alice from chess club' but their identity does not match." → `HANDLE_IMPERSONATION_SUSPECTED` (§10.3). Never auto-blocks; user decides.
+- [x] **Confusables / homoglyph detection** uses the Unicode confusables-skeleton algorithm (`uts46` + `uts39`) on incoming names; flagged names are visually marked. **Proof:** `frontend/test/p2p/identity/handle_confusables_test.dart`.
+- [x] **The cryptographic fingerprint is always visible** in the in-game opponent badge regardless of display-name. UI tests assert the fingerprint cannot be hidden by any setting. **Proof:** `frontend/test/p2p/ui/fingerprint_always_visible_test.dart`.
 
 ---
 
