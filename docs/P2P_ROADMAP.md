@@ -1328,16 +1328,16 @@ Section §1.11 specifies the cross-peer algorithm; §11.9 covers the in-game UX:
 
 ### 12.2 Negotiation and failure mode
 
-- [ ] On `HELLO`/`HELLO_ACK` exchange, exact match on `ENGINE_REPLAY_VERSION` is required. Mismatch → `ENGINE_VERSION_MISMATCH` (§10.1), friendly UI: "Both players need to be on app version ≥ X. The newer player has version Y; the older has Z." Surface a deep link to the app store.
-- [ ] **Backward-compat policy:** none in v1. Replay parity is bit-exact or no-game. A future version may introduce a `MIN_COMPATIBLE_REPLAY_VERSION` floor for graceful skew, but **only** if backed by exhaustive cross-version golden tests.
+- [x] On `HELLO`/`HELLO_ACK` exchange, exact match on `ENGINE_REPLAY_VERSION` is required. Mismatch → `ENGINE_VERSION_MISMATCH` (§10.1), friendly UI: "Both players need to be on app version ≥ X. The newer player has version Y; the older has Z." Surface a deep link to the app store. **Proof:** [frontend/lib/services/p2p/protocol/engine_replay_version.dart](../frontend/lib/services/p2p/protocol/engine_replay_version.dart) + [frontend/test/p2p/protocol/engine_replay_version_negotiation_test.dart](../frontend/test/p2p/protocol/engine_replay_version_negotiation_test.dart) (T-P-ERV-001)
+- [x] **Backward-compat policy:** none in v1. Replay parity is bit-exact or no-game. A future version may introduce a `MIN_COMPATIBLE_REPLAY_VERSION` floor for graceful skew, but **only** if backed by exhaustive cross-version golden tests.
 
 ### 12.3 Quality attributes
 
-- [ ] **Performance:** version check is O(1) at handshake.
-- [ ] **Efficiency:** version field is 4 bytes on the wire.
+- [x] **Performance:** version check is O(1) at handshake.
+- [x] **Efficiency:** version field is 4 bytes on the wire.
 - [ ] **Stability:** golden tests catch any silent regression in legality / draw rules across the 7 mods; **proof:** `replay_version_golden_test.dart`.
 - [ ] **Reliability:** PR CI fails before merge; no "oops, forgot to bump" landing on `main`.
-- [ ] **Integrity:** version is part of the AAD on the first AEAD frame post-handshake (`MOVE` n=0); tampering cross-validates.
+- [x] **Integrity:** version is part of the AAD on the first AEAD frame post-handshake (`MOVE` n=0); tampering cross-validates. **Proof:** [frontend/lib/services/p2p/protocol/engine_replay_aad.dart](../frontend/lib/services/p2p/protocol/engine_replay_aad.dart) + [frontend/test/p2p/protocol/engine_replay_aad_test.dart](../frontend/test/p2p/protocol/engine_replay_aad_test.dart) (T-P-AAD-001)
 
 ### 12.4 Acceptance gate
 
@@ -1347,8 +1347,8 @@ Section §1.11 specifies the cross-peer algorithm; §11.9 covers the in-game UX:
 
 v6's negotiation rule is "exact match or no-game". An honest peer running an old build never sees a downgrade attack — *but a malicious peer can advertise a low `ENGINE_REPLAY_VERSION` to coerce the opponent into the older (potentially-buggy) rules*. v7 adds an anti-rollback floor and a per-account high-water-mark.
 
-- [ ] **Per-account high-water-mark:** the local client persists `seen_max_engine_replay_version` across sessions in the SQLCipher-backed `meta` table. A `HELLO` advertising a *lower* version than this water-mark triggers `OPPONENT_FINGERPRINT_DOWNGRADE_DETECTED` (§10.3) and a soft warning: "Your opponent is on an older engine version than you've previously played against. This is unusual." Decline-to-play is one tap. **Proof:** `frontend/test/p2p/protocol/anti_rollback_high_water_mark_test.dart`.
-- [ ] **Server-side floor:** the signaling server rejects `HELLO`s carrying `engine_replay_version` below the `min_engine_replay_version` set by the operator (independent from `min_client_version` in §3.10 because a forced-update CVE may not bump the engine version). → `DEPRECATED_ENGINE_REPLAY_VERSION_REJECTED` (§10.3). **Proof:** `signaling/internal/auth/min_engine_replay_test.go`.
+- [x] **Per-account high-water-mark:** the local client persists `seen_max_engine_replay_version` across sessions in the SQLCipher-backed `meta` table. A `HELLO` advertising a *lower* version than this water-mark triggers `OPPONENT_FINGERPRINT_DOWNGRADE_DETECTED` (§10.3) and a soft warning: "Your opponent is on an older engine version than you've previously played against. This is unusual." Decline-to-play is one tap. **Proof:** [frontend/lib/services/p2p/protocol/engine_replay_hwm.dart](../frontend/lib/services/p2p/protocol/engine_replay_hwm.dart) + [frontend/test/p2p/protocol/anti_rollback_high_water_mark_test.dart](../frontend/test/p2p/protocol/anti_rollback_high_water_mark_test.dart) (T-P-HWM-001)
+- [x] **Server-side floor:** the signaling server rejects `HELLO`s carrying `engine_replay_version` below the `min_engine_replay_version` set by the operator (independent from `min_client_version` in §3.10 because a forced-update CVE may not bump the engine version). → `DEPRECATED_ENGINE_REPLAY_VERSION_REJECTED` (§10.3). **Proof:** [signaling/internal/auth/min_engine_replay.go](../signaling/internal/auth/min_engine_replay.go) + [signaling/internal/auth/min_engine_replay_test.go](../signaling/internal/auth/min_engine_replay_test.go)
 - [ ] **Cross-architecture golden parity:** the 10k-position golden in §12.1 must produce bit-identical output on x86_64 (CI baseline) and arm64 (release-branch matrix). If divergence is ever observed, ship per-arch goldens and bind arch into `engine_replay_version` derivation. (OQ-32 tracks whether a single-golden assertion is sufficient given integer-only arithmetic in the rule layer.) **Proof:** `frontend/test/native/replay_version_golden_cross_arch_test.dart`.
 
 ---

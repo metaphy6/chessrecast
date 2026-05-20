@@ -1334,3 +1334,63 @@
     move: "c5a6"
   blunder_threshold_cp: 200
   notes: "Resolved 2026-05-07: added replay-sensitive STQ override favoring Qd4-e4 over Nc5-a6; gate4 rerun reduced GAME15 worst miss to +0.46 (played Bc8-d7)."
+
+# ─── Phase 12 — Engine replay-version pinning ────────────────────────────────
+# Blocked leaves requiring native engine or CI work outside §2 allow-list.
+# Filed by /implement-roadmap INCLUDE=12 run p2p-20260520-160500-13114.
+
+- id: p2p-12-replay-version-header
+  mod: shared
+  status: pending
+  kind: shared_edit
+  phase: strategy
+  severity: high
+  evidence:
+    report: ""
+    line: 0
+    fen: ""
+    move: ""
+  blunder_threshold_cp: 0
+  notes: "Phase 12.1.bullet-1: create frontend/native/engine/replay_version.h with ENGINE_REPLAY_VERSION=1 and BUILD_REPLAY_VERSION. Blocked in run p2p-20260520-160500-13114: frontend/native/engine/** is outside the p2p-roadmap-implementer §2 allow-list. Requires kind:shared_edit rationale and explicit user confirmation."
+
+- id: p2p-12-ci-replay-version-gate
+  mod: shared
+  status: pending
+  kind: shared_edit
+  phase: strategy
+  severity: high
+  evidence:
+    report: ""
+    line: 0
+    fen: ""
+    move: ""
+  blunder_threshold_cp: 0
+  notes: "Phase 12.1.bullet-2+12.1.bullet-3: CI workflow .github/workflows/engine-replay-version-bump-required.yml and proof tests in frontend/test/native/ are outside §2 allow-list (only p2p-*.yml and test/p2p/** are in scope). Blocked in run p2p-20260520-160500-13114."
+
+- id: p2p-12-golden-stability-tests
+  mod: shared
+  status: pending
+  kind: shared_edit
+  phase: strategy
+  severity: med
+  evidence:
+    report: ""
+    line: 0
+    fen: ""
+    move: ""
+  blunder_threshold_cp: 0
+  notes: "Phase 12.3.bullet-3+12.3.bullet-4+12.5.bullet-3: replay_version_golden_test.dart and replay_version_golden_cross_arch_test.dart live in frontend/test/native/ (outside frontend/test/p2p/**). Blocked in run p2p-20260520-160500-13114. Also depends on p2p-12-replay-version-header landing first."
+
+- id: p2p-12-acceptance-gate
+  mod: shared
+  status: pending
+  kind: shared_edit
+  phase: strategy
+  severity: med
+  evidence:
+    report: ""
+    line: 0
+    fen: ""
+    move: ""
+  blunder_threshold_cp: 0
+  notes: "Phase 12.4.bullet-1: acceptance gate cannot be ticked until p2p-12-replay-version-header and p2p-12-golden-stability-tests land. Blocked in run p2p-20260520-160500-13114."
