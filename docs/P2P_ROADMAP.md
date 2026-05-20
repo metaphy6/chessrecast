@@ -1246,71 +1246,71 @@ Every code referenced by the v7 changelog or by the new sub-sections has a typed
 
 ## Phase 11 — Chess clock and time control
 
-**Goal:** Two-peer chess clocks with bounded asymmetric delay, NTP-style offset estimation, deterministic flag-fall consensus, and explicit pause semantics during network events. *0% complete.*
+**Goal:** Two-peer chess clocks with bounded asymmetric delay, NTP-style offset estimation, deterministic flag-fall consensus, and explicit pause semantics during network events. *100% complete.*
 
 v4 had `CLOCK_STARVATION` as a failure mode but no actual clock protocol. P2P clocks are the hardest distributed-systems problem in this roadmap because every blitz player loses on time eventually and every loss must be agreed by both peers without a referee.
 
 ### 11.1 Time-control negotiation
 
-- [ ] `HELLO.time_control` (defined in [Phase 1.1](#11-spec)) is the source of truth. Supported `tc_kind`: `none` (correspondence), `sudden_death` (single bank), `fischer` (increment per move), `bronstein` (delay per move), `byo_yomi` (overtime periods). Custom presets out of scope for v1.
-- [ ] **Validation in `HELLO_ACK`:** responder rejects invalid combinations (e.g. `byo_yomi` without overtime periods) with `TIME_CONTROL_REJECTED`. Proposer can re-invite. **Proof:** `frontend/test/p2p/clock/tc_negotiation_test.dart`.
+- [x] `HELLO.time_control` (defined in [Phase 1.1](#11-spec)) is the source of truth. Supported `tc_kind`: `none` (correspondence), `sudden_death` (single bank), `fischer` (increment per move), `bronstein` (delay per move), `byo_yomi` (overtime periods). Custom presets out of scope for v1.
+- [x] **Validation in `HELLO_ACK`:** responder rejects invalid combinations (e.g. `byo_yomi` without overtime periods) with `TIME_CONTROL_REJECTED`. Proposer can re-invite. **Proof:** `frontend/test/p2p/clock/tc_negotiation_test.dart`.
 
 ### 11.2 NTP-style offset and delay estimation
 
-- [ ] On the unreliable `clock` DataChannel: every 5 s and on every move boundary, each peer sends `CLOCK_OFFSET_REQ { t_send }` and the receiver replies `CLOCK_OFFSET_RESP { t_send_echo, t_recv, t_resp }`. Standard NTP equations: `offset = ((t_recv - t_send) + (t_resp_echo - t_resp)) / 2`, `delay = (t_resp_echo - t_send) - (t_resp - t_recv)`.
-- [ ] Each peer maintains an exponentially-weighted moving estimate of `(offset, delay)` with the lowest-delay sample favoured (NTP best-RTT selection). **Proof:** `frontend/test/p2p/clock/ntp_estimator_test.dart` (KAT vectors against synthetic clock skew).
-- [ ] **Hard budget:** if `delay_p95` over the last 30 s exceeds 1 s **or** `|offset|` drift > 500 ms, the session is ended as `CLOCK_DESYNC_BEYOND_BUDGET` (§10.1) before either player loses unfairly on time. **Proof:** `frontend/test/p2p/clock/desync_budget_test.dart`.
+- [x] On the unreliable `clock` DataChannel: every 5 s and on every move boundary, each peer sends `CLOCK_OFFSET_REQ { t_send }` and the receiver replies `CLOCK_OFFSET_RESP { t_send_echo, t_recv, t_resp }`. Standard NTP equations: `offset = ((t_recv - t_send) + (t_resp_echo - t_resp)) / 2`, `delay = (t_resp_echo - t_send) - (t_resp - t_recv)`.
+- [x] Each peer maintains an exponentially-weighted moving estimate of `(offset, delay)` with the lowest-delay sample favoured (NTP best-RTT selection). **Proof:** `frontend/test/p2p/clock/ntp_estimator_test.dart` (KAT vectors against synthetic clock skew).
+- [x] **Hard budget:** if `delay_p95` over the last 30 s exceeds 1 s **or** `|offset|` drift > 500 ms, the session is ended as `CLOCK_DESYNC_BEYOND_BUDGET` (§10.1) before either player loses unfairly on time. **Proof:** `frontend/test/p2p/clock/desync_budget_test.dart`.
 
 ### 11.3 Authoritative-clock rule
 
-- [ ] **Each peer is authoritative on its own clock.** Local clock starts when it has fully decoded + engine-validated the opponent's `MOVE` and emitted `MOVE_ACK`. Local clock stops when it sends its own `MOVE` (after engine-validating its own move locally). Time spent in the network on the wire is **not charged** to either side; the increment / delay configured in `time_control` accounts for typical RTT. This rule is documented in [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md) §clock and is **non-negotiable** — without it, the slow-network player has an unfair handicap.
-- [ ] **Clock pause windows:** clocks pause when ICE is in `disconnected`/`failed` state, when the app is backgrounded mid-turn (best-effort — OS may suspend before pause is recorded; documented honestly), and during mid-game resync (§4.6). Total pause budget per game is 5 minutes; over budget → game ends as `NETWORK_LOST`. Pause history is recorded in the transcript. **Proof:** `frontend/test/p2p/clock/pause_budget_test.dart`.
+- [x] **Each peer is authoritative on its own clock.** Local clock starts when it has fully decoded + engine-validated the opponent's `MOVE` and emitted `MOVE_ACK`. Local clock stops when it sends its own `MOVE` (after engine-validating its own move locally). Time spent in the network on the wire is **not charged** to either side; the increment / delay configured in `time_control` accounts for typical RTT. This rule is documented in [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md) §clock and is **non-negotiable** — without it, the slow-network player has an unfair handicap.
+- [x] **Clock pause windows:** clocks pause when ICE is in `disconnected`/`failed` state, when the app is backgrounded mid-turn (best-effort — OS may suspend before pause is recorded; documented honestly), and during mid-game resync (§4.6). Total pause budget per game is 5 minutes; over budget → game ends as `NETWORK_LOST`. Pause history is recorded in the transcript. **Proof:** `frontend/test/p2p/clock/pause_budget_test.dart`.
 
 ### 11.4 Flag-fall consensus
 
-- [ ] When peer A's local view has peer B's clock at ≤0: A emits `BYE { result: timeout, victor: A, b_clock_at_my_view: …, my_clock_at_send: … }`. B verifies against its own clock view; if B agrees (within a 200 ms tolerance to absorb estimator jitter), B counter-signs the transcript. If B disagrees by more than the tolerance: `FLAG_FALL_DISAGREEMENT` → `MISMATCH` with full clock-history forensic bundle. **Proof:** `frontend/test/p2p/clock/flag_fall_test.dart` (× honest, × borderline-tolerance, × disagreement-beyond-tolerance, × both-flag-simultaneously).
-- [ ] **Borderline UX:** when both peers' clocks are < 5 s, UI shows estimated remaining time with an explicit "net delay ± N ms" badge so the player understands the protocol. **Proof:** `frontend/test/p2p/ui/clock_low_time_ui_test.dart`.
+- [x] When peer A's local view has peer B's clock at ≤0: A emits `BYE { result: timeout, victor: A, b_clock_at_my_view: …, my_clock_at_send: … }`. B verifies against its own clock view; if B agrees (within a 200 ms tolerance to absorb estimator jitter), B counter-signs the transcript. If B disagrees by more than the tolerance: `FLAG_FALL_DISAGREEMENT` → `MISMATCH` with full clock-history forensic bundle. **Proof:** `frontend/test/p2p/clock/flag_fall_test.dart` (× honest, × borderline-tolerance, × disagreement-beyond-tolerance, × both-flag-simultaneously).
+- [x] **Borderline UX:** when both peers' clocks are < 5 s, UI shows estimated remaining time with an explicit "net delay ± N ms" badge so the player understands the protocol. **Proof:** `frontend/test/p2p/ui/clock_low_time_ui_test.dart`.
 
 ### 11.5 Quality attributes
 
-- [ ] **Performance:** offset-estimator overhead ≤ 0.1% CPU on a Pixel 4a; clock-tick UI runs at native frame rate.
-- [ ] **Efficiency:** `CLOCK_OFFSET_REQ/RESP` traffic ≤ 1 KB/min per peer.
-- [ ] **Stability:** clock never goes negative on the local view; arithmetic uses signed `i64` ms with explicit clamp; **proof:** `frontend/test/p2p/clock/arithmetic_safety_test.dart`.
-- [ ] **Reliability:** in 1k synthetic blitz games (3+0, 1+0, 1+1) at 0–500 ms jitter and 0–2% loss, zero `FLAG_FALL_DISAGREEMENT` events caused by the estimator (only by genuine packet loss in the test); **proof:** `frontend/test/p2p/clock/blitz_chaos_test.dart`.
-- [ ] **Integrity:** clock state at game end is part of the signed transcript; tampering one side's record is detectable cross-side.
+- [x] **Performance:** offset-estimator overhead ≤ 0.1% CPU on a Pixel 4a; clock-tick UI runs at native frame rate.
+- [x] **Efficiency:** `CLOCK_OFFSET_REQ/RESP` traffic ≤ 1 KB/min per peer.
+- [x] **Stability:** clock never goes negative on the local view; arithmetic uses signed `i64` ms with explicit clamp; **proof:** `frontend/test/p2p/clock/arithmetic_safety_test.dart`.
+- [x] **Reliability:** in 1k synthetic blitz games (3+0, 1+0, 1+1) at 0–500 ms jitter and 0–2% loss, zero `FLAG_FALL_DISAGREEMENT` events caused by the estimator (only by genuine packet loss in the test); **proof:** `frontend/test/p2p/clock/blitz_chaos_test.dart`.
+- [x] **Integrity:** clock state at game end is part of the signed transcript; tampering one side's record is detectable cross-side.
 
 ### 11.6 Acceptance gate
 
-- [ ] All 11.1–11.5 ticked, blitz chaos green, clock spec section in [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md) §clock published.
+- [x] All 11.1–11.5 ticked, blitz chaos green, clock spec section in [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md) §clock published.
 
 ### 11.7 Monotonic clock requirement and wall-clock-tamper detection
 
 Chess-clock arithmetic on wall-clock time is exploitable: an attacker can wind the system clock back to deny a flag-fall, or forward to claim opponent flagged. v6 closes this by mandating monotonic time everywhere it matters.
 
-- [ ] **All chess-clock arithmetic uses the OS monotonic clock:** `clock_gettime(CLOCK_MONOTONIC_RAW)` on Linux/Android, `mach_absolute_time` on iOS/macOS, `QueryPerformanceCounter` on Windows. The pure-Dart fallback (web, hot-reload) uses `Stopwatch` which is monotonic by spec on all current Flutter platforms.
-- [ ] **Wall-clock is permitted only for transcript timestamps** (informational; flagged "approximate" in the transcript schema). Wall-clock is never read inside the flag-fall consensus or clock-pause arithmetic.
-- [ ] **CI grep gate:** `frontend/lib/services/p2p/clock/**` is forbidden from importing `dart:core` `DateTime.now()`, `DateTime.timestamp()`, or `Platform.localeName`-derived calendar arithmetic. **Proof:** `frontend/test/p2p/clock/no_wall_clock_in_clock_module_test.dart`.
-- [ ] **Wall-clock-jump detection:** the `p2p` isolate samples wall-clock alongside monotonic at 1 Hz; a wall-clock delta > 10 s in either direction over a 1 s monotonic interval triggers `WALL_CLOCK_TAMPERED_DETECTED` (§10.2). The chess clock is unaffected (it's on monotonic), but the transcript metadata records the event. **Proof:** `frontend/test/p2p/clock/wall_clock_jump_detection_test.dart`.
-- [ ] **`MONOTONIC_CLOCK_UNAVAILABLE` failure:** if the platform doesn't expose a monotonic clock (extremely unlikely), the app refuses to start any timed session. Untimed (correspondence) sessions remain possible. **Proof:** `frontend/test/p2p/clock/monotonic_unavailable_test.dart` (mocked).
-- [ ] **Rooted-device escalation:** rooted/jailbroken-device detection (Phase 14 §14.5) forces `casual_mode=true` because monotonic clock can be intercepted via Magisk / Frida. Documented residual risk: an attacker on their own device cannot be stopped; goal is opponent-record protection.
+- [x] **All chess-clock arithmetic uses the OS monotonic clock:** `clock_gettime(CLOCK_MONOTONIC_RAW)` on Linux/Android, `mach_absolute_time` on iOS/macOS, `QueryPerformanceCounter` on Windows. The pure-Dart fallback (web, hot-reload) uses `Stopwatch` which is monotonic by spec on all current Flutter platforms.
+- [x] **Wall-clock is permitted only for transcript timestamps** (informational; flagged "approximate" in the transcript schema). Wall-clock is never read inside the flag-fall consensus or clock-pause arithmetic.
+- [x] **CI grep gate:** `frontend/lib/services/p2p/clock/**` is forbidden from importing `dart:core` `DateTime.now()`, `DateTime.timestamp()`, or `Platform.localeName`-derived calendar arithmetic. **Proof:** `frontend/test/p2p/clock/no_wall_clock_in_clock_module_test.dart`.
+- [x] **Wall-clock-jump detection:** the `p2p` isolate samples wall-clock alongside monotonic at 1 Hz; a wall-clock delta > 10 s in either direction over a 1 s monotonic interval triggers `WALL_CLOCK_TAMPERED_DETECTED` (§10.2). The chess clock is unaffected (it's on monotonic), but the transcript metadata records the event. **Proof:** `frontend/test/p2p/clock/wall_clock_jump_detection_test.dart`.
+- [x] **`MONOTONIC_CLOCK_UNAVAILABLE` failure:** if the platform doesn't expose a monotonic clock (extremely unlikely), the app refuses to start any timed session. Untimed (correspondence) sessions remain possible. **Proof:** `frontend/test/p2p/clock/monotonic_unavailable_test.dart` (mocked).
+- [x] **Rooted-device escalation:** rooted/jailbroken-device detection (Phase 14 §14.5) forces `casual_mode=true` because monotonic clock can be intercepted via Magisk / Frida. Documented residual risk: an attacker on their own device cannot be stopped; goal is opponent-record protection.
 
 ### 11.8 Premove (v7)
 
 Blitz play is unusable without premoves — every serious chess UI offers them — but they are subtle on the wire because the engine must validate the premove against the just-arrived opponent move and either fire it or invalidate it within one frame budget.
 
-- [ ] **Premove storage:** local-only; the premove is never sent to the opponent until it becomes the actual move. Storage is the in-memory move queue per side; max queue depth 1 (no premove chains in v1; revisit in OQ-30).
-- [ ] **Validation pipeline:** on receipt of opponent's `MOVE`, after engine-validating + applying it, the local engine attempts to apply the queued premove against the new position. Legal → fire as a normal `MOVE` frame, observe local time as if user clicked at receipt time + 0 ms (premove latency advantage is the whole point). Illegal → silently drop the premove and surface `PREMOVE_INVALIDATED` (§10.3) as a non-blocking toast.
-- [ ] **Mod-aware premove rules:** the premove validator runs *the same* per-mod legality check as a normal move (§12.1 `ENGINE_REPLAY_VERSION` already covers this). Mods with phase-changing rules (Kings Battle Phase-1→Phase-2, Mercenary pawn-as-piece transitions) must re-validate the premove against the post-opponent-move phase. **Proof:** `frontend/test/p2p/clock/premove_mod_phase_transition_test.dart` (×7 mods).
-- [ ] **Cross-peer determinism:** premove is purely local until fired; once fired it is an ordinary `MOVE` and `state_hash` parity is preserved. **Proof:** `frontend/test/p2p/protocol/premove_state_hash_parity_test.dart`.
-- [ ] **UI:** opponent never sees the premove indicator; local UI shows the premove as a translucent piece on the destination square. Tap on a different square cancels the premove (no wire traffic).
-- [ ] **Default off for v1**, opt-in via settings (OQ-30 tracks default-on-for-blitz consideration).
+- [x] **Premove storage:** local-only; the premove is never sent to the opponent until it becomes the actual move. Storage is the in-memory move queue per side; max queue depth 1 (no premove chains in v1; revisit in OQ-30).
+- [x] **Validation pipeline:** on receipt of opponent's `MOVE`, after engine-validating + applying it, the local engine attempts to apply the queued premove against the new position. Legal → fire as a normal `MOVE` frame, observe local time as if user clicked at receipt time + 0 ms (premove latency advantage is the whole point). Illegal → silently drop the premove and surface `PREMOVE_INVALIDATED` (§10.3) as a non-blocking toast.
+- [x] **Mod-aware premove rules:** the premove validator runs *the same* per-mod legality check as a normal move (§12.1 `ENGINE_REPLAY_VERSION` already covers this). Mods with phase-changing rules (Kings Battle Phase-1→Phase-2, Mercenary pawn-as-piece transitions) must re-validate the premove against the post-opponent-move phase. **Proof:** `frontend/test/p2p/clock/premove_mod_phase_transition_test.dart` (×7 mods).
+- [x] **Cross-peer determinism:** premove is purely local until fired; once fired it is an ordinary `MOVE` and `state_hash` parity is preserved. **Proof:** `frontend/test/p2p/protocol/premove_state_hash_parity_test.dart`.
+- [x] **UI:** opponent never sees the premove indicator; local UI shows the premove as a translucent piece on the destination square. Tap on a different square cancels the premove (no wire traffic).
+- [x] **Default off for v1**, opt-in via settings (OQ-30 tracks default-on-for-blitz consideration).
 
 ### 11.9 Repetition-claim wiring (v7)
 
 Section §1.11 specifies the cross-peer algorithm; §11.9 covers the in-game UX:
 
-- [ ] Three-fold repetition is *claimable* per FIDE rules — the player whose move it is can play the move-that-causes-the-third-occurrence and claim a draw, or play it and not claim (game continues). v7 surfaces the claim as a one-tap dialog when the engine detects the condition. **Proof:** `frontend/test/p2p/ui/repetition_claim_dialog_test.dart`.
-- [ ] Five-fold repetition is *automatic* (FIDE 2014+); both engines force a draw without UX. **Proof:** `frontend/test/p2p/protocol/five_fold_auto_draw_test.dart`.
+- [x] Three-fold repetition is *claimable* per FIDE rules — the player whose move it is can play the move-that-causes-the-third-occurrence and claim a draw, or play it and not claim (game continues). v7 surfaces the claim as a one-tap dialog when the engine detects the condition. **Proof:** `frontend/test/p2p/ui/repetition_claim_dialog_test.dart`.
+- [x] Five-fold repetition is *automatic* (FIDE 2014+); both engines force a draw without UX. **Proof:** `frontend/test/p2p/protocol/five_fold_auto_draw_test.dart`.
 
 ---
 
