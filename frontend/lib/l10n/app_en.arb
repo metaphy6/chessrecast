@@ -1,81 +1,1584 @@
 {
   "@@locale": "en",
   "@@last_modified": "2026-05-20",
-
   "p2pConnecting": "Connecting…",
-  "@p2pConnecting": { "description": "P2P connection state: connecting in progress" },
-
+  "@p2pConnecting": [
+    [
+      "description",
+      "P2P connection state: connecting in progress"
+    ]
+  ],
   "p2pConnected": "Connected",
-  "@p2pConnected": { "description": "P2P connection state: peers connected" },
-
+  "@p2pConnected": [
+    [
+      "description",
+      "P2P connection state: peers connected"
+    ]
+  ],
   "p2pDisconnected": "Disconnected",
-  "@p2pDisconnected": { "description": "P2P connection state: peers disconnected" },
-
+  "@p2pDisconnected": [
+    [
+      "description",
+      "P2P connection state: peers disconnected"
+    ]
+  ],
   "p2pReconnecting": "Reconnecting…",
-  "@p2pReconnecting": { "description": "P2P connection state: attempting reconnection" },
-
+  "@p2pReconnecting": [
+    [
+      "description",
+      "P2P connection state: attempting reconnection"
+    ]
+  ],
   "p2pFailed": "Connection failed",
-  "@p2pFailed": { "description": "P2P connection state: connection permanently failed" },
-
+  "@p2pFailed": [
+    [
+      "description",
+      "P2P connection state: connection permanently failed"
+    ]
+  ],
   "p2pWaiting": "Waiting for opponent…",
-  "@p2pWaiting": { "description": "P2P connection state: waiting for opponent to join" },
-
+  "@p2pWaiting": [
+    [
+      "description",
+      "P2P connection state: waiting for opponent to join"
+    ]
+  ],
   "p2pInviteFriend": "Invite a Friend",
-  "@p2pInviteFriend": { "description": "Lobby action: invite a friend to play" },
-
+  "@p2pInviteFriend": [
+    [
+      "description",
+      "Lobby action: invite a friend to play"
+    ]
+  ],
   "p2pShareLink": "Share Link",
-  "@p2pShareLink": { "description": "Lobby action: share an invite link" },
-
+  "@p2pShareLink": [
+    [
+      "description",
+      "Lobby action: share an invite link"
+    ]
+  ],
   "p2pJoinGame": "Join Game",
-  "@p2pJoinGame": { "description": "Lobby action: join an existing game" },
-
+  "@p2pJoinGame": [
+    [
+      "description",
+      "Lobby action: join an existing game"
+    ]
+  ],
   "p2pCancelInvite": "Cancel Invite",
-  "@p2pCancelInvite": { "description": "Lobby action: cancel a pending invite" },
-
+  "@p2pCancelInvite": [
+    [
+      "description",
+      "Lobby action: cancel a pending invite"
+    ]
+  ],
   "p2pRecoveryCodeTitle": "Your Recovery Words",
-  "@p2pRecoveryCodeTitle": { "description": "Recovery code screen: title" },
-
+  "@p2pRecoveryCodeTitle": [
+    [
+      "description",
+      "Recovery code screen: title"
+    ]
+  ],
   "p2pRecoveryCodeInstructions": "Write down these {wordCount} words in order and keep them safe. They are the only way to recover your account on a new device.",
-  "@p2pRecoveryCodeInstructions": {
-    "description": "Recovery code screen: instructions paragraph",
-    "placeholders": {
-      "wordCount": { "type": "int", "example": "16" }
-    }
-  },
-
+  "@p2pRecoveryCodeInstructions": [
+    [
+      "description",
+      "Recovery code screen: instructions paragraph"
+    ],
+    [
+      "placeholders",
+      [
+        [
+          "wordCount",
+          [
+            [
+              "type",
+              "int"
+            ],
+            [
+              "example",
+              "16"
+            ]
+          ]
+        ]
+      ]
+    ]
+  ],
   "p2pRecoveryCodeCopy": "Copy words",
-  "@p2pRecoveryCodeCopy": { "description": "Recovery code screen: copy action label (not used in production — clipboard is disabled per spec, but the key must be present)" },
-
+  "@p2pRecoveryCodeCopy": [
+    [
+      "description",
+      "Recovery code screen: copy action label (not used in production — clipboard is disabled per spec, but the key must be present)"
+    ]
+  ],
   "p2pRecoveryCodeVerify": "Verify words",
-  "@p2pRecoveryCodeVerify": { "description": "Recovery code screen: verification step button" },
-
+  "@p2pRecoveryCodeVerify": [
+    [
+      "description",
+      "Recovery code screen: verification step button"
+    ]
+  ],
   "p2pRecoveryCodeSuccess": "Recovery words confirmed",
-  "@p2pRecoveryCodeSuccess": { "description": "Recovery code screen: success message after verification" },
-
+  "@p2pRecoveryCodeSuccess": [
+    [
+      "description",
+      "Recovery code screen: success message after verification"
+    ]
+  ],
   "p2pRecoveryWordlistFallbackNote": "Your device language is not supported yet. English words are shown instead.",
-  "@p2pRecoveryWordlistFallbackNote": { "description": "Recovery code: note when locale wordlist is unavailable, falls back to English" },
-
+  "@p2pRecoveryWordlistFallbackNote": [
+    [
+      "description",
+      "Recovery code: note when locale wordlist is unavailable, falls back to English"
+    ]
+  ],
   "p2pOpponentLeft": "Opponent left the game",
-  "@p2pOpponentLeft": { "description": "Game event: opponent disconnected or resigned" },
-
+  "@p2pOpponentLeft": [
+    [
+      "description",
+      "Game event: opponent disconnected or resigned"
+    ]
+  ],
   "p2pYouLeft": "You left the game",
-  "@p2pYouLeft": { "description": "Game event: local player left the game" },
-
+  "@p2pYouLeft": [
+    [
+      "description",
+      "Game event: local player left the game"
+    ]
+  ],
   "p2pGameDraw": "Game drawn",
-  "@p2pGameDraw": { "description": "Game event: the game ended in a draw" },
-
+  "@p2pGameDraw": [
+    [
+      "description",
+      "Game event: the game ended in a draw"
+    ]
+  ],
   "p2pGameResign": "Resign",
-  "@p2pGameResign": { "description": "Game event: resign action label" },
-
+  "@p2pGameResign": [
+    [
+      "description",
+      "Game event: resign action label"
+    ]
+  ],
   "p2pErrorIceFailed": "Could not establish a connection. Please try again.",
-  "@p2pErrorIceFailed": { "description": "Error: ICE negotiation failed" },
-
+  "@p2pErrorIceFailed": {
+    "description": "F-NET-001 ICE_FAILED: ICE negotiation failed"
+  },
   "p2pErrorVersionMismatch": "Please update the app — your opponent is using a different version.",
-  "@p2pErrorVersionMismatch": { "description": "Error: engine or wire version mismatch between peers" },
-
-  "p2pErrorModMismatch": "Mod mismatch — both players must select the same game variant.",
-  "@p2pErrorModMismatch": { "description": "Error: mod/variant mismatch in HELLO handshake" },
-
+  "@p2pErrorVersionMismatch": [
+    [
+      "description",
+      "Error: engine or wire version mismatch between peers"
+    ]
+  ],
+  "p2pErrorModMismatch": "Mod mismatch — both players must choose the same game variant.",
+  "@p2pErrorModMismatch": {
+    "description": "F-PROTO-005 MOD_MISMATCH: mod/variant mismatch"
+  },
   "p2pErrorGeneric": "Something went wrong. Please try again.",
-  "@p2pErrorGeneric": { "description": "Error: generic P2P error fallback" }
+  "@p2pErrorGeneric": [
+    [
+      "description",
+      "Error: generic P2P error fallback"
+    ]
+  ],
+  "p2pErrorBadFrame": "Connection error — please try again.",
+  "@p2pErrorBadFrame": {
+    "description": "F-PROTO-001 BAD_FRAME: CBOR parse failed"
+  },
+  "p2pRecoveryBadFrame": "Restart the game or check your connection.",
+  "@p2pRecoveryBadFrame": {
+    "description": "Recovery hint for F-PROTO-001 BAD_FRAME: CBOR parse failed"
+  },
+  "p2pErrorBadVersion": "Please update the app to connect to this game.",
+  "@p2pErrorBadVersion": {
+    "description": "F-PROTO-002 BAD_VERSION: unsupported wire version in HELLO"
+  },
+  "p2pRecoveryBadVersion": "Update the app from the store and try again.",
+  "@p2pRecoveryBadVersion": {
+    "description": "Recovery hint for F-PROTO-002 BAD_VERSION: unsupported wire version in HELLO"
+  },
+  "p2pErrorOutOfSequence": "Move arrived out of order. Reconnecting…",
+  "@p2pErrorOutOfSequence": {
+    "description": "F-PROTO-003 OUT_OF_SEQUENCE: move arrived out of order"
+  },
+  "p2pRecoveryOutOfSequence": "Wait for the reconnect to complete.",
+  "@p2pRecoveryOutOfSequence": {
+    "description": "Recovery hint for F-PROTO-003 OUT_OF_SEQUENCE: move arrived out of order"
+  },
+  "p2pErrorIllegalMove": "An illegal move was detected. The game cannot continue.",
+  "@p2pErrorIllegalMove": {
+    "description": "F-PROTO-004 ILLEGAL_MOVE: move rejected by engine"
+  },
+  "p2pRecoveryIllegalMove": "Contact support if this happens repeatedly.",
+  "@p2pRecoveryIllegalMove": {
+    "description": "Recovery hint for F-PROTO-004 ILLEGAL_MOVE: move rejected by engine"
+  },
+  "p2pRecoveryModMismatch": "Both players must select the same mod in the lobby.",
+  "@p2pRecoveryModMismatch": {
+    "description": "Recovery hint for F-PROTO-005 MOD_MISMATCH: mod/variant mismatch"
+  },
+  "p2pErrorClockStarvation": "Clock sync lost. The game is paused.",
+  "@p2pErrorClockStarvation": {
+    "description": "F-PROTO-006 CLOCK_STARVATION: clock channel starved"
+  },
+  "p2pRecoveryClockStarvation": "Check your connection. The game will resume when clocks sync.",
+  "@p2pRecoveryClockStarvation": {
+    "description": "Recovery hint for F-PROTO-006 CLOCK_STARVATION: clock channel starved"
+  },
+  "p2pErrorBackpressureDrop": "Network congested — some messages were dropped.",
+  "@p2pErrorBackpressureDrop": {
+    "description": "F-PROTO-007 BACKPRESSURE_DROP: send queue overflowed; frame dropped"
+  },
+  "p2pRecoveryBackpressureDrop": "Move to a better network if possible.",
+  "@p2pRecoveryBackpressureDrop": {
+    "description": "Recovery hint for F-PROTO-007 BACKPRESSURE_DROP: send queue overflowed; frame dropped"
+  },
+  "p2pErrorMismatch": "Game state mismatch. Please restart the game.",
+  "@p2pErrorMismatch": {
+    "description": "F-PROTO-008 MISMATCH: generic state mismatch"
+  },
+  "p2pRecoveryMismatch": "Restart the game. If this persists, reinstall the app.",
+  "@p2pRecoveryMismatch": {
+    "description": "Recovery hint for F-PROTO-008 MISMATCH: generic state mismatch"
+  },
+  "p2pRecoveryIceFailed": "Check your internet connection and firewall settings.",
+  "@p2pRecoveryIceFailed": {
+    "description": "Recovery hint for F-NET-001 ICE_FAILED: ICE negotiation failed"
+  },
+  "p2pErrorIceDisconnected": "Connection lost. Attempting to reconnect…",
+  "@p2pErrorIceDisconnected": {
+    "description": "F-NET-002 ICE_DISCONNECTED: ICE connection dropped"
+  },
+  "p2pRecoveryIceDisconnected": "Wait for automatic reconnect, or restart the game.",
+  "@p2pRecoveryIceDisconnected": {
+    "description": "Recovery hint for F-NET-002 ICE_DISCONNECTED: ICE connection dropped"
+  },
+  "p2pErrorNetworkLost": "No internet connection. Please check your network.",
+  "@p2pErrorNetworkLost": {
+    "description": "F-NET-003 NETWORK_LOST: device lost network access"
+  },
+  "p2pRecoveryNetworkLost": "Reconnect to Wi-Fi or mobile data.",
+  "@p2pRecoveryNetworkLost": {
+    "description": "Recovery hint for F-NET-003 NETWORK_LOST: device lost network access"
+  },
+  "p2pErrorTurnUnavailable": "Relay server unavailable. Try again later.",
+  "@p2pErrorTurnUnavailable": {
+    "description": "F-NET-004 TURN_UNAVAILABLE: no TURN server reachable"
+  },
+  "p2pRecoveryTurnUnavailable": "Try again in a few minutes.",
+  "@p2pRecoveryTurnUnavailable": {
+    "description": "Recovery hint for F-NET-004 TURN_UNAVAILABLE: no TURN server reachable"
+  },
+  "p2pErrorCaptivePortal": "A sign-in page is blocking the connection. Open your browser.",
+  "@p2pErrorCaptivePortal": {
+    "description": "F-NET-005 CAPTIVE_PORTAL: network behind captive portal"
+  },
+  "p2pRecoveryCaptivePortal": "Open a browser, sign in to the network, then return to the app.",
+  "@p2pRecoveryCaptivePortal": {
+    "description": "Recovery hint for F-NET-005 CAPTIVE_PORTAL: network behind captive portal"
+  },
+  "p2pErrorNatHardBlock": "Your network blocks peer connections. Use a different network.",
+  "@p2pErrorNatHardBlock": {
+    "description": "F-NET-006 NAT_HARD_BLOCK: symmetric NAT with no TURN fallback"
+  },
+  "p2pRecoveryNatHardBlock": "Try a different Wi-Fi network or mobile data.",
+  "@p2pRecoveryNatHardBlock": {
+    "description": "Recovery hint for F-NET-006 NAT_HARD_BLOCK: symmetric NAT with no TURN fallback"
+  },
+  "p2pErrorIpv6PmtuBlackHole": "Network path issue detected. Switching to backup route.",
+  "@p2pErrorIpv6PmtuBlackHole": {
+    "description": "F-NET-007 (v4) IPV6_PMTU_BLACK_HOLE: path MTU black hole on IPv6"
+  },
+  "p2pRecoveryIpv6PmtuBlackHole": "The app will retry automatically. No action needed.",
+  "@p2pRecoveryIpv6PmtuBlackHole": {
+    "description": "Recovery hint for F-NET-007 (v4) IPV6_PMTU_BLACK_HOLE: path MTU black hole on IPv6"
+  },
+  "p2pErrorDatachannelClosedUnexpectedly": "Connection channel closed unexpectedly. Reconnecting…",
+  "@p2pErrorDatachannelClosedUnexpectedly": {
+    "description": "F-XPORT-001 DATACHANNEL_CLOSED_UNEXPECTEDLY: data channel closed"
+  },
+  "p2pRecoveryDatachannelClosedUnexpectedly": "Wait for automatic reconnect.",
+  "@p2pRecoveryDatachannelClosedUnexpectedly": {
+    "description": "Recovery hint for F-XPORT-001 DATACHANNEL_CLOSED_UNEXPECTEDLY: data channel closed"
+  },
+  "p2pErrorSctpHandshakeTimeout": "Connection timed out. Please try again.",
+  "@p2pErrorSctpHandshakeTimeout": {
+    "description": "F-XPORT-002 SCTP_HANDSHAKE_TIMEOUT: SCTP handshake timed out"
+  },
+  "p2pRecoverySctpHandshakeTimeout": "Check your connection and try again.",
+  "@p2pRecoverySctpHandshakeTimeout": {
+    "description": "Recovery hint for F-XPORT-002 SCTP_HANDSHAKE_TIMEOUT: SCTP handshake timed out"
+  },
+  "p2pErrorSignaling5xx": "Server error. Please try again in a moment.",
+  "@p2pErrorSignaling5xx": {
+    "description": "F-SIG-001 SIGNALING_5XX: signaling server returned 5xx"
+  },
+  "p2pRecoverySignaling5xx": "Wait a moment then retry.",
+  "@p2pRecoverySignaling5xx": {
+    "description": "Recovery hint for F-SIG-001 SIGNALING_5XX: signaling server returned 5xx"
+  },
+  "p2pErrorSignalingRateLimited": "Too many requests. Please wait a moment and try again.",
+  "@p2pErrorSignalingRateLimited": {
+    "description": "F-SIG-002 SIGNALING_RATE_LIMITED: signaling rate limited"
+  },
+  "p2pRecoverySignalingRateLimited": "Wait 60 seconds before retrying.",
+  "@p2pRecoverySignalingRateLimited": {
+    "description": "Recovery hint for F-SIG-002 SIGNALING_RATE_LIMITED: signaling rate limited"
+  },
+  "p2pErrorSignalingPowRequired": "Verifying you're human… this may take a moment.",
+  "@p2pErrorSignalingPowRequired": {
+    "description": "F-SIG-003 SIGNALING_POW_REQUIRED: proof-of-work required"
+  },
+  "p2pRecoverySignalingPowRequired": "No action needed — the app will complete verification automatically.",
+  "@p2pRecoverySignalingPowRequired": {
+    "description": "Recovery hint for F-SIG-003 SIGNALING_POW_REQUIRED: proof-of-work required"
+  },
+  "p2pErrorOfferExpired": "This invite link has expired. Ask your opponent for a new one.",
+  "@p2pErrorOfferExpired": {
+    "description": "F-SIG-004 OFFER_EXPIRED: invite offer expired"
+  },
+  "p2pRecoveryOfferExpired": "Ask your opponent to share a new invite link.",
+  "@p2pRecoveryOfferExpired": {
+    "description": "Recovery hint for F-SIG-004 OFFER_EXPIRED: invite offer expired"
+  },
+  "p2pErrorOfferDuplicateAnswer": "Someone already joined this game. Ask for a new invite.",
+  "@p2pErrorOfferDuplicateAnswer": {
+    "description": "F-SIG-005 OFFER_DUPLICATE_ANSWER: duplicate answer for offer"
+  },
+  "p2pRecoveryOfferDuplicateAnswer": "Ask your opponent to create a new game.",
+  "@p2pRecoveryOfferDuplicateAnswer": {
+    "description": "Recovery hint for F-SIG-005 OFFER_DUPLICATE_ANSWER: duplicate answer for offer"
+  },
+  "p2pErrorAdminDisabled": "This feature has been temporarily disabled.",
+  "@p2pErrorAdminDisabled": {
+    "description": "F-SIG-006 ADMIN_DISABLED: feature disabled by administrator"
+  },
+  "p2pRecoveryAdminDisabled": "Check for an app update or try again later.",
+  "@p2pRecoveryAdminDisabled": {
+    "description": "Recovery hint for F-SIG-006 ADMIN_DISABLED: feature disabled by administrator"
+  },
+  "p2pErrorKeyGenFailed": "Could not create your identity. Please restart the app.",
+  "@p2pErrorKeyGenFailed": {
+    "description": "F-ID-001 KEY_GEN_FAILED: keypair generation failed"
+  },
+  "p2pRecoveryKeyGenFailed": "Restart the app. If the issue persists, reinstall.",
+  "@p2pRecoveryKeyGenFailed": {
+    "description": "Recovery hint for F-ID-001 KEY_GEN_FAILED: keypair generation failed"
+  },
+  "p2pErrorKeyStorageUnavailable": "Secure storage is unavailable on this device.",
+  "@p2pErrorKeyStorageUnavailable": {
+    "description": "F-ID-002 KEY_STORAGE_UNAVAILABLE: secure key storage unavailable"
+  },
+  "p2pRecoveryKeyStorageUnavailable": "Enable device lock screen and try again.",
+  "@p2pRecoveryKeyStorageUnavailable": {
+    "description": "Recovery hint for F-ID-002 KEY_STORAGE_UNAVAILABLE: secure key storage unavailable"
+  },
+  "p2pErrorBiometricLockout": "Biometric authentication is locked. Use your PIN instead.",
+  "@p2pErrorBiometricLockout": {
+    "description": "F-ID-003 BIOMETRIC_LOCKOUT: biometric authentication locked out"
+  },
+  "p2pRecoveryBiometricLockout": "Use your PIN or password to unlock.",
+  "@p2pRecoveryBiometricLockout": {
+    "description": "Recovery hint for F-ID-003 BIOMETRIC_LOCKOUT: biometric authentication locked out"
+  },
+  "p2pErrorRecoveryBadCode": "Invalid recovery words. Please check them and try again.",
+  "@p2pErrorRecoveryBadCode": {
+    "description": "F-ID-004 RECOVERY_BAD_CODE: invalid recovery code entered"
+  },
+  "p2pRecoveryRecoveryBadCode": "Re-enter your recovery words carefully in order.",
+  "@p2pRecoveryRecoveryBadCode": {
+    "description": "Recovery hint for F-ID-004 RECOVERY_BAD_CODE: invalid recovery code entered"
+  },
+  "p2pErrorRecoveryParamMismatch": "Recovery failed — parameters do not match your backup.",
+  "@p2pErrorRecoveryParamMismatch": {
+    "description": "F-ID-005 RECOVERY_PARAM_MISMATCH: KDF params do not match saved state"
+  },
+  "p2pRecoveryRecoveryParamMismatch": "Use the same app version that created the backup.",
+  "@p2pRecoveryRecoveryParamMismatch": {
+    "description": "Recovery hint for F-ID-005 RECOVERY_PARAM_MISMATCH: KDF params do not match saved state"
+  },
+  "p2pErrorRebindAttestationFailed": "Device verification failed. Please contact support.",
+  "@p2pErrorRebindAttestationFailed": {
+    "description": "F-ID-006 REBIND_ATTESTATION_FAILED: device attestation failed on rebind"
+  },
+  "p2pRecoveryRebindAttestationFailed": "Contact support with your user ID.",
+  "@p2pRecoveryRebindAttestationFailed": {
+    "description": "Recovery hint for F-ID-006 REBIND_ATTESTATION_FAILED: device attestation failed on rebind"
+  },
+  "p2pErrorOldDeviceRejectedAfterRebind": "Your old device has been revoked. Use your new device.",
+  "@p2pErrorOldDeviceRejectedAfterRebind": {
+    "description": "F-ID-007 OLD_DEVICE_REJECTED_AFTER_REBIND: old device revoked"
+  },
+  "p2pRecoveryOldDeviceRejectedAfterRebind": "Sign in on your new device.",
+  "@p2pRecoveryOldDeviceRejectedAfterRebind": {
+    "description": "Recovery hint for F-ID-007 OLD_DEVICE_REJECTED_AFTER_REBIND: old device revoked"
+  },
+  "p2pErrorPushTokenInvalid": "Push notifications unavailable. Check app notification settings.",
+  "@p2pErrorPushTokenInvalid": {
+    "description": "F-PUSH-001 PUSH_TOKEN_INVALID: push token is invalid or expired"
+  },
+  "p2pRecoveryPushTokenInvalid": "Enable notifications for the app in system settings.",
+  "@p2pRecoveryPushTokenInvalid": {
+    "description": "Recovery hint for F-PUSH-001 PUSH_TOKEN_INVALID: push token is invalid or expired"
+  },
+  "p2pErrorPushProviderDown": "Push service temporarily unavailable. Direct connection in use.",
+  "@p2pErrorPushProviderDown": {
+    "description": "F-PUSH-002 (v4) PUSH_PROVIDER_DOWN: push provider unreachable"
+  },
+  "p2pRecoveryPushProviderDown": "Share the invite link directly.",
+  "@p2pRecoveryPushProviderDown": {
+    "description": "Recovery hint for F-PUSH-002 (v4) PUSH_PROVIDER_DOWN: push provider unreachable"
+  },
+  "p2pErrorPushDeferredByOs": "Invite notification delayed by your device.",
+  "@p2pErrorPushDeferredByOs": {
+    "description": "F-PUSH-003 PUSH_DEFERRED_BY_OS: OS deferred push delivery"
+  },
+  "p2pRecoveryPushDeferredByOs": "Check your notification settings and try again.",
+  "@p2pRecoveryPushDeferredByOs": {
+    "description": "Recovery hint for F-PUSH-003 PUSH_DEFERRED_BY_OS: OS deferred push delivery"
+  },
+  "p2pErrorPushReceivedNoOffer": "Invite notification arrived but the offer was not found.",
+  "@p2pErrorPushReceivedNoOffer": {
+    "description": "F-PUSH-004 PUSH_RECEIVED_NO_OFFER: push arrived but no offer found"
+  },
+  "p2pRecoveryPushReceivedNoOffer": "Ask your opponent to resend the invite.",
+  "@p2pRecoveryPushReceivedNoOffer": {
+    "description": "Recovery hint for F-PUSH-004 PUSH_RECEIVED_NO_OFFER: push arrived but no offer found"
+  },
+  "p2pErrorAppSuspendedMidHandshake": "App was backgrounded during connection. Please try again.",
+  "@p2pErrorAppSuspendedMidHandshake": {
+    "description": "F-LIFECYCLE-001 APP_SUSPENDED_MID_HANDSHAKE: app backgrounded during connect"
+  },
+  "p2pRecoveryAppSuspendedMidHandshake": "Keep the app in the foreground during connection.",
+  "@p2pRecoveryAppSuspendedMidHandshake": {
+    "description": "Recovery hint for F-LIFECYCLE-001 APP_SUSPENDED_MID_HANDSHAKE: app backgrounded during connect"
+  },
+  "p2pErrorForegroundServiceKilled": "Background service was stopped. Game cannot continue.",
+  "@p2pErrorForegroundServiceKilled": {
+    "description": "F-LIFECYCLE-002 FOREGROUND_SERVICE_KILLED: Android foreground service killed"
+  },
+  "p2pRecoveryForegroundServiceKilled": "Disable battery optimisation for this app.",
+  "@p2pRecoveryForegroundServiceKilled": {
+    "description": "Recovery hint for F-LIFECYCLE-002 FOREGROUND_SERVICE_KILLED: Android foreground service killed"
+  },
+  "p2pErrorIosNseTimeout": "Notification handler timed out. Reopen the app to reconnect.",
+  "@p2pErrorIosNseTimeout": {
+    "description": "F-LIFECYCLE-003 IOS_NSE_TIMEOUT: iOS Notification Service Extension timed out"
+  },
+  "p2pRecoveryIosNseTimeout": "Tap the notification to open the app and reconnect.",
+  "@p2pRecoveryIosNseTimeout": {
+    "description": "Recovery hint for F-LIFECYCLE-003 IOS_NSE_TIMEOUT: iOS Notification Service Extension timed out"
+  },
+  "p2pErrorDeepLinkColdStartLost": "Invite link was lost on app start. Ask for a new invite.",
+  "@p2pErrorDeepLinkColdStartLost": {
+    "description": "F-LIFECYCLE-004 DEEP_LINK_COLD_START_LOST: deep link lost on cold start"
+  },
+  "p2pRecoveryDeepLinkColdStartLost": "Ask your opponent for a fresh invite.",
+  "@p2pRecoveryDeepLinkColdStartLost": {
+    "description": "Recovery hint for F-LIFECYCLE-004 DEEP_LINK_COLD_START_LOST: deep link lost on cold start"
+  },
+  "p2pErrorSavedGamesDbCorrupt": "Saved games database is corrupted. Games may be lost.",
+  "@p2pErrorSavedGamesDbCorrupt": {
+    "description": "F-STORE-001 SAVED_GAMES_DB_CORRUPT: saved-games database is corrupt"
+  },
+  "p2pRecoverySavedGamesDbCorrupt": "Reinstall the app to rebuild the database.",
+  "@p2pRecoverySavedGamesDbCorrupt": {
+    "description": "Recovery hint for F-STORE-001 SAVED_GAMES_DB_CORRUPT: saved-games database is corrupt"
+  },
+  "p2pErrorSavedGamesMigrationFailed": "Could not upgrade saved games. Please reinstall the app.",
+  "@p2pErrorSavedGamesMigrationFailed": {
+    "description": "F-STORE-002 SAVED_GAMES_MIGRATION_FAILED: database migration failed"
+  },
+  "p2pRecoverySavedGamesMigrationFailed": "Reinstall the app. Old saved games may be lost.",
+  "@p2pRecoverySavedGamesMigrationFailed": {
+    "description": "Recovery hint for F-STORE-002 SAVED_GAMES_MIGRATION_FAILED: database migration failed"
+  },
+  "p2pErrorDiskFull": "Your device storage is full. Please free up space.",
+  "@p2pErrorDiskFull": {
+    "description": "F-STORE-003 DISK_FULL: device storage is full"
+  },
+  "p2pRecoveryDiskFull": "Delete unused apps or files and try again.",
+  "@p2pRecoveryDiskFull": {
+    "description": "Recovery hint for F-STORE-003 DISK_FULL: device storage is full"
+  },
+  "p2pErrorWebrtcNotSupported": "Your browser does not support peer connections. Use a modern browser.",
+  "@p2pErrorWebrtcNotSupported": {
+    "description": "F-WEB-001 WEBRTC_NOT_SUPPORTED: WebRTC not supported in this browser"
+  },
+  "p2pRecoveryWebrtcNotSupported": "Use Chrome, Firefox, or Safari — or download the mobile app.",
+  "@p2pRecoveryWebrtcNotSupported": {
+    "description": "Recovery hint for F-WEB-001 WEBRTC_NOT_SUPPORTED: WebRTC not supported in this browser"
+  },
+  "p2pErrorWebcryptoNonExtractableLimit": "Browser security policy prevents key export. Use the app.",
+  "@p2pErrorWebcryptoNonExtractableLimit": {
+    "description": "F-WEB-002 WEBCRYPTO_NON_EXTRACTABLE_LIMIT: WebCrypto key export denied"
+  },
+  "p2pRecoveryWebcryptoNonExtractableLimit": "Download the mobile app for full functionality.",
+  "@p2pRecoveryWebcryptoNonExtractableLimit": {
+    "description": "Recovery hint for F-WEB-002 WEBCRYPTO_NON_EXTRACTABLE_LIMIT: WebCrypto key export denied"
+  },
+  "p2pErrorLibsecretUnavailable": "System keychain is unavailable. Enable it and try again.",
+  "@p2pErrorLibsecretUnavailable": {
+    "description": "F-DESKTOP-001 LIBSECRET_UNAVAILABLE: libsecret / keychain unavailable"
+  },
+  "p2pRecoveryLibsecretUnavailable": "Install and start a keychain service (e.g. GNOME Keyring).",
+  "@p2pRecoveryLibsecretUnavailable": {
+    "description": "Recovery hint for F-DESKTOP-001 LIBSECRET_UNAVAILABLE: libsecret / keychain unavailable"
+  },
+  "p2pErrorTelemetryQueueOverflow": "Diagnostics buffer full. Some telemetry will be dropped.",
+  "@p2pErrorTelemetryQueueOverflow": {
+    "description": "F-OBS-001 TELEMETRY_QUEUE_OVERFLOW: telemetry queue overflowed"
+  },
+  "p2pRecoveryTelemetryQueueOverflow": "No action needed.",
+  "@p2pRecoveryTelemetryQueueOverflow": {
+    "description": "Recovery hint for F-OBS-001 TELEMETRY_QUEUE_OVERFLOW: telemetry queue overflowed"
+  },
+  "p2pErrorChatFrameTooLarge": "Message too long. Please shorten it and try again.",
+  "@p2pErrorChatFrameTooLarge": {
+    "description": "F-CHAT-001 CHAT_FRAME_TOO_LARGE: chat message exceeds frame limit"
+  },
+  "p2pRecoveryChatFrameTooLarge": "Keep messages under 500 characters.",
+  "@p2pRecoveryChatFrameTooLarge": {
+    "description": "Recovery hint for F-CHAT-001 CHAT_FRAME_TOO_LARGE: chat message exceeds frame limit"
+  },
+  "p2pErrorChatRateLimitLocal": "Sending too fast. Please slow down.",
+  "@p2pErrorChatRateLimitLocal": {
+    "description": "F-CHAT-002 CHAT_RATE_LIMIT_LOCAL: local chat rate limit reached"
+  },
+  "p2pRecoveryChatRateLimitLocal": "Wait a second between messages.",
+  "@p2pRecoveryChatRateLimitLocal": {
+    "description": "Recovery hint for F-CHAT-002 CHAT_RATE_LIMIT_LOCAL: local chat rate limit reached"
+  },
+  "p2pErrorLamportConflict": "Clock conflict on join. Reconnecting…",
+  "@p2pErrorLamportConflict": {
+    "description": "F-LATEJOIN-001 LAMPORT_CONFLICT: Lamport clock conflict on late join"
+  },
+  "p2pRecoveryLamportConflict": "The app will resolve this automatically. Wait a moment.",
+  "@p2pRecoveryLamportConflict": {
+    "description": "Recovery hint for F-LATEJOIN-001 LAMPORT_CONFLICT: Lamport clock conflict on late join"
+  },
+  "p2pErrorForensicBundleWriteFailed": "Could not save game report.",
+  "@p2pErrorForensicBundleWriteFailed": {
+    "description": "F-FORENSIC-001 FORENSIC_BUNDLE_WRITE_FAILED: forensic bundle could not be written"
+  },
+  "p2pRecoveryForensicBundleWriteFailed": "Check device storage space.",
+  "@p2pRecoveryForensicBundleWriteFailed": {
+    "description": "Recovery hint for F-FORENSIC-001 FORENSIC_BUNDLE_WRITE_FAILED: forensic bundle could not be written"
+  },
+  "p2pErrorWireVersionMismatch": "Protocol version mismatch. Please update the app.",
+  "@p2pErrorWireVersionMismatch": {
+    "description": "F-PROTO-009 WIRE_VERSION_MISMATCH: wire version negotiation failed"
+  },
+  "p2pRecoveryWireVersionMismatch": "Both players must use the same app version.",
+  "@p2pRecoveryWireVersionMismatch": {
+    "description": "Recovery hint for F-PROTO-009 WIRE_VERSION_MISMATCH: wire version negotiation failed"
+  },
+  "p2pErrorEngineVersionMismatch": "Engine version mismatch. Both players must use the same app version.",
+  "@p2pErrorEngineVersionMismatch": {
+    "description": "F-PROTO-010 ENGINE_VERSION_MISMATCH: engine binary version mismatch"
+  },
+  "p2pRecoveryEngineVersionMismatch": "Both players should update to the latest version.",
+  "@p2pRecoveryEngineVersionMismatch": {
+    "description": "Recovery hint for F-PROTO-010 ENGINE_VERSION_MISMATCH: engine binary version mismatch"
+  },
+  "p2pErrorModConfigRejected": "Game configuration rejected by your opponent.",
+  "@p2pErrorModConfigRejected": {
+    "description": "F-PROTO-011 MOD_CONFIG_REJECTED: mod configuration rejected by peer"
+  },
+  "p2pRecoveryModConfigRejected": "Confirm configuration settings with your opponent.",
+  "@p2pRecoveryModConfigRejected": {
+    "description": "Recovery hint for F-PROTO-011 MOD_CONFIG_REJECTED: mod configuration rejected by peer"
+  },
+  "p2pErrorTimeControlRejected": "Time control rejected. Please agree on a time control and retry.",
+  "@p2pErrorTimeControlRejected": {
+    "description": "F-PROTO-012 TIME_CONTROL_REJECTED: time control rejected by peer"
+  },
+  "p2pRecoveryTimeControlRejected": "Select the same time control and retry.",
+  "@p2pRecoveryTimeControlRejected": {
+    "description": "Recovery hint for F-PROTO-012 TIME_CONTROL_REJECTED: time control rejected by peer"
+  },
+  "p2pErrorColorFlipRevealMismatch": "Color assignment failed. Please restart the game.",
+  "@p2pErrorColorFlipRevealMismatch": {
+    "description": "F-PROTO-013 COLOR_FLIP_REVEAL_MISMATCH: committed color reveal mismatch"
+  },
+  "p2pRecoveryColorFlipRevealMismatch": "Start a new game.",
+  "@p2pRecoveryColorFlipRevealMismatch": {
+    "description": "Recovery hint for F-PROTO-013 COLOR_FLIP_REVEAL_MISMATCH: committed color reveal mismatch"
+  },
+  "p2pErrorTranscriptSignFailed": "Could not sign game transcript. Result may not be recorded.",
+  "@p2pErrorTranscriptSignFailed": {
+    "description": "F-PROTO-014 TRANSCRIPT_SIGN_FAILED: transcript signature generation failed"
+  },
+  "p2pRecoveryTranscriptSignFailed": "The game was played but may not be saved. Check storage.",
+  "@p2pRecoveryTranscriptSignFailed": {
+    "description": "Recovery hint for F-PROTO-014 TRANSCRIPT_SIGN_FAILED: transcript signature generation failed"
+  },
+  "p2pErrorByeDisagreement": "Could not agree on game end reason.",
+  "@p2pErrorByeDisagreement": {
+    "description": "F-PROTO-015 BYE_DISAGREEMENT: BYE reason code disagreement"
+  },
+  "p2pRecoveryByeDisagreement": "The result will be reviewed. No action needed.",
+  "@p2pRecoveryByeDisagreement": {
+    "description": "Recovery hint for F-PROTO-015 BYE_DISAGREEMENT: BYE reason code disagreement"
+  },
+  "p2pErrorClockDesyncBeyondBudget": "Clocks have drifted too far apart. Game paused for resync.",
+  "@p2pErrorClockDesyncBeyondBudget": {
+    "description": "F-CLOCK-001 CLOCK_DESYNC_BEYOND_BUDGET: clocks drifted beyond tolerance"
+  },
+  "p2pRecoveryClockDesyncBeyondBudget": "Wait for the app to resync clocks automatically.",
+  "@p2pRecoveryClockDesyncBeyondBudget": {
+    "description": "Recovery hint for F-CLOCK-001 CLOCK_DESYNC_BEYOND_BUDGET: clocks drifted beyond tolerance"
+  },
+  "p2pErrorFlagFallDisagreement": "Time flag disagreement detected. Seeking resolution…",
+  "@p2pErrorFlagFallDisagreement": {
+    "description": "F-CLOCK-002 FLAG_FALL_DISAGREEMENT: flag-fall event disagreement"
+  },
+  "p2pRecoveryFlagFallDisagreement": "The result is under review.",
+  "@p2pRecoveryFlagFallDisagreement": {
+    "description": "Recovery hint for F-CLOCK-002 FLAG_FALL_DISAGREEMENT: flag-fall event disagreement"
+  },
+  "p2pErrorResyncTimeout": "Clock resync timed out. Game ended.",
+  "@p2pErrorResyncTimeout": {
+    "description": "F-CLOCK-003 RESYNC_TIMEOUT: clock resync timed out"
+  },
+  "p2pRecoveryResyncTimeout": "Start a new game.",
+  "@p2pRecoveryResyncTimeout": {
+    "description": "Recovery hint for F-CLOCK-003 RESYNC_TIMEOUT: clock resync timed out"
+  },
+  "p2pErrorPerfectNegCollisionUnresolved": "Connection role collision. Please retry.",
+  "@p2pErrorPerfectNegCollisionUnresolved": {
+    "description": "F-XPORT-003 PERFECT_NEG_COLLISION_UNRESOLVED: role-negotiation collision"
+  },
+  "p2pRecoveryPerfectNegCollisionUnresolved": "Tap Retry to reconnect.",
+  "@p2pRecoveryPerfectNegCollisionUnresolved": {
+    "description": "Recovery hint for F-XPORT-003 PERFECT_NEG_COLLISION_UNRESOLVED: role-negotiation collision"
+  },
+  "p2pErrorOfferTokenExpired": "Invite token has expired. Request a new invite.",
+  "@p2pErrorOfferTokenExpired": {
+    "description": "F-SIG-007 OFFER_TOKEN_EXPIRED: offer token expired before use"
+  },
+  "p2pRecoveryOfferTokenExpired": "Request a new invite from your opponent.",
+  "@p2pRecoveryOfferTokenExpired": {
+    "description": "Recovery hint for F-SIG-007 OFFER_TOKEN_EXPIRED: offer token expired before use"
+  },
+  "p2pErrorReadOnlyModeRejectedWrite": "Server is in read-only mode. Try again shortly.",
+  "@p2pErrorReadOnlyModeRejectedWrite": {
+    "description": "F-SIG-008 READ_ONLY_MODE_REJECTED_WRITE: write rejected in read-only mode"
+  },
+  "p2pRecoveryReadOnlyModeRejectedWrite": "Try again in a few minutes.",
+  "@p2pRecoveryReadOnlyModeRejectedWrite": {
+    "description": "Recovery hint for F-SIG-008 READ_ONLY_MODE_REJECTED_WRITE: write rejected in read-only mode"
+  },
+  "p2pErrorRebindRaceLost": "Another device completed login first. Try again.",
+  "@p2pErrorRebindRaceLost": {
+    "description": "F-SIG-009 REBIND_RACE_LOST: concurrent rebind race lost"
+  },
+  "p2pRecoveryRebindRaceLost": "Try again on this device.",
+  "@p2pRecoveryRebindRaceLost": {
+    "description": "Recovery hint for F-SIG-009 REBIND_RACE_LOST: concurrent rebind race lost"
+  },
+  "p2pErrorKdfVersionUnsupported": "Identity format not supported. Please update the app.",
+  "@p2pErrorKdfVersionUnsupported": {
+    "description": "F-ID-008 KDF_VERSION_UNSUPPORTED: KDF version not supported"
+  },
+  "p2pRecoveryKdfVersionUnsupported": "Update to the latest app version.",
+  "@p2pRecoveryKdfVersionUnsupported": {
+    "description": "Recovery hint for F-ID-008 KDF_VERSION_UNSUPPORTED: KDF version not supported"
+  },
+  "p2pErrorBip39ChecksumFail": "Recovery words are invalid. Check each word carefully.",
+  "@p2pErrorBip39ChecksumFail": {
+    "description": "F-ID-009 BIP39_CHECKSUM_FAIL: BIP-39 mnemonic checksum failed"
+  },
+  "p2pRecoveryBip39ChecksumFail": "Re-enter each word exactly as written.",
+  "@p2pRecoveryBip39ChecksumFail": {
+    "description": "Recovery hint for F-ID-009 BIP39_CHECKSUM_FAIL: BIP-39 mnemonic checksum failed"
+  },
+  "p2pErrorKdfParamsTooWeak": "Security parameters below minimum. Please re-create your identity.",
+  "@p2pErrorKdfParamsTooWeak": {
+    "description": "F-ID-010 KDF_PARAMS_TOO_WEAK: KDF parameters below minimum strength"
+  },
+  "p2pRecoveryKdfParamsTooWeak": "Delete and re-create your identity with the latest app.",
+  "@p2pRecoveryKdfParamsTooWeak": {
+    "description": "Recovery hint for F-ID-010 KDF_PARAMS_TOO_WEAK: KDF parameters below minimum strength"
+  },
+  "p2pErrorXchaChaNonceReuseDetected": "Critical security error detected. Session terminated.",
+  "@p2pErrorXchaChaNonceReuseDetected": {
+    "description": "F-ID-011 XCHACHA_NONCE_REUSE_DETECTED: XChaCha20 nonce reuse detected"
+  },
+  "p2pRecoveryXchaChaNonceReuseDetected": "Reinstall the app immediately.",
+  "@p2pRecoveryXchaChaNonceReuseDetected": {
+    "description": "Recovery hint for F-ID-011 XCHACHA_NONCE_REUSE_DETECTED: XChaCha20 nonce reuse detected"
+  },
+  "p2pErrorStartupIntegrityFail": "App integrity check failed. Please reinstall the app.",
+  "@p2pErrorStartupIntegrityFail": {
+    "description": "F-INTEGRITY-001 STARTUP_INTEGRITY_FAIL: app integrity check failed at startup"
+  },
+  "p2pRecoveryStartupIntegrityFail": "Download a fresh copy of the app from the official store.",
+  "@p2pRecoveryStartupIntegrityFail": {
+    "description": "Recovery hint for F-INTEGRITY-001 STARTUP_INTEGRITY_FAIL: app integrity check failed at startup"
+  },
+  "p2pErrorWebPlatformUnsupportedFeature": "A required feature is unavailable in this browser. Use the app.",
+  "@p2pErrorWebPlatformUnsupportedFeature": {
+    "description": "F-WEB-003 WEB_PLATFORM_UNSUPPORTED_FEATURE: required feature unavailable"
+  },
+  "p2pRecoveryWebPlatformUnsupportedFeature": "Switch to the latest Chrome, Firefox, or Safari.",
+  "@p2pRecoveryWebPlatformUnsupportedFeature": {
+    "description": "Recovery hint for F-WEB-003 WEB_PLATFORM_UNSUPPORTED_FEATURE: required feature unavailable"
+  },
+  "p2pErrorBiometricNotAvailableDesktop": "Biometric authentication is not available on this device.",
+  "@p2pErrorBiometricNotAvailableDesktop": {
+    "description": "F-DESKTOP-002 BIOMETRIC_NOT_AVAILABLE_DESKTOP: biometric not available on desktop"
+  },
+  "p2pRecoveryBiometricNotAvailableDesktop": "Use your password to authenticate.",
+  "@p2pRecoveryBiometricNotAvailableDesktop": {
+    "description": "Recovery hint for F-DESKTOP-002 BIOMETRIC_NOT_AVAILABLE_DESKTOP: biometric not available on desktop"
+  },
+  "p2pErrorDiagLogDiskFull": "Diagnostic log storage full. Oldest logs will be overwritten.",
+  "@p2pErrorDiagLogDiskFull": {
+    "description": "F-OBS-002 DIAG_LOG_DISK_FULL: diagnostic log disk full"
+  },
+  "p2pRecoveryDiagLogDiskFull": "Free up device storage.",
+  "@p2pRecoveryDiagLogDiskFull": {
+    "description": "Recovery hint for F-OBS-002 DIAG_LOG_DISK_FULL: diagnostic log disk full"
+  },
+  "p2pErrorKillSwitchEngaged": "This feature has been remotely disabled. Please update the app.",
+  "@p2pErrorKillSwitchEngaged": {
+    "description": "F-OPS-001 KILL_SWITCH_ENGAGED: operator kill-switch activated"
+  },
+  "p2pRecoveryKillSwitchEngaged": "Update the app and try again.",
+  "@p2pRecoveryKillSwitchEngaged": {
+    "description": "Recovery hint for F-OPS-001 KILL_SWITCH_ENGAGED: operator kill-switch activated"
+  },
+  "p2pErrorSeqCeilingReached": "Message sequence limit reached. Game ended.",
+  "@p2pErrorSeqCeilingReached": {
+    "description": "F-PROTO-016 SEQ_CEILING_REACHED: sequence number ceiling reached"
+  },
+  "p2pRecoverySeqCeilingReached": "Start a new game.",
+  "@p2pRecoverySeqCeilingReached": {
+    "description": "Recovery hint for F-PROTO-016 SEQ_CEILING_REACHED: sequence number ceiling reached"
+  },
+  "p2pErrorByeFragmentTimeout": "End-of-game handshake timed out.",
+  "@p2pErrorByeFragmentTimeout": {
+    "description": "F-PROTO-017 BYE_FRAGMENT_TIMEOUT: BYE fragment delivery timed out"
+  },
+  "p2pRecoveryByeFragmentTimeout": "The game result is saved. Start a new game.",
+  "@p2pRecoveryByeFragmentTimeout": {
+    "description": "Recovery hint for F-PROTO-017 BYE_FRAGMENT_TIMEOUT: BYE fragment delivery timed out"
+  },
+  "p2pErrorByeFragmentOutOfOrder": "End-of-game fragment arrived out of order.",
+  "@p2pErrorByeFragmentOutOfOrder": {
+    "description": "F-PROTO-018 BYE_FRAGMENT_OUT_OF_ORDER: BYE fragment arrived out of order"
+  },
+  "p2pRecoveryByeFragmentOutOfOrder": "Wait for the app to resolve this automatically.",
+  "@p2pRecoveryByeFragmentOutOfOrder": {
+    "description": "Recovery hint for F-PROTO-018 BYE_FRAGMENT_OUT_OF_ORDER: BYE fragment arrived out of order"
+  },
+  "p2pErrorByeFragmentOutOfBounds": "End-of-game fragment index invalid.",
+  "@p2pErrorByeFragmentOutOfBounds": {
+    "description": "F-PROTO-019 BYE_FRAGMENT_OUT_OF_BOUNDS: BYE fragment index out of bounds"
+  },
+  "p2pRecoveryByeFragmentOutOfBounds": "Update the app.",
+  "@p2pRecoveryByeFragmentOutOfBounds": {
+    "description": "Recovery hint for F-PROTO-019 BYE_FRAGMENT_OUT_OF_BOUNDS: BYE fragment index out of bounds"
+  },
+  "p2pErrorFragmentNotAllowed": "Message fragmentation not permitted for this message type.",
+  "@p2pErrorFragmentNotAllowed": {
+    "description": "F-PROTO-020 FRAGMENT_NOT_ALLOWED: fragmentation not allowed for this message type"
+  },
+  "p2pRecoveryFragmentNotAllowed": "Update the app.",
+  "@p2pRecoveryFragmentNotAllowed": {
+    "description": "Recovery hint for F-PROTO-020 FRAGMENT_NOT_ALLOWED: fragmentation not allowed for this message type"
+  },
+  "p2pErrorCryptoSuiteNotNegotiated": "Encryption suite could not be agreed upon. Please reconnect.",
+  "@p2pErrorCryptoSuiteNotNegotiated": {
+    "description": "F-PROTO-021 CRYPTO_SUITE_NOT_NEGOTIATED: crypto suite was not negotiated"
+  },
+  "p2pRecoveryCryptoSuiteNotNegotiated": "Both players must use the same app version.",
+  "@p2pRecoveryCryptoSuiteNotNegotiated": {
+    "description": "Recovery hint for F-PROTO-021 CRYPTO_SUITE_NOT_NEGOTIATED: crypto suite was not negotiated"
+  },
+  "p2pErrorTranscriptVersionUnsupported": "Game transcript format not supported. Please update the app.",
+  "@p2pErrorTranscriptVersionUnsupported": {
+    "description": "F-PROTO-022 TRANSCRIPT_VERSION_UNSUPPORTED: transcript version unsupported"
+  },
+  "p2pRecoveryTranscriptVersionUnsupported": "Update the app to the latest version.",
+  "@p2pRecoveryTranscriptVersionUnsupported": {
+    "description": "Recovery hint for F-PROTO-022 TRANSCRIPT_VERSION_UNSUPPORTED: transcript version unsupported"
+  },
+  "p2pErrorKdfDerivationFailed": "Key derivation failed. Please try again.",
+  "@p2pErrorKdfDerivationFailed": {
+    "description": "F-ID-012 KDF_DERIVATION_FAILED: key derivation failed"
+  },
+  "p2pRecoveryKdfDerivationFailed": "Restart the app and try again.",
+  "@p2pRecoveryKdfDerivationFailed": {
+    "description": "Recovery hint for F-ID-012 KDF_DERIVATION_FAILED: key derivation failed"
+  },
+  "p2pErrorSecretZeroiseFailed": "Critical security error: secrets could not be cleared.",
+  "@p2pErrorSecretZeroiseFailed": {
+    "description": "F-ID-013 SECRET_ZEROISE_FAILED: could not securely erase secret material"
+  },
+  "p2pRecoverySecretZeroiseFailed": "Reinstall the app immediately.",
+  "@p2pRecoverySecretZeroiseFailed": {
+    "description": "Recovery hint for F-ID-013 SECRET_ZEROISE_FAILED: could not securely erase secret material"
+  },
+  "p2pErrorDatachannelIdCollision": "Channel ID conflict. Reconnecting…",
+  "@p2pErrorDatachannelIdCollision": {
+    "description": "F-XPORT-004 DATACHANNEL_ID_COLLISION: data channel ID collision"
+  },
+  "p2pRecoveryDatachannelIdCollision": "The app will reconnect automatically.",
+  "@p2pRecoveryDatachannelIdCollision": {
+    "description": "Recovery hint for F-XPORT-004 DATACHANNEL_ID_COLLISION: data channel ID collision"
+  },
+  "p2pErrorResumedAsNew": "Session resumed as a new connection.",
+  "@p2pErrorResumedAsNew": {
+    "description": "F-XPORT-005 RESUMED_AS_NEW: channel resumed as a new session"
+  },
+  "p2pRecoveryResumedAsNew": "Continue playing normally.",
+  "@p2pRecoveryResumedAsNew": {
+    "description": "Recovery hint for F-XPORT-005 RESUMED_AS_NEW: channel resumed as a new session"
+  },
+  "p2pErrorMonotonicClockUnavailable": "Device clock is unreliable. Game clock may be inaccurate.",
+  "@p2pErrorMonotonicClockUnavailable": {
+    "description": "F-CLOCK-004 MONOTONIC_CLOCK_UNAVAILABLE: monotonic clock unavailable"
+  },
+  "p2pRecoveryMonotonicClockUnavailable": "Avoid modifying the system clock while playing.",
+  "@p2pRecoveryMonotonicClockUnavailable": {
+    "description": "Recovery hint for F-CLOCK-004 MONOTONIC_CLOCK_UNAVAILABLE: monotonic clock unavailable"
+  },
+  "p2pErrorWallClockTamperedDetected": "Device clock anomaly detected.",
+  "@p2pErrorWallClockTamperedDetected": {
+    "description": "F-CLOCK-005 (v6) WALL_CLOCK_TAMPERED_DETECTED: wall-clock tampering detected"
+  },
+  "p2pRecoveryWallClockTamperedDetected": "Set your device clock to the correct time.",
+  "@p2pRecoveryWallClockTamperedDetected": {
+    "description": "Recovery hint for F-CLOCK-005 (v6) WALL_CLOCK_TAMPERED_DETECTED: wall-clock tampering detected"
+  },
+  "p2pErrorMeteredNetworkUserDeclined": "Connection cancelled — metered network use was declined.",
+  "@p2pErrorMeteredNetworkUserDeclined": {
+    "description": "F-NET-008 (v6) METERED_NETWORK_USER_DECLINED: user declined metered network use"
+  },
+  "p2pRecoveryMeteredNetworkUserDeclined": "Connect to Wi-Fi or enable mobile data usage for this app.",
+  "@p2pRecoveryMeteredNetworkUserDeclined": {
+    "description": "Recovery hint for F-NET-008 (v6) METERED_NETWORK_USER_DECLINED: user declined metered network use"
+  },
+  "p2pErrorOemBatteryOptBlocking": "Battery optimisation is blocking the connection. Disable it for this app.",
+  "@p2pErrorOemBatteryOptBlocking": {
+    "description": "F-LIFECYCLE-005 OEM_BATTERY_OPT_BLOCKING: OEM battery optimisation blocking connection"
+  },
+  "p2pRecoveryOemBatteryOptBlocking": "Go to Settings → Battery → disable optimisation for this app.",
+  "@p2pRecoveryOemBatteryOptBlocking": {
+    "description": "Recovery hint for F-LIFECYCLE-005 OEM_BATTERY_OPT_BLOCKING: OEM battery optimisation blocking connection"
+  },
+  "p2pErrorApnsSilentPushDropped": "Invite notification was suppressed by your device.",
+  "@p2pErrorApnsSilentPushDropped": {
+    "description": "F-PUSH-005 APNS_SILENT_PUSH_DROPPED: APNs silent push dropped by OS"
+  },
+  "p2pRecoveryApnsSilentPushDropped": "Enable background app refresh in iOS Settings.",
+  "@p2pRecoveryApnsSilentPushDropped": {
+    "description": "Recovery hint for F-PUSH-005 APNS_SILENT_PUSH_DROPPED: APNs silent push dropped by OS"
+  },
+  "p2pErrorFcmTokenRefreshed": "Notification token refreshed.",
+  "@p2pErrorFcmTokenRefreshed": {
+    "description": "F-PUSH-006 FCM_TOKEN_REFRESHED: FCM token refreshed (informational)"
+  },
+  "p2pRecoveryFcmTokenRefreshed": "No action needed.",
+  "@p2pRecoveryFcmTokenRefreshed": {
+    "description": "Recovery hint for F-PUSH-006 FCM_TOKEN_REFRESHED: FCM token refreshed (informational)"
+  },
+  "p2pErrorRecoveryScreenCapturedDetected": "Screen capture detected. Close the screenshot tool and try again.",
+  "@p2pErrorRecoveryScreenCapturedDetected": {
+    "description": "F-ID-014 RECOVERY_SCREEN_CAPTURED_DETECTED: screen capture detected on recovery screen"
+  },
+  "p2pRecoveryRecoveryScreenCapturedDetected": "Close any screenshot or screen-recording tools.",
+  "@p2pRecoveryRecoveryScreenCapturedDetected": {
+    "description": "Recovery hint for F-ID-014 RECOVERY_SCREEN_CAPTURED_DETECTED: screen capture detected on recovery screen"
+  },
+  "p2pErrorChatBlockedByUser": "You cannot send messages to this player.",
+  "@p2pErrorChatBlockedByUser": {
+    "description": "F-CHAT-003 (v6) CHAT_BLOCKED_BY_USER: opponent has blocked you"
+  },
+  "p2pRecoveryChatBlockedByUser": "No action needed.",
+  "@p2pRecoveryChatBlockedByUser": {
+    "description": "Recovery hint for F-CHAT-003 (v6) CHAT_BLOCKED_BY_USER: opponent has blocked you"
+  },
+  "p2pErrorChatReportedAsAbuse": "Your message was reported. Chat has been paused.",
+  "@p2pErrorChatReportedAsAbuse": {
+    "description": "F-CHAT-004 CHAT_REPORTED_AS_ABUSE: message reported as abuse"
+  },
+  "p2pRecoveryChatReportedAsAbuse": "Review the community guidelines.",
+  "@p2pRecoveryChatReportedAsAbuse": {
+    "description": "Recovery hint for F-CHAT-004 CHAT_REPORTED_AS_ABUSE: message reported as abuse"
+  },
+  "p2pErrorAgeGateBlocked": "You must meet the age requirement to use this feature.",
+  "@p2pErrorAgeGateBlocked": {
+    "description": "F-ONBOARD-001 AGE_GATE_BLOCKED: age gate check failed"
+  },
+  "p2pRecoveryAgeGateBlocked": "No action available.",
+  "@p2pRecoveryAgeGateBlocked": {
+    "description": "Recovery hint for F-ONBOARD-001 AGE_GATE_BLOCKED: age gate check failed"
+  },
+  "p2pErrorStorePrivacyManifestOutOfDate": "App store privacy manifest is out of date. Update required.",
+  "@p2pErrorStorePrivacyManifestOutOfDate": {
+    "description": "F-STORE-004 STORE_PRIVACY_MANIFEST_OUT_OF_DATE: App Store privacy manifest stale"
+  },
+  "p2pRecoveryStorePrivacyManifestOutOfDate": "Update the app from the App Store.",
+  "@p2pRecoveryStorePrivacyManifestOutOfDate": {
+    "description": "Recovery hint for F-STORE-004 STORE_PRIVACY_MANIFEST_OUT_OF_DATE: App Store privacy manifest stale"
+  },
+  "p2pErrorDeviceCapExceeded": "Maximum number of devices reached. Remove a device to continue.",
+  "@p2pErrorDeviceCapExceeded": {
+    "description": "F-SIG-010 DEVICE_CAP_EXCEEDED: per-user device cap exceeded"
+  },
+  "p2pRecoveryDeviceCapExceeded": "Remove an old device from your account settings.",
+  "@p2pRecoveryDeviceCapExceeded": {
+    "description": "Recovery hint for F-SIG-010 DEVICE_CAP_EXCEEDED: per-user device cap exceeded"
+  },
+  "p2pErrorLongPollCapExceeded": "Too many open connections. Please close other sessions.",
+  "@p2pErrorLongPollCapExceeded": {
+    "description": "F-SIG-011 LONG_POLL_CAP_EXCEEDED: long-poll connection cap exceeded"
+  },
+  "p2pRecoveryLongPollCapExceeded": "Close other sessions or browser tabs.",
+  "@p2pRecoveryLongPollCapExceeded": {
+    "description": "Recovery hint for F-SIG-011 LONG_POLL_CAP_EXCEEDED: long-poll connection cap exceeded"
+  },
+  "p2pErrorSdpTooLarge": "Connection description too large. Please try a different network.",
+  "@p2pErrorSdpTooLarge": {
+    "description": "F-SIG-012 SDP_TOO_LARGE: SDP offer/answer exceeds size limit"
+  },
+  "p2pRecoverySdpTooLarge": "Disable VPN or browser extensions and try again.",
+  "@p2pRecoverySdpTooLarge": {
+    "description": "Recovery hint for F-SIG-012 SDP_TOO_LARGE: SDP offer/answer exceeds size limit"
+  },
+  "p2pErrorSdpForbiddenMediaLine": "Connection description contains disallowed content.",
+  "@p2pErrorSdpForbiddenMediaLine": {
+    "description": "F-SIG-013 SDP_FORBIDDEN_MEDIA_LINE: SDP contains disallowed media line"
+  },
+  "p2pRecoverySdpForbiddenMediaLine": "Update the app or contact support.",
+  "@p2pRecoverySdpForbiddenMediaLine": {
+    "description": "Recovery hint for F-SIG-013 SDP_FORBIDDEN_MEDIA_LINE: SDP contains disallowed media line"
+  },
+  "p2pErrorSpectatorChainRejected": "Could not join as spectator — chain rejected.",
+  "@p2pErrorSpectatorChainRejected": {
+    "description": "F-SPEC-001 SPECTATOR_CHAIN_REJECTED: spectator relay chain rejected"
+  },
+  "p2pRecoverySpectatorChainRejected": "Try rejoining as a spectator.",
+  "@p2pRecoverySpectatorChainRejected": {
+    "description": "Recovery hint for F-SPEC-001 SPECTATOR_CHAIN_REJECTED: spectator relay chain rejected"
+  },
+  "p2pErrorIsolateCrashed": "A background process crashed. Please restart the app.",
+  "@p2pErrorIsolateCrashed": {
+    "description": "F-CONC-001 ISOLATE_CRASHED: Dart isolate crashed"
+  },
+  "p2pRecoveryIsolateCrashed": "Restart the app.",
+  "@p2pRecoveryIsolateCrashed": {
+    "description": "Recovery hint for F-CONC-001 ISOLATE_CRASHED: Dart isolate crashed"
+  },
+  "p2pErrorSodiumInitFailed": "Encryption library failed to initialise. Please reinstall the app.",
+  "@p2pErrorSodiumInitFailed": {
+    "description": "F-CONC-002 SODIUM_INIT_FAILED: libsodium initialisation failed"
+  },
+  "p2pRecoverySodiumInitFailed": "Reinstall the app from the official store.",
+  "@p2pRecoverySodiumInitFailed": {
+    "description": "Recovery hint for F-CONC-002 SODIUM_INIT_FAILED: libsodium initialisation failed"
+  },
+  "p2pErrorSqlcipherKeyUnwrapFail": "Database decryption failed. Your recovery words may be needed.",
+  "@p2pErrorSqlcipherKeyUnwrapFail": {
+    "description": "F-STORE-005 SQLCIPHER_KEY_UNWRAP_FAIL: SQLCipher key unwrap failed"
+  },
+  "p2pRecoverySqlcipherKeyUnwrapFail": "Use your recovery words to restore access.",
+  "@p2pRecoverySqlcipherKeyUnwrapFail": {
+    "description": "Recovery hint for F-STORE-005 SQLCIPHER_KEY_UNWRAP_FAIL: SQLCipher key unwrap failed"
+  },
+  "p2pErrorLocalStorageQuotaExceeded": "Local storage quota exceeded. Free up space and try again.",
+  "@p2pErrorLocalStorageQuotaExceeded": {
+    "description": "F-STORE-006 (v7) LOCAL_STORAGE_QUOTA_EXCEEDED: local storage quota exceeded"
+  },
+  "p2pRecoveryLocalStorageQuotaExceeded": "Delete unused files and clear app cache.",
+  "@p2pRecoveryLocalStorageQuotaExceeded": {
+    "description": "Recovery hint for F-STORE-006 (v7) LOCAL_STORAGE_QUOTA_EXCEEDED: local storage quota exceeded"
+  },
+  "p2pErrorLocalStorageAtRestBroken": "Stored data is no longer accessible. Recovery may be needed.",
+  "@p2pErrorLocalStorageAtRestBroken": {
+    "description": "F-STORE-007 (v7) LOCAL_STORAGE_AT_REST_BROKEN: at-rest encryption broken"
+  },
+  "p2pRecoveryLocalStorageAtRestBroken": "Reinstall the app and restore from backup.",
+  "@p2pRecoveryLocalStorageAtRestBroken": {
+    "description": "Recovery hint for F-STORE-007 (v7) LOCAL_STORAGE_AT_REST_BROKEN: at-rest encryption broken"
+  },
+  "p2pErrorBackupEncryptionSaltMismatch": "Backup encryption mismatch. This backup cannot be restored.",
+  "@p2pErrorBackupEncryptionSaltMismatch": {
+    "description": "F-STORE-008 BACKUP_ENCRYPTION_SALT_MISMATCH: backup encryption salt mismatch"
+  },
+  "p2pRecoveryBackupEncryptionSaltMismatch": "Use a backup created on the same device.",
+  "@p2pRecoveryBackupEncryptionSaltMismatch": {
+    "description": "Recovery hint for F-STORE-008 BACKUP_ENCRYPTION_SALT_MISMATCH: backup encryption salt mismatch"
+  },
+  "p2pErrorKciVerifyFailed": "Identity verification failed. Possible impersonation attempt.",
+  "@p2pErrorKciVerifyFailed": {
+    "description": "F-ID-015 KCI_VERIFY_FAILED: key compromise impersonation check failed"
+  },
+  "p2pRecoveryKciVerifyFailed": "Verify your opponent's identity out-of-band before continuing.",
+  "@p2pRecoveryKciVerifyFailed": {
+    "description": "Recovery hint for F-ID-015 KCI_VERIFY_FAILED: key compromise impersonation check failed"
+  },
+  "p2pErrorSessionIdCollision": "Critical error: duplicate session ID detected.",
+  "@p2pErrorSessionIdCollision": {
+    "description": "F-ID-016 SESSION_ID_COLLISION: session ID collision detected"
+  },
+  "p2pRecoverySessionIdCollision": "Restart the app immediately.",
+  "@p2pRecoverySessionIdCollision": {
+    "description": "Recovery hint for F-ID-016 SESSION_ID_COLLISION: session ID collision detected"
+  },
+  "p2pErrorSafetyNumbersMismatch": "Safety numbers do not match. Do not continue until verified.",
+  "@p2pErrorSafetyNumbersMismatch": {
+    "description": "F-ID-017 SAFETY_NUMBERS_MISMATCH: safety numbers do not match"
+  },
+  "p2pRecoverySafetyNumbersMismatch": "Confirm safety numbers with your opponent via a separate channel.",
+  "@p2pRecoverySafetyNumbersMismatch": {
+    "description": "Recovery hint for F-ID-017 SAFETY_NUMBERS_MISMATCH: safety numbers do not match"
+  },
+  "p2pErrorReKeyFailed": "Session key rotation failed. Please reconnect.",
+  "@p2pErrorReKeyFailed": {
+    "description": "F-ID-018 RE_KEY_FAILED: session re-keying failed"
+  },
+  "p2pRecoveryReKeyFailed": "Reconnect to the game.",
+  "@p2pRecoveryReKeyFailed": {
+    "description": "Recovery hint for F-ID-018 RE_KEY_FAILED: session re-keying failed"
+  },
+  "p2pErrorCborFloatRejected": "Invalid message format received. Please update the app.",
+  "@p2pErrorCborFloatRejected": {
+    "description": "F-PROTO-023 CBOR_FLOAT_REJECTED: CBOR float type in payload rejected"
+  },
+  "p2pRecoveryCborFloatRejected": "Update the app.",
+  "@p2pRecoveryCborFloatRejected": {
+    "description": "Recovery hint for F-PROTO-023 CBOR_FLOAT_REJECTED: CBOR float type in payload rejected"
+  },
+  "p2pErrorHkdfInfoUnknown": "Unknown cryptographic context label. Please update the app.",
+  "@p2pErrorHkdfInfoUnknown": {
+    "description": "F-PROTO-024 HKDF_INFO_UNKNOWN: unknown HKDF info label"
+  },
+  "p2pRecoveryHkdfInfoUnknown": "Update the app to the latest version.",
+  "@p2pRecoveryHkdfInfoUnknown": {
+    "description": "Recovery hint for F-PROTO-024 HKDF_INFO_UNKNOWN: unknown HKDF info label"
+  },
+  "p2pErrorOpponentFingerprintDowngradeDetected": "Security downgrade detected. Connection refused for your safety.",
+  "@p2pErrorOpponentFingerprintDowngradeDetected": {
+    "description": "F-PROTO-025 OPPONENT_FINGERPRINT_DOWNGRADE_DETECTED: fingerprint downgrade attack"
+  },
+  "p2pRecoveryOpponentFingerprintDowngradeDetected": "Do not reconnect. Report to support.",
+  "@p2pRecoveryOpponentFingerprintDowngradeDetected": {
+    "description": "Recovery hint for F-PROTO-025 OPPONENT_FINGERPRINT_DOWNGRADE_DETECTED: fingerprint downgrade attack"
+  },
+  "p2pErrorRepetitionClaimRejected": "Threefold-repetition draw claim rejected by opponent.",
+  "@p2pErrorRepetitionClaimRejected": {
+    "description": "F-PROTO-026 REPETITION_CLAIM_REJECTED: threefold-repetition claim rejected"
+  },
+  "p2pRecoveryRepetitionClaimRejected": "The game will continue. You may appeal the result after.",
+  "@p2pRecoveryRepetitionClaimRejected": {
+    "description": "Recovery hint for F-PROTO-026 REPETITION_CLAIM_REJECTED: threefold-repetition claim rejected"
+  },
+  "p2pErrorDeprecatedWireVersionRejected": "Your app uses an outdated protocol. Please update.",
+  "@p2pErrorDeprecatedWireVersionRejected": {
+    "description": "F-PROTO-027 DEPRECATED_WIRE_VERSION_REJECTED: deprecated wire version rejected"
+  },
+  "p2pRecoveryDeprecatedWireVersionRejected": "Update the app from the store.",
+  "@p2pRecoveryDeprecatedWireVersionRejected": {
+    "description": "Recovery hint for F-PROTO-027 DEPRECATED_WIRE_VERSION_REJECTED: deprecated wire version rejected"
+  },
+  "p2pErrorDeprecatedCryptoSuiteRejected": "Your app uses a deprecated security suite. Please update.",
+  "@p2pErrorDeprecatedCryptoSuiteRejected": {
+    "description": "F-PROTO-028 DEPRECATED_CRYPTO_SUITE_REJECTED: deprecated crypto suite rejected"
+  },
+  "p2pRecoveryDeprecatedCryptoSuiteRejected": "Update the app — an older security method was removed.",
+  "@p2pRecoveryDeprecatedCryptoSuiteRejected": {
+    "description": "Recovery hint for F-PROTO-028 DEPRECATED_CRYPTO_SUITE_REJECTED: deprecated crypto suite rejected"
+  },
+  "p2pErrorDeprecatedEngineReplayVersionRejected": "Replay format is outdated. Please update the app.",
+  "@p2pErrorDeprecatedEngineReplayVersionRejected": {
+    "description": "F-PROTO-029 DEPRECATED_ENGINE_REPLAY_VERSION_REJECTED: deprecated replay version"
+  },
+  "p2pRecoveryDeprecatedEngineReplayVersionRejected": "Update the app.",
+  "@p2pRecoveryDeprecatedEngineReplayVersionRejected": {
+    "description": "Recovery hint for F-PROTO-029 DEPRECATED_ENGINE_REPLAY_VERSION_REJECTED: deprecated replay version"
+  },
+  "p2pErrorTurnsHandshakeFailed": "Encrypted relay handshake failed. Trying another server…",
+  "@p2pErrorTurnsHandshakeFailed": {
+    "description": "F-NET-009 TURNS_HANDSHAKE_FAILED: TURN-S TLS handshake failed"
+  },
+  "p2pRecoveryTurnsHandshakeFailed": "Check that your network does not block TLS on port 443.",
+  "@p2pRecoveryTurnsHandshakeFailed": {
+    "description": "Recovery hint for F-NET-009 TURNS_HANDSHAKE_FAILED: TURN-S TLS handshake failed"
+  },
+  "p2pErrorPremoveInvalidated": "Your premove was invalidated by the opponent's reply.",
+  "@p2pErrorPremoveInvalidated": {
+    "description": "F-CLOCK-006 PREMOVE_INVALIDATED: premove invalidated by opponent's reply"
+  },
+  "p2pRecoveryPremoveInvalidated": "No action needed — the premove was cleared.",
+  "@p2pRecoveryPremoveInvalidated": {
+    "description": "Recovery hint for F-CLOCK-006 PREMOVE_INVALIDATED: premove invalidated by opponent's reply"
+  },
+  "p2pErrorInviteLinkExpired": "This invite link has expired. Ask for a new one.",
+  "@p2pErrorInviteLinkExpired": {
+    "description": "F-SIG-014 INVITE_LINK_EXPIRED: invite link has expired"
+  },
+  "p2pRecoveryInviteLinkExpired": "Ask your opponent to share a fresh invite link.",
+  "@p2pRecoveryInviteLinkExpired": {
+    "description": "Recovery hint for F-SIG-014 INVITE_LINK_EXPIRED: invite link has expired"
+  },
+  "p2pErrorInviteLinkReplayed": "This invite link has already been used.",
+  "@p2pErrorInviteLinkReplayed": {
+    "description": "F-SIG-015 INVITE_LINK_REPLAYED: invite link already used"
+  },
+  "p2pRecoveryInviteLinkReplayed": "Ask for a new invite.",
+  "@p2pRecoveryInviteLinkReplayed": {
+    "description": "Recovery hint for F-SIG-015 INVITE_LINK_REPLAYED: invite link already used"
+  },
+  "p2pErrorHandleImpersonationSuspected": "This player's handle looks suspicious. Verify before continuing.",
+  "@p2pErrorHandleImpersonationSuspected": {
+    "description": "F-CHAT-005 HANDLE_IMPERSONATION_SUSPECTED: handle impersonation suspected"
+  },
+  "p2pRecoveryHandleImpersonationSuspected": "Verify your opponent's identity before sharing personal details.",
+  "@p2pRecoveryHandleImpersonationSuspected": {
+    "description": "Recovery hint for F-CHAT-005 HANDLE_IMPERSONATION_SUSPECTED: handle impersonation suspected"
+  },
+  "p2pErrorTranscriptRamCapOverflow": "Game history too large for memory. Saving to disk.",
+  "@p2pErrorTranscriptRamCapOverflow": {
+    "description": "F-OBS-003 TRANSCRIPT_RAM_CAP_OVERFLOW: in-RAM transcript cap overflowed"
+  },
+  "p2pRecoveryTranscriptRamCapOverflow": "No action needed.",
+  "@p2pRecoveryTranscriptRamCapOverflow": {
+    "description": "Recovery hint for F-OBS-003 TRANSCRIPT_RAM_CAP_OVERFLOW: in-RAM transcript cap overflowed"
+  },
+  "p2pErrorCveRequiresForcedUpdate": "A security update is required. Please update the app now.",
+  "@p2pErrorCveRequiresForcedUpdate": {
+    "description": "F-OPS-002 CVE_REQUIRES_FORCED_UPDATE: CVE requires forced app update"
+  },
+  "p2pRecoveryCveRequiresForcedUpdate": "Update from the app store immediately.",
+  "@p2pRecoveryCveRequiresForcedUpdate": {
+    "description": "Recovery hint for F-OPS-002 CVE_REQUIRES_FORCED_UPDATE: CVE requires forced app update"
+  },
+  "p2pErrorKeyRotationOverdue": "Security key rotation is overdue. Please open the app.",
+  "@p2pErrorKeyRotationOverdue": {
+    "description": "F-OPS-003 KEY_ROTATION_OVERDUE: scheduled key rotation overdue"
+  },
+  "p2pRecoveryKeyRotationOverdue": "Open the app to complete the rotation.",
+  "@p2pRecoveryKeyRotationOverdue": {
+    "description": "Recovery hint for F-OPS-003 KEY_ROTATION_OVERDUE: scheduled key rotation overdue"
+  },
+  "p2pErrorBackupRestoreDrillFailed": "Backup restore test failed. Check your recovery words.",
+  "@p2pErrorBackupRestoreDrillFailed": {
+    "description": "F-OPS-004 BACKUP_RESTORE_DRILL_FAILED: backup restore drill failed"
+  },
+  "p2pRecoveryBackupRestoreDrillFailed": "Verify your recovery words are correct.",
+  "@p2pRecoveryBackupRestoreDrillFailed": {
+    "description": "Recovery hint for F-OPS-004 BACKUP_RESTORE_DRILL_FAILED: backup restore drill failed"
+  },
+  "p2pErrorOperatorOnCallUnreachable": "Unable to reach on-call support. Try again later.",
+  "@p2pErrorOperatorOnCallUnreachable": {
+    "description": "F-OPS-005 OPERATOR_ON_CALL_UNREACHABLE: on-call operator unreachable"
+  },
+  "p2pRecoveryOperatorOnCallUnreachable": "Try again later or check the status page.",
+  "@p2pRecoveryOperatorOnCallUnreachable": {
+    "description": "Recovery hint for F-OPS-005 OPERATOR_ON_CALL_UNREACHABLE: on-call operator unreachable"
+  },
+  "p2pErrorValidateApplyRaceDetected": "Critical game engine race condition detected.",
+  "@p2pErrorValidateApplyRaceDetected": {
+    "description": "F-PROTO-030 VALIDATE_APPLY_RACE_DETECTED: validate/apply race condition"
+  },
+  "p2pRecoveryValidateApplyRaceDetected": "Restart the app and report this incident.",
+  "@p2pRecoveryValidateApplyRaceDetected": {
+    "description": "Recovery hint for F-PROTO-030 VALIDATE_APPLY_RACE_DETECTED: validate/apply race condition"
+  },
+  "p2pErrorFfiFuzzFoundDivergence": "Engine state divergence detected. Game ended.",
+  "@p2pErrorFfiFuzzFoundDivergence": {
+    "description": "F-PROTO-031 FFI_FUZZ_FOUND_DIVERGENCE: fuzzer found state divergence"
+  },
+  "p2pRecoveryFfiFuzzFoundDivergence": "Update the app. This issue has been reported automatically.",
+  "@p2pRecoveryFfiFuzzFoundDivergence": {
+    "description": "Recovery hint for F-PROTO-031 FFI_FUZZ_FOUND_DIVERGENCE: fuzzer found state divergence"
+  },
+  "p2pErrorHelloTsOutOfWindow": "Connection timestamp outside allowed window. Check your device clock.",
+  "@p2pErrorHelloTsOutOfWindow": {
+    "description": "F-PROTO-032 HELLO_TS_OUT_OF_WINDOW: HELLO timestamp outside allowed window"
+  },
+  "p2pRecoveryHelloTsOutOfWindow": "Set your device clock to the correct automatic time.",
+  "@p2pRecoveryHelloTsOutOfWindow": {
+    "description": "Recovery hint for F-PROTO-032 HELLO_TS_OUT_OF_WINDOW: HELLO timestamp outside allowed window"
+  },
+  "p2pErrorSignedTimeFetchFailed": "Could not fetch trusted time. Check your connection.",
+  "@p2pErrorSignedTimeFetchFailed": {
+    "description": "F-PROTO-033 SIGNED_TIME_FETCH_FAILED: signed time server fetch failed"
+  },
+  "p2pRecoverySignedTimeFetchFailed": "Check your internet connection and try again.",
+  "@p2pRecoverySignedTimeFetchFailed": {
+    "description": "Recovery hint for F-PROTO-033 SIGNED_TIME_FETCH_FAILED: signed time server fetch failed"
+  },
+  "p2pErrorMultiDeviceRaceLost": "Another device connected first. Close this session and try again.",
+  "@p2pErrorMultiDeviceRaceLost": {
+    "description": "F-PROTO-034 MULTI_DEVICE_RACE_LOST: multi-device session race lost"
+  },
+  "p2pRecoveryMultiDeviceRaceLost": "Use the other device that joined first.",
+  "@p2pRecoveryMultiDeviceRaceLost": {
+    "description": "Recovery hint for F-PROTO-034 MULTI_DEVICE_RACE_LOST: multi-device session race lost"
+  },
+  "p2pErrorConfigBlobVersionUnsupported": "Configuration format not supported. Please update the app.",
+  "@p2pErrorConfigBlobVersionUnsupported": {
+    "description": "F-PROTO-035 CONFIG_BLOB_VERSION_UNSUPPORTED: config blob version unsupported"
+  },
+  "p2pRecoveryConfigBlobVersionUnsupported": "Update the app.",
+  "@p2pRecoveryConfigBlobVersionUnsupported": {
+    "description": "Recovery hint for F-PROTO-035 CONFIG_BLOB_VERSION_UNSUPPORTED: config blob version unsupported"
+  },
+  "p2pErrorSpectatorChainDepthNonzeroRejected": "Spectator chain depth not permitted.",
+  "@p2pErrorSpectatorChainDepthNonzeroRejected": {
+    "description": "F-PROTO-036 SPECTATOR_CHAIN_DEPTH_NONZERO_REJECTED: spectator chain depth rejected"
+  },
+  "p2pRecoverySpectatorChainDepthNonzeroRejected": "Try spectating via a direct link.",
+  "@p2pRecoverySpectatorChainDepthNonzeroRejected": {
+    "description": "Recovery hint for F-PROTO-036 SPECTATOR_CHAIN_DEPTH_NONZERO_REJECTED: spectator chain depth rejected"
+  },
+  "p2pErrorBackfillOversizeRejected": "Game history too large for spectator join.",
+  "@p2pErrorBackfillOversizeRejected": {
+    "description": "F-PROTO-037 BACKFILL_OVERSIZE_REJECTED: backfill payload too large"
+  },
+  "p2pRecoveryBackfillOversizeRejected": "Join games that are still in the early moves.",
+  "@p2pRecoveryBackfillOversizeRejected": {
+    "description": "Recovery hint for F-PROTO-037 BACKFILL_OVERSIZE_REJECTED: backfill payload too large"
+  },
+  "p2pErrorStartupSelfTestFail": "App startup self-test failed. Please reinstall.",
+  "@p2pErrorStartupSelfTestFail": {
+    "description": "F-START-001 STARTUP_SELF_TEST_FAIL: startup self-test failed"
+  },
+  "p2pRecoveryStartupSelfTestFail": "Reinstall from the official store.",
+  "@p2pRecoveryStartupSelfTestFail": {
+    "description": "Recovery hint for F-START-001 STARTUP_SELF_TEST_FAIL: startup self-test failed"
+  },
+  "p2pErrorNativeLibIntegrityFail": "Game engine integrity check failed. Please reinstall.",
+  "@p2pErrorNativeLibIntegrityFail": {
+    "description": "F-START-002 NATIVE_LIB_INTEGRITY_FAIL: native library integrity check failed"
+  },
+  "p2pRecoveryNativeLibIntegrityFail": "Reinstall from the official store.",
+  "@p2pRecoveryNativeLibIntegrityFail": {
+    "description": "Recovery hint for F-START-002 NATIVE_LIB_INTEGRITY_FAIL: native library integrity check failed"
+  },
+  "p2pErrorPushCoalesced": "Some invite notifications were grouped by your device.",
+  "@p2pErrorPushCoalesced": {
+    "description": "F-PUSH-007 (v8) PUSH_COALESCED: push notification coalesced by OS"
+  },
+  "p2pRecoveryPushCoalesced": "Check the notification for the latest invite.",
+  "@p2pRecoveryPushCoalesced": {
+    "description": "Recovery hint for F-PUSH-007 (v8) PUSH_COALESCED: push notification coalesced by OS"
+  },
+  "p2pErrorTurnBandwidthExceeded": "Relay bandwidth limit reached. Connection degraded.",
+  "@p2pErrorTurnBandwidthExceeded": {
+    "description": "F-NET-010 (v8) TURN_BANDWIDTH_EXCEEDED: TURN relay bandwidth exceeded"
+  },
+  "p2pRecoveryTurnBandwidthExceeded": "Move to a better network or wait for congestion to clear.",
+  "@p2pRecoveryTurnBandwidthExceeded": {
+    "description": "Recovery hint for F-NET-010 (v8) TURN_BANDWIDTH_EXCEEDED: TURN relay bandwidth exceeded"
+  },
+  "p2pErrorIceVpnLeakUserDeclined": "Connection cancelled — VPN leak risk was declined.",
+  "@p2pErrorIceVpnLeakUserDeclined": {
+    "description": "F-NET-011 (v8) ICE_VPN_LEAK_USER_DECLINED: user declined VPN leak risk"
+  },
+  "p2pRecoveryIceVpnLeakUserDeclined": "Enable WebRTC leak protection in your VPN, then reconnect.",
+  "@p2pRecoveryIceVpnLeakUserDeclined": {
+    "description": "Recovery hint for F-NET-011 (v8) ICE_VPN_LEAK_USER_DECLINED: user declined VPN leak risk"
+  },
+  "p2pErrorSchemaSkipVersionFail": "Database upgrade path not supported. Please reinstall.",
+  "@p2pErrorSchemaSkipVersionFail": {
+    "description": "F-STORE-009 (v8) SCHEMA_SKIP_VERSION_FAIL: schema version skip not allowed"
+  },
+  "p2pRecoverySchemaSkipVersionFail": "Reinstall the app.",
+  "@p2pRecoverySchemaSkipVersionFail": {
+    "description": "Recovery hint for F-STORE-009 (v8) SCHEMA_SKIP_VERSION_FAIL: schema version skip not allowed"
+  },
+  "p2pErrorDpBudgetExceeded": "Analytics privacy budget exhausted. Some data will not be sent.",
+  "@p2pErrorDpBudgetExceeded": {
+    "description": "F-TEL-001 DP_BUDGET_EXCEEDED: differential-privacy budget exhausted"
+  },
+  "p2pRecoveryDpBudgetExceeded": "No action needed.",
+  "@p2pRecoveryDpBudgetExceeded": {
+    "description": "Recovery hint for F-TEL-001 DP_BUDGET_EXCEEDED: differential-privacy budget exhausted"
+  },
+  "p2pErrorTelemetryEnvelopeVersionUnsupported": "Diagnostics format not supported. Please update the app.",
+  "@p2pErrorTelemetryEnvelopeVersionUnsupported": {
+    "description": "F-TEL-002 TELEMETRY_ENVELOPE_VERSION_UNSUPPORTED: telemetry envelope version"
+  },
+  "p2pRecoveryTelemetryEnvelopeVersionUnsupported": "Update the app.",
+  "@p2pRecoveryTelemetryEnvelopeVersionUnsupported": {
+    "description": "Recovery hint for F-TEL-002 TELEMETRY_ENVELOPE_VERSION_UNSUPPORTED: telemetry envelope version"
+  },
+  "p2pErrorStudyLoadVersionMismatch": "Study file format is from a newer version of the app.",
+  "@p2pErrorStudyLoadVersionMismatch": {
+    "description": "F-STUDY-001 STUDY_LOAD_VERSION_MISMATCH: study file version mismatch"
+  },
+  "p2pRecoveryStudyLoadVersionMismatch": "Update the app to open this study file.",
+  "@p2pRecoveryStudyLoadVersionMismatch": {
+    "description": "Recovery hint for F-STUDY-001 STUDY_LOAD_VERSION_MISMATCH: study file version mismatch"
+  },
+  "p2pErrorExportSidecarMissing": "Export file is incomplete — sidecar missing.",
+  "@p2pErrorExportSidecarMissing": {
+    "description": "F-STUDY-002 EXPORT_SIDECAR_MISSING: export sidecar file missing"
+  },
+  "p2pRecoveryExportSidecarMissing": "Re-export the file and try again.",
+  "@p2pRecoveryExportSidecarMissing": {
+    "description": "Recovery hint for F-STUDY-002 EXPORT_SIDECAR_MISSING: export sidecar file missing"
+  },
+  "p2pErrorStudyPgnParseFail": "Could not parse the PGN file. Check the file format.",
+  "@p2pErrorStudyPgnParseFail": {
+    "description": "F-STUDY-003 STUDY_PGN_PARSE_FAIL: PGN parse failed in study mode"
+  },
+  "p2pRecoveryStudyPgnParseFail": "Validate the PGN file with an external tool.",
+  "@p2pRecoveryStudyPgnParseFail": {
+    "description": "Recovery hint for F-STUDY-003 STUDY_PGN_PARSE_FAIL: PGN parse failed in study mode"
+  },
+  "p2pErrorStudyReplayHashDivergence": "Study replay verification failed. The file may be corrupted.",
+  "@p2pErrorStudyReplayHashDivergence": {
+    "description": "F-STUDY-004 STUDY_REPLAY_HASH_DIVERGENCE: replay hash mismatch in study"
+  },
+  "p2pRecoveryStudyReplayHashDivergence": "Re-export the study from the source.",
+  "@p2pRecoveryStudyReplayHashDivergence": {
+    "description": "Recovery hint for F-STUDY-004 STUDY_REPLAY_HASH_DIVERGENCE: replay hash mismatch in study"
+  },
+  "p2pErrorBgTaskDeniedByOs": "Background task was denied by your device. Enable background activity.",
+  "@p2pErrorBgTaskDeniedByOs": {
+    "description": "F-LIFE-005 BG_TASK_DENIED_BY_OS: background task denied by OS"
+  },
+  "p2pRecoveryBgTaskDeniedByOs": "Enable background activity for this app in system settings.",
+  "@p2pRecoveryBgTaskDeniedByOs": {
+    "description": "Recovery hint for F-LIFE-005 BG_TASK_DENIED_BY_OS: background task denied by OS"
+  },
+  "p2pErrorLoadShedDropped": "Server is busy. Your connection was temporarily dropped.",
+  "@p2pErrorLoadShedDropped": {
+    "description": "F-NET-012 LOAD_SHED_DROPPED: connection dropped due to server load shedding"
+  },
+  "p2pRecoveryLoadShedDropped": "Try again in a moment.",
+  "@p2pRecoveryLoadShedDropped": {
+    "description": "Recovery hint for F-NET-012 LOAD_SHED_DROPPED: connection dropped due to server load shedding"
+  },
+  "p2pErrorRageQuitForfeitFired": "Forfeit timer has fired due to inactivity.",
+  "@p2pErrorRageQuitForfeitFired": {
+    "description": "F-CLOCK-007 (v8) RAGE_QUIT_FORFEIT_FIRED: rage-quit forfeit timer fired"
+  },
+  "p2pRecoveryRageQuitForfeitFired": "Return to the game to avoid forfeits in the future.",
+  "@p2pRecoveryRageQuitForfeitFired": {
+    "description": "Recovery hint for F-CLOCK-007 (v8) RAGE_QUIT_FORFEIT_FIRED: rage-quit forfeit timer fired"
+  },
+  "p2pErrorLegitimateRestoreMergeDeclined": "Game data merge was declined. Restore cancelled.",
+  "@p2pErrorLegitimateRestoreMergeDeclined": {
+    "description": "F-STORE-010 (v8) LEGITIMATE_RESTORE_MERGE_DECLINED: user declined merge on restore"
+  },
+  "p2pRecoveryLegitimateRestoreMergeDeclined": "You can retry the merge from Settings → Restore.",
+  "@p2pRecoveryLegitimateRestoreMergeDeclined": {
+    "description": "Recovery hint for F-STORE-010 (v8) LEGITIMATE_RESTORE_MERGE_DECLINED: user declined merge on restore"
+  },
+  "p2pErrorReportTargetRateLimited": "You have filed too many reports recently. Try again later.",
+  "@p2pErrorReportTargetRateLimited": {
+    "description": "F-CHAT-006 (v8) REPORT_TARGET_RATE_LIMITED: report action rate limited"
+  },
+  "p2pRecoveryReportTargetRateLimited": "Wait before filing another report.",
+  "@p2pRecoveryReportTargetRateLimited": {
+    "description": "Recovery hint for F-CHAT-006 (v8) REPORT_TARGET_RATE_LIMITED: report action rate limited"
+  },
+  "p2pErrorSpectatorCapacityFull": "Spectator capacity is full for this game.",
+  "@p2pErrorSpectatorCapacityFull": {
+    "description": "F-SPEC-002 SPECTATOR_CAPACITY_FULL: spectator capacity reached"
+  },
+  "p2pRecoverySpectatorCapacityFull": "Try joining again later or watch a different game.",
+  "@p2pRecoverySpectatorCapacityFull": {
+    "description": "Recovery hint for F-SPEC-002 SPECTATOR_CAPACITY_FULL: spectator capacity reached"
+  },
+  "p2pErrorSpectatorWaitlistExpired": "Your spot on the spectator waitlist has expired.",
+  "@p2pErrorSpectatorWaitlistExpired": {
+    "description": "F-SPEC-003 SPECTATOR_WAITLIST_EXPIRED: spectator waitlist entry expired"
+  },
+  "p2pRecoverySpectatorWaitlistExpired": "Re-join the waitlist.",
+  "@p2pRecoverySpectatorWaitlistExpired": {
+    "description": "Recovery hint for F-SPEC-003 SPECTATOR_WAITLIST_EXPIRED: spectator waitlist entry expired"
+  },
+  "p2pErrorSpectatorAuthRequired": "You must sign in to spectate this game.",
+  "@p2pErrorSpectatorAuthRequired": {
+    "description": "F-SPEC-004 SPECTATOR_AUTH_REQUIRED: authentication required to spectate"
+  },
+  "p2pRecoverySpectatorAuthRequired": "Sign in and try again.",
+  "@p2pRecoverySpectatorAuthRequired": {
+    "description": "Recovery hint for F-SPEC-004 SPECTATOR_AUTH_REQUIRED: authentication required to spectate"
+  },
+  "p2pErrorSpectatorJoinRateLimited": "Too many spectators joining at once. Please try again shortly.",
+  "@p2pErrorSpectatorJoinRateLimited": {
+    "description": "F-SPEC-005 SPECTATOR_JOIN_RATE_LIMITED: spectator join rate limited"
+  },
+  "p2pRecoverySpectatorJoinRateLimited": "Wait a moment and try again.",
+  "@p2pRecoverySpectatorJoinRateLimited": {
+    "description": "Recovery hint for F-SPEC-005 SPECTATOR_JOIN_RATE_LIMITED: spectator join rate limited"
+  },
+  "p2pErrorSpectatorKicked": "You were removed from spectating this game.",
+  "@p2pErrorSpectatorKicked": {
+    "description": "F-SPEC-006 SPECTATOR_KICKED: spectator was kicked by host"
+  },
+  "p2pRecoverySpectatorKicked": "Contact the host if you believe this was in error.",
+  "@p2pRecoverySpectatorKicked": {
+    "description": "Recovery hint for F-SPEC-006 SPECTATOR_KICKED: spectator was kicked by host"
+  },
+  "p2pErrorSpectatorBanned": "You are banned from spectating this game.",
+  "@p2pErrorSpectatorBanned": {
+    "description": "F-SPEC-007 SPECTATOR_BANNED: spectator is banned"
+  },
+  "p2pRecoverySpectatorBanned": "Contact support if you believe this is a mistake.",
+  "@p2pRecoverySpectatorBanned": {
+    "description": "Recovery hint for F-SPEC-007 SPECTATOR_BANNED: spectator is banned"
+  },
+  "p2pErrorSpectatorMuted": "Your spectator chat has been muted by the host.",
+  "@p2pErrorSpectatorMuted": {
+    "description": "F-SPEC-008 SPECTATOR_MUTED: spectator is muted by host"
+  },
+  "p2pRecoverySpectatorMuted": "You can still watch the game.",
+  "@p2pRecoverySpectatorMuted": {
+    "description": "Recovery hint for F-SPEC-008 SPECTATOR_MUTED: spectator is muted by host"
+  },
+  "p2pErrorSpectatorGloballyMuted": "Your chat access has been globally restricted.",
+  "@p2pErrorSpectatorGloballyMuted": {
+    "description": "F-SPEC-009 SPECTATOR_GLOBALLY_MUTED: spectator is globally muted"
+  },
+  "p2pRecoverySpectatorGloballyMuted": "Contact support to appeal.",
+  "@p2pRecoverySpectatorGloballyMuted": {
+    "description": "Recovery hint for F-SPEC-009 SPECTATOR_GLOBALLY_MUTED: spectator is globally muted"
+  },
+  "p2pErrorSpectatorShedForPerf": "Spectator connection dropped to maintain game performance.",
+  "@p2pErrorSpectatorShedForPerf": {
+    "description": "F-SPEC-010 SPECTATOR_SHED_FOR_PERF: spectator dropped for performance"
+  },
+  "p2pRecoverySpectatorShedForPerf": "Try rejoining. Game performance should improve soon.",
+  "@p2pRecoverySpectatorShedForPerf": {
+    "description": "Recovery hint for F-SPEC-010 SPECTATOR_SHED_FOR_PERF: spectator dropped for performance"
+  },
+  "p2pErrorSpectatorRelayUnavailable": "Spectator relay is unavailable. Try again later.",
+  "@p2pErrorSpectatorRelayUnavailable": {
+    "description": "F-SPEC-011 SPECTATOR_RELAY_UNAVAILABLE: spectator relay unavailable"
+  },
+  "p2pRecoverySpectatorRelayUnavailable": "Try again later.",
+  "@p2pRecoverySpectatorRelayUnavailable": {
+    "description": "Recovery hint for F-SPEC-011 SPECTATOR_RELAY_UNAVAILABLE: spectator relay unavailable"
+  },
+  "p2pErrorBackfillQueueOverflow": "Game history queue full. Some moves may not be shown.",
+  "@p2pErrorBackfillQueueOverflow": {
+    "description": "F-SPEC-012 BACKFILL_QUEUE_OVERFLOW: spectator backfill queue overflowed"
+  },
+  "p2pRecoveryBackfillQueueOverflow": "Refresh the spectator view.",
+  "@p2pRecoveryBackfillQueueOverflow": {
+    "description": "Recovery hint for F-SPEC-012 BACKFILL_QUEUE_OVERFLOW: spectator backfill queue overflowed"
+  },
+  "p2pErrorSpectatorHeartbeatTimeout": "Spectator connection timed out.",
+  "@p2pErrorSpectatorHeartbeatTimeout": {
+    "description": "F-SPEC-013 SPECTATOR_HEARTBEAT_TIMEOUT: spectator heartbeat timed out"
+  },
+  "p2pRecoverySpectatorHeartbeatTimeout": "Tap Reconnect to continue watching.",
+  "@p2pRecoverySpectatorHeartbeatTimeout": {
+    "description": "Recovery hint for F-SPEC-013 SPECTATOR_HEARTBEAT_TIMEOUT: spectator heartbeat timed out"
+  },
+  "p2pErrorSpectatorKeyRotationRequired": "Spectator key rotation required. Reconnecting…",
+  "@p2pErrorSpectatorKeyRotationRequired": {
+    "description": "F-SPEC-014 SPECTATOR_KEY_ROTATION_REQUIRED: spectator key rotation required"
+  },
+  "p2pRecoverySpectatorKeyRotationRequired": "The app will reconnect automatically.",
+  "@p2pRecoverySpectatorKeyRotationRequired": {
+    "description": "Recovery hint for F-SPEC-014 SPECTATOR_KEY_ROTATION_REQUIRED: spectator key rotation required"
+  },
+  "p2pErrorSpectatorDatachannelBackpressure": "Spectator data channel is congested. Moves may be delayed.",
+  "@p2pErrorSpectatorDatachannelBackpressure": {
+    "description": "F-SPEC-015 SPECTATOR_DATACHANNEL_BACKPRESSURE: spectator data channel backpressure"
+  },
+  "p2pRecoverySpectatorDatachannelBackpressure": "Move to a faster network if possible.",
+  "@p2pRecoverySpectatorDatachannelBackpressure": {
+    "description": "Recovery hint for F-SPEC-015 SPECTATOR_DATACHANNEL_BACKPRESSURE: spectator data channel backpressure"
+  },
+  "p2pErrorChatRateLimited": "Chat rate limit reached. Please wait before sending more messages.",
+  "@p2pErrorChatRateLimited": {
+    "description": "F-CHAT-007 CHAT_RATE_LIMITED: chat rate limited by server"
+  },
+  "p2pRecoveryChatRateLimited": "Wait before sending more messages.",
+  "@p2pRecoveryChatRateLimited": {
+    "description": "Recovery hint for F-CHAT-007 CHAT_RATE_LIMITED: chat rate limited by server"
+  },
+  "p2pErrorChatMessageOversized": "Message is too long. Please shorten it.",
+  "@p2pErrorChatMessageOversized": {
+    "description": "F-CHAT-008 CHAT_MESSAGE_OVERSIZED: chat message too long"
+  },
+  "p2pRecoveryChatMessageOversized": "Keep messages under the character limit.",
+  "@p2pRecoveryChatMessageOversized": {
+    "description": "Recovery hint for F-CHAT-008 CHAT_MESSAGE_OVERSIZED: chat message too long"
+  },
+  "p2pErrorChatSlowModeActive": "Slow mode is active. You can send one message every few seconds.",
+  "@p2pErrorChatSlowModeActive": {
+    "description": "F-CHAT-009 CHAT_SLOW_MODE_ACTIVE: chat slow mode is active"
+  },
+  "p2pRecoveryChatSlowModeActive": "Wait for the slow-mode timer before sending again.",
+  "@p2pRecoveryChatSlowModeActive": {
+    "description": "Recovery hint for F-CHAT-009 CHAT_SLOW_MODE_ACTIVE: chat slow mode is active"
+  },
+  "p2pErrorChatAutoThrottledClockPressure": "Chat paused — game clock is under pressure.",
+  "@p2pErrorChatAutoThrottledClockPressure": {
+    "description": "F-CHAT-010 CHAT_AUTO_THROTTLED_CLOCK_PRESSURE: chat throttled due to clock pressure"
+  },
+  "p2pRecoveryChatAutoThrottledClockPressure": "Chat will resume when the clock situation eases.",
+  "@p2pRecoveryChatAutoThrottledClockPressure": {
+    "description": "Recovery hint for F-CHAT-010 CHAT_AUTO_THROTTLED_CLOCK_PRESSURE: chat throttled due to clock pressure"
+  },
+  "p2pErrorChatReceiverOverflow": "Chat inbox full — some messages may have been dropped.",
+  "@p2pErrorChatReceiverOverflow": {
+    "description": "F-CHAT-011 CHAT_RECEIVER_OVERFLOW: chat receiver queue overflowed"
+  },
+  "p2pRecoveryChatReceiverOverflow": "No action needed.",
+  "@p2pRecoveryChatReceiverOverflow": {
+    "description": "Recovery hint for F-CHAT-011 CHAT_RECEIVER_OVERFLOW: chat receiver queue overflowed"
+  },
+  "p2pErrorChatReportFiled": "Report submitted. Thank you.",
+  "@p2pErrorChatReportFiled": {
+    "description": "F-CHAT-012 CHAT_REPORT_FILED: a chat report was filed"
+  },
+  "p2pRecoveryChatReportFiled": "No further action needed from you.",
+  "@p2pRecoveryChatReportFiled": {
+    "description": "Recovery hint for F-CHAT-012 CHAT_REPORT_FILED: a chat report was filed"
+  },
+  "p2pErrorChatTournamentLocked": "Chat is locked during this tournament.",
+  "@p2pErrorChatTournamentLocked": {
+    "description": "F-CHAT-013 CHAT_TOURNAMENT_LOCKED: chat locked during tournament"
+  },
+  "p2pRecoveryChatTournamentLocked": "Chat will unlock when the tournament ends.",
+  "@p2pRecoveryChatTournamentLocked": {
+    "description": "Recovery hint for F-CHAT-013 CHAT_TOURNAMENT_LOCKED: chat locked during tournament"
+  },
+  "p2pErrorChatHostBroadcastDroppedLowPriority": "Host broadcast message was dropped due to low priority.",
+  "@p2pErrorChatHostBroadcastDroppedLowPriority": {
+    "description": "F-CHAT-014 CHAT_HOST_BROADCAST_DROPPED_LOW_PRIORITY: host broadcast dropped"
+  },
+  "p2pRecoveryChatHostBroadcastDroppedLowPriority": "Retry the broadcast.",
+  "@p2pRecoveryChatHostBroadcastDroppedLowPriority": {
+    "description": "Recovery hint for F-CHAT-014 CHAT_HOST_BROADCAST_DROPPED_LOW_PRIORITY: host broadcast dropped"
+  },
+  "p2pErrorChatDecodeErrorDiscarded": "A chat message could not be decoded and was discarded.",
+  "@p2pErrorChatDecodeErrorDiscarded": {
+    "description": "F-CHAT-015 CHAT_DECODE_ERROR_DISCARDED: chat frame decode error, discarded"
+  },
+  "p2pRecoveryChatDecodeErrorDiscarded": "Ask the sender to resend.",
+  "@p2pRecoveryChatDecodeErrorDiscarded": {
+    "description": "Recovery hint for F-CHAT-015 CHAT_DECODE_ERROR_DISCARDED: chat frame decode error, discarded"
+  },
+  "p2pErrorChatNfcNormalisationFail": "Message contains characters that could not be normalised.",
+  "@p2pErrorChatNfcNormalisationFail": {
+    "description": "F-CHAT-016 CHAT_NFC_NORMALISATION_FAIL: NFC normalisation of chat text failed"
+  },
+  "p2pRecoveryChatNfcNormalisationFail": "Remove special characters and try again.",
+  "@p2pRecoveryChatNfcNormalisationFail": {
+    "description": "Recovery hint for F-CHAT-016 CHAT_NFC_NORMALISATION_FAIL: NFC normalisation of chat text failed"
+  },
+  "p2pErrorChatHomoglyphBlocked": "Message blocked — it appears to use deceptive lookalike characters.",
+  "@p2pErrorChatHomoglyphBlocked": {
+    "description": "F-CHAT-017 CHAT_HOMOGLYPH_BLOCKED: chat message blocked for homoglyph abuse"
+  },
+  "p2pRecoveryChatHomoglyphBlocked": "Retype the message using standard characters.",
+  "@p2pRecoveryChatHomoglyphBlocked": {
+    "description": "Recovery hint for F-CHAT-017 CHAT_HOMOGLYPH_BLOCKED: chat message blocked for homoglyph abuse"
+  }
 }
