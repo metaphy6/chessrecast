@@ -84,8 +84,9 @@ void main() {
 
     test('portability export flow is tested (proof file exists)', () {
       expect(
-        File('${repo.path}/frontend/test/p2p/privacy/export_my_data_test.dart')
-            .existsSync(),
+        File(
+          '${repo.path}/frontend/test/p2p/privacy/export_my_data_test.dart',
+        ).existsSync(),
         isTrue,
         reason: 'export portability proof test must exist',
       );
@@ -93,22 +94,31 @@ void main() {
 
     test('erasure flow is tested (proof file exists)', () {
       expect(
-        File('${repo.path}/frontend/test/p2p/privacy/delete_account_test.dart')
-            .existsSync(),
+        File(
+          '${repo.path}/frontend/test/p2p/privacy/delete_account_test.dart',
+        ).existsSync(),
         isTrue,
         reason: 'delete-account erasure proof test must exist',
       );
     });
 
     test('data-flow completeness CI gate script exists and is executable', () {
-      final script =
-          File('${repo.path}/xops/p2p/data-flow-completeness-check.sh');
-      expect(script.existsSync(), isTrue,
-          reason: 'CI gate script must exist at xops/p2p/data-flow-completeness-check.sh');
+      final script = File(
+        '${repo.path}/xops/p2p/data-flow-completeness-check.sh',
+      );
+      expect(
+        script.existsSync(),
+        isTrue,
+        reason:
+            'CI gate script must exist at xops/p2p/data-flow-completeness-check.sh',
+      );
       final stat = script.statSync();
       // User-executable bit (mode & 0100 != 0).
-      expect((stat.mode & 0x49), isNonZero, // 0x49 = 0111 (any exec bit)
-          reason: 'CI gate script must be executable');
+      expect(
+        (stat.mode & 0x49),
+        isNonZero, // 0x49 = 0111 (any exec bit)
+        reason: 'CI gate script must be executable',
+      );
     });
   });
 }
@@ -128,7 +138,11 @@ void _assertBoxesTicked(String roadmap, String section, int expectedCount) {
       break;
     }
   }
-  expect(sectionStart, isNot(-1), reason: 'Section §$section not found in roadmap');
+  expect(
+    sectionStart,
+    isNot(-1),
+    reason: 'Section §$section not found in roadmap',
+  );
 
   int sectionEnd = lines.length;
   for (int i = sectionStart + 1; i < lines.length; i++) {
@@ -146,10 +160,17 @@ void _assertBoxesTicked(String roadmap, String section, int expectedCount) {
     if (line.contains('- [ ]')) unticked++;
   }
 
-  expect(unticked, equals(0),
-      reason: 'All §$section boxes must be ticked; found $unticked unticked');
-  expect(ticked, greaterThanOrEqualTo(expectedCount),
-      reason: 'Expected ≥ $expectedCount ticked boxes in §$section; found $ticked');
+  expect(
+    unticked,
+    equals(0),
+    reason: 'All §$section boxes must be ticked; found $unticked unticked',
+  );
+  expect(
+    ticked,
+    greaterThanOrEqualTo(expectedCount),
+    reason:
+        'Expected ≥ $expectedCount ticked boxes in §$section; found $ticked',
+  );
 }
 
 Matcher isNonZero = isNot(equals(0));

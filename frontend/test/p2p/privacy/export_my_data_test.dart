@@ -45,23 +45,23 @@ void main() {
     test('exportArchive rejects empty passphrase', () async {
       final data = _testExportPayload();
       expect(
-        () async => service.exportArchive(
-          payload: data,
-          passphrase: '',
-        ),
+        () async => service.exportArchive(payload: data, passphrase: ''),
         throwsA(isA<ArgumentError>()),
       );
     });
 
-    test('cooldown: second export within 5 minutes throws CooldownException', () async {
-      final data = _testExportPayload();
-      await service.exportArchive(payload: data, passphrase: 'pass1');
+    test(
+      'cooldown: second export within 5 minutes throws CooldownException',
+      () async {
+        final data = _testExportPayload();
+        await service.exportArchive(payload: data, passphrase: 'pass1');
 
-      expect(
-        () async => service.exportArchive(payload: data, passphrase: 'pass2'),
-        throwsA(isA<ExportCooldownException>()),
-      );
-    });
+        expect(
+          () async => service.exportArchive(payload: data, passphrase: 'pass2'),
+          throwsA(isA<ExportCooldownException>()),
+        );
+      },
+    );
 
     test('cooldown: export succeeds after cooldown elapsed', () async {
       final data = _testExportPayload();

@@ -43,33 +43,45 @@ void main() {
   });
 
   test('data-flow-completeness-check.sh exists and is executable', () {
-    final script = File('${repo.path}/xops/p2p/data-flow-completeness-check.sh');
-    expect(script.existsSync(), isTrue,
-        reason:
-            'xops/p2p/data-flow-completeness-check.sh must exist (roadmap §18.1)');
+    final script = File(
+      '${repo.path}/xops/p2p/data-flow-completeness-check.sh',
+    );
+    expect(
+      script.existsSync(),
+      isTrue,
+      reason:
+          'xops/p2p/data-flow-completeness-check.sh must exist (roadmap §18.1)',
+    );
     final stat = script.statSync();
     // mode bit 0111 (rwx) for owner
-    expect(stat.mode & 0x40, isNonZero,
-        reason: 'data-flow-completeness-check.sh must be executable');
+    expect(
+      stat.mode & 0x40,
+      isNonZero,
+      reason: 'data-flow-completeness-check.sh must be executable',
+    );
   });
 
   test('P2P_PRIVACY.md has a Data-flow inventory section', () {
-    final privacyDoc =
-        File('${repo.path}/docs/P2P_PRIVACY.md');
-    expect(privacyDoc.existsSync(), isTrue,
-        reason: 'docs/P2P_PRIVACY.md must exist');
+    final privacyDoc = File('${repo.path}/docs/P2P_PRIVACY.md');
+    expect(
+      privacyDoc.existsSync(),
+      isTrue,
+      reason: 'docs/P2P_PRIVACY.md must exist',
+    );
     final content = privacyDoc.readAsStringSync();
-    expect(content, contains('## Data-flow inventory'),
-        reason:
-            'P2P_PRIVACY.md must contain a "## Data-flow inventory" section (roadmap §18.1)');
+    expect(
+      content,
+      contains('## Data-flow inventory'),
+      reason:
+          'P2P_PRIVACY.md must contain a "## Data-flow inventory" section (roadmap §18.1)',
+    );
   });
 
   group('P2P_PRIVACY.md inventory table contains all required data classes', () {
     late String privacyContent;
 
     setUpAll(() {
-      final privacyDoc =
-          File('${repo.path}/docs/P2P_PRIVACY.md');
+      final privacyDoc = File('${repo.path}/docs/P2P_PRIVACY.md');
       if (privacyDoc.existsSync()) {
         privacyContent = privacyDoc.readAsStringSync();
       } else {
@@ -79,28 +91,37 @@ void main() {
 
     for (final dataClass in _requiredDataClasses) {
       test('inventory contains "$dataClass"', () {
-        expect(privacyContent, contains(dataClass),
-            reason:
-                'P2P_PRIVACY.md data-flow inventory must include data class "$dataClass" (roadmap §18.1)');
+        expect(
+          privacyContent,
+          contains(dataClass),
+          reason:
+              'P2P_PRIVACY.md data-flow inventory must include data class "$dataClass" (roadmap §18.1)',
+        );
       });
     }
   });
 
-  test('data-flow-completeness-check.sh exits 0 (no undocumented P2P writes)',
-      () async {
-    final script =
-        File('${repo.path}/xops/p2p/data-flow-completeness-check.sh');
-    if (!script.existsSync()) {
-      fail('Script does not exist — implement xops/p2p/data-flow-completeness-check.sh first');
-    }
-    final result = await Process.run(
-      'bash',
-      [script.path, '--repo-root=${repo.path}'],
-      workingDirectory: repo.path,
-    );
-    if (result.exitCode != 0) {
-      fail('data-flow-completeness-check.sh failed (exit ${result.exitCode}):\n'
-          '${result.stdout}\n${result.stderr}');
-    }
-  });
+  test(
+    'data-flow-completeness-check.sh exits 0 (no undocumented P2P writes)',
+    () async {
+      final script = File(
+        '${repo.path}/xops/p2p/data-flow-completeness-check.sh',
+      );
+      if (!script.existsSync()) {
+        fail(
+          'Script does not exist — implement xops/p2p/data-flow-completeness-check.sh first',
+        );
+      }
+      final result = await Process.run('bash', [
+        script.path,
+        '--repo-root=${repo.path}',
+      ], workingDirectory: repo.path);
+      if (result.exitCode != 0) {
+        fail(
+          'data-flow-completeness-check.sh failed (exit ${result.exitCode}):\n'
+          '${result.stdout}\n${result.stderr}',
+        );
+      }
+    },
+  );
 }

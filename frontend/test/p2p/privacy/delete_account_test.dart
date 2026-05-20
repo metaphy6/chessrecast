@@ -20,16 +20,19 @@ void main() {
       service = DeleteAccountService.forTest(localStore: localStore);
     });
 
-    test('buildDeletionRequest returns a request with pubkey and signature', () {
-      final req = service.buildDeletionRequest(
-        accountPubkey: 'aabbccddeeff0011',
-        deviceKeyBytes: List.filled(32, 0xaa),
-      );
+    test(
+      'buildDeletionRequest returns a request with pubkey and signature',
+      () {
+        final req = service.buildDeletionRequest(
+          accountPubkey: 'aabbccddeeff0011',
+          deviceKeyBytes: List.filled(32, 0xaa),
+        );
 
-      expect(req.accountPubkey, equals('aabbccddeeff0011'));
-      expect(req.signature, isNotEmpty);
-      expect(req.timestamp, isNotEmpty);
-    });
+        expect(req.accountPubkey, equals('aabbccddeeff0011'));
+        expect(req.signature, isNotEmpty);
+        expect(req.timestamp, isNotEmpty);
+      },
+    );
 
     test('buildDeletionRequest timestamp is valid ISO-8601', () {
       final req = service.buildDeletionRequest(
@@ -44,12 +47,21 @@ void main() {
     test('wipeLocalData clears all local stores', () async {
       await service.wipeLocalData();
 
-      expect(localStore.sqlCipherWiped, isTrue,
-          reason: 'SQLCipher DB must be wiped');
-      expect(localStore.secureStorageWiped, isTrue,
-          reason: 'SecureStorage must be wiped');
-      expect(localStore.cacheWiped, isTrue,
-          reason: 'app caches must be cleared');
+      expect(
+        localStore.sqlCipherWiped,
+        isTrue,
+        reason: 'SQLCipher DB must be wiped',
+      );
+      expect(
+        localStore.secureStorageWiped,
+        isTrue,
+        reason: 'SecureStorage must be wiped',
+      );
+      expect(
+        localStore.cacheWiped,
+        isTrue,
+        reason: 'app caches must be cleared',
+      );
     });
 
     test('deleteAccount marks service as deleted after wipe', () async {

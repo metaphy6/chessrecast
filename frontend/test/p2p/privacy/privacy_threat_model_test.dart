@@ -25,69 +25,105 @@ void main() {
   setUpAll(() {
     repo = _repoRoot();
     final doc = File('${repo.path}/docs/P2P_PRIVACY.md');
-    expect(doc.existsSync(), isTrue,
-        reason: 'docs/P2P_PRIVACY.md must exist');
+    expect(doc.existsSync(), isTrue, reason: 'docs/P2P_PRIVACY.md must exist');
     privacyContent = doc.readAsStringSync();
   });
 
   group('§18.2 T-PRIV threat entries are documented in P2P_PRIVACY.md', () {
     test('T-PRIV-001: Cross-session linkage via stable fingerprint', () {
-      expect(privacyContent, contains('T-PRIV-001'),
-          reason: 'T-PRIV-001 must be documented in P2P_PRIVACY.md');
-      expect(privacyContent, contains('cross-session'),
-          reason:
-              'T-PRIV-001 must describe the cross-session linkage threat');
+      expect(
+        privacyContent,
+        contains('T-PRIV-001'),
+        reason: 'T-PRIV-001 must be documented in P2P_PRIVACY.md',
+      );
+      expect(
+        privacyContent,
+        contains('cross-session'),
+        reason: 'T-PRIV-001 must describe the cross-session linkage threat',
+      );
     });
 
     test('T-PRIV-002: Traffic analysis on signaling endpoints', () {
-      expect(privacyContent, contains('T-PRIV-002'),
-          reason: 'T-PRIV-002 must be documented in P2P_PRIVACY.md');
-      expect(privacyContent, contains('traffic'),
-          reason:
-              'T-PRIV-002 must describe traffic analysis mitigation');
+      expect(
+        privacyContent,
+        contains('T-PRIV-002'),
+        reason: 'T-PRIV-002 must be documented in P2P_PRIVACY.md',
+      );
+      expect(
+        privacyContent,
+        contains('traffic'),
+        reason: 'T-PRIV-002 must describe traffic analysis mitigation',
+      );
     });
 
     test('T-PRIV-002: traffic_padding_test.go exists', () {
       final testFile = File(
-          '${repo.path}/signaling/internal/privacy/traffic_padding_test.go');
-      expect(testFile.existsSync(), isTrue,
-          reason:
-              'signaling/internal/privacy/traffic_padding_test.go must exist (roadmap §18.2 T-PRIV-002 proof)');
+        '${repo.path}/signaling/internal/privacy/traffic_padding_test.go',
+      );
+      expect(
+        testFile.existsSync(),
+        isTrue,
+        reason:
+            'signaling/internal/privacy/traffic_padding_test.go must exist (roadmap §18.2 T-PRIV-002 proof)',
+      );
     });
 
     test('T-PRIV-003: Spectator-presence inference via TURN patterns', () {
-      expect(privacyContent, contains('T-PRIV-003'),
-          reason: 'T-PRIV-003 must be documented in P2P_PRIVACY.md');
-      expect(privacyContent, containsAny(['spectator', 'Spectator']),
-          reason: 'T-PRIV-003 must mention spectator presence inference');
+      expect(
+        privacyContent,
+        contains('T-PRIV-003'),
+        reason: 'T-PRIV-003 must be documented in P2P_PRIVACY.md',
+      );
+      expect(
+        privacyContent,
+        containsAny(['spectator', 'Spectator']),
+        reason: 'T-PRIV-003 must mention spectator presence inference',
+      );
     });
 
     test('T-PRIV-004: Export-my-data as social-engineering vector', () {
-      expect(privacyContent, contains('T-PRIV-004'),
-          reason: 'T-PRIV-004 must be documented in P2P_PRIVACY.md');
-      expect(privacyContent, contains('export'),
-          reason: 'T-PRIV-004 must describe the export social-engineering risk');
+      expect(
+        privacyContent,
+        contains('T-PRIV-004'),
+        reason: 'T-PRIV-004 must be documented in P2P_PRIVACY.md',
+      );
+      expect(
+        privacyContent,
+        contains('export'),
+        reason: 'T-PRIV-004 must describe the export social-engineering risk',
+      );
     });
 
     test('T-PRIV-005: Telemetry cross-correlation across DP windows', () {
-      expect(privacyContent, contains('T-PRIV-005'),
-          reason: 'T-PRIV-005 must be documented in P2P_PRIVACY.md');
-      expect(privacyContent, contains('telemetry'),
-          reason: 'T-PRIV-005 must describe the telemetry cross-correlation risk');
+      expect(
+        privacyContent,
+        contains('T-PRIV-005'),
+        reason: 'T-PRIV-005 must be documented in P2P_PRIVACY.md',
+      );
+      expect(
+        privacyContent,
+        contains('telemetry'),
+        reason: 'T-PRIV-005 must describe the telemetry cross-correlation risk',
+      );
     });
 
     test('T-PRIV-006: Push-token reuse across account rotations', () {
-      expect(privacyContent, contains('T-PRIV-006'),
-          reason: 'T-PRIV-006 must be documented in P2P_PRIVACY.md');
-      expect(privacyContent, contains('push'),
-          reason: 'T-PRIV-006 must describe the push-token reuse risk');
+      expect(
+        privacyContent,
+        contains('T-PRIV-006'),
+        reason: 'T-PRIV-006 must be documented in P2P_PRIVACY.md',
+      );
+      expect(
+        privacyContent,
+        contains('push'),
+        reason: 'T-PRIV-006 must describe the push-token reuse risk',
+      );
     });
   });
 }
 
 /// Convenience matcher extension.
-Matcher containsAny(List<String> values) =>
-    _ContainsAnyMatcher(values);
+Matcher containsAny(List<String> values) => _ContainsAnyMatcher(values);
 
 class _ContainsAnyMatcher extends Matcher {
   final List<String> _values;

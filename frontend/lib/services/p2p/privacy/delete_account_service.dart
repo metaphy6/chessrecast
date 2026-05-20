@@ -76,8 +76,9 @@ class DeleteAccountService {
       DeleteAccountService._(store: const _ProductionLocalStore());
 
   /// Test constructor — accepts an injectable [LocalStoreFacade] mock.
-  factory DeleteAccountService.forTest({required LocalStoreFacade localStore}) =>
-      DeleteAccountService._(store: localStore);
+  factory DeleteAccountService.forTest({
+    required LocalStoreFacade localStore,
+  }) => DeleteAccountService._(store: localStore);
 
   /// Whether the local account has been permanently deleted.
   bool get isDeleted => _deleted;

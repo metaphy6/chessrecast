@@ -53,30 +53,33 @@ class ExportPayload {
 
   /// Serialise to a JSON-compatible map, **omitting** [wrappedRecoveryBlob].
   Map<String, dynamic> toArchiveMap() => {
-        'schema_version': 1,
-        'account_pubkey': accountPubkey,
-        'device_pubkeys': devicePubkeys,
-        'transcripts': transcripts.map((t) => t.toMap()).toList(),
-        'block_list': blockList,
-        'display_name_overrides': displayNameOverrides,
-        'settings': settings,
-        // wrappedRecoveryBlob is intentionally absent.
-      };
+    'schema_version': 1,
+    'account_pubkey': accountPubkey,
+    'device_pubkeys': devicePubkeys,
+    'transcripts': transcripts.map((t) => t.toMap()).toList(),
+    'block_list': blockList,
+    'display_name_overrides': displayNameOverrides,
+    'settings': settings,
+    // wrappedRecoveryBlob is intentionally absent.
+  };
 
   /// Reconstruct from a decoded archive map.  [wrappedRecoveryBlob] is always
   /// null — it is a security boundary that cannot be portably exported.
   factory ExportPayload.fromArchiveMap(Map<String, dynamic> m) => ExportPayload(
-        accountPubkey: m['account_pubkey'] as String,
-        devicePubkeys: List<String>.from(m['device_pubkeys'] as List),
-        transcripts: (m['transcripts'] as List)
-            .map((e) => TranscriptEntry.fromMap(Map<String, dynamic>.from(e as Map)))
-            .toList(),
-        blockList: List<String>.from(m['block_list'] as List),
-        displayNameOverrides:
-            Map<String, String>.from(m['display_name_overrides'] as Map),
-        settings: Map<String, String>.from(m['settings'] as Map),
-        wrappedRecoveryBlob: null, // never restored from an archive
-      );
+    accountPubkey: m['account_pubkey'] as String,
+    devicePubkeys: List<String>.from(m['device_pubkeys'] as List),
+    transcripts: (m['transcripts'] as List)
+        .map(
+          (e) => TranscriptEntry.fromMap(Map<String, dynamic>.from(e as Map)),
+        )
+        .toList(),
+    blockList: List<String>.from(m['block_list'] as List),
+    displayNameOverrides: Map<String, String>.from(
+      m['display_name_overrides'] as Map,
+    ),
+    settings: Map<String, String>.from(m['settings'] as Map),
+    wrappedRecoveryBlob: null, // never restored from an archive
+  );
 }
 
 /// A single game transcript in the export archive.
@@ -92,16 +95,16 @@ class TranscriptEntry {
   });
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'moves': moves,
-        'signed_by': signedBy,
-      };
+    'id': id,
+    'moves': moves,
+    'signed_by': signedBy,
+  };
 
   factory TranscriptEntry.fromMap(Map<String, dynamic> m) => TranscriptEntry(
-        id: m['id'] as String,
-        moves: m['moves'] as String,
-        signedBy: List<String>.from(m['signed_by'] as List),
-      );
+    id: m['id'] as String,
+    moves: m['moves'] as String,
+    signedBy: List<String>.from(m['signed_by'] as List),
+  );
 }
 
 /// Thrown when an export is requested within the cooldown window.
@@ -118,7 +121,6 @@ class ExportCooldownException implements Exception {
 class ExportDecryptException implements Exception {
   final String message;
   const ExportDecryptException([this.message = 'decryption failed']);
-
 
   @override
   String toString() => 'ExportDecryptException: $message';
@@ -157,10 +159,12 @@ class ExportManifest {
     final idsHashBytes = crypto.sha256.convert(idsRaw).bytes;
     final idsHash = _hexEncode(Uint8List.fromList(idsHashBytes));
     final exportedAt = now.toUtc().toIso8601String();
-    final canonical = '${ payload.transcripts.length}:$idsHash:${payload.accountPubkey}:$exportedAt';
-    final hmacBytes = crypto.Hmac(crypto.sha256, deviceKeyBytes)
-        .convert(utf8.encode(canonical))
-        .bytes;
+    final canonical =
+        '${payload.transcripts.length}:$idsHash:${payload.accountPubkey}:$exportedAt';
+    final hmacBytes = crypto.Hmac(
+      crypto.sha256,
+      deviceKeyBytes,
+    ).convert(utf8.encode(canonical)).bytes;
     return ExportManifest(
       transcriptCount: payload.transcripts.length,
       transcriptIdsHash: idsHash,
@@ -172,10 +176,12 @@ class ExportManifest {
 
   /// Verify the HMAC under [deviceKeyBytes].
   bool verify(Uint8List deviceKeyBytes) {
-    final canonical = '$transcriptCount:$transcriptIdsHash:$accountPubkey:$exportedAt';
-    final expected = crypto.Hmac(crypto.sha256, deviceKeyBytes)
-        .convert(utf8.encode(canonical))
-        .bytes;
+    final canonical =
+        '$transcriptCount:$transcriptIdsHash:$accountPubkey:$exportedAt';
+    final expected = crypto.Hmac(
+      crypto.sha256,
+      deviceKeyBytes,
+    ).convert(utf8.encode(canonical)).bytes;
     final actual = _hexDecode(deviceHmac);
     if (expected.length != actual.length) return false;
     // Constant-time comparison.
@@ -187,20 +193,20 @@ class ExportManifest {
   }
 
   Map<String, dynamic> toMap() => {
-        'transcript_count': transcriptCount,
-        'transcript_ids_hash': transcriptIdsHash,
-        'account_pubkey': accountPubkey,
-        'exported_at': exportedAt,
-        'device_hmac': deviceHmac,
-      };
+    'transcript_count': transcriptCount,
+    'transcript_ids_hash': transcriptIdsHash,
+    'account_pubkey': accountPubkey,
+    'exported_at': exportedAt,
+    'device_hmac': deviceHmac,
+  };
 
   factory ExportManifest.fromMap(Map<String, dynamic> m) => ExportManifest(
-        transcriptCount: m['transcript_count'] as int,
-        transcriptIdsHash: m['transcript_ids_hash'] as String,
-        accountPubkey: m['account_pubkey'] as String,
-        exportedAt: m['exported_at'] as String,
-        deviceHmac: m['device_hmac'] as String,
-      );
+    transcriptCount: m['transcript_count'] as int,
+    transcriptIdsHash: m['transcript_ids_hash'] as String,
+    accountPubkey: m['account_pubkey'] as String,
+    exportedAt: m['exported_at'] as String,
+    deviceHmac: m['device_hmac'] as String,
+  );
 
   static String _hexEncode(Uint8List bytes) =>
       bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
@@ -253,8 +259,8 @@ class ExportService {
   ExportPayload? _pendingPayload;
 
   ExportService._({required Clock clock, int iterations = _pbkdf2Iterations})
-      : _clock = clock,
-        _iterations = iterations;
+    : _clock = clock,
+      _iterations = iterations;
 
   /// Production constructor — uses the real system clock.
   factory ExportService() => ExportService._(clock: const _SystemClock());
@@ -262,9 +268,9 @@ class ExportService {
   /// Test constructor — accepts an injectable [FakeClock] and uses fewer KDF
   /// iterations so test suites run quickly.
   factory ExportService.forTest({Clock? clock}) => ExportService._(
-        clock: clock ?? FakeClock(DateTime.now()),
-        iterations: 1, // fast KDF for unit tests
-      );
+    clock: clock ?? FakeClock(DateTime.now()),
+    iterations: 1, // fast KDF for unit tests
+  );
 
   /// §18.7.4 Reliability: true when a previous export attempt left pending state.
   bool get hasPendingRetry => _pendingPayload != null;
@@ -282,7 +288,8 @@ class ExportService {
   /// Throws [StateError] if no pending retry is available.
   Future<Uint8List> retryExport({required String passphrase}) {
     final p = _pendingPayload;
-    if (p == null) throw StateError('no pending retry; call exportArchive first');
+    if (p == null)
+      throw StateError('no pending retry; call exportArchive first');
     return exportArchive(payload: p, passphrase: passphrase);
   }
 
@@ -330,12 +337,14 @@ class ExportService {
 
     final rng = Random.secure();
     final salt = Uint8List.fromList(
-        List.generate(_saltBytes, (_) => rng.nextInt(256)));
+      List.generate(_saltBytes, (_) => rng.nextInt(256)),
+    );
     final keyBytes = _deriveKey(passphrase: passphrase, salt: salt);
     final key = Key(keyBytes);
 
-    final iv = IV(Uint8List.fromList(
-        List.generate(_nonceBytes, (_) => rng.nextInt(256))));
+    final iv = IV(
+      Uint8List.fromList(List.generate(_nonceBytes, (_) => rng.nextInt(256))),
+    );
 
     // Build the archive map, optionally embedding a signed manifest.
     final archiveMap = payload.toArchiveMap();
@@ -352,7 +361,9 @@ class ExportService {
     final encrypter = Encrypter(AES(key, mode: AESMode.gcm));
     final encrypted = encrypter.encrypt(plaintext, iv: iv);
     // Archive layout: [salt: 16] + [nonce: 12] + [ciphertext+tag]
-    final archive = Uint8List(_saltBytes + _nonceBytes + encrypted.bytes.length);
+    final archive = Uint8List(
+      _saltBytes + _nonceBytes + encrypted.bytes.length,
+    );
     archive.setRange(0, _saltBytes, salt);
     archive.setRange(_saltBytes, _saltBytes + _nonceBytes, iv.bytes);
     archive.setRange(_saltBytes + _nonceBytes, archive.length, encrypted.bytes);
@@ -387,16 +398,18 @@ class ExportService {
     final iv = IV(nonce);
     final encrypter = Encrypter(AES(key, mode: AESMode.gcm));
     try {
-      final decrypted =
-          encrypter.decrypt(Encrypted(ciphertextBytes), iv: iv);
+      final decrypted = encrypter.decrypt(Encrypted(ciphertextBytes), iv: iv);
       final map = jsonDecode(decrypted) as Map<String, dynamic>;
 
       // §18.7.5 Integrity: verify manifest when present and device key provided.
       if (deviceKeyBytes != null && map.containsKey('manifest')) {
         final manifest = ExportManifest.fromMap(
-            Map<String, dynamic>.from(map['manifest'] as Map));
+          Map<String, dynamic>.from(map['manifest'] as Map),
+        );
         if (!manifest.verify(deviceKeyBytes)) {
-          throw const ExportDecryptException('manifest verification failed — device key mismatch or tampering detected');
+          throw const ExportDecryptException(
+            'manifest verification failed — device key mismatch or tampering detected',
+          );
         }
       }
 
@@ -411,21 +424,24 @@ class ExportService {
   ///
   /// **Production note:** replace with Argon2id once `pointycastle` is added
   /// as a dependency (requires `kind: shared_edit` queue entry for pubspec).
-  Uint8List _deriveKey({
-    required String passphrase,
-    required Uint8List salt,
-  }) {
+  Uint8List _deriveKey({required String passphrase, required Uint8List salt}) {
     // PBKDF2 using HMAC-SHA256: produce 32 bytes.
     final passwordBytes = utf8.encode(passphrase);
     var u = Uint8List.fromList(
-      crypto.Hmac(crypto.sha256, passwordBytes)
-          .convert([...salt, 0, 0, 0, 1]) // PRF(P, S || INT(1))
-          .bytes,
+      crypto.Hmac(crypto.sha256, passwordBytes).convert([
+        ...salt,
+        0,
+        0,
+        0,
+        1,
+      ]) // PRF(P, S || INT(1))
+      .bytes,
     );
     final derived = Uint8List.fromList(u);
     for (int i = 1; i < _iterations; i++) {
       u = Uint8List.fromList(
-          crypto.Hmac(crypto.sha256, passwordBytes).convert(u).bytes);
+        crypto.Hmac(crypto.sha256, passwordBytes).convert(u).bytes,
+      );
       for (int j = 0; j < derived.length; j++) {
         derived[j] ^= u[j];
       }
