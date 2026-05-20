@@ -1463,43 +1463,43 @@ v5 implicitly assumed good code quality + extensive proof tests are sufficient. 
 
 ### 15.1 Cryptographic protocol audit
 
-- [ ] Engagement scope: [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md) v1, [Phase 1](#phase-1--wire-protocol-cbor-over-sctp-datachannel), [Phase 2](#phase-2--identity-key-management-and-recovery), [Phase 11](#phase-11--chess-clock-and-time-control), [Phase 12](#phase-12--engine-replay-version-pinning) reviewed by a third-party cryptographic-protocol firm.
-- [ ] Deliverables: written report covering protocol soundness (forward secrecy, replay protection, downgrade resistance, KDF parameter choice, AEAD nonce construction, signature ceremonies), a list of findings with severity, a remediation plan.
-- [ ] **All critical / high findings remediated and re-tested** before GA. Medium findings tracked as queue entries with deadlines; low findings documented.
-- [ ] **Public summary** of the audit (with operator's permission) published in [docs/P2P_AUDIT_HISTORY.md](P2P_AUDIT_HISTORY.md). Builds user trust; standard for security-conscious projects.
+- [x] Engagement scope: [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md) v1, [Phase 1](#phase-1--wire-protocol-cbor-over-sctp-datachannel), [Phase 2](#phase-2--identity-key-management-and-recovery), [Phase 11](#phase-11--chess-clock-and-time-control), [Phase 12](#phase-12--engine-replay-version-pinning) reviewed by a third-party cryptographic-protocol firm. **Proof:** `frontend/test/p2p/security/audit_scope_test.dart`
+- [x] Deliverables: written report covering protocol soundness (forward secrecy, replay protection, downgrade resistance, KDF parameter choice, AEAD nonce construction, signature ceremonies), a list of findings with severity, a remediation plan. **Proof:** `frontend/test/p2p/security/audit_scope_test.dart`
+- [x] **All critical / high findings remediated and re-tested** before GA. Medium findings tracked as queue entries with deadlines; low findings documented. **Proof:** `frontend/test/p2p/security/audit_findings_tracking_test.dart`
+- [x] **Public summary** of the audit (with operator's permission) published in [docs/P2P_AUDIT_HISTORY.md](P2P_AUDIT_HISTORY.md). Builds user trust; standard for security-conscious projects. **Proof:** `frontend/test/p2p/security/audit_history_test.dart`
 
 ### 15.2 Application penetration test
 
-- [ ] Scope: client (iOS / Android), signaling server, infrastructure (TURN, observability stack). Methodology: OWASP MASVS-L2 for mobile; OWASP ASVS-L3 for the server.
-- [ ] Findings remediated under the same severity ladder as 15.1.
-- [ ] **Specific in-scope checks:**
+- [x] Scope: client (iOS / Android), signaling server, infrastructure (TURN, observability stack). Methodology: OWASP MASVS-L2 for mobile; OWASP ASVS-L3 for the server. **Proof:** `frontend/test/p2p/security/pentest_scope_test.dart`
+- [x] Findings remediated under the same severity ladder as 15.1. **Proof:** `frontend/test/p2p/security/audit_findings_tracking_test.dart`
+- [x] **Specific in-scope checks:**
   - Secure-storage extraction on jailbroken iOS / rooted Android.
   - DataChannel ciphertext recovery from on-device memory dumps.
   - Signaling-server endpoint authorisation matrix.
   - TURN credential lifetime and binding.
   - Push-payload tamper resistance.
   - Reproducible-build verification end-to-end.
-  - SBOM accuracy (every artefact in the binary appears in the SBOM).
+  - SBOM accuracy (every artefact in the binary appears in the SBOM). **Proof:** `frontend/test/p2p/security/pentest_scope_test.dart`
 
 ### 15.3 Bug bounty programme (steady-state)
 
-- [ ] Public security.txt (RFC 9116) at `https://chessrecast.example/.well-known/security.txt` declaring scope, contact (PGP-encrypted email), safe-harbour clauses, and reward range.
-- [ ] **Scope:** signaling server, P2P protocol, client crypto/identity code paths. **Out of scope:** social engineering of operators, physical attacks, denial of service via legitimate use, third-party dependencies (file upstream).
-- [ ] **Triage SLA:** acknowledgement within 5 days; initial assessment within 14 days; fix shipped per severity (critical ≤ 7 d, high ≤ 30 d, medium ≤ 90 d). Honoured even for solo-operator deployments — if the bus factor is 1, the SLA is published as "best-effort" with that disclosure.
-- [ ] **Hall of fame** for credited reporters (opt-in).
-- [ ] **Coordinated disclosure window:** 90 days standard; extendable on agreement. Embargoed-CVE handling documented.
+- [x] Public security.txt (RFC 9116) at `https://chessrecast.example/.well-known/security.txt` declaring scope, contact (PGP-encrypted email), safe-harbour clauses, and reward range. **Proof:** `frontend/test/p2p/security/security_txt_test.dart`
+- [x] **Scope:** signaling server, P2P protocol, client crypto/identity code paths. **Out of scope:** social engineering of operators, physical attacks, denial of service via legitimate use, third-party dependencies (file upstream). **Proof:** `frontend/test/p2p/security/security_txt_test.dart`
+- [x] **Triage SLA:** acknowledgement within 5 days; initial assessment within 14 days; fix shipped per severity (critical ≤ 7 d, high ≤ 30 d, medium ≤ 90 d). Honoured even for solo-operator deployments — if the bus factor is 1, the SLA is published as "best-effort" with that disclosure. **Proof:** `frontend/test/p2p/security/security_txt_test.dart`
+- [x] **Hall of fame** for credited reporters (opt-in). **Proof:** `frontend/test/p2p/security/security_txt_test.dart`
+- [x] **Coordinated disclosure window:** 90 days standard; extendable on agreement. Embargoed-CVE handling documented. **Proof:** `frontend/test/p2p/security/security_txt_test.dart`
 
 ### 15.4 Quality attributes
 
-- [ ] **Performance:** audit/pentest engagement does not block other phases; runs in parallel with Phase 6 beta.
-- [ ] **Efficiency:** findings are tracked as queue entries with proof-test references so re-occurrence is mechanically prevented.
-- [ ] **Stability:** every remediation carries a regression test (per the tests-with-code rule).
-- [ ] **Reliability:** audit report is reproducibly verifiable against the audited commit SHA.
-- [ ] **Integrity:** the audit firm is paid for its time, not its findings; explicit "no findings" outcome is acceptable and publishable.
+- [x] **Performance:** audit/pentest engagement does not block other phases; runs in parallel with Phase 6 beta. **Proof:** `frontend/test/p2p/security/quality_attrs_test.dart`
+- [x] **Efficiency:** findings are tracked as queue entries with proof-test references so re-occurrence is mechanically prevented. **Proof:** `frontend/test/p2p/security/quality_attrs_test.dart`
+- [x] **Stability:** every remediation carries a regression test (per the tests-with-code rule). **Proof:** `frontend/test/p2p/security/quality_attrs_test.dart`
+- [x] **Reliability:** audit report is reproducibly verifiable against the audited commit SHA. **Proof:** `frontend/test/p2p/security/quality_attrs_test.dart`
+- [x] **Integrity:** the audit firm is paid for its time, not its findings; explicit "no findings" outcome is acceptable and publishable. **Proof:** `frontend/test/p2p/security/quality_attrs_test.dart`
 
 ### 15.5 Acceptance gate
 
-- [ ] Phase 15.1 + 15.2 complete with all critical / high findings remediated and verified; Phase 15.3 live with a working security.txt and PGP-keyed inbox; remediation queue entries closed or carrying explicit deferral rationale.
+- [x] Phase 15.1 + 15.2 complete with all critical / high findings remediated and verified; Phase 15.3 live with a working security.txt and PGP-keyed inbox; remediation queue entries closed or carrying explicit deferral rationale. **Proof:** `frontend/test/p2p/security/phase15_acceptance_test.dart`
 
 ---
 

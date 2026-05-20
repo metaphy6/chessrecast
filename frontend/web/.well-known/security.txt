@@ -1,0 +1,10 @@
+# This is the security.txt file for Chess Recast per RFC 9116.
+# https://www.rfc-editor.org/rfc/rfc9116
+
+Contact: mailto:security@chessrecast.example
+Expires: 2027-01-01T00:00:00Z
+Encryption: https://chessrecast.example/.well-known/pgp-key.txt
+Acknowledgments: https://chessrecast.example/security/hall-of-fame
+Policy: https://chessrecast.example/security-policy
+Preferred-Languages: en
+Canonical: https://chessrecast.example/.well-known/security.txt
