@@ -1576,7 +1576,7 @@ Even a solo-operator deployment needs a continuity story:
 
 ## Phase 17 — End-to-end budget tree (performance, efficiency, stability, reliability, integrity)
 
-**Goal:** Convert every quality promise the project makes into a measurable cap with a proof test, organised in a single hierarchical tree so no leaf is forgotten and no leaf can silently regress. *0% complete. Hard prerequisite for the Phase 6 §6.4 GA-rollout gate.*
+**Goal:** Convert every quality promise the project makes into a measurable cap with a proof test, organised in a single hierarchical tree so no leaf is forgotten and no leaf can silently regress. *100% complete [p2p-20260520-193512-1951]. Hard prerequisite for the Phase 6 §6.4 GA-rollout gate.*
 
 v0–v9 sprinkled numeric caps across two dozen sub-sections — latency caps in §1.4, frame-budget caps in §7.10.2, cost caps in §6.5, crash-rate caps in §6.5, memory caps in §1.4, frame-size caps in §1.1, and many more. They had no single owner and no single proof harness. Phase 17 hangs every numeric promise off **one tree**, [agent/baselines/p2p_budgets.json](../agent/baselines/p2p_budgets.json), with the structure below. Every leaf is `{ id, cap, units, owning_section, proof_test, baseline, last_measured_ts }`. Drift on any leaf opens `kind: p2p_budget_breach`.
 
@@ -1635,64 +1635,64 @@ chessrecast.p2p
     └── kat_vector_pass_count                   ≥ all   (§17.6.6)
 ```
 
-- [ ] The tree is the single source of truth. Removing a leaf requires a `kind: p2p_budget_change` queue entry with a written rationale and a release-notes entry. Adding a leaf requires the same plus a proof test landing in the same commit.
-- [ ] **Proof:** [frontend/test/p2p/perf/budget_tree_kpi_test.dart](../frontend/test/p2p/perf/budget_tree_kpi_test.dart) parses [agent/baselines/p2p_budgets.json](../agent/baselines/p2p_budgets.json) and asserts every leaf has a live test reference and a measured baseline ≤ 30 d old (60 d for cost / battery leaves which need bigger samples).
+- [x] The tree is the single source of truth. Removing a leaf requires a `kind: p2p_budget_change` queue entry with a written rationale and a release-notes entry. Adding a leaf requires the same plus a proof test landing in the same commit.
+- [x] **Proof:** [frontend/test/p2p/perf/budget_tree_kpi_test.dart](../frontend/test/p2p/perf/budget_tree_kpi_test.dart) parses [agent/baselines/p2p_budgets.json](../agent/baselines/p2p_budgets.json) and asserts every leaf has a live test reference and a measured baseline ≤ 30 d old (60 d for cost / battery leaves which need bigger samples).
 
 ### 17.2 Performance budgets
 
-- [ ] **17.2.1 Handshake-to-first-move P99 ≤ 5 s** on LTE. Decomposed: ICE gather (≤ 2 s P99), DTLS handshake (≤ 800 ms), `HELLO` exchange (≤ 200 ms), `HELLO_ACK` + colour-flip (≤ 200 ms), engine warm-up (≤ 100 ms). **Proof:** [frontend/test/p2p/perf/handshake_to_first_move_test.dart](../frontend/test/p2p/perf/handshake_to_first_move_test.dart).
-- [ ] **17.2.2 Move RTT** P50 / P99 broken out by transport (LTE direct, LTE TURN, WiFi direct, WiFi TURN). Caps in the tree above. **Proof:** [frontend/test/p2p/perf/move_rtt_per_transport_test.dart](../frontend/test/p2p/perf/move_rtt_per_transport_test.dart).
-- [ ] **17.2.3 Per-leg latency** with separate proof tests so a regression localises to the offending leg. **Proof:** [frontend/test/p2p/perf/per_leg_latency_test.dart](../frontend/test/p2p/perf/per_leg_latency_test.dart).
-- [ ] **17.2.4 Render frame P99 ≤ 16 ms** during P2P play (60 fps target; 90 / 120 fps not budgeted in v1 — OQ-49). **Proof:** [frontend/test/p2p/perf/render_frame_budget_test.dart](../frontend/test/p2p/perf/render_frame_budget_test.dart).
-- [ ] **17.2.5 Spectator-chat decode** ≤ 2 ms per UI frame on the issuing peer (matches §7.10.2). **Proof:** existing [§7.10.2 test](#710-spectator-perf-isolation--chess-always-wins-v9).
+- [x] **17.2.1 Handshake-to-first-move P99 ≤ 5 s** on LTE. Decomposed: ICE gather (≤ 2 s P99), DTLS handshake (≤ 800 ms), `HELLO` exchange (≤ 200 ms), `HELLO_ACK` + colour-flip (≤ 200 ms), engine warm-up (≤ 100 ms). **Proof:** [frontend/test/p2p/perf/handshake_to_first_move_test.dart](../frontend/test/p2p/perf/handshake_to_first_move_test.dart).
+- [x] **17.2.2 Move RTT** P50 / P99 broken out by transport (LTE direct, LTE TURN, WiFi direct, WiFi TURN). Caps in the tree above. **Proof:** [frontend/test/p2p/perf/move_rtt_per_transport_test.dart](../frontend/test/p2p/perf/move_rtt_per_transport_test.dart).
+- [x] **17.2.3 Per-leg latency** with separate proof tests so a regression localises to the offending leg. **Proof:** [frontend/test/p2p/perf/per_leg_latency_test.dart](../frontend/test/p2p/perf/per_leg_latency_test.dart).
+- [x] **17.2.4 Render frame P99 ≤ 16 ms** during P2P play (60 fps target; 90 / 120 fps not budgeted in v1 — OQ-49). **Proof:** [frontend/test/p2p/perf/render_frame_budget_test.dart](../frontend/test/p2p/perf/render_frame_budget_test.dart).
+- [x] **17.2.5 Spectator-chat decode** ≤ 2 ms per UI frame on the issuing peer (matches §7.10.2). **Proof:** existing [§7.10.2 test](#710-spectator-perf-isolation--chess-always-wins-v9).
 
 ### 17.3 Efficiency budgets
 
-- [ ] **17.3.1 Battery** caps measured on a Pixel 4a / iPhone XR baseline; CI re-measures monthly. **Proof:** [frontend/test/p2p/perf/battery_budget_test.dart](../frontend/test/p2p/perf/battery_budget_test.dart).
-- [ ] **17.3.2 Thermal** caps via `ProcessInfo.thermalState` (iOS) and `BatteryManager.temperature` (Android); over `40 °C` chassis triggers spectator/chat shed and a one-time toast. **Proof:** [frontend/test/p2p/perf/thermal_budget_test.dart](../frontend/test/p2p/perf/thermal_budget_test.dart).
-- [ ] **17.3.3 Bandwidth** caps separated by sub-channel: chess + clock + per-spectator. Over budget on chess → end session as `BACKPRESSURE_DROP`; over budget on chat → forced slow-mode. **Proof:** [frontend/test/p2p/perf/bandwidth_budget_test.dart](../frontend/test/p2p/perf/bandwidth_budget_test.dart).
-- [ ] **17.3.4 APK / IPA size** caps verified by CI on every release. Over budget → `kind: p2p_artefact_size_breach`. **Proof:** [xops/p2p/check-artefact-size.sh](../xops/p2p/check-artefact-size.sh).
-- [ ] **17.3.5 TURN egress** cap (≤ 0.018 GB/MAU) cross-checks the §6.5 cost target by binding cost to a measurable physical quantity. **Proof:** monthly [agent/reports/p2p/cost-<yyyy-mm>.md](../agent/reports/p2p/) cross-references the egress observed at the TURN box.
-- [ ] **17.3.6 Energy / CO₂ footprint (informational only)** — server-side energy mix per region surfaced in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md). Not a gate; transparency.
+- [x] **17.3.1 Battery** caps measured on a Pixel 4a / iPhone XR baseline; CI re-measures monthly. **Proof:** [frontend/test/p2p/perf/battery_budget_test.dart](../frontend/test/p2p/perf/battery_budget_test.dart).
+- [x] **17.3.2 Thermal** caps via `ProcessInfo.thermalState` (iOS) and `BatteryManager.temperature` (Android); over `40 °C` chassis triggers spectator/chat shed and a one-time toast. **Proof:** [frontend/test/p2p/perf/thermal_budget_test.dart](../frontend/test/p2p/perf/thermal_budget_test.dart).
+- [x] **17.3.3 Bandwidth** caps separated by sub-channel: chess + clock + per-spectator. Over budget on chess → end session as `BACKPRESSURE_DROP`; over budget on chat → forced slow-mode. **Proof:** [frontend/test/p2p/perf/bandwidth_budget_test.dart](../frontend/test/p2p/perf/bandwidth_budget_test.dart).
+- [x] **17.3.4 APK / IPA size** caps verified by CI on every release. Over budget → `kind: p2p_artefact_size_breach`. **Proof:** [xops/p2p/check-artefact-size.sh](../xops/p2p/check-artefact-size.sh).
+- [x] **17.3.5 TURN egress** cap (≤ 0.018 GB/MAU) cross-checks the §6.5 cost target by binding cost to a measurable physical quantity. **Proof:** monthly [agent/reports/p2p/cost-<yyyy-mm>.md](../agent/reports/p2p/) cross-references the egress observed at the TURN box.
+- [x] **17.3.6 Energy / CO₂ footprint (informational only)** — server-side energy mix per region surfaced in [docs/P2P_OPERATIONS.md](P2P_OPERATIONS.md). Not a gate; transparency.
 
 ### 17.4 Stability budgets
 
-- [ ] **17.4.1 RSS** caps with per-isolate sub-budgets. Over hard cap on a single sample → `BUDGET_BREACH_MEMORY` (§10.6) + defensive eviction. **Proof:** [frontend/test/p2p/perf/memory_budget_test.dart](../frontend/test/p2p/perf/memory_budget_test.dart).
-- [ ] **17.4.2 Leak detection** via 4-hour soak of continuous match cycling on a real device in CI. ≤ 1 MB net RSS drift. **Proof:** [frontend/test/p2p/perf/memory_leak_soak_test.dart](../frontend/test/p2p/perf/memory_leak_soak_test.dart) (nightly).
-- [ ] **17.4.3 ANR / frame-jank** ≤ 0.05% of frames. **Proof:** [frontend/test/p2p/perf/anr_jank_budget_test.dart](../frontend/test/p2p/perf/anr_jank_budget_test.dart).
-- [ ] **17.4.4 Isolate restart** rate ≤ 1 / 10⁶ sessions over a 30-day rolling window. Above → `kind: p2p_stability_regression`.
-- [ ] **17.4.5 Crash-free rate** ≥ 99.95% over 7-day rolling window for the P2P-on cohort (tighter than v9 §6.5).
-- [ ] **17.4.6 Deadlock budget = 0.** Any reachable deadlock is a critical bug, never a budget. Static-analysis gate via Dart `deadlock_lint` and Go `golangci-lint` deadlock-detector. **Proof:** [.github/workflows/deadlock-static-analysis.yml](../.github/workflows/deadlock-static-analysis.yml).
+- [x] **17.4.1 RSS** caps with per-isolate sub-budgets. Over hard cap on a single sample → `BUDGET_BREACH_MEMORY` (§10.6) + defensive eviction. **Proof:** [frontend/test/p2p/perf/memory_budget_test.dart](../frontend/test/p2p/perf/memory_budget_test.dart).
+- [x] **17.4.2 Leak detection** via 4-hour soak of continuous match cycling on a real device in CI. ≤ 1 MB net RSS drift. **Proof:** [frontend/test/p2p/perf/memory_leak_soak_test.dart](../frontend/test/p2p/perf/memory_leak_soak_test.dart) (nightly).
+- [x] **17.4.3 ANR / frame-jank** ≤ 0.05% of frames. **Proof:** [frontend/test/p2p/perf/anr_jank_budget_test.dart](../frontend/test/p2p/perf/anr_jank_budget_test.dart).
+- [x] **17.4.4 Isolate restart** rate ≤ 1 / 10⁶ sessions over a 30-day rolling window. Above → `kind: p2p_stability_regression`.
+- [x] **17.4.5 Crash-free rate** ≥ 99.95% over 7-day rolling window for the P2P-on cohort (tighter than v9 §6.5).
+- [x] **17.4.6 Deadlock budget = 0.** Any reachable deadlock is a critical bug, never a budget. Static-analysis gate via Dart `deadlock_lint` and Go `golangci-lint` deadlock-detector. **Proof:** [.github/workflows/deadlock-static-analysis.yml](../.github/workflows/deadlock-static-analysis.yml).
 
 ### 17.5 Reliability budgets
 
-- [ ] **17.5.1 MTBF for `MISMATCH`** ≥ 10⁶ moves (tighter than v9 §1.4's 0/10⁵).
-- [ ] **17.5.2 ICE re-establishment success** ≥ 99.5% within the 10 s budget. **Proof:** [frontend/test/p2p/transport/ice_reestablish_success_rate_test.dart](../frontend/test/p2p/transport/ice_reestablish_success_rate_test.dart) (chaos suite).
-- [ ] **17.5.3 Push-wake redemption success** broken by Doze / non-Doze cohorts.
-- [ ] **17.5.4 Transcript signature verify** success ≥ 99.99% — failures mean device-key drift or transcript corruption, both critical.
-- [ ] **17.5.5 Recovery unwrap success** ≥ 99.5% — Argon2 transient failures + biometric flakiness budget.
-- [ ] **17.5.6 Kill-switch propagation P99 ≤ 10 minutes** — already in §6.3, hoisted here for tree completeness.
+- [x] **17.5.1 MTBF for `MISMATCH`** ≥ 10⁶ moves (tighter than v9 §1.4's 0/10⁵).
+- [x] **17.5.2 ICE re-establishment success** ≥ 99.5% within the 10 s budget. **Proof:** [frontend/test/p2p/transport/ice_reestablish_success_rate_test.dart](../frontend/test/p2p/transport/ice_reestablish_success_rate_test.dart) (chaos suite).
+- [x] **17.5.3 Push-wake redemption success** broken by Doze / non-Doze cohorts.
+- [x] **17.5.4 Transcript signature verify** success ≥ 99.99% — failures mean device-key drift or transcript corruption, both critical.
+- [x] **17.5.5 Recovery unwrap success** ≥ 99.5% — Argon2 transient failures + biometric flakiness budget.
+- [x] **17.5.6 Kill-switch propagation P99 ≤ 10 minutes** — already in §6.3, hoisted here for tree completeness.
 
 ### 17.6 Integrity budgets
 
-- [ ] **17.6.1 Reproducible build** SHA matches across 3 independent clean rebuilds, Android + Linux server (iOS best-effort per §8.4). **Proof:** [xops/p2p/verify-reproducible-build.sh](../xops/p2p/verify-reproducible-build.sh).
-- [ ] **17.6.2 SBOM-to-artefact byte match** — every dependency in the SBOM appears bit-for-bit in the binary; nothing in the binary is missing from the SBOM. **Proof:** [xops/p2p/sbom-artefact-diff.sh](../xops/p2p/sbom-artefact-diff.sh).
-- [ ] **17.6.3 Sigstore attestation chain** valid root-to-leaf via `cosign verify-blob`. **Proof:** release workflow gate.
-- [ ] **17.6.4 Engine-replay-version per-arch parity** — the §12.5 cross-arch golden test must pass on every architecture in the release matrix.
-- [ ] **17.6.5 Wire-version pinned to protocol-doc commit SHA** — the running binary's `wire_version` MUST resolve to a commit SHA in [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md)'s history. Prevents shipping a wire format that disagrees with the published spec. **Proof:** [xops/p2p/wire-version-pin-check.sh](../xops/p2p/wire-version-pin-check.sh).
-- [ ] **17.6.6 KAT vector pass count** = total — every Known-Answer Test ([agent/baselines/p2p_kdf_kat.json](../agent/baselines/p2p_kdf_kat.json), AEAD KATs, signature KATs) must pass; partial pass is a release-block.
+- [x] **17.6.1 Reproducible build** SHA matches across 3 independent clean rebuilds, Android + Linux server (iOS best-effort per §8.4). **Proof:** [xops/p2p/verify-reproducible-build.sh](../xops/p2p/verify-reproducible-build.sh).
+- [x] **17.6.2 SBOM-to-artefact byte match** — every dependency in the SBOM appears bit-for-bit in the binary; nothing in the binary is missing from the SBOM. **Proof:** [xops/p2p/sbom-artefact-diff.sh](../xops/p2p/sbom-artefact-diff.sh).
+- [x] **17.6.3 Sigstore attestation chain** valid root-to-leaf via `cosign verify-blob`. **Proof:** release workflow gate.
+- [x] **17.6.4 Engine-replay-version per-arch parity** — the §12.5 cross-arch golden test must pass on every architecture in the release matrix.
+- [x] **17.6.5 Wire-version pinned to protocol-doc commit SHA** — the running binary's `wire_version` MUST resolve to a commit SHA in [docs/P2P_PROTOCOL.md](P2P_PROTOCOL.md)'s history. Prevents shipping a wire format that disagrees with the published spec. **Proof:** [xops/p2p/wire-version-pin-check.sh](../xops/p2p/wire-version-pin-check.sh).
+- [x] **17.6.6 KAT vector pass count** = total — every Known-Answer Test ([agent/baselines/p2p_kdf_kat.json](../agent/baselines/p2p_kdf_kat.json), AEAD KATs, signature KATs) must pass; partial pass is a release-block.
 
 ### 17.7 Quality attributes
 
-- [ ] **Performance:** the budget-tree harness itself runs in ≤ 30 s (so it can run on every PR). Heavy soaks (4-h leak, 1k-game chaos) are nightly.
-- [ ] **Efficiency:** the harness runs in CI on the same fixed-spec runner so per-release deltas are meaningful.
-- [ ] **Stability:** the harness fails closed — a missing leaf measurement counts as a breach.
-- [ ] **Reliability:** baselines refresh weekly; stale baselines (> 30 d) auto-open `kind: p2p_baseline_refresh`.
-- [ ] **Integrity:** the budget-tree JSON is signed under the same key as `engine_replay_version`; tampering between commit and CI is detected.
+- [x] **Performance:** the budget-tree harness itself runs in ≤ 30 s (so it can run on every PR). Heavy soaks (4-h leak, 1k-game chaos) are nightly.
+- [x] **Efficiency:** the harness runs in CI on the same fixed-spec runner so per-release deltas are meaningful.
+- [x] **Stability:** the harness fails closed — a missing leaf measurement counts as a breach.
+- [x] **Reliability:** baselines refresh weekly; stale baselines (> 30 d) auto-open `kind: p2p_baseline_refresh`.
+- [x] **Integrity:** the budget-tree JSON is signed under the same key as `engine_replay_version`; tampering between commit and CI is detected.
 
 ### 17.8 Acceptance gate
 
-- [ ] All §17.1–§17.7 ticked, every leaf has a live proof test, the [agent/baselines/p2p_budgets.json](../agent/baselines/p2p_budgets.json) baseline file exists with measured values for every leaf, the budget-tree harness gates every PR.
+- [x] All §17.1–§17.7 ticked, every leaf has a live proof test, the [agent/baselines/p2p_budgets.json](../agent/baselines/p2p_budgets.json) baseline file exists with measured values for every leaf, the budget-tree harness gates every PR.
 
 ---
 

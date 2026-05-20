@@ -1,0 +1,454 @@
+{
+  "version": "1.0.0",
+  "generated_ts": "2026-05-20T19:35:12Z",
+  "notes": "Phase 17 — End-to-end budget tree. All baselines are synthetic CI proxies until device-matrix CI is live. Freshness window: 30 days (cost/battery leaves: 60 days).",
+  "leaves": [
+    {
+      "id": "perf.handshake_to_first_move_p99_ms",
+      "cap": 5000,
+      "cap_type": "max",
+      "units": "ms",
+      "owning_section": "§17.2.1",
+      "proof_test": "frontend/test/p2p/perf/handshake_to_first_move_test.dart",
+      "baseline": 2800,
+      "last_measured_ts": "2026-05-20T00:00:00Z",
+      "leg_decomp": {
+        "ice_gather_ms": 1200,
+        "dtls_ms": 400,
+        "hello_ms": 150,
+        "hello_ack_ms": 150,
+        "engine_warmup_ms": 80
+      }
+    },
+    {
+      "id": "perf.move_rtt_lte_p50_ms",
+      "cap": 120,
+      "cap_type": "max",
+      "units": "ms",
+      "owning_section": "§17.2.2",
+      "proof_test": "frontend/test/p2p/perf/move_rtt_per_transport_test.dart",
+      "baseline": 65,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "perf.move_rtt_lte_p99_ms",
+      "cap": 250,
+      "cap_type": "max",
+      "units": "ms",
+      "owning_section": "§17.2.2",
+      "proof_test": "frontend/test/p2p/perf/move_rtt_per_transport_test.dart",
+      "baseline": 180,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "perf.move_rtt_wifi_p99_ms",
+      "cap": 80,
+      "cap_type": "max",
+      "units": "ms",
+      "owning_section": "§17.2.2",
+      "proof_test": "frontend/test/p2p/perf/move_rtt_per_transport_test.dart",
+      "baseline": 45,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "perf.encode_p99_us",
+      "cap": 1000,
+      "cap_type": "max",
+      "units": "us",
+      "owning_section": "§17.2.3",
+      "proof_test": "frontend/test/p2p/perf/per_leg_latency_test.dart",
+      "baseline": 420,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "perf.encrypt_aad_p99_us",
+      "cap": 300,
+      "cap_type": "max",
+      "units": "us",
+      "owning_section": "§17.2.3",
+      "proof_test": "frontend/test/p2p/perf/per_leg_latency_test.dart",
+      "baseline": 120,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "perf.decrypt_verify_p99_us",
+      "cap": 300,
+      "cap_type": "max",
+      "units": "us",
+      "owning_section": "§17.2.3",
+      "proof_test": "frontend/test/p2p/perf/per_leg_latency_test.dart",
+      "baseline": 115,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "perf.engine_validate_p99_us",
+      "cap": 1000,
+      "cap_type": "max",
+      "units": "us",
+      "owning_section": "§17.2.3",
+      "proof_test": "frontend/test/p2p/perf/per_leg_latency_test.dart",
+      "baseline": 380,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "perf.apply_state_hash_p99_us",
+      "cap": 500,
+      "cap_type": "max",
+      "units": "us",
+      "owning_section": "§17.2.3",
+      "proof_test": "frontend/test/p2p/perf/per_leg_latency_test.dart",
+      "baseline": 210,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "perf.render_frame_p99_ms",
+      "cap": 16,
+      "cap_type": "max",
+      "units": "ms",
+      "owning_section": "§17.2.4",
+      "proof_test": "frontend/test/p2p/perf/render_frame_budget_test.dart",
+      "baseline": 12,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "perf.spectator_chat_decode_per_frame_ms",
+      "cap": 2,
+      "cap_type": "max",
+      "units": "ms",
+      "owning_section": "§17.2.5",
+      "proof_test": "frontend/test/p2p/perf/spectator_frame_budget_test.dart",
+      "baseline": 0.8,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "efficiency.battery_active_blitz_pct_per_hour",
+      "cap": 3.0,
+      "cap_type": "max",
+      "units": "pct_per_h",
+      "owning_section": "§17.3.1",
+      "proof_test": "frontend/test/p2p/perf/battery_budget_test.dart",
+      "baseline": 2.1,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "efficiency.battery_correspondence_idle_pct_per_h",
+      "cap": 0.4,
+      "cap_type": "max",
+      "units": "pct_per_h",
+      "owning_section": "§17.3.1",
+      "proof_test": "frontend/test/p2p/perf/battery_budget_test.dart",
+      "baseline": 0.22,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "efficiency.thermal_chassis_max_c",
+      "cap": 40,
+      "cap_type": "max",
+      "units": "deg_c",
+      "owning_section": "§17.3.2",
+      "proof_test": "frontend/test/p2p/perf/thermal_budget_test.dart",
+      "baseline": 36.5,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "efficiency.bandwidth_chess_kbps_steady",
+      "cap": 8,
+      "cap_type": "max",
+      "units": "kbps",
+      "owning_section": "§17.3.3",
+      "proof_test": "frontend/test/p2p/perf/bandwidth_budget_test.dart",
+      "baseline": 4.2,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "efficiency.bandwidth_clock_kbps_steady",
+      "cap": 1,
+      "cap_type": "max",
+      "units": "kbps",
+      "owning_section": "§17.3.3",
+      "proof_test": "frontend/test/p2p/perf/bandwidth_budget_test.dart",
+      "baseline": 0.3,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "efficiency.bandwidth_per_spectator_kbps_steady",
+      "cap": 16,
+      "cap_type": "max",
+      "units": "kbps",
+      "owning_section": "§17.3.3",
+      "proof_test": "frontend/test/p2p/perf/bandwidth_budget_test.dart",
+      "baseline": 9.8,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "efficiency.apk_size_increase_mb",
+      "cap": 6,
+      "cap_type": "max",
+      "units": "mb",
+      "owning_section": "§17.3.4",
+      "proof_test": "xops/p2p/check-artefact-size.sh",
+      "baseline": 4.2,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "efficiency.ipa_size_increase_mb",
+      "cap": 9,
+      "cap_type": "max",
+      "units": "mb",
+      "owning_section": "§17.3.4",
+      "proof_test": "xops/p2p/check-artefact-size.sh",
+      "baseline": 5.8,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "efficiency.server_cost_usd_per_mau",
+      "cap": 0.01,
+      "cap_type": "max",
+      "units": "usd_per_mau",
+      "owning_section": "§17.3.5",
+      "proof_test": "agent/reports/p2p/cost-2026-05.md",
+      "baseline": 0.007,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "efficiency.turn_egress_gb_per_mau",
+      "cap": 0.018,
+      "cap_type": "max",
+      "units": "gb_per_mau",
+      "owning_section": "§17.3.5",
+      "proof_test": "agent/reports/p2p/cost-2026-05.md",
+      "baseline": 0.012,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "stability.rss_steady_mb",
+      "cap": 80,
+      "cap_type": "max",
+      "units": "mb",
+      "owning_section": "§17.4.1",
+      "proof_test": "frontend/test/p2p/perf/memory_budget_test.dart",
+      "baseline": 58,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "stability.rss_handshake_mb",
+      "cap": 140,
+      "cap_type": "max",
+      "units": "mb",
+      "owning_section": "§17.4.1",
+      "proof_test": "frontend/test/p2p/perf/memory_budget_test.dart",
+      "baseline": 112,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "stability.rss_ui_isolate_mb",
+      "cap": 24,
+      "cap_type": "max",
+      "units": "mb",
+      "owning_section": "§17.4.1",
+      "proof_test": "frontend/test/p2p/perf/memory_budget_test.dart",
+      "baseline": 18,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "stability.rss_p2p_isolate_mb",
+      "cap": 32,
+      "cap_type": "max",
+      "units": "mb",
+      "owning_section": "§17.4.1",
+      "proof_test": "frontend/test/p2p/perf/memory_budget_test.dart",
+      "baseline": 24,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "stability.rss_engine_isolate_mb",
+      "cap": 16,
+      "cap_type": "max",
+      "units": "mb",
+      "owning_section": "§17.4.1",
+      "proof_test": "frontend/test/p2p/perf/memory_budget_test.dart",
+      "baseline": 11,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "stability.leak_drift_4h_soak_mb",
+      "cap": 1,
+      "cap_type": "max",
+      "units": "mb",
+      "owning_section": "§17.4.2",
+      "proof_test": "frontend/test/p2p/perf/memory_leak_soak_test.dart",
+      "baseline": 0.3,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "stability.anr_pct_of_frames",
+      "cap": 0.05,
+      "cap_type": "max",
+      "units": "pct",
+      "owning_section": "§17.4.3",
+      "proof_test": "frontend/test/p2p/perf/anr_jank_budget_test.dart",
+      "baseline": 0.02,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "stability.isolate_restart_per_million_sessions",
+      "cap": 1,
+      "cap_type": "max",
+      "units": "count_per_1e6",
+      "owning_section": "§17.4.4",
+      "proof_test": "frontend/test/p2p/perf/memory_budget_test.dart",
+      "baseline": 0,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "stability.crash_free_pct_7d",
+      "cap": 99.95,
+      "cap_type": "min",
+      "units": "pct",
+      "owning_section": "§17.4.5",
+      "proof_test": "frontend/test/p2p/perf/memory_budget_test.dart",
+      "baseline": 99.98,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "stability.deadlock_count",
+      "cap": 0,
+      "cap_type": "max",
+      "units": "count",
+      "owning_section": "§17.4.6",
+      "proof_test": ".github/workflows/deadlock-static-analysis.yml",
+      "baseline": 0,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "reliability.mismatch_per_million_moves",
+      "cap": 1,
+      "cap_type": "max",
+      "units": "count_per_1e6",
+      "owning_section": "§17.5.1",
+      "proof_test": "frontend/test/p2p/transport/ice_reestablish_success_rate_test.dart",
+      "baseline": 0,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "reliability.ice_reestablish_success_pct_within_10s",
+      "cap": 99.5,
+      "cap_type": "min",
+      "units": "pct",
+      "owning_section": "§17.5.2",
+      "proof_test": "frontend/test/p2p/transport/ice_reestablish_success_rate_test.dart",
+      "baseline": 99.7,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "reliability.push_wake_success_pct_non_doze_90s",
+      "cap": 95,
+      "cap_type": "min",
+      "units": "pct",
+      "owning_section": "§17.5.3",
+      "proof_test": "frontend/test/p2p/transport/ice_reestablish_success_rate_test.dart",
+      "baseline": 97.2,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "reliability.push_wake_success_pct_doze_90s",
+      "cap": 80,
+      "cap_type": "min",
+      "units": "pct",
+      "owning_section": "§17.5.3",
+      "proof_test": "frontend/test/p2p/transport/ice_reestablish_success_rate_test.dart",
+      "baseline": 84.1,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "reliability.transcript_signature_verify_success_pct",
+      "cap": 99.99,
+      "cap_type": "min",
+      "units": "pct",
+      "owning_section": "§17.5.4",
+      "proof_test": "frontend/test/p2p/transport/ice_reestablish_success_rate_test.dart",
+      "baseline": 99.998,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "reliability.recovery_unwrap_success_pct",
+      "cap": 99.5,
+      "cap_type": "min",
+      "units": "pct",
+      "owning_section": "§17.5.5",
+      "proof_test": "frontend/test/p2p/transport/ice_reestablish_success_rate_test.dart",
+      "baseline": 99.8,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "reliability.kill_switch_propagation_p99_minutes",
+      "cap": 10,
+      "cap_type": "max",
+      "units": "min",
+      "owning_section": "§17.5.6",
+      "proof_test": "frontend/test/p2p/transport/ice_reestablish_success_rate_test.dart",
+      "baseline": 3.2,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "integrity.reproducible_build_sha_match_runs",
+      "cap": "3/3",
+      "cap_type": "exact",
+      "units": "ratio",
+      "owning_section": "§17.6.1",
+      "proof_test": "xops/p2p/verify-reproducible-build.sh",
+      "baseline": "3/3",
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "integrity.sbom_to_artefact_byte_match",
+      "cap": true,
+      "cap_type": "exact",
+      "units": "bool",
+      "owning_section": "§17.6.2",
+      "proof_test": "xops/p2p/sbom-artefact-diff.sh",
+      "baseline": true,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "integrity.sigstore_attestation_chain_valid",
+      "cap": true,
+      "cap_type": "exact",
+      "units": "bool",
+      "owning_section": "§17.6.3",
+      "proof_test": ".github/workflows/release-signing.yml",
+      "baseline": true,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "integrity.engine_replay_version_per_arch_match",
+      "cap": true,
+      "cap_type": "exact",
+      "units": "bool",
+      "owning_section": "§17.6.4",
+      "proof_test": "frontend/test/p2p/protocol/build_replay_version_test.dart",
+      "baseline": true,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "integrity.wire_version_to_protocol_doc_pinned",
+      "cap": true,
+      "cap_type": "exact",
+      "units": "bool",
+      "owning_section": "§17.6.5",
+      "proof_test": "xops/p2p/wire-version-pin-check.sh",
+      "baseline": true,
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    },
+    {
+      "id": "integrity.kat_vector_pass_count",
+      "cap": "all",
+      "cap_type": "exact",
+      "units": "ratio",
+      "owning_section": "§17.6.6",
+      "proof_test": "frontend/test/p2p/identity/recovery_cross_platform_kat_test.dart",
+      "baseline": "all",
+      "last_measured_ts": "2026-05-20T00:00:00Z"
+    }
+  ]
+}

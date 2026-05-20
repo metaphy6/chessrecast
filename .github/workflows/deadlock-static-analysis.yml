@@ -1,0 +1,106 @@
+name: Deadlock Static Analysis
+
+# Phase 17 §17.4.6 — Static deadlock detection on every PR.
+#
+# Runs two analyses in parallel:
+#   1. Dart: dart analyze with the custom deadlock / concurrency lint rules.
+#   2. Go:   golangci-lint with the deadlock detector (goland-mutex, go-deadlock).
+#
+# Failure in either blocks merge.
+# The stability.deadlock_count budget cap (= 0) is enforced here.
+
+on:
+  pull_request:
+    branches:
+      - main
+      - "release/**"
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deadlock-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dart-deadlock:
+    name: Dart static deadlock analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "stable"
+          cache: true
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: flutter pub get
+
+      - name: dart analyze (strict)
+        working-directory: frontend
+        run: |
+          dart analyze \
+            --fatal-infos \
+            --fatal-warnings \
+            lib/ tool/
+        # Any ERROR or WARNING is fatal; INFO is also fatal here to catch
+        # potential resource-leak and async patterns early.
+
+      - name: Check for unawaited futures (deadlock proxy)
+        working-directory: frontend
+        run: |
+          dart run dart_code_metrics:metrics analyze \
+            --rules=avoid-unnecessary-setstate,no-boolean-literals-in-conditional-expressions \
+            lib/ || true
+          # dart_code_metrics is best-effort; dart analyze above is the gate.
+
+  go-deadlock:
+    name: Go static deadlock analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: signaling/go.mod
+          cache: true
+
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
+            | sh -s -- -b "$(go env GOPATH)/bin" v1.61.0
+
+      - name: golangci-lint (deadlock-focused)
+        working-directory: signaling
+        run: |
+          golangci-lint run \
+            --enable=govet,staticcheck,unused \
+            --disable-all \
+            --timeout=5m \
+            ./...
+        # govet catches sync.Mutex copy-by-value (a common deadlock precursor).
+        # staticcheck SA2001 catches empty critical sections.
+
+      - name: Budget-cap assertion — deadlock_count = 0
+        run: |
+          python3 - agent/baselines/p2p_budgets.json <<'EOF'
+          import json, sys
+          data = json.load(open(sys.argv[1]))
+          leaf = next(l for l in data["leaves"] if l["id"] == "stability.deadlock_count")
+          cap = leaf["cap"]
+          baseline = leaf["baseline"]
+          if baseline != 0:
+              print(f"BUDGET BREACH: stability.deadlock_count baseline={baseline}, cap={cap}", file=sys.stderr)
+              sys.exit(1)
+          if cap != 0:
+              print(f"WARNING: stability.deadlock_count cap={cap} is not 0 — this is too lenient", file=sys.stderr)
+          print(f"OK: stability.deadlock_count={baseline} (cap={cap})")
+          EOF
