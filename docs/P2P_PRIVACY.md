@@ -117,4 +117,184 @@ Phase 12 and will address both concerns.
 
 ---
 
-*Last updated: Phase 9 threat model implementation.*
+*Last updated: Phase 18 privacy engineering.*
+
+---
+
+## Privacy Threat Model (T-PRIV-*)
+
+Privacy-specific threats added by Phase 18. Broader network/metadata threats
+(T-M-002, T-M-003, T-M-004) are documented above.
+
+---
+
+## T-PRIV-001 — Cross-session linkage via stable account fingerprint
+
+### Scope
+The account fingerprint (derived from the long-term Ed25519 device key) is
+**intentionally stable** across games (see T-M-004 above), enabling
+cross-session linkage. An adversary who participates in two separate games
+against the same account can link those games to the same identity.
+
+### Mitigation
+Users can rotate their recovery code (§2.11), which derives a fresh device key
+and therefore a fresh account fingerprint. The previous account's games become
+unlinkable from the new account. This operation is described in the in-app
+"Reset identity" settings page.
+
+### Documented residual risk
+Cross-session linkage by opponents who have *previously verified* the fingerprint
+is a **by-design property** — it is how the verified-badge system works. Users
+who require per-game unlinkability must rotate between every game.
+
+*Already documented in §9.5 T-M-004; folded here for Phase 18 completeness.*
+
+---
+
+## T-PRIV-002 — Traffic analysis on signaling endpoints
+
+### Scope
+An observer with access to signaling-server network traffic can distinguish
+request types by payload size (e.g. a small "offer" vs. a large "poll
+response with moves") or by timing patterns (e.g. long-poll wakeup cadence
+reveals when games are active).
+
+### Mitigation
+- **Request padding:** all signaling API responses are padded to the nearest
+  256 bytes before encryption/transmission (see
+  `signaling/internal/privacy/traffic_padding.go`). This prevents size-based
+  classification.
+- **Jittered long-poll wakeup:** the server introduces a per-request random
+  jitter of ±50 ms on long-poll response delays, breaking deterministic
+  timing fingerprints.
+
+### Proof
+`signaling/internal/privacy/traffic_padding_test.go` — verifies that
+`PadToNearest256` rounds up correctly for all input sizes and that
+`JitteredWakeDelay` returns values within the expected jitter window.
+
+### Documented residual risk
+A sufficiently patient observer who collects many sessions can still infer
+traffic patterns via aggregate analysis. Full traffic-analysis resistance would
+require onion routing, which is out of scope for v1.
+
+---
+
+## T-PRIV-003 — Spectator-presence inference via TURN allocation patterns
+
+### Scope
+When a spectator joins a live game, a separate TURN allocation is created for
+the spectator (§7.10.3 separate-allocation design). An observer who monitors
+the TURN server's allocation table can therefore infer whether a game has
+spectators — and approximately how many.
+
+### Mitigation
+The §7.10.3 separate-allocation design already obscures the spectator count
+from the two players. An operator-level observer can see the allocation count
+but cannot identify the spectators without also observing push-token → account
+mappings.
+
+### Documented residual risk
+Operator-level visibility of spectator allocation counts is an inherent
+consequence of using a shared TURN relay. A privacy-critical deployment would
+need a dedicated TURN server per session, which is out of scope for v1.
+
+---
+
+## T-PRIV-004 — Export-my-data archive as social-engineering vector
+
+### Scope
+A phishing or social-engineering attacker might trick a user into generating
+and sending their data export, which contains account pubkeys, device pubkeys,
+and historical transcripts (never the wrapped recovery blob — that is
+explicitly excluded from exports).
+
+### Mitigation
+The export flow (§18.4) includes:
+- A 5-minute cooldown between exports (rate-limits social-engineering attempts).
+- Biometric re-confirmation before export generation.
+- The export archive is AEAD-encrypted under a user-chosen passphrase; the
+  passphrase is *not* exported and must be communicated separately. An attacker
+  who obtains only the archive cannot read it without the passphrase.
+- The in-app export screen warns explicitly: "Only share this file with people
+  you trust completely."
+
+### Documented residual risk
+A user who chooses a weak passphrase and shares both the archive and the
+passphrase with an attacker suffers full data exposure. This is equivalent to
+any encrypted-archive design; no cryptographic mitigation is possible.
+
+---
+
+## T-PRIV-005 — Telemetry cross-correlation across DP windows
+
+### Scope
+ChessRecast emits privacy-preserving telemetry batches (§8.11). Each batch
+applies a per-window Differential Privacy (DP) budget. An operator who
+aggregates telemetry across multiple DP windows could potentially re-link
+user activity if the per-window salt is static.
+
+### Mitigation
+- The per-window DP budget is enforced client-side and server-side.
+- A **rerandomised salt** is generated for each new DP window so cross-window
+  correlation requires breaking the randomness of both salts.
+- Budget enforcement details are implemented in the telemetry service
+  (`frontend/lib/services/p2p/telemetry/`).
+
+### Documented residual risk
+A resource-intensive adversary who can break the DP budget (e.g. via auxiliary
+information) could correlate across windows. The DP parameters are set
+conservatively; any budget increase requires a queue entry of
+`kind: p2p_dp_budget_increase`.
+
+---
+
+## T-PRIV-006 — Push-token reuse across account rotations enables provider-side linkage
+
+### Scope
+When a user rotates their recovery code (§2.11), generating a fresh account
+fingerprint, the push notification token (APNs / FCM) may remain the same.
+The push provider can then link the old and new accounts via the unchanged
+token.
+
+### Mitigation
+On every account rotation (§2.11), the client:
+1. Deregisters the old push token via `DELETE /v1/push/register` (signed
+   under the old device key, which the server verifies and then expires).
+2. Re-registers a fresh push token under the new device key. On most devices,
+   a new token is automatically issued after re-registration; if the provider
+   issues the same token, the server logs it for audit but still accepts the
+   new device-key binding.
+
+The push token is stored encrypted at rest per T-M-003; the provider-side
+linkage is the residual risk documented there.
+
+### Documented residual risk
+Push providers can internally correlate tokens even if the same token is
+reused. This is outside ChessRecast's control. Users who require perfect
+unlinkability should disable push notifications and use polling.
+
+---
+
+---
+
+## Data-flow inventory
+
+Every byte the user produces that is persisted or transmitted. Maintained per roadmap §18.1.
+New `INSERT` / `WRITE` / network-egress calls in P2P-tagged code must have a corresponding row here;
+the CI gate [`xops/p2p/data-flow-completeness-check.sh`](../xops/p2p/data-flow-completeness-check.sh)
+enforces this automatically.
+
+| Data class | Lifetime | Residency | At-rest encryption | Readable by | Purge trigger |
+|---|---|---|---|---|---|
+| Account pubkey | account lifetime | server (region per §8.5) | server KMS | operator (DSAR) | DSAR delete |
+| Device pubkey | device lifetime | local + server hash | local SecureStorage / server KMS | local + DSAR | rebind / DSAR |
+| Wrapped recovery blob | account lifetime | server | Argon2id + AEAD | nobody (without code) | DSAR delete |
+| Transcript | game lifetime | local-only (default) | SQLCipher | local | retention cap (§0.6) |
+| Chat history (player) | game lifetime | local-only | SQLCipher | local | retention cap |
+| Chat history (spectator) | game lifetime | RAM-only | RAM | local | game end / leave |
+| Push token | rotation cycle | server | server KMS | operator (rate-limit) | rotation / DSAR |
+| Telemetry batch | DP-budget window | server | server KMS | operator (aggregate) | window expiry |
+| Abuse report bundle | 90 d | operator KMS | operator KMS | operator (review) | 90 d auto-purge |
+| Diag bundle (opt-in) | 90 d | operator KMS | operator KMS | operator (debug) | 90 d auto-purge |
+| Forensic bundle | until upload + 90 d | local then operator | SQLCipher then KMS | operator (debug) | 90 d auto-purge |

@@ -19,16 +19,17 @@ import (
 
 // AuditRow is a single DSAR audit log entry.
 type AuditRow struct {
-	EventType  string
-	OccurredAt time.Time
+	EventType  string    `json:"event_type"`
+	OccurredAt time.Time `json:"occurred_at"`
 }
 
-// ExportResult holds the data returned for a single account pubkey.
+// ExportResult holds the data returned for a single account pubkey in
+// machine-readable JSON format (v10 §18.3 requirement).
 type ExportResult struct {
-	PubKey        string
-	PushTokenHash string
-	LastSeen      time.Time
-	AuditRows     []AuditRow
+	PubKey        string     `json:"pubkey"`
+	PushTokenHash string     `json:"push_token_hash"`
+	LastSeen      time.Time  `json:"last_seen"`
+	AuditRows     []AuditRow `json:"audit_rows"`
 }
 
 // Migrate ensures the DSAR-owned tables exist.
@@ -140,6 +141,56 @@ func DeleteForKey(db *store.DB, pubkey string) error {
 		return fmt.Errorf("dsar.DeleteForKey: %w", err)
 	}
 	return nil
+}
+
+// DeletionRequest is an authenticated deletion request submitted by the
+// account holder (§18.5). The Signature field must be set by callers that
+// perform full Ed25519 verification; the base unit-test layer verifies
+// structural presence only (full crypto integration tested separately).
+type DeletionRequest struct {
+	// AccountPubkey is the hex-encoded Ed25519 public key of the account.
+	AccountPubkey string
+	// Signature is the Ed25519 signature over the canonical request bytes.
+	// Must be non-empty for HandleDeletionRequest to accept the request.
+	Signature []byte
+	// Timestamp is the ISO-8601 request timestamp (replay-protection window).
+	Timestamp string
+}
+
+// HandleDeletionRequest validates and executes a signed account deletion.
+//
+// Structural validation: AccountPubkey and Signature must be non-empty and
+// Timestamp must be parseable.  Full Ed25519 signature verification is
+// expected to be performed by the HTTP handler before this function is called.
+//
+// On success all server-side state for the account is purged:
+//   - dsar_accounts row and cascaded dsar_audit rows.
+//   - Litestream snapshot TTL enforcement is the operator's responsibility
+//     (TTL ≤ 30 days per P2P_RECOVERY_RUNBOOK.md).
+//
+// Abuse reports filed *against* the account are retained and anonymised by
+// the abuse package (§14.3); this function does not touch the abuse tables.
+// Abuse reports filed *by* the account must be purged by the caller using the
+// abuse package's purge-by-reporter function.
+func HandleDeletionRequest(db *store.DB, req DeletionRequest) error {
+	if req.AccountPubkey == "" {
+		return fmt.Errorf("dsar.HandleDeletionRequest: empty AccountPubkey")
+	}
+	if len(req.Signature) == 0 {
+		return fmt.Errorf("dsar.HandleDeletionRequest: missing Signature")
+	}
+	if _, err := parseTimestamp(req.Timestamp); err != nil {
+		return fmt.Errorf("dsar.HandleDeletionRequest: bad Timestamp: %w", err)
+	}
+	return DeleteForKey(db, req.AccountPubkey)
+}
+
+// parseTimestamp parses an ISO-8601 / RFC3339 timestamp string.
+func parseTimestamp(s string) (time.Time, error) {
+	if s == "" {
+		return time.Time{}, fmt.Errorf("empty timestamp")
+	}
+	return time.Parse(time.RFC3339, s)
 }
 
 // PruneOldAuditRows deletes audit rows whose occurred_at is older than

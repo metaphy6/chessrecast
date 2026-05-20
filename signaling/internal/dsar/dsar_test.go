@@ -3,6 +3,7 @@ package dsar_test
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -131,5 +132,51 @@ func TestDSAR_AuditRowRetention(t *testing.T) {
 	}
 	if result.AuditRows[0].EventType != "recent_event" {
 		t.Errorf("wrong surviving row: %q", result.AuditRows[0].EventType)
+	}
+}
+
+// TestDSAR_Export_MachineReadableJSON verifies §18.3 v10 requirement:
+// ExportResult is serialisable to machine-readable JSON with expected keys.
+func TestDSAR_Export_MachineReadableJSON(t *testing.T) {
+	db := openTestDB(t)
+	if err := dsar.Migrate(db); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+
+	const pubkey = "aabbccddeeff9900"
+	tokenHash := hashToken("push-token-json")
+	now := time.Now().UTC().Truncate(time.Hour)
+
+	if err := dsar.UpsertAccount(db, pubkey, tokenHash, now); err != nil {
+		t.Fatalf("UpsertAccount: %v", err)
+	}
+	if err := dsar.AddAuditRow(db, pubkey, "game_started", time.Now()); err != nil {
+		t.Fatalf("AddAuditRow: %v", err)
+	}
+
+	result, err := dsar.ExportForKey(db, pubkey)
+	if err != nil {
+		t.Fatalf("ExportForKey: %v", err)
+	}
+
+	raw, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("json.Marshal(ExportResult): %v", err)
+	}
+
+	var m map[string]interface{}
+	if err := json.Unmarshal(raw, &m); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+
+	for _, key := range []string{"pubkey", "push_token_hash", "last_seen", "audit_rows"} {
+		if _, ok := m[key]; !ok {
+			t.Errorf("JSON response missing key %q", key)
+		}
+	}
+
+	rows, ok := m["audit_rows"].([]interface{})
+	if !ok || len(rows) != 1 {
+		t.Errorf("expected 1 audit_row, got %v", m["audit_rows"])
 	}
 }

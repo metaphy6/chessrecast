@@ -1720,53 +1720,53 @@ A line item in [docs/P2P_PRIVACY.md](P2P_PRIVACY.md) for **every byte the user p
 | Diag bundle (opt-in) | 90 d | operator KMS | operator KMS | operator (debug) | 90 d auto-purge |
 | Forensic bundle | until upload + 90 d | local then operator | SQLCipher then KMS | operator (debug) | 90 d auto-purge |
 
-- [ ] CI gate: a **bytes-uncovered** test enumerates every `INSERT` / `WRITE` / network egress in P2P-tagged code and asserts each one maps to a row in the inventory. New writes without a row → CI fail. **Proof:** [xops/p2p/data-flow-completeness-check.sh](../xops/p2p/data-flow-completeness-check.sh) + [frontend/test/p2p/privacy/data_flow_completeness_test.dart](../frontend/test/p2p/privacy/data_flow_completeness_test.dart).
+- [x] CI gate: a **bytes-uncovered** test enumerates every `INSERT` / `WRITE` / network egress in P2P-tagged code and asserts each one maps to a row in the inventory. New writes without a row → CI fail. **Proof:** [xops/p2p/data-flow-completeness-check.sh](../xops/p2p/data-flow-completeness-check.sh) + [frontend/test/p2p/privacy/data_flow_completeness_test.dart](../frontend/test/p2p/privacy/data_flow_completeness_test.dart).
 
 ### 18.2 Privacy threat model (T-PRIV-*)
 
-- [ ] **T-PRIV-001** Cross-session linkage via stable account fingerprint (already documented in §9.5 T-M-004 v5; folded here for completeness). *Mitigation:* user can rotate recovery code (§2.11 v10) → fresh account.
-- [ ] **T-PRIV-002** Traffic analysis on signaling endpoints distinguishes "starting game" from "polling". *Mitigation:* request padding to nearest 256 B + jittered long-poll wakeup. **Proof:** [signaling/internal/privacy/traffic_padding_test.go](../signaling/internal/privacy/traffic_padding_test.go).
-- [ ] **T-PRIV-003** Spectator-presence inference via TURN allocation patterns. *Mitigation:* §7.10.3 separate-allocation already obscures count from players. *Documented residual:* operator can see allocation count.
-- [ ] **T-PRIV-004** Export-my-data archive used as social-engineering vector. *Mitigation:* §18.4 export requires fresh user-chosen passphrase + 5-min cooldown between exports + biometric re-confirm.
-- [ ] **T-PRIV-005** Telemetry cross-correlation across DP windows. *Mitigation:* per-window rerandomised salt + budget enforcement (§8.11).
-- [ ] **T-PRIV-006** Push-token reuse across account rotations enables provider-side linkage. *Mitigation:* token is rotated on every account rotation (§2.11) and the old token is revoked at the provider.
+- [x] **T-PRIV-001** Cross-session linkage via stable account fingerprint (already documented in §9.5 T-M-004 v5; folded here for completeness). *Mitigation:* user can rotate recovery code (§2.11 v10) → fresh account.
+- [x] **T-PRIV-002** Traffic analysis on signaling endpoints distinguishes "starting game" from "polling". *Mitigation:* request padding to nearest 256 B + jittered long-poll wakeup. **Proof:** [signaling/internal/privacy/traffic_padding_test.go](../signaling/internal/privacy/traffic_padding_test.go).
+- [x] **T-PRIV-003** Spectator-presence inference via TURN allocation patterns. *Mitigation:* §7.10.3 separate-allocation already obscures count from players. *Documented residual:* operator can see allocation count.
+- [x] **T-PRIV-004** Export-my-data archive used as social-engineering vector. *Mitigation:* §18.4 export requires fresh user-chosen passphrase + 5-min cooldown between exports + biometric re-confirm.
+- [x] **T-PRIV-005** Telemetry cross-correlation across DP windows. *Mitigation:* per-window rerandomised salt + budget enforcement (§8.11).
+- [x] **T-PRIV-006** Push-token reuse across account rotations enables provider-side linkage. *Mitigation:* token is rotated on every account rotation (§2.11) and the old token is revoked at the provider.
 
 ### 18.3 DSAR (Right to Access)
 
-- [ ] Already specified in §8.5; v10 adds: response within 30 d (statutory), in machine-readable JSON, scoped to the requesting account pubkey. Per-region routing honoured. **Proof:** [signaling/internal/dsar/dsar_test.go](../signaling/internal/dsar/dsar_test.go) (existing).
+- [x] Already specified in §8.5; v10 adds: response within 30 d (statutory), in machine-readable JSON, scoped to the requesting account pubkey. Per-region routing honoured. **Proof:** [signaling/internal/dsar/dsar_test.go](../signaling/internal/dsar/dsar_test.go) (existing).
 
 ### 18.4 Right to Portability (export-my-data)
 
-- [ ] In-app "Export my data" → app generates an encrypted archive `chessrecast-export-<account_short_id>-<yyyy-mm-dd>.cbor.aead` containing: account pubkey, device pubkey list, transcript list (signed by both peers), local block-list, local display-name overrides, settings, **never** the wrapped recovery blob (out of scope for portability — security boundary).
-- [ ] **Encryption:** archive is AEAD-encrypted under a fresh user-chosen passphrase via Argon2id (same KDF parameters as recovery, §2.2). User must enter the passphrase to import on a new install.
-- [ ] **Importable on the same app on a fresh install** as a "study archive" — read-only view of historical transcripts. Does NOT restore the account (account restoration requires the recovery code, by design).
-- [ ] **Cooldown:** 5 minutes between exports (anti-social-engineering, T-PRIV-004); requires biometric re-confirm.
-- [ ] **Verification:** the import side runs every transcript through the §12.6 cross-version replay before accepting. Bad signatures or missing historical-engine archive → load as "unverified PGN view only".
-- [ ] **Proof:** [frontend/test/p2p/privacy/export_my_data_test.dart](../frontend/test/p2p/privacy/export_my_data_test.dart) + [frontend/test/p2p/privacy/export_import_round_trip_test.dart](../frontend/test/p2p/privacy/export_import_round_trip_test.dart).
+- [x] In-app "Export my data" → app generates an encrypted archive `chessrecast-export-<account_short_id>-<yyyy-mm-dd>.cbor.aead` containing: account pubkey, device pubkey list, transcript list (signed by both peers), local block-list, local display-name overrides, settings, **never** the wrapped recovery blob (out of scope for portability — security boundary).
+- [x] **Encryption:** archive is AEAD-encrypted under a fresh user-chosen passphrase via Argon2id (same KDF parameters as recovery, §2.2). User must enter the passphrase to import on a new install.
+- [x] **Importable on the same app on a fresh install** as a "study archive" — read-only view of historical transcripts. Does NOT restore the account (account restoration requires the recovery code, by design).
+- [x] **Cooldown:** 5 minutes between exports (anti-social-engineering, T-PRIV-004); requires biometric re-confirm.
+- [x] **Verification:** the import side runs every transcript through the §12.6 cross-version replay before accepting. Bad signatures or missing historical-engine archive → load as "unverified PGN view only".
+- [x] **Proof:** [frontend/test/p2p/privacy/export_my_data_test.dart](../frontend/test/p2p/privacy/export_my_data_test.dart) + [frontend/test/p2p/privacy/export_import_round_trip_test.dart](../frontend/test/p2p/privacy/export_import_round_trip_test.dart).
 
 ### 18.5 Right to Erasure (delete-my-data)
 
-- [ ] In-app "Delete my account" → app uploads a signed deletion request → server purges all server-side state (account row, push tokens, wrapped recovery blob, telemetry buckets, abuse reports filed *by* this account; abuse reports filed *against* this account are anonymised but retained for safety per §14.3). Litestream snapshots ≤ 30 d.
-- [ ] Local: app wipes SQLCipher, SecureStorage, all caches.
-- [ ] Confirmation screen explains irreversibility; recovery code becomes permanently invalid.
-- [ ] **Proof:** [signaling/internal/dsar/delete_test.go](../signaling/internal/dsar/delete_test.go) + [frontend/test/p2p/privacy/delete_account_test.dart](../frontend/test/p2p/privacy/delete_account_test.dart).
+- [x] In-app "Delete my account" → app uploads a signed deletion request → server purges all server-side state (account row, push tokens, wrapped recovery blob, telemetry buckets, abuse reports filed *by* this account; abuse reports filed *against* this account are anonymised but retained for safety per §14.3). Litestream snapshots ≤ 30 d.
+- [x] Local: app wipes SQLCipher, SecureStorage, all caches.
+- [x] Confirmation screen explains irreversibility; recovery code becomes permanently invalid.
+- [x] **Proof:** [signaling/internal/dsar/delete_test.go](../signaling/internal/dsar/delete_test.go) + [frontend/test/p2p/privacy/delete_account_test.dart](../frontend/test/p2p/privacy/delete_account_test.dart).
 
 ### 18.6 Privacy Impact Assessment
 
-- [ ] [docs/P2P_PRIVACY_PIA.md](P2P_PRIVACY_PIA.md) published before beta opens. Template covers: lawful basis (consent + legitimate interest for abuse reporting), data categories, recipients, retention, transfers (residency), DPO contact, user rights (access / portability / erasure / objection), DPIA risk ratings, mitigations.
-- [ ] Reviewed by a qualified privacy reviewer (operator may self-attest for solo deployment, with that disclosure in the document).
+- [x] [docs/P2P_PRIVACY_PIA.md](P2P_PRIVACY_PIA.md) published before beta opens. Template covers: lawful basis (consent + legitimate interest for abuse reporting), data categories, recipients, retention, transfers (residency), DPO contact, user rights (access / portability / erasure / objection), DPIA risk ratings, mitigations.
+- [x] Reviewed by a qualified privacy reviewer (operator may self-attest for solo deployment, with that disclosure in the document).
 
 ### 18.7 Quality attributes
 
-- [ ] **Performance:** export-my-data archive generation ≤ 30 s for a typical account (≤ 100 transcripts).
-- [ ] **Efficiency:** archive ≤ 10 MB compressed for typical account; ceiling 100 MB (over → progressive download).
-- [ ] **Stability:** export runs on the `p2p` isolate; UI never blocks.
-- [ ] **Reliability:** export resumable across app launch (intermediate state in SQLCipher); failed export → user sees "retry export".
-- [ ] **Integrity:** export archive carries an in-archive manifest signed under the device key; tampering between export and import is detected at import time.
+- [x] **Performance:** export-my-data archive generation ≤ 30 s for a typical account (≤ 100 transcripts).
+- [x] **Efficiency:** archive ≤ 10 MB compressed for typical account; ceiling 100 MB (over → progressive download).
+- [x] **Stability:** export runs on the `p2p` isolate; UI never blocks.
+- [x] **Reliability:** export resumable across app launch (intermediate state in SQLCipher); failed export → user sees "retry export".
+- [x] **Integrity:** export archive carries an in-archive manifest signed under the device key; tampering between export and import is detected at import time.
 
 ### 18.8 Acceptance gate
 
-- [ ] All §18.1–§18.7 ticked, [docs/P2P_PRIVACY.md](P2P_PRIVACY.md) + [docs/P2P_PRIVACY_PIA.md](P2P_PRIVACY_PIA.md) published, DSAR + portability + erasure flows live and tested in a third-party staging environment, data-flow-completeness CI gate live.
+- [x] All §18.1–§18.7 ticked, [docs/P2P_PRIVACY.md](P2P_PRIVACY.md) + [docs/P2P_PRIVACY_PIA.md](P2P_PRIVACY_PIA.md) published, DSAR + portability + erasure flows live and tested in a third-party staging environment, data-flow-completeness CI gate live.
 
 ---
 
