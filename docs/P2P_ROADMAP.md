@@ -1359,29 +1359,29 @@ v6's negotiation rule is "exact match or no-game". An honest peer running an old
 
 ### 13.1 Out-of-scope acknowledgement
 
-- [ ] **External-engine assistance** (a player runs Stockfish in another window and copies moves) **cannot be detected by a pure-P2P architecture.** There is no central observer of move quality. v1 explicitly does not attempt to detect it. This is documented in [docs/P2P_FAIR_PLAY.md](P2P_FAIR_PLAY.md) and surfaced in the UI on first P2P launch ("Casual play — no anti-cheat enforcement").
-- [ ] **Rating system** is similarly out of scope for v1. A rating system requires either a central observer (contradicts the dumb-signaling principle) or a federated trust network (Phase 7 stretch). Documented as OQ-10.
+- [x] **External-engine assistance** (a player runs Stockfish in another window and copies moves) **cannot be detected by a pure-P2P architecture.** There is no central observer of move quality. v1 explicitly does not attempt to detect it. This is documented in [docs/P2P_FAIR_PLAY.md](P2P_FAIR_PLAY.md) and surfaced in the UI on first P2P launch ("Casual play — no anti-cheat enforcement"). **Proof:** [frontend/test/p2p/anti_cheat/fair_play_doc_test.dart](../frontend/test/p2p/anti_cheat/fair_play_doc_test.dart).
+- [x] **Rating system** is similarly out of scope for v1. A rating system requires either a central observer (contradicts the dumb-signaling principle) or a federated trust network (Phase 7 stretch). Documented as OQ-10. **Proof:** [frontend/test/p2p/anti_cheat/fair_play_doc_test.dart](../frontend/test/p2p/anti_cheat/fair_play_doc_test.dart).
 
 ### 13.2 Partial client-side mitigations (opt-in)
 
-- [ ] `HELLO.capabilities.no_engine_pledge: bool` — a soft pledge surfaced in opponent UI ("opponent has pledged not to use engine assistance"). Not enforceable; informational only. **Proof:** `frontend/test/p2p/ui/no_engine_pledge_ui_test.dart`.
-- [ ] **Move-time histogram in opponent UI** (opt-in, mutual): each peer can opt to share its per-move think-time histogram at game end. Suspiciously consistent timings (low variance, high quality) hint at engine assistance but never accuse — left to the player. **Proof:** `frontend/test/p2p/ui/think_time_histogram_test.dart`.
-- [ ] **Casual / Friend mode:** when both peers' devices share a recent contact-graph signal (out of scope for the cryptographic protocol; could come from QR-code mutual-friending), `casual_mode=true` enables takebacks and disables histogram sharing.
+- [x] `HELLO.capabilities.no_engine_pledge: bool` — a soft pledge surfaced in opponent UI ("opponent has pledged not to use engine assistance"). Not enforceable; informational only. **Proof:** [frontend/test/p2p/anti_cheat/no_engine_pledge_test.dart](../frontend/test/p2p/anti_cheat/no_engine_pledge_test.dart).
+- [x] **Move-time histogram in opponent UI** (opt-in, mutual): each peer can opt to share its per-move think-time histogram at game end. Suspiciously consistent timings (low variance, high quality) hint at engine assistance but never accuse — left to the player. **Proof:** [frontend/test/p2p/anti_cheat/think_time_histogram_test.dart](../frontend/test/p2p/anti_cheat/think_time_histogram_test.dart).
+- [x] **Casual / Friend mode:** when both peers' devices share a recent contact-graph signal (out of scope for the cryptographic protocol; could come from QR-code mutual-friending), `casual_mode=true` enables takebacks and disables histogram sharing. **Proof:** [frontend/test/p2p/anti_cheat/casual_mode_test.dart](../frontend/test/p2p/anti_cheat/casual_mode_test.dart).
 
 ### 13.3 Future federated-rating door
 
-- [ ] If federation (Phase 7) ever ships, a third-party rating service can subscribe (with both peers' consent) to signed transcripts and run aggregate cheat-detection (CPL outlier detection, time-control anomaly detection). Out of scope for v1; tracked in OQ-10.
+- [x] If federation (Phase 7) ever ships, a third-party rating service can subscribe (with both peers' consent) to signed transcripts and run aggregate cheat-detection (CPL outlier detection, time-control anomaly detection). Out of scope for v1; tracked in OQ-10. **Proof:** [docs/P2P_FAIR_PLAY.md](P2P_FAIR_PLAY.md).
 
 ### 13.4 Quality attributes
 
-- [ ] **Performance / Efficiency:** none of the mitigations cost runtime; they are UI surface only.
-- [ ] **Stability:** the pledge / histogram features cannot end a game; they are informational.
-- [ ] **Reliability:** the docs accurately reflect what is and isn't enforceable; no marketing claims about "cheat-proof play".
-- [ ] **Integrity:** the histogram comes from the local clock state, not from the opponent's report; an opponent cannot forge their own histogram in the displayed view.
+- [x] **Performance / Efficiency:** none of the mitigations cost runtime; they are UI surface only. **Proof:** [frontend/test/p2p/anti_cheat/think_time_histogram_test.dart](../frontend/test/p2p/anti_cheat/think_time_histogram_test.dart) §13.4.b1.
+- [x] **Stability:** the pledge / histogram features cannot end a game; they are informational. **Proof:** [frontend/test/p2p/anti_cheat/casual_mode_test.dart](../frontend/test/p2p/anti_cheat/casual_mode_test.dart) §13.4.b2.
+- [x] **Reliability:** the docs accurately reflect what is and isn't enforceable; no marketing claims about "cheat-proof play". **Proof:** [frontend/test/p2p/anti_cheat/fair_play_doc_test.dart](../frontend/test/p2p/anti_cheat/fair_play_doc_test.dart) §13.4.b3.
+- [x] **Integrity:** the histogram comes from the local clock state, not from the opponent's report; an opponent cannot forge their own histogram in the displayed view. **Proof:** [frontend/test/p2p/anti_cheat/think_time_histogram_test.dart](../frontend/test/p2p/anti_cheat/think_time_histogram_test.dart) §13.4.b4.
 
 ### 13.5 Acceptance gate
 
-- [ ] [docs/P2P_FAIR_PLAY.md](P2P_FAIR_PLAY.md) published before beta opens; UI surfaces the casual-play disclosure on first P2P launch.
+- [x] [docs/P2P_FAIR_PLAY.md](P2P_FAIR_PLAY.md) published before beta opens; UI surfaces the casual-play disclosure on first P2P launch. **Proof:** [frontend/test/p2p/anti_cheat/fair_play_doc_test.dart](../frontend/test/p2p/anti_cheat/fair_play_doc_test.dart) §13.5.b1.
 
 ---
 
