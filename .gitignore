@@ -48,5 +48,9 @@ app.*.map.json
 
 # Android Studio will place build artifacts here
 /android/app/debug
+
+# CodeGraph local knowledge-graph database + watcher state (regenerated on demand).
+# Pin and configs are checked in; the index itself is not.
+.codegraph/
 /android/app/profile
 /android/app/release

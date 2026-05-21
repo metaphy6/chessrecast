@@ -1,0 +1,27 @@
+---
+description: CodeGraph semantic code intelligence — query the local knowledge graph before grep/find.
+alwaysApply: true
+---
+
+# CodeGraph is available in this workspace
+
+A `.codegraph/` SQLite knowledge graph is maintained by the CodeGraph MCP
+server (see [xops/codegraph/README.md](../../xops/codegraph/README.md)).
+
+**Prefer CodeGraph tools over file scanning** when you need to:
+- find a symbol definition, callers, callees, or impact radius
+- map an area of the codebase before editing
+- locate a route/handler binding
+
+Fall back to `grep` / `find` / `Read` only when CodeGraph returns nothing.
+
+After any of the following, run `make codegraph.reindex` (or call
+`codegraph init -i`) before relying on graph queries:
+- a `git rebase` that moved many files
+- a refactor that renamed/moved >10 symbols
+- a merge from `main` that touched the native engine
+
+The repo rulebook is [AGENTS.md](../../AGENTS.md) (cross-cutting) +
+[.github/copilot-instructions.md](../../.github/copilot-instructions.md)
+(engine/mod rules). CodeGraph never overrides the per-mod allow-list or the
+commit gate model — it is a discovery tool, not a license to touch shared code.

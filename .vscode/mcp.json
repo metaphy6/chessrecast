@@ -1,0 +1,16 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/2025-03-26/mcp.schema.json",
+  "_comment": "CodeGraph MCP server for VS Code Copilot Chat. Version is pinned via xops/codegraph/VERSION; do not edit by hand — run `make codegraph.sync-pin`.",
+  "servers": {
+    "codegraph": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@colbymchenry/codegraph@0.8.0",
+        "serve",
+        "--mcp"
+      ]
+    }
+  }
+}

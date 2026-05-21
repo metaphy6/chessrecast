@@ -26,6 +26,7 @@ Before creating any new config / doc / script, **first check whether it already 
 | Native engine build / artifacts | [docs/code/BUILD_ARTIFACTS_MANAGEMENT.md](../docs/code/BUILD_ARTIFACTS_MANAGEMENT.md), [docs/code/NATIVE_ENGINE_PLATFORM_AUDIT.md](../docs/code/NATIVE_ENGINE_PLATFORM_AUDIT.md) |
 | Test tooling notes | [docs/code/TEST_TOOL_IMPROVEMENTS.md](../docs/code/TEST_TOOL_IMPROVEMENTS.md), [docs/code/TEST_TOOL_ALGORITHM_IMPROVEMENT_MAP.md](../docs/code/TEST_TOOL_ALGORITHM_IMPROVEMENT_MAP.md) |
 | Agent loop state / queue / reports | [agent/README.md](../agent/README.md), [agent/queue.yaml](../agent/queue.yaml), [agent/baselines/](../agent/baselines), [agent/reports/](../agent/reports), [agent/state/](../agent/state) |
+| CodeGraph MCP integration | [docs/guides/CODEGRAPH.md](../docs/guides/CODEGRAPH.md), [xops/codegraph/](../xops/codegraph), [.vscode/mcp.json](../.vscode/mcp.json), [.mcp.json](../.mcp.json), [.cursor/mcp.json](../.cursor/mcp.json) |
 | Native CMake | [frontend/CMakeLists.txt](../frontend/CMakeLists.txt), [frontend/native/engine/](../frontend/native/engine), build output `frontend/build/native/linux/` |
 | Per-mod source allow-list | see *Hard rules → 2* below |
 | Per-mod tests | `frontend/test/<mod>_*` and `frontend/test/manual_<mod>_*` |
@@ -125,6 +126,7 @@ The agent is expected to act, not ask. When investigating a mod:
 - If the build is broken (native lib missing / `flutter test` fails to load), run `flutter pub get` then rebuild the native lib via the VS Code task **`Frontend: Rebuild Native Engine`** (or the equivalent `cmake --build build/native/linux`) before retrying the gate. Do not ask the user to do it.
 - If `agent/baselines/<mod>.json` is missing or older than 7 days, regenerate it from a fresh 50-game batch *before* triaging the queue task.
 - If `git pull` reveals upstream changes touching the same mod, rebase, re-run the gate from scratch, and only then attempt the commit.
+- After any of the following, run `make codegraph.reindex` *before* relying on the next CodeGraph query: a `git rebase` or `git pull --rebase`, a feature commit that moved/renamed >10 files, a `kind: shared_edit` change in `frontend/native/engine/`. A stale `.codegraph/` index is the canonical "tool is lying to me" failure mode and produces wrong symbol lookups silently. See [docs/guides/CODEGRAPH.md](../docs/guides/CODEGRAPH.md).
 
 ## Live test-watchdog protocol
 

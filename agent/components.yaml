@@ -83,3 +83,11 @@ components:
     version: "1.0.0"
     path: xops/
     description: Agent scripts, Makefile automation, git_ops.py
+
+  tooling/codegraph:
+    version: "0.8.0"
+    path: xops/codegraph/
+    description: |
+      CodeGraph MCP server pin. Single source of truth is
+      xops/codegraph/VERSION; this entry tracks it for the components
+      registry. Bump via `make codegraph.sync-pin` after editing VERSION.

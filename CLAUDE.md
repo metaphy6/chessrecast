@@ -27,6 +27,7 @@ A short summary of what matters most, even if you read nothing else:
 Tooling notes specific to Claude Code:
 
 - This project ships VS Code tasks (e.g. `Frontend: Rebuild Native Engine`). If you do not have access to VS Code task execution, the equivalent shell is `cd frontend && cmake --build build/native/linux`.
+- CodeGraph MCP is configured via [.mcp.json](.mcp.json) at the repo root and is picked up automatically. Prefer CodeGraph tools (symbol lookup, callers/callees, route mapping) over grep/find. Run `make codegraph.reindex` after a `git rebase` or any large move/rename. See [docs/guides/CODEGRAPH.md](docs/guides/CODEGRAPH.md).
 - Slash-command prompts live under [.github/prompts/](.github/prompts/). They are written for VS Code Copilot Chat but are readable as plain Markdown — you can follow the same procedures from Claude Code.
 - The `/memories/repo/*_notes.md` referenced in the Copilot instructions is a Copilot-specific memory feature. The equivalent for Claude is the `agent/reports/` and `agent/state/log.jsonl` files plus your own session notes.
 

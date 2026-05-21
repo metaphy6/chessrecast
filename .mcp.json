@@ -1,0 +1,15 @@
+{
+  "_comment": "Claude Code project-scoped MCP config. Pin lives in xops/codegraph/VERSION — run `make codegraph.sync-pin` to update.",
+  "mcpServers": {
+    "codegraph": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@colbymchenry/codegraph@0.8.0",
+        "serve",
+        "--mcp"
+      ]
+    }
+  }
+}

@@ -30,10 +30,13 @@ Before creating any new file (config, doc, script, test helper), confirm it does
 
 - [README.md](README.md) — repo entry point.
 - [docs/coding/ai/automation.md](docs/coding/ai/automation.md) — the AI-automation roadmap; this is where cross-cutting agent capabilities are designed.
+- [docs/guides/CODEGRAPH.md](docs/guides/CODEGRAPH.md) — CodeGraph MCP integration: pin model, per-assistant config, reindex rules.
 - [agent/README.md](agent/README.md) — autonomous-loop contract.
 - `/memories/repo/*_notes.md` — long-lived per-mod facts the agent has learned (Copilot memory tool).
 
 If you cannot find the file but its purpose seems generic, search the workspace with `grep_search` / `file_search` **before** creating a new one. Recreating an existing config under a slightly different path is a recurring failure mode and is forbidden.
+
+**Prefer the CodeGraph MCP tools over file-scanning** for symbol lookups, callers/callees, route-to-handler bindings, and area-mapping questions. Fall back to `grep_search` / `file_search` / `read_file` only when CodeGraph returns nothing. Run `make codegraph.reindex` after a `git rebase`, after moving/renaming >10 files, or any time a CodeGraph query disagrees with `git log` — a stale graph is the canonical "tool is lying to me" failure mode. CodeGraph never overrides the per-mod allow-list; it is a discovery tool, not a license to touch shared code.
 
 ## 2. Mandatory tracking entry + stage after every slash command — human pushes via `make git`
 
@@ -210,6 +213,18 @@ The same vigilance applies to forward motion, not just regression-chasing. You a
 - keep the test surface honest: every behavior change ships its test (rule §3); every refactor re-runs every test that touches the refactored symbol.
 
 You are not "waiting for the user". The user kicked off a long-running agent. Act.
+
+### 9e1. Keep the CodeGraph index honest
+
+CodeGraph is the cheapest discovery tool available in this repo (see [docs/guides/CODEGRAPH.md](docs/guides/CODEGRAPH.md)); a stale graph is worse than no graph because it lies confidently. You must `make codegraph.reindex` *before* trusting any graph query in these situations:
+
+1. you just completed a `git rebase` / `git pull --rebase` that moved >5 files,
+2. you just shipped a feature commit that renamed/moved >10 symbols,
+3. a `kind: shared_edit` change landed in `frontend/native/engine/`,
+4. a `codegraph_context` / `codegraph_explore` result contradicts what `git log -p` shows for the same path,
+5. you are about to answer a cross-mod or cross-area architecture question and the last `make codegraph.reindex` is older than the most recent commit on `main`.
+
+Additionally: run `make codegraph.check-updates` at the start of any long autonomous-loop session. If a newer CodeGraph version exists, propose a `chore(tooling): bump codegraph to <ver>` task in the queue — never bump silently, never `@latest`.
 
 ### 9e. Restart conditions — when to throw the run away
 
