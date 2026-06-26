@@ -2,7 +2,7 @@
 # xops/p2p/wire-version-pin-check.sh
 #
 # Phase 17 §17.6.4 — Verify the running binary's wire_version constant
-# resolves to a commit SHA that appears in docs/P2P_PROTOCOL.md's version
+# resolves to a commit SHA that appears in docs/p2p/P2P_PROTOCOL.md's version
 # history table, confirming the build is pinned to a documented protocol rev.
 #
 # Usage:
@@ -12,23 +12,23 @@
 #   --artefact  Path to the built binary/lib whose wire_version string to
 #               extract. Default: frontend/build/native/linux/libchess_engine.so
 #   --version   Explicit wire_version string (skips artefact extraction).
-#   --protocol  Path to the protocol doc. Default: docs/P2P_PROTOCOL.md
+#   --protocol  Path to the protocol doc. Default: docs/p2p/P2P_PROTOCOL.md
 #   --dry-run   Print resolution steps without writing to budget JSON.
 #
 # Exits 0 if the wire_version appears in the protocol doc, 1 if not, 2 on
 # infrastructure error.
 #
-# The script also records the result in agent/baselines/p2p_budgets.json
+# The script also records the result in bots/baselines/p2p_budgets.json
 # under integrity.wire_version_to_protocol_doc_pinned.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-BUDGET_JSON="$REPO_ROOT/agent/baselines/p2p_budgets.json"
+BUDGET_JSON="$REPO_ROOT/bots/baselines/p2p_budgets.json"
 
 ARTEFACT_PATH="$REPO_ROOT/frontend/build/native/linux/libchess_engine.so"
 WIRE_VERSION=""
-PROTOCOL_DOC="$REPO_ROOT/docs/P2P_PROTOCOL.md"
+PROTOCOL_DOC="$REPO_ROOT/docs/p2p/P2P_PROTOCOL.md"
 DRY_RUN=0
 
 usage() {

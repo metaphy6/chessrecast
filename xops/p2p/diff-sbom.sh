@@ -5,7 +5,7 @@
 # and the last release) and reports new direct dependencies.
 #
 # A new direct dependency must be documented in a queue entry of
-# kind: p2p_dep_review in agent/queue.yaml before merging.
+# kind: p2p_dep_review in bots/queue.yaml before merging.
 #
 # Usage:
 #   ./xops/p2p/diff-sbom.sh [--prev <path|tag>] [--curr <path|tag>]
@@ -136,7 +136,7 @@ if [[ -n "${ADDED}" ]]; then
   echo "================================================================"
   echo " NEW DIRECT DEPENDENCIES — human review required"
   echo " Each new dep must have a 'kind: p2p_dep_review' entry in"
-  echo " agent/queue.yaml before this change can merge."
+  echo " bots/queue.yaml before this change can merge."
   echo "================================================================"
   while IFS= read -r line; do
     echo "  + ${line}"

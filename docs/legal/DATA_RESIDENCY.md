@@ -2,7 +2,7 @@
 
 **Version:** 1.0  
 **Effective:** 2024-01-01  
-**Owner:** See [P2P_OPERATIONS.md](../P2P_OPERATIONS.md) §1
+**Owner:** See [P2P_OPERATIONS.md](../p2p/P2P_OPERATIONS.md) §1
 
 ---
 

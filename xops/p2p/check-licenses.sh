@@ -52,7 +52,7 @@ if [[ $GO_ONLY -eq 0 ]]; then
   if command -v dart &>/dev/null; then
     DART_LICENSES=$(cd "$REPO_ROOT/frontend" && dart pub deps --style=compact 2>/dev/null | head -5 || true)
     echo "  (dart pub deps: licence parsing requires flutter_licenses or manual review)"
-    echo "  Known licences verified manually — see docs/P2P_LICENSES.md"
+    echo "  Known licences verified manually — see docs/p2p/P2P_LICENSES.md"
     echo "OK: Dart licence check passed (manual + docs review)"
   else
     echo "  WARNING: dart not in PATH; skipping Dart licence check"
@@ -98,7 +98,7 @@ fi
 
 # ---- Known-good dependency matrix (from roadmap) --------------------------
 echo ""
-echo "Known dependency licence matrix (per docs/P2P_LICENSES.md):"
+echo "Known dependency licence matrix (per docs/p2p/P2P_LICENSES.md):"
 printf "  %-30s %s\n" "Dependency" "SPDX Licence"
 printf "  %-30s %s\n" "----------" "------------"
 printf "  %-30s %s\n" "libsodium"                  "ISC"

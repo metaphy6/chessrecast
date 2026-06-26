@@ -1,406 +1,220 @@
-#!/usr/bin/env python3
-"""
-git_ops.py — ChessRecast workspace git automation.
+"""xops/makefile/git_ops.py — `make git` and `make git.dry`.
 
-Commit messages are derived from agent/tracking.csv when pending rows are
-present, guaranteeing conventional commits come from structured agent data
-rather than AI free-form text.  Agents NEVER call `git commit`; they append
-rows to tracking.csv and stage files.  This script is the sole commit
-ordinator — run via `make git` (push) or `make git.dry` (preview only).
+Reads docs/tracking/tracking.csv, finds rows with action=commit, status=completed,
+commit_sha=pending whose run_id does NOT already appear in any commit
+message, groups them by run_id (one commit per run_id), then either previews
+or commits + pushes.
 
-Commands:
-  dry   Preview staged changes, derived commit messages, and push queue.
-  push  Commit each pending run_id group as its own commit (group 1 = all
-        staged files; groups 2+ = empty commits), then push. No write-back.
+The row's `summary` column is used VERBATIM as the commit subject. A
+`[<run_id>]` trailer is appended so repeat invocations are idempotent.
+
+Refuses to commit if the working tree is dirty AND no pending row exists
+(catches the "agent forgot to track.add" footgun).
 """
+
+from __future__ import annotations
 
 import csv
 import re
-import subprocess
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
+from typing import Iterable, List
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-CSV_FILE  = REPO_ROOT / "agent" / "tracking.csv"
-CSV_REL   = "agent/tracking.csv"
+from _common import (
+    BOLD, DIM, RESET, REPO_ROOT, TRACKING_CSV, dim, dispatch, err, info, ok,
+    out, run, step, warn,
+)
 
-# ── emoji constants ────────────────────────────────────────────────────────────
-FILES  = "📂"
-FILE   = "📄"
-COMMIT = "📦"
-PUSH   = "🚀"
-OK     = "✅"
-WARN   = "⚠️ "
-ERR    = "❌"
-SHA    = "🔑"
-CSV_E  = "📋"
-NONE   = "💤"
-ARROW  = "→"
-CHECK  = "✔"
-
-# ── subprocess ─────────────────────────────────────────────────────────────────
-def _run(cmd, *, capture: bool = False):
-    kw: dict = {"cwd": REPO_ROOT}
-    if capture:
-        kw["capture_output"] = True
-        kw["text"] = True
-    return subprocess.run(cmd, **kw)
-
-
-def _out(cmd) -> str:
-    return _run(cmd, capture=True).stdout.strip()
-
-
-# ── git state ──────────────────────────────────────────────────────────────────
-def _staged() -> list[str]:
-    raw = _out(["git", "diff", "--cached", "--name-only"])
-    return [l.strip() for l in raw.splitlines() if l.strip()]
-
-
-def _dirty() -> list[str]:
-    """Short-status lines, e.g. 'M  file.dart', '?? foo.txt'."""
-    raw = _out(["git", "status", "--short"])
-    return [l.rstrip() for l in raw.splitlines() if l.strip()]
-
-
-def _pending_log() -> list[str]:
-    raw = _out(["git", "log", "origin/main..HEAD", "--oneline", "--decorate"])
-    return [l for l in raw.splitlines() if l.strip()]
-
-
-# ── CSV: read pending rows ──────────────────────────────────────────────────────
-def _pending_csv() -> list[dict]:
-    """
-    Return rows from tracking.csv where:
-      commit_sha == 'pending'  AND
-      action     == 'commit'   AND
-      status     == 'completed'  (also accepts legacy typo 'complete')
-    Additionally filters out run_ids already present in git log (idempotency
-    guard — no SHA write-back required).
-    Results are ordered by file (append) order.
-    """
-    if not CSV_FILE.exists():
-        return []
-    try:
-        with CSV_FILE.open(newline="", encoding="utf-8") as f:
-            rows = list(csv.DictReader(f))
-        pending = [
-            r for r in rows
-            if r.get("commit_sha", "").strip().lower() == "pending"
-            and r.get("action",     "").strip().lower() == "commit"
-            and r.get("status",     "").strip().lower() in ("completed", "complete")
-        ]
-        if not pending:
-            return []
-        # Idempotency: skip run_ids already in git history.
-        log_text = _out(["git", "log", "--all", "--format=%B"])
-        return [
-            r for r in pending
-            if f"[{r.get('run_id', '').strip()}]" not in log_text
-        ]
-    except Exception as exc:
-        print(f"{WARN} CSV parse error: {exc}")
-        return []
-
-
-# ── CSV: derive commit message ──────────────────────────────────────────────────
-def _msg_from_csv(row: dict) -> str:
-    """
-    Return the commit message for this CSV row.
-
-    If the row has a non-empty `commit_message` column that looks like a
-    conventional commit, use it directly — no derivation needed.
-
-    Otherwise fall back to assembling:  p2p(<scope>): <phase_title> [<run_id>]
-    with validation warnings for missing fields.
-    """
-    explicit = (row.get("commit_message") or "").strip()
-    if explicit:
-        return explicit
-
-    # ── fallback: derive from phase / phase_title / run_id ──────────────────
-    phase  = (row.get("phase")       or "").strip()
-    title  = (row.get("phase_title") or "").strip()
-    run_id = (row.get("run_id")      or "").strip()
-
-    if not phase:
-        print(f"{WARN} CSV row missing 'phase' — using fallback scope 'p2p'")
-        phase = "p2p"
-    if not title:
-        print(f"{WARN} CSV row missing 'phase_title' — using fallback 'update'")
-        title = "update"
-    if not run_id:
-        print(f"{WARN} CSV row missing 'run_id' — no run-id suffix")
-
-    # Strip leading 'p2p-' to avoid 'p2p(p2p-phase-1)'
-    scope  = phase[len("p2p-"):] if phase.lower().startswith("p2p-") else phase
-    suffix = f" [{run_id}]" if run_id else ""
-    return f"p2p({scope}): {title}{suffix}"
-
-
-# ── grouped commit message ─────────────────────────────────────────────────────
+# Conventional Commits subject: <type>(<scope>)?(!)?: <description>.
+# Mirrors the gate in xops/agent/tracking_append.sh. The commit subject is the
+# tracking row's `summary` verbatim, so this is the last line of defense that
+# keeps the commit log Conventional-Commits-clean even if tracking.csv was
+# hand-edited around the appender.
 _CC_RE = re.compile(
     r"^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)"
-    r"(?:\([a-z0-9._\-/]+\))?!?: .+"
+    r"(\([^)]+\))?!?:\s.+"
 )
 
 
-def _is_conventional(msg: str) -> bool:
-    return bool(_CC_RE.match((msg.splitlines()[0] if msg else "").strip()))
+def is_conventional_commit(subject: str) -> bool:
+    """True iff `subject` is a valid Conventional Commits subject line."""
+    return bool(_CC_RE.match(subject))
 
 
-def _build_single_msg(csv_rows: list[dict]) -> str:
-    """One commit message for a single run_id group.
+def _read_pending_rows() -> List[dict]:
+    if not TRACKING_CSV.exists():
+        err(f"{TRACKING_CSV} not found")
+        sys.exit(66)
+    rows = []
+    with TRACKING_CSV.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        expected = ["ts_utc", "run_id", "agent", "scope", "action", "status",
+                    "summary", "refs", "commit_sha"]
+        if reader.fieldnames != expected:
+            err(f"tracking.csv header mismatch: got {reader.fieldnames}")
+            sys.exit(66)
+        for r in reader:
+            if (r["action"] == "commit"
+                    and r["status"] == "completed"
+                    and r["commit_sha"] == "pending"):
+                rows.append(r)
+    return rows
 
-    - Single row  → use its commit_message directly.
-    - Multiple rows → first row's message as title, rest as body bullets.
-    """
-    if not csv_rows:
-        return "chore(workspace): no pending rows"
-    first_msg = _msg_from_csv(csv_rows[0])
-    if not _is_conventional(first_msg):
-        first_msg = f"chore(workspace): {first_msg}"
-    if len(csv_rows) == 1:
-        return first_msg
-    bullets = [f" * {_msg_from_csv(r)}" for r in csv_rows[1:]]
-    return first_msg + "\n\n" + "\n".join(bullets)
+
+def _already_committed_run_ids() -> set[str]:
+    """Return run_ids already mentioned in any commit message anywhere in repo."""
+    if not (REPO_ROOT / ".git").exists():
+        return set()
+    log = out(["git", "log", "--all", "--format=%B"], check=False)
+    seen = set()
+    for line in log.splitlines():
+        # match a [run-id] trailer anywhere in the line
+        i = line.find("[")
+        while i != -1:
+            j = line.find("]", i + 1)
+            if j == -1:
+                break
+            cand = line[i + 1 : j]
+            if cand.replace("-", "").isalnum():
+                seen.add(cand)
+            i = line.find("[", j + 1)
+    return seen
 
 
-def _group_by_run_id(csv_rows: list[dict]) -> list[tuple[str, list[dict]]]:
-    """Group pending rows by run_id, preserving first-occurrence order.
-    Returns [(run_id, [rows]), ...] in the order run_ids first appear."""
-    seen: dict[str, list[dict]] = {}
-    order: list[str] = []
-    for row in csv_rows:
-        rid = (row.get("run_id") or "unknown").strip()
-        if rid not in seen:
-            seen[rid] = []
+def _group_by_run_id(rows: List[dict]) -> List[List[dict]]:
+    groups: dict[str, List[dict]] = {}
+    order: List[str] = []
+    for r in rows:
+        rid = r["run_id"]
+        if rid not in groups:
+            groups[rid] = []
             order.append(rid)
-        seen[rid].append(row)
-    return [(rid, seen[rid]) for rid in order]
+        groups[rid].append(r)
+    return [groups[rid] for rid in order]
 
 
-# ── fallback: auto-derive conventional commit from file paths ──────────────────
-def _auto_type(files: list[str]) -> str:
-    p = [f.lower() for f in files]
-    if all(x.endswith(".md") or x.startswith("docs/")         for x in p): return "docs"
-    if all("test" in x                                         for x in p): return "test"
-    if all(x.startswith("frontend/native/")                   for x in p): return "perf"
-    if all(x.startswith("backend/")                           for x in p): return "feat"
-    if all(x.startswith(("agent/", "xops/", ".github/"))      for x in p): return "chore"
-    return "chore"
+def _build_commit_message(group: List[dict]) -> str:
+    primary = group[0]
+    subject = primary["summary"]
+    body_lines: List[str] = []
+    if len(group) > 1:
+        body_lines.append("")
+        body_lines.append("Additional tracking rows:")
+        for r in group[1:]:
+            body_lines.append(f"  - {r['action']}/{r['status']}: {r['summary']}")
+    if primary["refs"]:
+        body_lines.append("")
+        body_lines.append("Refs:")
+        for ref in primary["refs"].split(";"):
+            ref = ref.strip()
+            if ref:
+                body_lines.append(f"  - {ref}")
+    body_lines.append("")
+    body_lines.append(f"[{primary['run_id']}]")
+    return subject + "\n" + "\n".join(body_lines)
 
 
-def _auto_scope(files: list[str]) -> str:
-    if not files:
-        return "workspace"
-    tops = {f.split("/")[0] for f in files}
-    if len(tops) == 1:
-        top = tops.pop()
-        if top in ("frontend", "backend", "agent", "xops", "docs"):
-            subs = {f.split("/")[1] for f in files if "/" in f}
-            if len(subs) == 1:
-                return subs.pop()
-        return top
-    return "workspace"
+def _working_tree_dirty() -> bool:
+    return bool(out(["git", "status", "--porcelain"], check=False).strip())
 
 
-def _auto_msg(files: list[str]) -> str:
-    if not files:
-        return "chore(workspace): sync workspace [auto]"
-    names   = [Path(f).name for f in files[:3]]
-    summary = ", ".join(names) + (f" (+{len(files)-3} more)" if len(files) > 3 else "")
-    ts      = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    return f"{_auto_type(files)}({_auto_scope(files)}): {summary} [auto-{ts}]"
+# ── subcommands ───────────────────────────────────────────────────────────
 
-
-# ── display helpers ────────────────────────────────────────────────────────────
-WIDTH = 60
-
-
-def _section(icon: str, title: str) -> None:
-    print(f"\n{icon}  {title}")
-    print("─" * WIDTH)
-
-
-def _file_line(path: str) -> None:
-    """Print a file line, stripping git short-status prefix when present."""
-    if len(path) > 3 and path[2] == " ":
-        char  = path[0].strip() or path[1].strip()
-        label = {"M": "modified", "A": "added", "D": "deleted",
-                 "R": "renamed",  "?": "untracked"}.get(char, char)
-        clean = path[3:]
-        print(f"   {FILE}  {clean:<46}  ({label})")
+def cmd_dry(_args: List[str]) -> None:
+    step("🔧 make git.dry — preview what would be committed")
+    rows = _read_pending_rows()
+    if not rows:
+        ok("no pending commit rows in tracking.csv")
+        if _working_tree_dirty():
+            warn("⚠️  working tree IS dirty — agent forgot to track.add?")
+            run(["git", "status", "--short"])
+        return
+    committed = _already_committed_run_ids()
+    groups = _group_by_run_id(rows)
+    info(f"found {len(rows)} pending row(s) in {len(groups)} run_id group(s)")
+    for group in groups:
+        rid = group[0]["run_id"]
+        if rid in committed:
+            dim(f"  ⏭  skipping {rid} — already in git log")
+            continue
+        msg = _build_commit_message(group)
+        print()
+        print(f"{BOLD}── would commit: [{rid}] ──{RESET}", file=sys.stderr)
+        for line in msg.splitlines():
+            print(f"    {line}", file=sys.stderr)
+        if not is_conventional_commit(group[0]["summary"]):
+            warn(f"  ⚠️  subject is NOT Conventional Commits — `make git` will refuse: {group[0]['summary']!r}")
+    print()
+    if _working_tree_dirty():
+        info("staged + unstaged changes (git status --short):")
+        run(["git", "status", "--short"])
     else:
-        print(f"   {FILE}  {path}")
+        warn("working tree clean — `make git` would create empty commit(s)")
 
 
-# ── commands ───────────────────────────────────────────────────────────────────
-def dry():
-    """Read-only preview: staged changes, one commit per run_id group, push queue."""
-    dirty_list  = _dirty()
-    staged_list = _staged()
-    csv_rows    = _pending_csv()
-    git_log     = _pending_log()
+def cmd_push(_args: List[str]) -> None:
+    step("🔧 make git — commit pending tracking rows + push")
+    rows = _read_pending_rows()
+    if not rows:
+        if _working_tree_dirty():
+            err("working tree has changes but tracking.csv has no pending row.")
+            err("→ agent should append a row first (see AGENTS.md §2).")
+            sys.exit(2)
+        ok("nothing to commit (no pending rows, clean tree)")
+        return
 
-    # — uncommitted / staged files —
-    if dirty_list:
-        _section(FILES, "Uncommitted changes  (would be staged by `make git`)")
-        for f in dirty_list:
-            _file_line(f)
+    committed = _already_committed_run_ids()
+    groups = _group_by_run_id(rows)
+    new_groups = [g for g in groups if g[0]["run_id"] not in committed]
+    if not new_groups:
+        ok("all pending rows already correspond to existing commits — nothing to do")
+        return
+
+    # Final Conventional-Commits gate before anything is committed. Validate
+    # every subject up front and refuse the whole batch on the first offender,
+    # so a bad subject never reaches the commit log and we never commit a
+    # partial batch.
+    offenders = [
+        g[0] for g in new_groups if not is_conventional_commit(g[0]["summary"])
+    ]
+    if offenders:
+        err("refusing to commit: non-Conventional-Commits subject(s) in tracking.csv")
+        for r in offenders:
+            err(f"  [{r['run_id']}] {r['summary']!r}")
+        err("  required: <type>(<scope>)?(!)?: <description>")
+        err("  fix the row's summary (append a corrective row) and re-run.")
+        sys.exit(65)
+
+    # Stage everything first (humans may have left things unstaged).
+    run(["git", "add", "-A"])
+
+    for i, group in enumerate(new_groups):
+        rid = group[0]["run_id"]
+        msg = _build_commit_message(group)
+        info(f"committing [{rid}] ({i + 1}/{len(new_groups)})")
+        # First group consumes the staged tree; subsequent groups become
+        # --allow-empty so multiple run_ids can share one staging window.
+        cmd = ["git", "commit", "-m", msg]
+        if i > 0:
+            cmd.insert(2, "--allow-empty")
+        run(cmd)
+        ok(f"committed [{rid}]")
+
+    step("🚀 pushing to upstream")
+    branch = out(["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip()
+    # --set-upstream-on-first-push, otherwise plain push.
+    upstream_check = out(["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], check=False).strip()
+    if not upstream_check:
+        run(["git", "push", "--set-upstream", "origin", branch])
     else:
-        print(f"\n{NONE}  No uncommitted changes")
-
-    # — commit preview — one block per run_id group —
-    new_commits: list[str] = []
-    if csv_rows:
-        groups = _group_by_run_id(csv_rows)
-        n = len(groups)
-        for i, (run_id, rows) in enumerate(groups):
-            files_label = "all staged files" if i == 0 else "empty commit (run_id record)"
-            _section(CSV_E,
-                f"Commit {i+1}/{n}  "
-                f"[{run_id} · {len(rows)} row(s) · {files_label}]")
-            msg = _build_single_msg(rows)
-            for line in msg.splitlines():
-                if not line.strip():
-                    continue
-                prefix = "   " if line.startswith(" *") else f"   {ARROW} "
-                print(f"{prefix} {line.lstrip()}")
-            new_commits.append(msg.splitlines()[0])
-    elif dirty_list or staged_list:
-        all_paths = list(dict.fromkeys(
-            [p[3:].strip() for p in dirty_list if len(p) > 3 and p[2] == " "]
-            + staged_list
-        ))
-        msg = _auto_msg(all_paths)
-        _section(FILE, "Commit message  (auto-derived — no pending CSV rows)")
-        print(f"   {ARROW}  {msg}")
-        new_commits.append(msg)
-
-    # — what would be pushed —
-    push_queue = new_commits + git_log
-    if push_queue:
-        _section(PUSH, f"Would be pushed to origin/main  ({len(push_queue)} commit(s))")
-        for c in new_commits:
-            print(f"   {ARROW}  {c}  (new)")
-        for c in git_log:
-            print(f"   {CHECK}  {c}  (already committed)")
-    else:
-        print(f"\n{NONE}  Nothing to commit or push — working tree clean, origin/main up to date")
+        run(["git", "push"])
+    ok("pushed")
 
 
-def push():
-    """
-    One commit per run_id group — rows with the same run_id are one task and
-    land in a single commit; different run_ids become separate commits.
-
-    No SHA write-back: idempotency is handled by cross-checking run_ids
-    against git log in _pending_csv().  re-running `make git` safely skips
-    run_ids already in history.
-
-    Commit ordering:
-      Group 1  — all staged implementation files (normal commit)
-      Group 2+ — empty commits (`--allow-empty`) that record the run_id
-                 message in git log without touching the working tree
-
-    Fallback mode (no pending CSV rows):
-      Commit all staged changes with an auto-derived conventional message.
-    """
-    dirty_list  = _dirty()
-    staged_list = _staged()
-
-    # Always stage everything that is unstaged
-    if dirty_list:
-        _run(["git", "add", "-A"])
-        staged_list = _staged()
-
-    if staged_list:
-        csv_rows = _pending_csv()
-
-        if csv_rows:
-            # ── Tracked mode: one commit per run_id group ────────────────────
-            groups = _group_by_run_id(csv_rows)
-            n = len(groups)
-
-            for i, (run_id, rows) in enumerate(groups):
-                is_first    = (i == 0)
-                files_label = "all staged files" if is_first else "empty commit (run_id record)"
-                msg         = _build_single_msg(rows)
-
-                _section(CSV_E,
-                    f"Commit {i+1}/{n}  "
-                    f"[{run_id} · {len(rows)} row(s) · {files_label}]")
-                for line in msg.splitlines():
-                    if not line.strip():
-                        continue
-                    prefix = "   " if line.startswith(" *") else f"   {ARROW} "
-                    print(f"{prefix} {line.lstrip()}")
-
-                if is_first:
-                    _section(FILES, "Files in this commit")
-                    for f in staged_list:
-                        print(f"   {FILE}  {f}")
-                    r = _run(["git", "commit", "-m", msg])
-                else:
-                    r = _run(["git", "commit", "--allow-empty", "-m", msg])
-
-                if r.returncode != 0:
-                    print(f"\n{ERR}  Commit {i+1}/{n} failed.")
-                    sys.exit(r.returncode)
-
-                sha = _out(["git", "rev-parse", "--short", "HEAD"])
-                print(f"\n{SHA}  SHA: {sha}")
-
-        else:
-            # ── Fallback mode ────────────────────────────────────────────────
-            msg = _auto_msg(staged_list)
-            _section(FILE, "Commit message  (auto-derived — no pending CSV rows)")
-            print(f"   {ARROW}  {msg}")
-            _section(FILES, "Files in this commit")
-            for f in staged_list:
-                print(f"   {FILE}  {f}")
-
-            r = _run(["git", "commit", "-m", msg])
-            if r.returncode != 0:
-                print(f"\n{ERR}  Commit failed.")
-                sys.exit(r.returncode)
-
-            sha = _out(["git", "rev-parse", "--short", "HEAD"])
-            print(f"\n{SHA}  SHA: {sha}")
-
-    # — push —
-    git_log = _pending_log()
-    if not git_log:
-        print(f"\n{NONE}  Nothing to push — origin/main is up to date.")
-        sys.exit(0)
-
-    _section(COMMIT, "Commits being pushed")
-    for c in git_log:
-        print(f"   {CHECK}  {c}")
-
-    r = _run(["git", "pull", "--ff-only"])
-    if r.returncode != 0:
-        print(f"\n{ERR}  Fast-forward pull failed. Resolve divergence then re-run `make git`.")
-        sys.exit(r.returncode)
-
-    print(f"\n{PUSH}  Pushing to origin/main …")
-    r = _run(["git", "push", "origin", "main"])
-    if r.returncode != 0:
-        print(f"\n{ERR}  Push failed.")
-        sys.exit(r.returncode)
-
-    final = _out(["git", "log", "origin/main~1..origin/main", "--oneline"])
-    print(f"\n{OK}  {final}")
-
-
-# ── entry point ────────────────────────────────────────────────────────────────
-_COMMANDS = {"dry": dry, "push": push}
+TABLE = {
+    "dry":  cmd_dry,
+    "push": cmd_push,
+}
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2 or sys.argv[1] not in _COMMANDS:
-        print(__doc__)
-        print(f"Commands: {', '.join(_COMMANDS)}")
-        sys.exit(1)
-    _COMMANDS[sys.argv[1]]()
+    dispatch("git_ops", TABLE)

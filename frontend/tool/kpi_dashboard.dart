@@ -1,8 +1,8 @@
 // frontend/tool/kpi_dashboard.dart
 //
 // One-page KPI dashboard the agent posts at the start of every session.
-// Reads agent/baselines/<mod>.json plus the most recent
-// agent/reports/<mod>/*.txt for each mod and prints a markdown table:
+// Reads bots/baselines/<mod>.json plus the most recent
+// bots/reports/<mod>/*.txt for each mod and prints a markdown table:
 // metric, baseline, current, delta, status.
 //
 // Usage (from repo root or frontend/):
@@ -80,8 +80,8 @@ String? _findRepoRoot() {
 }
 
 void _printModSection(String root, String mod) {
-  final baselinePath = '$root/agent/baselines/$mod.json';
-  final reportDir = Directory('$root/agent/reports/$mod');
+  final baselinePath = '$root/bots/baselines/$mod.json';
+  final reportDir = Directory('$root/bots/reports/$mod');
 
   print('## $mod');
   if (!File(baselinePath).existsSync()) {
@@ -101,7 +101,7 @@ void _printModSection(String root, String mod) {
       (baseline['kpi'] as Map?)?.cast<String, dynamic>() ?? const {};
   final genAt = baseline['generated_at']?.toString() ?? '?';
 
-  // Newest report file in agent/reports/<mod>/.
+  // Newest report file in bots/reports/<mod>/.
   File? latest;
   if (reportDir.existsSync()) {
     final reports =

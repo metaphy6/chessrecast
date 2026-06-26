@@ -3,7 +3,7 @@
 // Tests that fake transports can be stacked:
 //   LossyTransport(JitterTransport(FakeTransport()))
 //
-// and the documented presets from docs/P2P_TEST_PRESETS.md exist and produce
+// and the documented presets from docs/p2p/P2P_TEST_PRESETS.md exist and produce
 // valid transport stacks.
 import 'dart:async';
 import 'dart:math' show Random;
@@ -106,7 +106,7 @@ void main() {
       expect(() => innerA.send('chess', Uint8List(0)), throwsStateError);
     });
 
-    // --- Preset tests (from docs/P2P_TEST_PRESETS.md) ---
+    // --- Preset tests (from docs/p2p/P2P_TEST_PRESETS.md) ---
 
     test('preset "clean" delivers all frames with no loss/jitter', () {
       final (innerA, innerB) = FakeTransport.pair();

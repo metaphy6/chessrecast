@@ -83,7 +83,7 @@ else
 fi
 
 # ── Step 3: SBOM hash binding (T-X-007) ──────────────────────────────────────
-SBOM_FILE="$REPO_ROOT/agent/reports/_shared/sbom-current.json"
+SBOM_FILE="$REPO_ROOT/bots/reports/_shared/sbom-current.json"
 echo ""
 echo "--> [T-X-007] SBOM binding check..."
 if [[ -f "$SBOM_FILE" ]]; then

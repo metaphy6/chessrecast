@@ -37,14 +37,14 @@ human approval** rather than current **automatically**.
 
 ## Bumping the pin
 
-Until `make version.bump` exists (see [agent/components.yaml](../../agent/components.yaml)),
+Until `make version.bump` exists (see [bots/components.yaml](../../bots/components.yaml)),
 the manual procedure is:
 
 1. Edit [VERSION](VERSION) to the new release (e.g. `0.9.0`).
 2. Run `make codegraph.sync-pin`.
 3. Run `make codegraph.reindex` and verify CodeGraph still answers queries
    for every primary assistant.
-4. Bump `tooling/codegraph` in [agent/components.yaml](../../agent/components.yaml).
+4. Bump `tooling/codegraph` in [bots/components.yaml](../../bots/components.yaml).
 5. Stage everything; commit message: `chore(tooling): bump codegraph to <ver> [<run-id>]`.
 
 ## Codex CLI note

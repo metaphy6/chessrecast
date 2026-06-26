@@ -1,6 +1,6 @@
 // §6.5 Quality attribute targets for P2P beta → GA.
 //
-// Centralises the published KPI targets from docs/P2P_BETA_KPIS.md so that
+// Centralises the published KPI targets from docs/p2p/P2P_BETA_KPIS.md so that
 // individual components can assert against a single source of truth.
 
 /// Performance KPI targets (§6.5.1).

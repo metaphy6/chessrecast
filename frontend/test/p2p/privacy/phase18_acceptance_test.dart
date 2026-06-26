@@ -24,8 +24,8 @@ void main() {
 
   setUpAll(() {
     repo = _repoRoot();
-    final f = File('${repo.path}/docs/P2P_ROADMAP.md');
-    expect(f.existsSync(), isTrue, reason: 'docs/P2P_ROADMAP.md must exist');
+    final f = File('${repo.path}/docs/p2p/P2P_ROADMAP.md');
+    expect(f.existsSync(), isTrue, reason: 'docs/p2p/P2P_ROADMAP.md must exist');
     roadmap = f.readAsStringSync();
   });
 
@@ -58,19 +58,19 @@ void main() {
       _assertBoxesTicked(roadmap, '18.7', 5);
     });
 
-    test('docs/P2P_PRIVACY.md is published', () {
+    test('docs/p2p/P2P_PRIVACY.md is published', () {
       expect(
-        File('${repo.path}/docs/P2P_PRIVACY.md').existsSync(),
+        File('${repo.path}/docs/p2p/P2P_PRIVACY.md').existsSync(),
         isTrue,
-        reason: 'docs/P2P_PRIVACY.md must be published',
+        reason: 'docs/p2p/P2P_PRIVACY.md must be published',
       );
     });
 
-    test('docs/P2P_PRIVACY_PIA.md is published', () {
+    test('docs/p2p/P2P_PRIVACY_PIA.md is published', () {
       expect(
-        File('${repo.path}/docs/P2P_PRIVACY_PIA.md').existsSync(),
+        File('${repo.path}/docs/p2p/P2P_PRIVACY_PIA.md').existsSync(),
         isTrue,
-        reason: 'docs/P2P_PRIVACY_PIA.md must be published before beta opens',
+        reason: 'docs/p2p/P2P_PRIVACY_PIA.md must be published before beta opens',
       );
     });
 

@@ -1,7 +1,7 @@
 /// Proof test for roadmap §15.1.4 — public audit summary published in P2P_AUDIT_HISTORY.md.
 ///
 /// Verifies:
-/// 1. `docs/P2P_AUDIT_HISTORY.md` exists.
+/// 1. `docs/p2p/P2P_AUDIT_HISTORY.md` exists.
 /// 2. It contains the required structural sections (header, entries section, template).
 /// 3. It references the engagement scope document.
 library;
@@ -21,14 +21,14 @@ void main() {
       dir = parent;
     }
     repoRoot = dir.path;
-    historyDoc = File('$repoRoot/docs/P2P_AUDIT_HISTORY.md');
+    historyDoc = File('$repoRoot/docs/p2p/P2P_AUDIT_HISTORY.md');
   });
 
   test('P2P_AUDIT_HISTORY.md exists', () {
     expect(
       historyDoc.existsSync(),
       isTrue,
-      reason: 'docs/P2P_AUDIT_HISTORY.md must exist (roadmap §15.1.4)',
+      reason: 'docs/p2p/P2P_AUDIT_HISTORY.md must exist (roadmap §15.1.4)',
     );
   });
 

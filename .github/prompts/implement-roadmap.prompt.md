@@ -1,15 +1,15 @@
 ---
 mode: agent
-description: P2P-roadmap migration only. Walk leaves of docs/P2P_ROADMAP.md selected by INCLUDE/EXCLUDE filters; for each, write a failing proof test, implement until it passes, self-review, tick the box, append a row to agent/tracking.csv, stage (no commit, no push). Resumable on rate limits. NOT for chess-mod work — use /improve-mod for that.
+description: P2P-roadmap migration only. Walk leaves of docs/p2p/P2P_ROADMAP.md selected by INCLUDE/EXCLUDE filters; for each, write a failing proof test, implement until it passes, self-review, tick the box, append a row to agent/tracking.csv, stage (no commit, no push). Resumable on rate limits. NOT for chess-mod work — use /improve-mod for that.
 ---
 
 # /implement-roadmap
 
-> **Scope check (read first).** This command **only** advances `docs/P2P_ROADMAP.md` leaves for the P2P / backend-cleanup migration. It is **NOT** the chess-engine improvement loop.
+> **Scope check (read first).** This command **only** advances `docs/p2p/P2P_ROADMAP.md` leaves for the P2P / backend-cleanup migration. It is **NOT** the chess-engine improvement loop.
 >
 > Roadmap-required edits may touch resources outside `frontend/lib/services/p2p/**` (for example `README.md`, `docker-compose*.yml`, `backend/**`, `archive/**`, and other docs/config paths) when they are directly required by the selected leaf.
 >
-> **Do NOT** confuse with [/improve-mod](improve-mod.prompt.md) or [/improve-mod-all](improve-mod-all.prompt.md) — those operate on `frontend/native/engine/` per-mod evaluation/heuristics and the `agent/queue.yaml` mod queue. They share **no state, no allow-list, and no exit contract** with this command. If the user's request mentions a chess mod (heir, friendly_fire, kings_battle, mercenary, save_the_queen, succession, truce), audit batches, KPIs, or `agent/queue.yaml`, stop and run `/improve-mod` instead.
+> **Do NOT** confuse with [/improve-mod](improve-mod.prompt.md) or [/improve-mod-all](improve-mod-all.prompt.md) — those operate on `frontend/native/engine/` per-mod evaluation/heuristics and the `bots/queue.yaml` mod queue. They share **no state, no allow-list, and no exit contract** with this command. If the user's request mentions a chess mod (heir, friendly_fire, kings_battle, mercenary, save_the_queen, succession, truce), audit batches, KPIs, or `bots/queue.yaml`, stop and run `/improve-mod` instead.
 
 Operate per the [`p2p-roadmap-implementer`](../chatmodes/p2p-roadmap-implementer.chatmode.md) chat mode and [AGENTS.md](../../AGENTS.md). Do not deviate.
 
@@ -36,7 +36,7 @@ If the user passes any unrecognised argument, **stop immediately** and ask for c
 
 ## Pre-flight (one line each, before any leaf work)
 
-1. Run [xops/agent/session-bootstrap.sh](../../xops/agent/session-bootstrap.sh). Triage any unresolved `agent/state/last_failure.json` first.
+1. Run [xops/agent/session-bootstrap.sh](../../xops/agent/session-bootstrap.sh). Triage any unresolved `docs/tracking/state/last_failure.json` first.
 2. `git switch main && git pull --ff-only`. Stop if dirty.
 3. Verify [agent/tracking.csv](../../agent/tracking.csv) header is intact (chatmode §4.1 step 3). On mismatch → `drift_kind=csv_tamper`, exit `blocked`.
 4. Verify [xops/agent/tracking_append.sh](../../xops/agent/tracking_append.sh) is executable (`chmod +x` if not — this is in-repo, allowed).
@@ -64,7 +64,7 @@ Per the user's requirement *"be sure that a given phase is fully complete withou
 3. the phase-review row has `action=review, status=passed` with **zero open findings**,
 4. the corresponding `commit` row's `commit_sha` exists on `origin/main`.
 
-If a rate-limit interruption blocks step 1, the loop exits **`blocked`**, writes `agent/state/checkpoint.json`, and the next invocation of this command (with the same INCLUDE/EXCLUDE args, or a re-issue of the same command) **resumes** at the recorded leaf — never re-implementing already-`[x]` leaves.
+If a rate-limit interruption blocks step 1, the loop exits **`blocked`**, writes `docs/tracking/state/checkpoint.json`, and the next invocation of this command (with the same INCLUDE/EXCLUDE args, or a re-issue of the same command) **resumes** at the recorded leaf — never re-implementing already-`[x]` leaves.
 
 **Auto-revise guarantee.** If the phase-review (§4.9) surfaces a regression, weakened test, or drift in any already-committed leaf, the agent automatically reverts that leaf's commit, re-implements from §4.4, and re-gates — without asking the user. This loop runs up to 3 times per leaf before the leaf is downgraded to `blocked` and the session exits. There is no manual intervention required.
 

@@ -39,7 +39,7 @@ For each leaf in the resolved list:
 ### B. Proof-test existence
 
 - If the bullet's `**Proof:**` cites a path that does not exist on disk → `drift_kind=missing_test`.
-- If the bullet has no `**Proof:**` clause but is `[x]` → `drift_kind=spec_mismatch`. Auto-fix: write the test (per chatmode §4.4), then proceed. If the implementation does not pass the new test, **revert the box to `[~]`** and file `kind: missing_proof` in `agent/queue.yaml`.
+- If the bullet has no `**Proof:**` clause but is `[x]` → `drift_kind=spec_mismatch`. Auto-fix: write the test (per chatmode §4.4), then proceed. If the implementation does not pass the new test, **revert the box to `[~]`** and file `kind: missing_proof` in `bots/queue.yaml`.
 
 ### C. Proof-test green
 
@@ -59,7 +59,7 @@ For each leaf in the resolved list:
 
 ### G. Roadmap-edit audit
 
-- `git log --since="30 days ago" -- docs/P2P_ROADMAP.md` → for each commit, confirm there is a matching `action=commit` row in the CSV with the same SHA. Mismatch → `drift_kind=roadmap_edit_outside_p2p`. Auto-fix is to file `kind: roadmap_edit` and exit `blocked` (do not silently revert someone else's manual edit).
+- `git log --since="30 days ago" -- docs/p2p/P2P_ROADMAP.md` → for each commit, confirm there is a matching `action=commit` row in the CSV with the same SHA. Mismatch → `drift_kind=roadmap_edit_outside_p2p`. Auto-fix is to file `kind: roadmap_edit` and exit `blocked` (do not silently revert someone else's manual edit).
 
 ## Per-leaf row pattern
 
@@ -84,7 +84,7 @@ If any auto-amend produced changes:
      --component=<component> --component-version=<version> \
      --commit-message="p2p(<scope>): <phase> review fixes [<run_id>]"
    ```
-   Read `component` and `component_version` from [agent/components.yaml](../../agent/components.yaml).
+   Read `component` and `component_version` from [bots/components.yaml](../../bots/components.yaml).
 2. `git add -A` (stages all amend changes + CSV row).
 3. **Do not commit.** `make git` reads the `commit_sha=pending` row, derives the message (`p2p(<scope>): <phase> review fixes [<run_id>]`), and commits.
 

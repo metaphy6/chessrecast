@@ -3,7 +3,7 @@
 // Scan recent run logs (under /tmp/agent-runs/ and any caller-supplied paths)
 // for runtime crash / illegal-move / assertion telemetry emitted by the
 // native engine via stderr. Aggregates findings into
-// agent/reports/_runtime/<run-id>.txt so the next agent session can scan them.
+// bots/reports/_runtime/<run-id>.txt so the next agent session can scan them.
 //
 // Usage (from frontend/):
 //   dart run tool/scan_runtime_telemetry.dart [extra log paths...]
@@ -32,7 +32,7 @@ const _tokens = <String>[
 void main(List<String> args) async {
   try {
     final repoRoot = _findRepoRoot();
-    final runtimeDir = Directory('${repoRoot.path}/agent/reports/_runtime');
+    final runtimeDir = Directory('${repoRoot.path}/bots/reports/_runtime');
     runtimeDir.createSync(recursive: true);
 
     final candidates = <File>[];

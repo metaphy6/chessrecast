@@ -32,4 +32,4 @@ This command writes only to memory, not to git. Acceptable end states:
 - **`done`** — memory pruned, count of notes-before vs notes-after reported per mod.
 - **`no-op`** — every mod's notes were already current.
 
-No commit is required for memory-only changes (memory is not in git). If queue entries were filed, append a tracking row and stage: `xops/agent/tracking_append.sh --run-id=<id> --command=/prune-memory ... --commit-message="chore(memory): file follow-ups from prune-memory [<id>]"` then `git add agent/queue.yaml`. Push accumulates for `make git`.
+No commit is required for memory-only changes (memory is not in git). If queue entries were filed, append a tracking row and stage: `xops/agent/tracking_append.sh --run-id=<id> --command=/prune-memory ... --commit-message="chore(memory): file follow-ups from prune-memory [<id>]"` then `git add bots/queue.yaml`. Push accumulates for `make git`.

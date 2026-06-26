@@ -24,7 +24,7 @@ void main() {
     }
     repoRoot = dir.path;
     securityTxt = File('$repoRoot/frontend/web/.well-known/security.txt');
-    bugBountyDoc = File('$repoRoot/docs/P2P_BUG_BOUNTY.md');
+    bugBountyDoc = File('$repoRoot/docs/p2p/P2P_BUG_BOUNTY.md');
   });
 
   // ── §15.3.1  security.txt (RFC 9116) ─────────────────────────────────────
@@ -71,7 +71,7 @@ void main() {
       expect(
         bugBountyDoc.existsSync(),
         isTrue,
-        reason: 'docs/P2P_BUG_BOUNTY.md must exist (roadmap §15.3.2)',
+        reason: 'docs/p2p/P2P_BUG_BOUNTY.md must exist (roadmap §15.3.2)',
       );
     });
 

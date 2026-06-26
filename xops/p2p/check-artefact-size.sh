@@ -7,7 +7,7 @@
 #   ./xops/p2p/check-artefact-size.sh [--apk <path>] [--ipa <path>] [--base-apk <path>] [--base-ipa <path>]
 #
 # Checks that the delta between a P2P build artefact and its baseline is
-# within the budgeted caps from agent/baselines/p2p_budgets.json:
+# within the budgeted caps from bots/baselines/p2p_budgets.json:
 #   APK delta ≤ 6 MB (efficiency.apk_size_increase_mb)
 #   IPA delta ≤ 9 MB (efficiency.ipa_size_increase_mb)
 #
@@ -19,7 +19,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-BUDGET_JSON="$REPO_ROOT/agent/baselines/p2p_budgets.json"
+BUDGET_JSON="$REPO_ROOT/bots/baselines/p2p_budgets.json"
 
 APK_PATH=""
 IPA_PATH=""

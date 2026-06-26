@@ -1,48 +1,105 @@
-# ChessRecast — operational entry point
+# ┊┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃
+#  Model-agnostic agent framework Makefile
+# ──────────────────────────────────────────────────────────────
+#  Targets are thin dispatchers. All real logic lives in
+#  xops/makefile/<module>.py (stdlib-only, cross-platform).
 #
-# All logic lives in xops/makefile/ Python scripts.
-# The Makefile is a thin dispatcher only — no hardcoded commands.
-#
-# Usage:
-#   make help       List all targets
-#   make git        Push accumulated agent commits to origin/main
-#   make git.dry    Preview what would be pushed (no changes)
+#  Convention:
+#    • daily verbs are short  : help, git, doctor, scaffold
+#    • everything else uses   : domain.action  (track.add, git.dry, roadmap.status)
+# ┊┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃┃
 
-XOPS_MK := xops/makefile
-PYTHON   := python3
+PYTHON ?= python3
+XOPS   := $(PYTHON) xops/makefile
 
-.PHONY: help git git.dry \
-        codegraph.status codegraph.reindex codegraph.sync-pin \
-        codegraph.check-updates codegraph.print-codex
+# Tracking append defaults (override on CLI: make track.add ACTION=note SUMMARY="...")
+ACTION  ?= note
+STATUS  ?= completed
+SCOPE   ?= general
+AGENT   ?= human
+SUMMARY ?=
+REFS    ?=
+RUN_ID  ?=
 
-## help                     List all available targets
+# Skills targets
+TAG ?=
+
+.DEFAULT_GOAL := help
+
+.PHONY: help git git.dry track.add track.list roadmap.status doctor scaffold skills.status skills.find test verify
+
+## help              List all available targets
 help:
-	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/^## /  make /'
+	@grep -E '^## ' $(MAKEFILE_LIST) | sed 's/^## /  make /' | sort
 
-## git                      Stage any uncommitted changes + push all pending commits to origin/main
+## git               Commit pending tracking rows as conventional commits + push
 git:
-	@$(PYTHON) $(XOPS_MK)/git_ops.py push
+	@$(XOPS)/git_ops.py push
 
-## git.dry                  Preview what 'make git' would commit and push (read-only)
+## git.dry           Preview what `make git` would commit and push (read-only)
 git.dry:
-	@$(PYTHON) $(XOPS_MK)/git_ops.py dry
+	@$(XOPS)/git_ops.py dry
+
+## track.add         Append a row to docs/tracking/tracking.csv (vars: ACTION STATUS SCOPE AGENT SUMMARY REFS RUN_ID)
+track.add:
+	@$(XOPS)/track_ops.py add \
+		--action="$(ACTION)" --status="$(STATUS)" --scope="$(SCOPE)" \
+		--agent="$(AGENT)"   --summary="$(SUMMARY)" --refs="$(REFS)" \
+		$(if $(RUN_ID),--run-id="$(RUN_ID)",)
+
+## track.list        Show recent tracking rows (last 20)
+track.list:
+	@$(XOPS)/track_ops.py list
+
+## roadmap.status    Summarize ROADMAP.md checkbox progress
+roadmap.status:
+	@$(XOPS)/roadmap_ops.py status
+
+## doctor            Sanity-check the framework is wired correctly
+doctor:
+	@$(XOPS)/doctor.py
+
+## scaffold          Print bootstrapper usage (run xops/init/scaffold.sh --help for real)
+scaffold:
+	@xops/init/scaffold.sh --help
+
+## skills.status     List all skills with line count, last-modified, and AGENTS.md refs
+skills.status:
+	@$(XOPS)/skills_ops.py status
+
+## skills.find       Search skills by tag or name keyword (TAG=<tag>)
+skills.find:
+	@TAG="$(TAG)" $(XOPS)/skills_ops.py find
+
+## test              Run the xops test suite
+test:
+	@bash xops/test/run_tests.sh
+
+## verify            Verifier gate: full test suite + make doctor (run cold)
+verify:
+	@$(MAKE) --no-print-directory test
+
+# ── CodeGraph (chess-specific: needed for engine-symbol navigation) ────
+.PHONY: codegraph.status codegraph.reindex codegraph.sync-pin \
+        codegraph.check-updates codegraph.print-codex
 
 ## codegraph.status         Print CodeGraph pin + .codegraph/ state + server status
 codegraph.status:
-	@$(PYTHON) $(XOPS_MK)/codegraph_ops.py status
+	@$(XOPS)/codegraph_ops.py status
 
 ## codegraph.reindex        Rebuild the .codegraph/ index (run after big rebases/refactors)
 codegraph.reindex:
-	@$(PYTHON) $(XOPS_MK)/codegraph_ops.py reindex
+	@$(XOPS)/codegraph_ops.py reindex
 
 ## codegraph.sync-pin       Propagate xops/codegraph/VERSION into all MCP configs + docs
 codegraph.sync-pin:
-	@$(PYTHON) $(XOPS_MK)/codegraph_ops.py sync-pin
+	@$(XOPS)/codegraph_ops.py sync-pin
 
 ## codegraph.check-updates  Warn if a newer CodeGraph version exists on npm (read-only)
 codegraph.check-updates:
-	@$(PYTHON) $(XOPS_MK)/codegraph_ops.py check-updates
+	@$(XOPS)/codegraph_ops.py check-updates
 
 ## codegraph.print-codex    Print the Codex CLI MCP snippet to paste into ~/.codex/config.toml
 codegraph.print-codex:
-	@$(PYTHON) $(XOPS_MK)/codegraph_ops.py print-codex
+	@$(XOPS)/codegraph_ops.py print-codex
+	@$(MAKE) --no-print-directory doctor

@@ -11,11 +11,11 @@ description: Weekly Flutter dependency + secrets audit. Read-only for code; writ
 
 1. From `frontend/`, run `dart run tool/dependency_audit.dart --write-queue`. This:
    - executes `flutter pub outdated --json` and parses the result,
-   - writes a markdown report to `agent/reports/_security/<run-id>.md`,
+   - writes a markdown report to `bots/reports/_security/<run-id>.md`,
    - appends a `kind: shared_edit / severity: med` queue entry for every dependency that is either (a) more than one major version behind, or (b) on the security-sensitive allow-list inside the tool.
 2. Run `dart run tool/scan_secrets.dart HEAD~50...HEAD` to look for accidentally-committed secrets in the last ~50 commits. Any finding becomes a `kind: shared_edit / severity: high` queue entry with the report path.
-3. Run `dart run tool/scan_runtime_telemetry.dart` to fold any new crash / illegal-move evidence from `/tmp/agent-runs/*.log` into `agent/reports/_runtime/`.
-4. Commit only the new report files and the modified `agent/queue.yaml`. **Do not** modify any source code or `pubspec.yaml` in this command — the queue entries are the work item, and the actual bumps happen via `/improve-mod` or `/add-feature` follow-ups.
+3. Run `dart run tool/scan_runtime_telemetry.dart` to fold any new crash / illegal-move evidence from `/tmp/agent-runs/*.log` into `bots/reports/_runtime/`.
+4. Commit only the new report files and the modified `bots/queue.yaml`. **Do not** modify any source code or `pubspec.yaml` in this command — the queue entries are the work item, and the actual bumps happen via `/improve-mod` or `/add-feature` follow-ups.
 
 ## Mandatory terminal state
 

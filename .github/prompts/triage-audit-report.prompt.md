@@ -12,7 +12,7 @@ Extract every occurrence of:
 - engine crashes / aborts,
 - draw-rule misapplications (50-move, repetition, K+P vs K Mercenary 100-half-move rule, Save-the-Queen queen-vs-queen short-range rule, Succession last-pawn-must-promote-to-king rule, Truce no-capture-no-check rule),
 - blunders with worst-miss ≥ `${input:threshold_cp:200}` centipawns,
-- KPI regressions vs `agent/baselines/${input:mod}.json` (`earlyKingMoves`, `castlingRightLosses`, `castledByPly_avg`, `kingExposureIndex_avg`, `avgWorstMiss_cp`, `maxWorstMiss_cp`, `blundersGte200cp`, `blundersGte300cp`, `ruleViolations`, `engineCrashes`),
+- KPI regressions vs `bots/baselines/${input:mod}.json` (`earlyKingMoves`, `castlingRightLosses`, `castledByPly_avg`, `kingExposureIndex_avg`, `avgWorstMiss_cp`, `maxWorstMiss_cp`, `blundersGte200cp`, `blundersGte300cp`, `ruleViolations`, `engineCrashes`),
 - opening-principle breaches (queen out before two minor pieces developed, king move before castling while castling is legal, rook lift past rank 4 before castling, pawn moves on the king's flank before castling),
 - endgame-conversion failures (failure to mate in K+Q vs K, K+R vs K, K+P vs K within the mod's draw-clock budget; mod-specific finales).
 
@@ -23,7 +23,7 @@ Classify each finding by **phase**:
 - `tactics` — any phase, but the report flags it as `worst_miss ≥ ${input:threshold_cp:200}` cp,
 - `strategy` — long-horizon / mod-specific rule misapplications that don't fit the above (e.g. Succession bot ignoring last-pawn-must-promote-king).
 
-For each finding, output a YAML block ready to append to `agent/queue.yaml`:
+For each finding, output a YAML block ready to append to `bots/queue.yaml`:
 
 ```yaml
 - id: ${input:mod}-<phase>-<short-slug>
@@ -62,9 +62,9 @@ Extract every occurrence of:
 - engine crashes / aborts,
 - draw-rule misapplications (50-move, repetition, K+P vs K mercenary rule, etc.),
 - blunders with worst-miss ≥ `${input:threshold_cp:200}` centipawns,
-- KPI regressions vs `agent/baselines/${input:mod}.json` (earlyKingMoves, castlingRightLosses, kingExposureIndex, avgWorstMiss, maxWorstMiss).
+- KPI regressions vs `bots/baselines/${input:mod}.json` (earlyKingMoves, castlingRightLosses, kingExposureIndex, avgWorstMiss, maxWorstMiss).
 
-For each finding, output a YAML block ready to append to `agent/queue.yaml`:
+For each finding, output a YAML block ready to append to `bots/queue.yaml`:
 
 ```yaml
 - id: <mod>-<short-hash>

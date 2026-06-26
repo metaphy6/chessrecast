@@ -22,14 +22,14 @@ void main() {
       dir = parent;
     }
     repoRoot = dir.path;
-    auditScopeDoc = File('$repoRoot/docs/P2P_AUDIT_SCOPE.md');
+    auditScopeDoc = File('$repoRoot/docs/p2p/P2P_AUDIT_SCOPE.md');
   });
 
   test('P2P_AUDIT_SCOPE.md exists', () {
     expect(
       auditScopeDoc.existsSync(),
       isTrue,
-      reason: 'docs/P2P_AUDIT_SCOPE.md must exist',
+      reason: 'docs/p2p/P2P_AUDIT_SCOPE.md must exist',
     );
   });
 

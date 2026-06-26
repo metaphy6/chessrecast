@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # data-flow-completeness-check.sh
 # Roadmap §18.1 — CI gate that ensures every P2P data write / network egress
-# in tagged code has a corresponding row in docs/P2P_PRIVACY.md's
+# in tagged code has a corresponding row in docs/p2p/P2P_PRIVACY.md's
 # "Data-flow inventory" table.
 #
 # Usage:
@@ -25,7 +25,7 @@ for arg in "$@"; do
   esac
 done
 
-PRIVACY_DOC="$REPO_ROOT/docs/P2P_PRIVACY.md"
+PRIVACY_DOC="$REPO_ROOT/docs/p2p/P2P_PRIVACY.md"
 
 # ---------------------------------------------------------------------------
 # 1. Check the inventory section exists

@@ -149,8 +149,8 @@ String? _findRepoRoot() {
 }
 
 ModPlan buildModPlan(String root, String mod, CurateOptions options) {
-  final baselinePath = '$root/agent/baselines/$mod.json';
-  final reportDir = Directory('$root/agent/reports/$mod');
+  final baselinePath = '$root/bots/baselines/$mod.json';
+  final reportDir = Directory('$root/bots/reports/$mod');
 
   if (!File(baselinePath).existsSync()) {
     return ModPlan(

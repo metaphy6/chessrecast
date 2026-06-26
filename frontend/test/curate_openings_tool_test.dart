@@ -22,7 +22,7 @@ status=ongoing after 24 plies worst=+2.31 played=f2f4 ref=e2e4
 
       final parsed = parseReportWorstSamples(
         report.path,
-        reportPathOverride: 'agent/reports/truce/sample.txt',
+        reportPathOverride: 'bots/reports/truce/sample.txt',
       );
 
       expect(parsed.length, 2);
@@ -38,17 +38,17 @@ status=ongoing after 24 plies worst=+2.31 played=f2f4 ref=e2e4
         if (root.existsSync()) root.deleteSync(recursive: true);
       });
 
-      Directory('${root.path}/agent/baselines').createSync(recursive: true);
-      Directory('${root.path}/agent/reports/truce').createSync(recursive: true);
+      Directory('${root.path}/bots/baselines').createSync(recursive: true);
+      Directory('${root.path}/bots/reports/truce').createSync(recursive: true);
 
-      File('${root.path}/agent/baselines/truce.json').writeAsStringSync('''
+      File('${root.path}/bots/baselines/truce.json').writeAsStringSync('''
 {"mod":"truce","kpi":{"avgWorstMiss_cp":10}}
 ''');
 
       final reports = [
-        File('${root.path}/agent/reports/truce/r1.txt'),
-        File('${root.path}/agent/reports/truce/r2.txt'),
-        File('${root.path}/agent/reports/truce/r3.txt'),
+        File('${root.path}/bots/reports/truce/r1.txt'),
+        File('${root.path}/bots/reports/truce/r2.txt'),
+        File('${root.path}/bots/reports/truce/r3.txt'),
       ];
 
       reports[0].writeAsStringSync('''

@@ -1,7 +1,7 @@
 /// §5.5 Transport preset factory.
 ///
 /// Provides named, ready-to-use transport stacks matching the presets
-/// documented in [docs/P2P_TEST_PRESETS.md].  Each factory wraps an existing
+/// documented in [docs/p2p/P2P_TEST_PRESETS.md].  Each factory wraps an existing
 /// [P2PTransport] (typically a [FakeTransport] pair side) and returns a
 /// configured stack implementing [P2PTransport].
 ///

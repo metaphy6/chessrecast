@@ -1,6 +1,6 @@
 /// Proof test for roadmap §18.2 — Privacy threat model T-PRIV-001 through T-PRIV-006.
 ///
-/// Verifies that docs/P2P_PRIVACY.md documents each privacy threat with its
+/// Verifies that docs/p2p/P2P_PRIVACY.md documents each privacy threat with its
 /// mitigation. Only T-PRIV-002 carries a Go-side proof test for the traffic-
 /// padding implementation; the remaining entries are documentation gates.
 library;
@@ -24,8 +24,8 @@ void main() {
 
   setUpAll(() {
     repo = _repoRoot();
-    final doc = File('${repo.path}/docs/P2P_PRIVACY.md');
-    expect(doc.existsSync(), isTrue, reason: 'docs/P2P_PRIVACY.md must exist');
+    final doc = File('${repo.path}/docs/p2p/P2P_PRIVACY.md');
+    expect(doc.existsSync(), isTrue, reason: 'docs/p2p/P2P_PRIVACY.md must exist');
     privacyContent = doc.readAsStringSync();
   });
 

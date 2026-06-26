@@ -33,7 +33,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-BUDGET_JSON="$REPO_ROOT/agent/baselines/p2p_budgets.json"
+BUDGET_JSON="$REPO_ROOT/bots/baselines/p2p_budgets.json"
 
 SBOM_PATH=""
 ARTEFACT_PATH=""

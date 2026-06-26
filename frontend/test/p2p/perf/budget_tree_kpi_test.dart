@@ -1,6 +1,6 @@
 // Phase 17 §17.1 — Budget-tree KPI validation.
 //
-// Parses agent/baselines/p2p_budgets.json and asserts:
+// Parses bots/baselines/p2p_budgets.json and asserts:
 //   1. Every tree leaf has the required schema fields.
 //   2. Every leaf's proof_test path resolves to an existing file.
 //   3. Every leaf has a measured baseline within the freshness window
@@ -25,10 +25,10 @@ void main() {
     setUpAll(() {
       testRunTime = DateTime.now();
       // flutter test runs from frontend/; the JSON is one level up.
-      final budgetFile = File('../agent/baselines/p2p_budgets.json');
+      final budgetFile = File('../bots/baselines/p2p_budgets.json');
       if (!budgetFile.existsSync()) {
         fail(
-          'agent/baselines/p2p_budgets.json not found. '
+          'bots/baselines/p2p_budgets.json not found. '
           'Implement Phase 17 §17.1 to create it.',
         );
       }

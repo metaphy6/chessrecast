@@ -1,7 +1,7 @@
 /// Proof test for roadmap §15.1.1 (engagement scope) and §15.1.2 (deliverables).
 ///
 /// Verifies:
-/// 1. `docs/P2P_AUDIT_SCOPE.md` exists and is non-empty.
+/// 1. `docs/p2p/P2P_AUDIT_SCOPE.md` exists and is non-empty.
 /// 2. It covers all required cryptographic protocol topics.
 /// 3. It specifies the deliverables (written report + severity list + remediation plan).
 library;
@@ -21,14 +21,14 @@ void main() {
       dir = parent;
     }
     repoRoot = dir.path;
-    scopeDoc = File('$repoRoot/docs/P2P_AUDIT_SCOPE.md');
+    scopeDoc = File('$repoRoot/docs/p2p/P2P_AUDIT_SCOPE.md');
   });
 
   test('P2P_AUDIT_SCOPE.md exists', () {
     expect(
       scopeDoc.existsSync(),
       isTrue,
-      reason: 'docs/P2P_AUDIT_SCOPE.md must exist (roadmap §15.1.1)',
+      reason: 'docs/p2p/P2P_AUDIT_SCOPE.md must exist (roadmap §15.1.1)',
     );
   });
 
@@ -97,7 +97,7 @@ void main() {
       expect(
         content,
         contains('p2p_protocol'),
-        reason: 'Scope must reference docs/P2P_PROTOCOL.md',
+        reason: 'Scope must reference docs/p2p/P2P_PROTOCOL.md',
       );
     });
   });

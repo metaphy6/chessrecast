@@ -1,56 +1,19 @@
-# Miscellaneous
-*.class
-*.log
+# local state
+.venv/
+__pycache__/
 *.pyc
-*.swp
+.pytest_cache/
 .DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
 
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
+# scaffold output / per-project agent runtime
+docs/tracking/state/*
+!docs/tracking/state/.gitkeep
+
+# editor noise
 .idea/
+*.swp
+*.swo
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-
-# Ignore build outputs for the frontend (e.g. Flutter web/build or mobile release assets)
-# Use a rooted pattern so it applies to the repo-relative `frontend/build` directory.
-/frontend/build/
-
-# Local native-engine build artifacts should never be committed.
-/frontend/libchess_engine.so
-
-# Symbolication related
-app.*.symbols
-
-# Obfuscation related
-app.*.map.json
-
-# Android Studio will place build artifacts here
-/android/app/debug
-
-# CodeGraph local knowledge-graph database + watcher state (regenerated on demand).
-# Pin and configs are checked in; the index itself is not.
-.codegraph/
-/android/app/profile
-/android/app/release
+# user-local overrides
+.env
+.env.local

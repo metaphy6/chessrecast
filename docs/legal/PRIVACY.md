@@ -1,7 +1,7 @@
 # Privacy Policy — ChessRecast
 
 > **Status:** PLACEHOLDER — legal review pending.  
-> See `docs/P2P_ROADMAP.md` §6.4 for the acceptance gate.  
+> See `docs/p2p/P2P_ROADMAP.md` §6.4 for the acceptance gate.  
 > **Legal review checkbox:** `[ ]` *Sign off by completing the checkbox below once the full review is done.*
 
 ---
@@ -90,7 +90,7 @@ Before this policy goes live (GA milestone), the following reviews must be compl
 - [ ] In-app privacy link updated to point to published URL
 
 > Once all checkboxes above are ticked, replace `PLACEHOLDER` in the status
-> line at the top of this document and update §6.4.2 in `docs/P2P_ROADMAP.md`.
+> line at the top of this document and update §6.4.2 in `docs/p2p/P2P_ROADMAP.md`.
 
 ---
 

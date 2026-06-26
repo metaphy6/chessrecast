@@ -5,8 +5,8 @@
 // intentionally out of scope; the Go backend is slated for replacement
 // by a P2P stack and we do not invest churn there).
 //
-// Writes a markdown report to agent/reports/_security/<run-id>.md and
-// appends `kind: security` queue entries to agent/queue.yaml for any
+// Writes a markdown report to bots/reports/_security/<run-id>.md and
+// appends `kind: security` queue entries to bots/queue.yaml for any
 // dependency where the latest resolvable version is more than one major
 // version ahead, OR where the package is in the well-known
 // security-sensitive list.
@@ -14,7 +14,7 @@
 // Usage (from frontend/):
 //   dart run tool/dependency_audit.dart [--write-queue]
 //
-// --write-queue : actually append to agent/queue.yaml (default: dry-run,
+// --write-queue : actually append to bots/queue.yaml (default: dry-run,
 //                 print the entries it would add).
 
 // ignore_for_file: avoid_print
@@ -38,7 +38,7 @@ const _securitySensitive = <String>{
 void main(List<String> args) async {
   final writeQueue = args.contains('--write-queue');
   final repoRoot = _findRepoRoot();
-  final outDir = Directory('${repoRoot.path}/agent/reports/_security');
+  final outDir = Directory('${repoRoot.path}/bots/reports/_security');
   outDir.createSync(recursive: true);
 
   final runId = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
@@ -114,7 +114,7 @@ void main(List<String> args) async {
   print('dependency_audit: ${findings.length} finding(s) of concern.');
 
   if (writeQueue && findings.isNotEmpty) {
-    final qfile = File('${repoRoot.path}/agent/queue.yaml');
+    final qfile = File('${repoRoot.path}/bots/queue.yaml');
     final sink = qfile.openWrite(mode: FileMode.append);
     final stamp = DateTime.now().toUtc().millisecondsSinceEpoch;
     for (final f in findings) {

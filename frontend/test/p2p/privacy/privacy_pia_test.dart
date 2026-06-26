@@ -1,6 +1,6 @@
 /// Proof test for roadmap §18.6 — Privacy Impact Assessment.
 ///
-/// Verifies that docs/P2P_PRIVACY_PIA.md exists and contains all required
+/// Verifies that docs/p2p/P2P_PRIVACY_PIA.md exists and contains all required
 /// PIA template sections before the beta opens.
 library;
 
@@ -22,11 +22,11 @@ void main() {
 
   setUpAll(() {
     final repo = _repoRoot();
-    final doc = File('${repo.path}/docs/P2P_PRIVACY_PIA.md');
+    final doc = File('${repo.path}/docs/p2p/P2P_PRIVACY_PIA.md');
     expect(
       doc.existsSync(),
       isTrue,
-      reason: 'docs/P2P_PRIVACY_PIA.md must exist (§18.6)',
+      reason: 'docs/p2p/P2P_PRIVACY_PIA.md must exist (§18.6)',
     );
     piaContent = doc.readAsStringSync();
   });

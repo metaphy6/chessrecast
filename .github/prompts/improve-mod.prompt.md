@@ -5,9 +5,9 @@ description: Chess-engine improvement loop for ONE mod (heir|friendly_fire|kings
 
 # Improve mod: ${input:mod:heir|friendly_fire|kings_battle|mercenary|save_the_queen|succession|truce|ALL}
 
-> **Scope check (read first).** This command **only** runs the autonomous chess-engine improvement loop for one of the seven mods (heir, friendly_fire, kings_battle, mercenary, save_the_queen, succession, truce) or `ALL`. State lives in `agent/queue.yaml`, `agent/baselines/<mod>.json`, `agent/reports/<mod>/`.
+> **Scope check (read first).** This command **only** runs the autonomous chess-engine improvement loop for one of the seven mods (heir, friendly_fire, kings_battle, mercenary, save_the_queen, succession, truce) or `ALL`. State lives in `bots/queue.yaml`, `bots/baselines/<mod>.json`, `bots/reports/<mod>/`.
 >
-> **Do NOT** confuse with [/implement-roadmap](implement-roadmap.prompt.md) — that command walks `docs/P2P_ROADMAP.md` leaves for the P2P / backend-cleanup migration and uses a different allow-list, tracking schema, and exit contract. If the user's request mentions `INCLUDE=`/`EXCLUDE=` phase tokens, P2P, the legacy backend, or `docs/P2P_ROADMAP.md`, stop and run `/implement-roadmap` instead.
+> **Do NOT** confuse with [/implement-roadmap](implement-roadmap.prompt.md) — that command walks `docs/p2p/P2P_ROADMAP.md` leaves for the P2P / backend-cleanup migration and uses a different allow-list, tracking schema, and exit contract. If the user's request mentions `INCLUDE=`/`EXCLUDE=` phase tokens, P2P, the legacy backend, or `docs/p2p/P2P_ROADMAP.md`, stop and run `/implement-roadmap` instead.
 
 Operate per the `chess-mod-improver` chat mode and `.github/copilot-instructions.md`. In particular, honour the *Game-quality charter*, the *Take-initiative directive*, and the *Live test-watchdog protocol*.
 
@@ -15,36 +15,36 @@ Operate per the `chess-mod-improver` chat mode and `.github/copilot-instructions
 
 1. Confirm `frontend/build/native/linux/libchess_engine.so` exists and is newer than the C sources; rebuild via the **`Frontend: Rebuild Native Engine`** VS Code task if not.
 2. Confirm `git status -s` is clean and `main` is up to date (`git switch main && git pull --ff-only`). If dirty, stop and report.
-3. If `agent/baselines/${input:mod}.json` (or any of the seven for `ALL`) is missing or older than 7 days, schedule a baseline-refresh batch as the first task before triaging the queue.
+3. If `bots/baselines/${input:mod}.json` (or any of the seven for `ALL`) is missing or older than 7 days, schedule a baseline-refresh batch as the first task before triaging the queue.
 
 ## Task selection
 
-If `${input:mod}` is `ALL`, walk every `pending` task in `agent/queue.yaml` in order, prioritising by `severity` (critical > high > med > low) and then by `phase` (rule_violation > endgame > opening > tactics > strategy > kpi_regression).
+If `${input:mod}` is `ALL`, walk every `pending` task in `bots/queue.yaml` in order, prioritising by `severity` (critical > high > med > low) and then by `phase` (rule_violation > endgame > opening > tactics > strategy > kpi_regression).
 
 Otherwise, only process tasks whose `mod` field equals `${input:mod}`.
 
 ## Empty-queue auto-discovery (do not stop, discover work)
 
-If — after the pre-flight — there is **no `pending` task in `agent/queue.yaml`** matching `${input:mod}` (or, for `ALL`, no `pending` task at all), do **not** stop. Instead, run a discovery audit and seed the queue, then continue with the loop:
+If — after the pre-flight — there is **no `pending` task in `bots/queue.yaml`** matching `${input:mod}` (or, for `ALL`, no `pending` task at all), do **not** stop. Instead, run a discovery audit and seed the queue, then continue with the loop:
 
 1. Pick the discovery target(s):
    - For a single mod, target = `${input:mod}`.
-   - For `ALL`, target = every mod whose `agent/baselines/<mod>.json` is missing or older than 7 days; if all baselines are fresh, round-robin one mod (oldest baseline first).
+   - For `ALL`, target = every mod whose `bots/baselines/<mod>.json` is missing or older than 7 days; if all baselines are fresh, round-robin one mod (oldest baseline first).
 2. For each target, run a fresh **50-game** discovery batch using the standard env recipe (see *Standard run env* and the per-mod prefixes in [.github/copilot-instructions.md](../copilot-instructions.md)):
-   - openings: the first 50 lines of `agent/openings/<mod>.csv` (fall back to `<MOD>_BATCH_OPENINGS` if the CSV is missing — request user input only as a last resort),
+   - openings: the first 50 lines of `bots/openings/<mod>.csv` (fall back to `<MOD>_BATCH_OPENINGS` if the CSV is missing — request user input only as a last resort),
    - reference preset: depth 6 / 500 ms / skill 4,
-   - `<MOD>_BATCH_LIVE_PROGRESS=1`, `<MOD>_BATCH_REPORT_PATH=agent/reports/<mod>/discovery-<run-id>.txt`,
+   - `<MOD>_BATCH_LIVE_PROGRESS=1`, `<MOD>_BATCH_REPORT_PATH=bots/reports/<mod>/discovery-<run-id>.txt`,
    - **no early-stop** (`<MOD>_BATCH_STOP_AT_DELTA` unset or 0) — we want to see *all* issues, not just the first one.
    - tee output to `/tmp/agent-runs/<mod>-discovery-<run-id>.log`.
 3. After the batch completes, scan the report and the tee'd log for findings using the standard rules from [AGENTS.md](../../AGENTS.md) §9b:
    - any move with worst-miss ≥ 2.00 cp → one `kind: blunder` queue entry per distinct FEN (collapse duplicates),
    - any rule violation → `kind: rule_violation / severity: high`,
    - any crash / abort / segfault → `kind: crash / severity: critical`,
-   - any KPI in `agent/baselines/<mod>.json` worse by >5% → `kind: kpi_regression` with severity per the baseline's threshold field,
+   - any KPI in `bots/baselines/<mod>.json` worse by >5% → `kind: kpi_regression` with severity per the baseline's threshold field,
    - opening-principle issues (early king moves, lost castling rights, queen sorties before ply 12) → `kind: opening_principle / phase: opening`,
    - endgame-conversion misses (won technical positions drawn / lost) → `kind: endgame_conversion / phase: endgame`,
    - opening lines that scored zero blunders **and** worst-miss < 0.5 cp across the last 3 batches → `kind: corpus_curation` (demote to `<mod>_discovery.csv`); opening lines that recurringly produce worst-miss ≥ 2.00 cp → `kind: corpus_curation` (promote to `<mod>_stress.csv`). See `.github/copilot-instructions.md` → *KPI → opening-weight feedback loop*.
-4. Append every finding to `agent/queue.yaml` using the *Queue entry schema* in [.github/copilot-instructions.md](../copilot-instructions.md) — `evidence.report` must point at the discovery report file and `evidence.line` at the offending line. If discovery yields zero findings (genuinely clean batch), refresh `agent/baselines/<mod>.json` from the run, log a `discovery_clean` event to `agent/state/log.jsonl`, and exit as `no-op` (still commit the refreshed baseline + report file).
+4. Append every finding to `bots/queue.yaml` using the *Queue entry schema* in [.github/copilot-instructions.md](../copilot-instructions.md) — `evidence.report` must point at the discovery report file and `evidence.line` at the offending line. If discovery yields zero findings (genuinely clean batch), refresh `bots/baselines/<mod>.json` from the run, log a `discovery_clean` event to `docs/tracking/state/log.jsonl`, and exit as `no-op` (still commit the refreshed baseline + report file).
 5. Commit the queue + report + (optional) refreshed baseline as a single `discovery` commit, push it, then **continue the loop with the newly-filed tasks** — do not exit just because the queue was empty when the command started. The discovery commit itself counts toward the per-session task budget as one task.
 
 ## Budgets
@@ -53,7 +53,7 @@ If — after the pre-flight — there is **no `pending` task in `agent/queue.yam
 
 ## Initiative
 
-Before claiming the first task, post a one-line plan listing the task ids you intend to attempt this session, in order. As soon as a triage step surfaces a new finding, append it to `agent/queue.yaml` per the schema in `.github/copilot-instructions.md` → *Queue entry schema*, even if it is outside the current mod's scope.
+Before claiming the first task, post a one-line plan listing the task ids you intend to attempt this session, in order. As soon as a triage step surfaces a new finding, append it to `bots/queue.yaml` per the schema in `.github/copilot-instructions.md` → *Queue entry schema*, even if it is outside the current mod's scope.
 
 ## Stop conditions
 

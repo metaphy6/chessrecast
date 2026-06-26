@@ -1,7 +1,7 @@
 /// Proof test for roadmap §0.1.bullet-3: Legacy API snapshot.
 ///
 /// Verifies:
-/// 1. `docs/P2P_LEGACY_API_SNAPSHOT.md` exists and is non-empty.
+/// 1. `docs/p2p/P2P_LEGACY_API_SNAPSHOT.md` exists and is non-empty.
 /// 2. The snapshot references each known REST endpoint path.
 /// 3. The snapshot references the WebSocket endpoint path.
 library;
@@ -21,14 +21,14 @@ void main() {
       dir = parent;
     }
     repoRoot = dir.path;
-    snapshot = File('$repoRoot/docs/P2P_LEGACY_API_SNAPSHOT.md');
+    snapshot = File('$repoRoot/docs/p2p/P2P_LEGACY_API_SNAPSHOT.md');
   });
 
   test('P2P_LEGACY_API_SNAPSHOT.md exists', () {
     expect(
       snapshot.existsSync(),
       isTrue,
-      reason: 'docs/P2P_LEGACY_API_SNAPSHOT.md must be created.',
+      reason: 'docs/p2p/P2P_LEGACY_API_SNAPSHOT.md must be created.',
     );
     expect(
       snapshot.readAsStringSync().length,

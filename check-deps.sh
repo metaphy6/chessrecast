@@ -11,7 +11,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FRONTEND_DIR="$REPO_ROOT/frontend"
 SIGNALING_DIR="$REPO_ROOT/signaling"
-SBOM_DIR="$REPO_ROOT/agent/reports/_shared"
+SBOM_DIR="$REPO_ROOT/bots/reports/_shared"
 
 # ── libsodium SHA pins (update when intentionally upgrading) ─────────────────
 # Source: https://download.libsodium.org/libsodium/releases/

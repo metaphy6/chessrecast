@@ -3,7 +3,7 @@
 #
 # Flake-quarantine wrapper: run a flutter test once. If it fails, retry once.
 # - Both fail -> exit with the second exit code (real failure).
-# - First fails, second passes -> log to agent/state/flakes.jsonl AND append
+# - First fails, second passes -> log to docs/tracking/state/flakes.jsonl AND append
 #   a `kind: kpi_regression / phase: tactics / severity: low` queue entry,
 #   then exit 0 so the calling gate proceeds.
 #
@@ -58,14 +58,14 @@ echo "run-test-with-retry: attempt 1 failed (rc=$FIRST_RC); retrying once..."
 if run_once; then
   echo "run-test-with-retry: FLAKE detected ($TEST_FILE) -- logging."
   ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  flake_path="$REPO_ROOT/agent/state/flakes.jsonl"
-  mkdir -p "$REPO_ROOT/agent/state"
+  flake_path="$REPO_ROOT/docs/tracking/state/flakes.jsonl"
+  mkdir -p "$REPO_ROOT/docs/tracking/state"
   printf '{"timestamp":"%s","test":"%s","first_rc":%d}\n' \
     "$ts" "$TEST_FILE" "$FIRST_RC" >> "$flake_path"
 
   # Append queue entry. Mod is best-effort guessed from the filename.
   mod="$(basename "$TEST_FILE" | sed -E 's/^(manual_)?([a-z_]+)_(engine_)?regression_test\.dart$/\2/; s/^(manual_)?([a-z_]+)_audit_batch_test\.dart$/\2/; s/^(manual_)?([a-z_]+)_position_probe_test\.dart$/\2/; s/_test\.dart$//')"
-  qfile="$REPO_ROOT/agent/queue.yaml"
+  qfile="$REPO_ROOT/bots/queue.yaml"
   slug="flake-$(echo "$TEST_FILE" | sed -E 's|.*/||; s|\..*$||')-$(date -u +%Y%m%d%H%M%S)"
   {
     echo ""
@@ -76,7 +76,7 @@ if run_once; then
     echo "  phase: tactics"
     echo "  severity: low"
     echo "  evidence:"
-    echo "    report: agent/state/flakes.jsonl"
+    echo "    report: docs/tracking/state/flakes.jsonl"
     echo "    line: 0"
     echo "  blunder_threshold_cp: 0"
     echo "  notes: \"Flaky test ${TEST_FILE} -- failed once then passed; investigate timing/non-determinism.\""

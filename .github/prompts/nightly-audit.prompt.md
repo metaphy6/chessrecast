@@ -10,14 +10,14 @@ Operate per [.github/copilot-instructions.md](../copilot-instructions.md) and [A
 ## Pre-flight
 
 1. Run [xops/agent/session-bootstrap.sh](../../xops/agent/session-bootstrap.sh) and post the summary in chat.
-2. If `${input:mod}` is `AUTO`, pick the mod whose latest report under `agent/reports/<mod>/` is **oldest** (round-robin). Tie-break alphabetically.
+2. If `${input:mod}` is `AUTO`, pick the mod whose latest report under `bots/reports/<mod>/` is **oldest** (round-robin). Tie-break alphabetically.
 3. Confirm `git status -s` is clean. If dirty, **stop** and report — never push someone else's WIP.
 
 ## Batch
 
 Run the standard 50-game audit batch from the *Run recipes* section of the chat-mode file (no `_BATCH_STOP_AT_DELTA` — we want a complete run for KPI extraction, not early termination). Use `LIVE_PROGRESS=1` and the watchdog tokens.
 
-Save the report to `agent/reports/<mod>/nightly-<run-id>.txt`.
+Save the report to `bots/reports/<mod>/nightly-<run-id>.txt`.
 
 ## KPI diff
 
@@ -38,7 +38,7 @@ Also file entries for any:
 
 This command does **not** edit code. Acceptable terminal states:
 
-- **`pushed`** — you appended new queue entries to [agent/queue.yaml](../../agent/queue.yaml); commit + push the queue change with message `auto(nightly): file findings for <mod> [<run-id>]`. Per [AGENTS.md](../../AGENTS.md) §2 this is mandatory when there is a non-empty diff.
+- **`pushed`** — you appended new queue entries to [bots/queue.yaml](../../bots/queue.yaml); commit + push the queue change with message `auto(nightly): file findings for <mod> [<run-id>]`. Per [AGENTS.md](../../AGENTS.md) §2 this is mandatory when there is a non-empty diff.
 - **`no-op`** — every KPI was `ok` and no new blunders/rule-violations/crashes; nothing to commit. Say so in one line.
 
 You may **not** edit any source file in this command. If a finding looks urgent, file it and let `/improve-mod <mod>` pick it up next.

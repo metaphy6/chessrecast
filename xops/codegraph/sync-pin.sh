@@ -40,8 +40,8 @@ for f in "${FILES[@]}"; do
   fi
 done
 
-# Sync agent/components.yaml: tooling/codegraph version.
-COMP="$REPO_ROOT/agent/components.yaml"
+# Sync bots/components.yaml: tooling/codegraph version.
+COMP="$REPO_ROOT/bots/components.yaml"
 if [[ -f "$COMP" ]]; then
   before="$(sha1sum "$COMP" | awk '{print $1}')"
   # Only rewrite the version field inside the tooling/codegraph block.

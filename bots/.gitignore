@@ -1,0 +1,5 @@
+# Keep folder structure, ignore volatile runtime artifacts but keep examples.
+reports/**/*.txt
+!**/.gitkeep
+!**/*.example.*
+!**/EXAMPLE-*

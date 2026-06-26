@@ -1,0 +1,3 @@
+/home/serhatakbak/code/mine/chessrecast/frontend/build/native/linux/CMakeFiles/chess_engine.dir
+/home/serhatakbak/code/mine/chessrecast/frontend/build/native/linux/CMakeFiles/edit_cache.dir
+/home/serhatakbak/code/mine/chessrecast/frontend/build/native/linux/CMakeFiles/rebuild_cache.dir

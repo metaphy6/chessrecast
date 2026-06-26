@@ -1,34 +1,70 @@
 <!--
 CLAUDE.md — entry point for Claude (Anthropic / Claude Code).
-
-Claude reads this file by convention. To avoid drift between assistants, this
-file delegates to AGENTS.md (which is shared across all AI coding assistants
-working in this repo) and to the Copilot-specific instructions.
+Claude reads this file by convention. To avoid drift between assistants, it
+delegates to AGENTS.md and adds Claude-specific notes.
 -->
 
-# CLAUDE.md — chessrecast
+# 🤖 CLAUDE.md — entry point for Claude
 
-Hello, Claude. This repository is configured for multi-assistant work. To stay consistent with GitHub Copilot Chat (the primary assistant here), please read and follow these documents in order:
+Hello, Claude. To stay consistent with the other AI coding assistants
+configured in this repository, please read these documents in order:
 
-1. [AGENTS.md](AGENTS.md) — non-negotiable cross-cutting rules: discoverability, mandatory commit/push, tests-move-with-code, system-change guardrails, session recovery, security.
-2. [.github/copilot-instructions.md](.github/copilot-instructions.md) — engine/mod/build/test rules, per-mod allow-list, audit-batch recipes, watchdog protocol.
-3. [docs/coding/ai/automation.md](docs/coding/ai/automation.md) — AI automation roadmap and the larger vision for what an AI engineer on this project is expected to own.
+1. [`AGENTS.md`](AGENTS.md) — non-negotiable cross-cutting rules: discoverability,
+   mandatory tracking + staging, tests-move-with-code, system-change guardrails,
+   session recovery, non-zero-exit protocol, security.
+2. [`.agents/skills/README.md`](.agents/skills/README.md) — the curated skill library.
+   Load the relevant skill before doing the matching kind of work.
+3. [`.github/copilot-instructions.md`](.github/copilot-instructions.md) — if
+   present, contains project-specific rules. Read it as supplementary context.
+4. [`docs/planning/ROADMAP.md`](docs/planning/ROADMAP.md) — the project plan.
 
-When AGENTS.md and the Copilot instructions disagree, **AGENTS.md wins** for cross-cutting concerns; the Copilot instructions win for engine/mod work.
+`AGENTS.md` wins on cross-cutting concerns; project-specific files win on
+domain rules.
 
-A short summary of what matters most, even if you read nothing else:
+## ⚡ Short summary if you read nothing else
 
-- This repo's `main` branch is open to direct commits **only after** every gate in `.github/copilot-instructions.md` → *Hard rules → 4* passes. No force-push, no `--no-verify`, ever.
-- Every slash command (`/improve-mod`, `/triage-audit-report`, …) **must end** with either a commit + push to `origin/main`, a revert, a clean no-op, or a documented `blocked` checkpoint. There is no "I'll let the user commit this" exit.
-- Every code change ships its tests in the same commit. Skipping or weakening a test to make a gate green is a hard violation.
-- Do not run system-level commands (`apt`, `systemctl`, `/etc/**`, global git config, …) without an explicit per-occurrence "go" from the user. Inside the workspace, act freely.
-- Sessions can die mid-task. Always read `agent/state/current.json`, `agent/state/checkpoint.json`, and the tail of `agent/state/log.jsonl` before doing real work.
+- **You never `git commit` or `git push`.** Append a row to
+  [`docs/tracking/tracking.csv`](docs/tracking/tracking.csv) via
+  [`xops/agent/tracking_append.sh`](xops/agent/tracking_append.sh), then
+  `git add -A`, then stop. The human runs `make git`.
+- **Every code change ships its test in the same commit.** Skipping or
+  weakening a test to make a gate green is a hard violation.
+- **Do not run system-level commands** (`apt`, `systemctl`, global git
+  config, …) without explicit per-occurrence confirmation. Inside the
+  workspace, act freely.
+- **Sessions die.** Read `docs/tracking/state/checkpoint.json`,
+  `docs/tracking/state/last_failure.json`, and tail `docs/tracking/state/log.jsonl` before
+  starting work. Run [`xops/agent/session-bootstrap.sh`](xops/agent/session-bootstrap.sh)
+  if available.
 
-Tooling notes specific to Claude Code:
+## 🛠 Claude Code specifics
 
-- This project ships VS Code tasks (e.g. `Frontend: Rebuild Native Engine`). If you do not have access to VS Code task execution, the equivalent shell is `cd frontend && cmake --build build/native/linux`.
-- CodeGraph MCP is configured via [.mcp.json](.mcp.json) at the repo root and is picked up automatically. Prefer CodeGraph tools (symbol lookup, callers/callees, route mapping) over grep/find. Run `make codegraph.reindex` after a `git rebase` or any large move/rename. See [docs/guides/CODEGRAPH.md](docs/guides/CODEGRAPH.md).
-- Slash-command prompts live under [.github/prompts/](.github/prompts/). They are written for VS Code Copilot Chat but are readable as plain Markdown — you can follow the same procedures from Claude Code.
-- The `/memories/repo/*_notes.md` referenced in the Copilot instructions is a Copilot-specific memory feature. The equivalent for Claude is the `agent/reports/` and `agent/state/log.jsonl` files plus your own session notes.
+- **Tool allow-list.** The repo does not pre-restrict your tools. The
+  forbidden-action list lives in `AGENTS.md` §2 + §4, not in tool config.
+- **MCP servers.** Defined in [`.mcp.json`](.mcp.json). Picked up
+  automatically by Claude Code.
+- **Plugin manifest.** [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json)
+  declares this repo as a workspace Claude can attach to.
+- **Slash commands.** Project slash commands live under
+  [`.github/prompts/`](.github/prompts/) — they are written for Copilot
+  Chat but are readable Markdown procedures you can follow.
+- **Memory.** If you keep session notes, write them under
+  `docs/tracking/state/notes/` (gitignored).
 
-If anything in this repo seems to invite shortcutting (skipping a test, silencing a warning, force-pushing, installing a system package without asking), assume the rule is intentional and ask before bypassing it.
+## 🎯 Behavioural calibration for Claude
+
+Across Sonnet, Opus, and Haiku the same biases tend to show up:
+
+- **Over-explaining.** Keep replies tight — one short status line per loop
+  step, file paths as markdown links, no recap sections.
+- **Asking permission to continue.** When the user asked you to implement a
+  named phase / sub-phase, drain *every* `[ ]` bullet in that scope before
+  handing back. See the [`phase-persistence`](.agents/skills/phase-persistence/SKILL.md)
+  skill for the explicit rule and the (narrow) list of real blockers.
+- **Refactoring opportunistically.** Do not. Make exactly the change asked
+  for. See the [`minimal-change`](.agents/skills/minimal-change/SKILL.md)
+  skill.
+
+If anything in this repo seems to invite shortcutting (skipping a test,
+silencing a warning, force-pushing, installing a system package without
+asking), assume the rule is intentional and ask before bypassing it.

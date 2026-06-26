@@ -2,7 +2,7 @@
 /// and §15.2.2 (pentest findings same severity ladder).
 ///
 /// Verifies:
-/// 1. `docs/P2P_AUDIT_SCOPE.md` contains the severity ladder.
+/// 1. `docs/p2p/P2P_AUDIT_SCOPE.md` contains the severity ladder.
 /// 2. The severity ladder defines Critical, High, Medium, Low.
 /// 3. The queue-entry format for `kind: p2p_audit_finding` is documented.
 /// 4. Closure criteria for findings are documented.
@@ -25,8 +25,8 @@ void main() {
       dir = parent;
     }
     repoRoot = dir.path;
-    scopeDoc = File('$repoRoot/docs/P2P_AUDIT_SCOPE.md');
-    pentestDoc = File('$repoRoot/docs/P2P_PENTEST_SCOPE.md');
+    scopeDoc = File('$repoRoot/docs/p2p/P2P_AUDIT_SCOPE.md');
+    pentestDoc = File('$repoRoot/docs/p2p/P2P_PENTEST_SCOPE.md');
   });
 
   group('§15.1.3 — crypto audit findings management infrastructure', () {
@@ -108,7 +108,7 @@ void main() {
       expect(
         pentestDoc.existsSync(),
         isTrue,
-        reason: 'docs/P2P_PENTEST_SCOPE.md must exist (roadmap §15.2)',
+        reason: 'docs/p2p/P2P_PENTEST_SCOPE.md must exist (roadmap §15.2)',
       );
     });
 

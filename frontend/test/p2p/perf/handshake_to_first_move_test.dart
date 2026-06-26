@@ -1,7 +1,7 @@
 // Phase 17 §17.2.1 — Handshake-to-first-move P99 ≤ 5000 ms on LTE.
 //
 // Synthetic CI proxy: verifies the budget cap and per-leg decomposition are
-// registered correctly in agent/baselines/p2p_budgets.json.
+// registered correctly in bots/baselines/p2p_budgets.json.
 // Real measurement is done in the device-matrix CI job.
 import 'dart:convert';
 import 'dart:io';
@@ -13,10 +13,10 @@ void main() {
     late Map<String, dynamic> leaf;
 
     setUpAll(() {
-      final budgetFile = File('../agent/baselines/p2p_budgets.json');
+      final budgetFile = File('../bots/baselines/p2p_budgets.json');
       if (!budgetFile.existsSync()) {
         fail(
-          'agent/baselines/p2p_budgets.json missing — implement §17.1 first',
+          'bots/baselines/p2p_budgets.json missing — implement §17.1 first',
         );
       }
       final tree =

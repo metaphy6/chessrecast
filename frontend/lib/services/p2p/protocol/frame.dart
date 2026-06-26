@@ -335,7 +335,7 @@ enum FrameType {
 
 /// Wire-protocol frame envelope.
 ///
-/// Fields per §1 of docs/P2P_PROTOCOL.md:
+/// Fields per §1 of docs/p2p/P2P_PROTOCOL.md:
 ///   v (u8)   — wire version
 ///   t (u8)   — frame type
 ///   n (u64)  — monotonic sequence number (starts at 1)
@@ -574,7 +574,7 @@ class SessionIdDeriver {
 // ─── HKDF Info-String Registry ───────────────────────────────────────────────
 
 /// All registered HKDF info strings for chessrecast/p2p protocol.
-/// New labels must be added here AND cited in docs/P2P_PROTOCOL.md §12.
+/// New labels must be added here AND cited in docs/p2p/P2P_PROTOCOL.md §12.
 const Map<String, _HkdfLabel> kHkdfInfoRegistry = {
   'chessrecast/p2p/v1/master': _HkdfLabel(
     purpose: 'Session master key from ECDH',

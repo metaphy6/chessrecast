@@ -1,7 +1,7 @@
 // §13.1.b1 + §13.1.b2 + §13.3.b1 + §13.5.b1 — P2P_FAIR_PLAY.md proof test.
 //
 // Phase 13 is a documentation phase. The proof that each leaf is complete is
-// that docs/P2P_FAIR_PLAY.md exists and contains the required declarations.
+// that docs/p2p/P2P_FAIR_PLAY.md exists and contains the required declarations.
 //
 // §13.1.b1 — External-engine assistance is out of scope and documented.
 // §13.1.b2 — Rating system is out of scope; documented as OQ-10.
@@ -21,7 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 File get _fairPlayDoc {
   // When run from frontend/ via `flutter test`, cwd is the frontend/ dir.
   final cwd = Directory.current.path;
-  return File('$cwd/../docs/P2P_FAIR_PLAY.md');
+  return File('$cwd/../docs/p2p/P2P_FAIR_PLAY.md');
 }
 
 String get _content => _fairPlayDoc.readAsStringSync().toLowerCase();
@@ -36,7 +36,7 @@ void main() {
       expect(
         _fairPlayDoc.existsSync(),
         isTrue,
-        reason: 'docs/P2P_FAIR_PLAY.md must be published',
+        reason: 'docs/p2p/P2P_FAIR_PLAY.md must be published',
       );
     });
 

@@ -2,7 +2,7 @@
 ///
 /// Verifies that:
 ///   1. [xops/p2p/data-flow-completeness-check.sh] exists and is executable.
-///   2. [docs/P2P_PRIVACY.md] contains a `## Data-flow inventory` section.
+///   2. [docs/p2p/P2P_PRIVACY.md] contains a `## Data-flow inventory` section.
 ///   3. All 11 required data-class rows are present in the inventory.
 ///   4. The completeness-check script exits 0 (no undocumented P2P writes).
 library;
@@ -62,11 +62,11 @@ void main() {
   });
 
   test('P2P_PRIVACY.md has a Data-flow inventory section', () {
-    final privacyDoc = File('${repo.path}/docs/P2P_PRIVACY.md');
+    final privacyDoc = File('${repo.path}/docs/p2p/P2P_PRIVACY.md');
     expect(
       privacyDoc.existsSync(),
       isTrue,
-      reason: 'docs/P2P_PRIVACY.md must exist',
+      reason: 'docs/p2p/P2P_PRIVACY.md must exist',
     );
     final content = privacyDoc.readAsStringSync();
     expect(
@@ -81,7 +81,7 @@ void main() {
     late String privacyContent;
 
     setUpAll(() {
-      final privacyDoc = File('${repo.path}/docs/P2P_PRIVACY.md');
+      final privacyDoc = File('${repo.path}/docs/p2p/P2P_PRIVACY.md');
       if (privacyDoc.existsSync()) {
         privacyContent = privacyDoc.readAsStringSync();
       } else {

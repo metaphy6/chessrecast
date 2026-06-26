@@ -12,10 +12,10 @@ void main() {
     late List<Map<String, dynamic>> rttLeaves;
 
     setUpAll(() {
-      final budgetFile = File('../agent/baselines/p2p_budgets.json');
+      final budgetFile = File('../bots/baselines/p2p_budgets.json');
       if (!budgetFile.existsSync()) {
         fail(
-          'agent/baselines/p2p_budgets.json missing — implement §17.1 first',
+          'bots/baselines/p2p_budgets.json missing — implement §17.1 first',
         );
       }
       final tree =
