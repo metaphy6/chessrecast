@@ -2,3 +2,4 @@ ts_utc,run_id,agent,scope,action,status,summary,refs,commit_sha
 2026-06-26T09:54:21Z,run-20260626095421-159581,copilot,scaffold,commit,completed,"chore(scaffold): install ai-vscode-basics via curl --force; adapt AGENTS.md, copilot-instructions, ROADMAP, session-bootstrap, Makefile for chessrecast",,pending
 2026-06-26T09:54:30Z,run-20260626095430-159721,copilot,agent-migration,commit,completed,chore(agent): migrate agent/ operational data to bots/; delete agent/ and archive/,,pending
 2026-06-26T09:54:30Z,run-20260626095430-159745,copilot,docs,commit,completed,"refactor(docs): rename bots/ (was chess/); move P2P docs to docs/p2p/; fill CHARTER, ARCHITECTURE, GLOSSARY, DECISION_LOG, context.md",,pending
+2026-06-26T10:04:57Z,run-20260626100457-170054,copilot,docs,commit,completed,docs(reports): add 2026-06-26 project state assessment,,pending
