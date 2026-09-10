@@ -1,6 +1,6 @@
 ---
 name: phase-persistence
-description: "Phase persistence. You've been asked to implement a phase, sub-phase, or any named scope with"
+description: "Complete every deliverable in an authorized roadmap phase or named checklist scope."
 ---
 
 # Phase persistence
@@ -15,7 +15,7 @@ multiple `[ ]` bullets. **This is the most common place agents drop work.**
 1. **Read the entire phase** before starting. Count the `[ ]` bullets.
 2. **Drain them in order.** For each bullet:
    - implement the change (with the test, per
-     [`test-driven-development`](../coding/test-driven-development.prompt.md)),
+     [`test-driven-development`](../test-driven-development/SKILL.md)),
    - run the gate,
    - append a tracking row,
    - mark the bullet `[x]` in the ROADMAP.

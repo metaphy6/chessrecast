@@ -1,6 +1,6 @@
 ---
 name: incident-postmortem
-description: "Incident Postmortem. A production incident occurred (outage, data loss, security event, severe"
+description: "Write a blameless postmortem after a production incident or near miss."
 ---
 
 # Incident Postmortem

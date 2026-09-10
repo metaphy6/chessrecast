@@ -1,6 +1,6 @@
 ---
 name: anti-ask-permission-loop
-description: "Ask-Permission Loop. The user asked the agent to 'implement Phase 2 of the roadmap'. The agent"
+description: "Recognize and avoid repeated permission requests while completing an already authorized scope."
 user-invocable: false
 ---
 
@@ -31,7 +31,7 @@ Checking in feels polite and safe. The agent worries about doing "too much".
 ## The corrective behaviour
 
 Load the
-[`phase-persistence`](../planning/phase-persistence.prompt.md)
+[`phase-persistence`](../phase-persistence/SKILL.md)
 skill. Drain every `[ ]` bullet in the named scope before handing back.
 Real blockers (ambiguity, missing credentials, scope conflict) are the only
 valid reason to pause.

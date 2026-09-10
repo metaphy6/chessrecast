@@ -3,7 +3,45 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .DS_Store
+
+# auto-installed/generated on open — never source of truth
+*.egg-info/
+
+# Flutter / Dart
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/build/
+android/.gradle/
+android/app/debug/
+android/app/profile/
+android/app/release/
+ios/Pods/
+ios/.symlinks/
+macos/Pods/
+macos/.symlinks/
+linux/flutter/
+windows/flutter/
+web/flutter/
+
+# Go
+signaling/build/
+*.out
+
+# Native build artifacts
+*.so
+*.a
+*.o
+*.obj
+*.dll
+*.dylib
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
 
 # scaffold output / per-project agent runtime
 docs/tracking/state/*

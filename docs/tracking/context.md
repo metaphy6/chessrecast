@@ -1,7 +1,7 @@
 # 🧠 docs/tracking/context.md — shared project context pack
 
 > **This file is the single place for project-specific overrides.**
-> All vendor entry points (`CLAUDE.md`, `GEMINI.md`, `CONVENTIONS.md`,
+> All vendor entry points (`CLAUDE.md`, `CONVENTIONS.md`,
 > `.github/copilot-instructions.md`) reference this file.
 
 ---

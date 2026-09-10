@@ -1,7 +1,7 @@
 # 🧠 Skills library
 
 Each subfolder is **one agent skill** with a `SKILL.md` file at its root.
-Type `/` in Copilot Chat to invoke any of them as a slash command.
+Use `$skill-name` or the skill picker in Codex; use `/` in Copilot Chat.
 
 A skill is a **short, model-agnostic procedure** for one recurring task. Load
 the relevant skill *before* the matching work — reading takes seconds and
@@ -64,7 +64,9 @@ saves whole rewrites.
 
 ### Anti-skills (failure stories)
 
-Anti-skills document recurring failure modes. They are loadable by the model but hidden from the `/` palette (`user-invocable: false`).
+Anti-skills document recurring failure modes. Copilot hides them from its `/` palette
+with `user-invocable: false`; that field does not control Codex invocation.
+Codex uses `agents/openai.yaml` for optional invocation policy.
 
 - [`anti-the-silent-skip`](anti-the-silent-skip/SKILL.md) — Silencing a test instead of fixing it.
 - [`anti-blind-retry`](anti-blind-retry/SKILL.md) — Re-running a failing command without reading its output.

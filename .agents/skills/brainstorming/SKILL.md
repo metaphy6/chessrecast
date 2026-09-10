@@ -1,6 +1,6 @@
 ---
 name: brainstorming
-description: "Brainstorming. The request is ambiguous *and* the cost of picking the wrong direction is"
+description: "Explore alternatives when the request is ambiguous and choosing the wrong direction would be costly."
 ---
 
 # Brainstorming

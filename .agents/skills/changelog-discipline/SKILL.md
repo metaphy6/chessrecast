@@ -1,6 +1,6 @@
 ---
 name: changelog-discipline
-description: "Changelog discipline. Every user-visible change. 'User' includes downstream developers consuming"
+description: "Document user-visible changes in the existing changelog, including changes affecting downstream developers."
 ---
 
 # Changelog discipline

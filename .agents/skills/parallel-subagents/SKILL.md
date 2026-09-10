@@ -1,6 +1,6 @@
 ---
 name: parallel-subagents
-description: "Parallel subagents. You need to read or search several **independent** things — multiple files"
+description: "Delegate independent work when multiple bounded subtasks benefit from separate agents."
 ---
 
 # Parallel subagents

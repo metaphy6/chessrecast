@@ -1,6 +1,6 @@
 ---
 name: minimal-change
-description: "Minimal Change. Always. Especially when:"
+description: "Keep an implementation scoped to the requested outcome and avoid unrelated edits."
 ---
 
 # Minimal Change

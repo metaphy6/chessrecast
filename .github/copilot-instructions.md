@@ -15,7 +15,7 @@ discovery hints, slash-command pointers, and custom-agent conventions.
 | Concern | Path |
 |---|---|
 | Master rulebook | [`AGENTS.md`](../AGENTS.md) |
-| Vendor entry points | [`CLAUDE.md`](../CLAUDE.md), [`GEMINI.md`](../GEMINI.md), [`CONVENTIONS.md`](../CONVENTIONS.md) |
+| Vendor entry points | [`CLAUDE.md`](../CLAUDE.md), [`CONVENTIONS.md`](../CONVENTIONS.md) |
 | Copilot custom agents | [`.github/agents/`](agents/) |
 | Copilot slash-command prompts | [`.github/prompts/`](prompts/) |
 | Skill library (load on demand) | [`.agents/skills/README.md`](../.agents/skills/README.md) |
@@ -25,6 +25,7 @@ discovery hints, slash-command pointers, and custom-agent conventions.
 | Ops scripts | [`xops/agent/`](../xops/agent/), [`xops/makefile/`](../xops/makefile/) |
 | MCP config | [`.mcp.json`](../.mcp.json), [`.vscode/mcp.json`](../.vscode/mcp.json) |
 | VS Code workspace | [`.vscode/settings.json`](../.vscode/settings.json), [`.vscode/tasks.json`](../.vscode/tasks.json) |
+| Always-on instruction files | [`.github/instructions/`](instructions/) |
 | **Chess engine rules** | [`docs/project/ENGINE_RULES.md`](../docs/project/ENGINE_RULES.md) |
 | **P2P docs** | [`docs/p2p/`](../docs/p2p/) — 25 documents |
 | **P2P roadmap** | [`docs/p2p/P2P_ROADMAP.md`](../docs/p2p/P2P_ROADMAP.md) |

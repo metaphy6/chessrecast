@@ -59,9 +59,11 @@ roadmap.status:
 doctor:
 	@$(XOPS)/doctor.py
 
-## scaffold          Print bootstrapper usage (run xops/init/scaffold.sh --help for real)
+## scaffold          Re-sync framework files from the agentic-workspace source repo
 scaffold:
-	@xops/init/scaffold.sh --help
+	@echo "xops/init/ is framework-only and not shipped to scaffolded projects."
+	@echo "Re-run the scaffolder from the agentic-workspace repo instead:"
+	@echo "  /path/to/agentic-workspace/xops/init/scaffold.sh --target $$(pwd) --help"
 
 ## skills.status     List all skills with line count, last-modified, and AGENTS.md refs
 skills.status:

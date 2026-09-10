@@ -1,6 +1,6 @@
 ---
 name: anti-retry-until-green
-description: "Retry-Until-Green. A test was flaky — sometimes red, sometimes green. The agent re-ran CI three"
+description: "Avoid accepting a flaky test solely because a later rerun passes."
 user-invocable: false
 ---
 
@@ -30,7 +30,7 @@ effort and usually works in the short term.
 ## The corrective behaviour
 
 Load and follow the
-[`flaky-test-triage`](../coding/flaky-test-triage.prompt.md) skill.
+[`flaky-test-triage`](../flaky-test-triage/SKILL.md) skill.
 Classify the root cause, fix it, verify 10 consecutive passes, then merge.
 
 ## Recognition pattern

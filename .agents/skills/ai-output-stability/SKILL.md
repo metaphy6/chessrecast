@@ -1,6 +1,6 @@
 ---
 name: ai-output-stability
-description: "AI output stability. You want the same input to produce the same (or near-same) output across"
+description: "Improve repeatability when generated code, documents or test cases must stay consistent across runs."
 ---
 
 # AI output stability

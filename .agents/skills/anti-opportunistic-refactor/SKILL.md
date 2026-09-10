@@ -1,6 +1,6 @@
 ---
 name: anti-opportunistic-refactor
-description: "Opportunistic Refactor. The user asked the agent to fix a null-pointer bug in `user_service.py`. While"
+description: "Avoid unrelated refactoring while implementing a scoped fix or feature."
 user-invocable: false
 ---
 
@@ -32,7 +32,7 @@ Agents are pattern-matchers; they _see_ the mess and want to resolve it.
 
 ## The corrective behaviour
 
-Load the [`minimal-change`](../coding/minimal-change.prompt.md) skill.
+Load the [`minimal-change`](../minimal-change/SKILL.md) skill.
 Fix _only_ the bug. If you see refactor opportunities, note them in a tracking
 row with `ACTION=note` — do not act on them in the same commit.
 

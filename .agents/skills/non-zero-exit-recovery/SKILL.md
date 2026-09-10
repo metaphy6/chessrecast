@@ -1,6 +1,6 @@
 ---
 name: non-zero-exit-recovery
-description: "Non-zero exit recovery. A command exited non-zero. Or a command produced no output (a killed"
+description: "Diagnose captured command failures or interrupted runs, fix the cause and resume safely."
 ---
 
 # Non-zero exit recovery
@@ -15,7 +15,7 @@ terminal counts as failure, not as no-op).
 **Order matters.** Do not skip a step.
 
 1. **Read the log.** Use the `.log` from
-   [`safe-run.sh`](../tooling/safe-run-wrapper.prompt.md):
+   [`safe-run.sh`](../safe-run-wrapper/SKILL.md):
    `tail -200 /tmp/agent-runs/<run-id>.log`, then full if needed. Never
    guess at the cause.
 2. **Diagnose the root cause.** Missing dep? Unset env var? Real test

@@ -34,5 +34,5 @@ description: "Systematic Debugging. A test is failing in a way you don't immedia
 
 ## Related skills
 
-- [`non-zero-exit-recovery`](../reliability/non-zero-exit-recovery.prompt.md) — when the failure is a command exit, not a test red.
-- [`verification-before-completion`](verification-before-completion.prompt.md) — before calling the fix done.
+- [`non-zero-exit-recovery`](../non-zero-exit-recovery/SKILL.md) — when the failure is a command exit, not a test red.
+- [`verification-before-completion`](../verification-before-completion/SKILL.md) — before calling the fix done.

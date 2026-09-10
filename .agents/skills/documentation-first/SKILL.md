@@ -1,6 +1,6 @@
 ---
 name: documentation-first
-description: "Documentation first. The behavior of the thing you're about to build is ambiguous — to you, to"
+description: "Clarify ambiguous behavior through documentation before implementation."
 ---
 
 # Documentation first

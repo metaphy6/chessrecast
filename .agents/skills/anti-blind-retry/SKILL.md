@@ -1,6 +1,6 @@
 ---
 name: anti-blind-retry
-description: "Blind Retry. A `make test` run exited non-zero. The agent re-ran it. It failed again. The"
+description: "Recognize blind retries after command failures and recover using the captured evidence."
 user-invocable: false
 ---
 
@@ -10,7 +10,7 @@ user-invocable: false
 
 ## The failure story
 
-A `make test` run exited non-zero. The agent re-ran it. It failed again. The
+A test command exited non-zero. The agent re-ran it. It failed again. The
 agent re-ran it a third time. The terminal output was lost. The agent wrote
 "the tests seem to be passing" and staged the files. The tests were not passing.
 
@@ -31,7 +31,7 @@ noisy. It _feels_ like due diligence.
 ## The corrective behaviour
 
 Load the
-[`non-zero-exit-recovery`](../reliability/non-zero-exit-recovery.prompt.md)
+[`non-zero-exit-recovery`](../non-zero-exit-recovery/SKILL.md)
 skill. Read the `.log` file, diagnose the root cause, fix it, then run once.
 
 ## Recognition pattern

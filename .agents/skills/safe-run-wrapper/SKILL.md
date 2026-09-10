@@ -1,6 +1,6 @@
 ---
 name: safe-run-wrapper
-description: "Safe-run wrapper. Any command where a non-zero exit, a hung process, or a killed terminal"
+description: "Capture logs and exit status for builds, tests and commands whose failure evidence must survive interruption."
 ---
 
 # Safe-run wrapper
@@ -30,7 +30,7 @@ The wrapper guarantees:
 - `docs/tracking/state/last_failure.json` on non-zero exit (with `resolved: false`).
 
 If the command failed, follow
-[`non-zero-exit-recovery`](../reliability/non-zero-exit-recovery.prompt.md).
+[`non-zero-exit-recovery`](../non-zero-exit-recovery/SKILL.md).
 
 ## Anti-patterns
 

@@ -1,6 +1,6 @@
 ---
 name: anti-the-silent-skip
-description: "The Silent Skip. A test was failing after a refactor. The agent marked it `@pytest.mark.skip`"
+description: "Avoid hiding failures by skipping tests or deleting assertions."
 user-invocable: false
 ---
 
@@ -29,10 +29,11 @@ merges, the agent moves on.
 
 ## The corrective behaviour
 
-Load the [`test-driven-development`](../coding/test-driven-development.prompt.md)
+Load the [`test-driven-development`](../test-driven-development/SKILL.md)
 skill. Fix the test — it must fail for the right reason before the fix and
-pass after. If you genuinely cannot fix it now, open a tracking row with a
-deadline and mark `xfail(strict=False, reason="…<tracking-id>")`.
+pass after. If you cannot fix it within scope, preserve the failing test and
+record a blocker with its evidence. Do not add `xfail` or skip markers to turn
+a failing gate green; follow AGENTS.md §3.
 
 ## Recognition pattern
 

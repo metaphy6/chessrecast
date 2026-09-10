@@ -24,8 +24,8 @@ After implementation, before staging. Always.
    - [ ] No `TODO:` you could fix in the same PR.
    - [ ] Commit message in Conventional Commits format.
    - [ ] Tracking row appended with the correct `scope`.
-4. **Run the gate one more time** on a fresh process. If you ran it
-   incrementally, run it cold.
+4. **Confirm the relevant gates passed** against the final changes in a fresh
+   process. Re-run only when later edits or unresolved concerns justify it.
 5. **Stage** (`git add -A`).
 
 ## Anti-patterns

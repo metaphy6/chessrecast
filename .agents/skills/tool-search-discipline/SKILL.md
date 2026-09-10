@@ -1,6 +1,6 @@
 ---
 name: tool-search-discipline
-description: "Tool search discipline. You're about to reach for a tool. Pause and ask: do I know what I'm"
+description: "Identify the task and required capability before selecting or searching for a tool."
 ---
 
 # Tool search discipline

@@ -1,6 +1,6 @@
 ---
 name: security-by-default
-description: "Security by default. Any code that touches: user input, external services, file paths, shell"
+description: "Apply security checks when code handles user input, external services, paths, commands, secrets or authentication."
 ---
 
 # Security by default

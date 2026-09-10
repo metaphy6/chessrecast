@@ -20,7 +20,7 @@
 |---|---|---|---|---|
 | 1 | `ts_utc` | ISO-8601 UTC, `YYYY-MM-DDTHH:MM:SSZ` | yes | Wall clock at row append. Strictly ≥ previous row's `ts_utc`. |
 | 2 | `run_id` | `[a-z0-9-]{4,40}` | yes | Stable id for this agent run / slash-command invocation. Reused across every row from the same run. Used by `make git` for idempotency. |
-| 3 | `agent` | enum | yes | `copilot \| claude \| gemini \| codex \| cursor \| opencode \| aider \| local \| human`. |
+| 3 | `agent` | enum | yes | `copilot \| claude \| codex \| local \| human`. |
 | 4 | `scope` | string (≤ 40 chars) | yes | What the work touches — a phase id (`phase-1.2`), module slug (`auth`), area (`docs`), or chore tag (`tooling`). Free-form but short. |
 | 5 | `action` | enum | yes | `plan \| implement \| test \| review \| commit \| revert \| note \| block`. |
 | 6 | `status` | enum | yes | `started \| in_progress \| passed \| failed \| blocked \| completed`. |
@@ -67,10 +67,16 @@ See [`xops/makefile/git_ops.py`](../xops/makefile/git_ops.py):
 1. Find rows where `action=commit`, `status=completed`,
    `commit_sha=pending` AND `run_id` is NOT already mentioned in any
    existing commit message (`git log --all --format=%B`).
-2. Group consecutive rows by `run_id` (one commit per `run_id`).
-3. For each group, create one commit:
-   - **subject** = the row's `summary` field, verbatim,
-   - **trailer** = `[<run_id>]` (used for idempotency on re-run).
+2. Group consecutive rows by `run_id`.
+3. Create **one commit for the whole batch** (git has a single staging
+   window, so per-`run_id` diffs are not separable):
+   - **subject** = the first pending group's `summary`, verbatim,
+   - **body** = the other groups' summaries under `Also includes:`,
+     plus the union of their `refs`,
+   - **trailers** = one `[<run_id>]` per group (used for idempotency on
+     re-run).
+   Empty commits are never created: if the working tree is clean, the
+   pending rows stay pending and fold into the next real commit.
 4. Push to upstream.
 5. **Refuse** to run if the working tree is dirty *but* no pending row
    exists (smart guard — agent forgot to `track.add`).

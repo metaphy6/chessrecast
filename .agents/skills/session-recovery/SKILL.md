@@ -1,6 +1,6 @@
 ---
 name: session-recovery
-description: "Session recovery. Session start. After a window reload, a crashed terminal, a rate-limit"
+description: "Recover repository context at session start or after a crash, reload or interrupted task."
 ---
 
 # Session recovery
@@ -21,7 +21,7 @@ interruption, or any time you're picking up work you didn't start.
 3. **Read `docs/tracking/state/checkpoint.json`** if present. Resume from `step` /
    `scope` / `last_command`.
 4. **Run `pwd`** and confirm the working directory matches what you expect.
-5. **`git status -s`** — is the tree dirty? Stash, revert, or stage?
+5. **`git status -s`** — record pre-existing changes and preserve them. Do not automatically stash, revert, or stage another task's work.
 6. **Only then start new work.**
 
 ## Writing your own checkpoint

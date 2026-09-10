@@ -20,7 +20,6 @@ from _common import (
 CHECKS_REQUIRED = [
     "AGENTS.md",
     "CLAUDE.md",
-    "GEMINI.md",
     "CONVENTIONS.md",
     "README.md",
     "LICENSE",
@@ -56,9 +55,6 @@ JSON_FILES = [
     ".vscode/settings.json",
     ".vscode/tasks.json",
     ".cursor/mcp.json",
-    ".claude-plugin/plugin.json",
-    ".opencode/config.json",
-    "gemini-extension.json",
 ]
 
 TRACKING_HEADER = "ts_utc,run_id,agent,scope,action,status,summary,refs,commit_sha"

@@ -1,6 +1,6 @@
 ---
 name: git-bisect-strategy
-description: "Git Bisect Strategy. You need to find which commit introduced a bug, regression, or performance"
+description: "Locate a regression in Git history using a reliable reproducer when manual inspection is insufficient."
 ---
 
 # Git Bisect Strategy
@@ -26,7 +26,7 @@ description: "Git Bisect Strategy. You need to find which commit introduced a bu
    ```
    Git checks out the midpoint automatically.
 
-3. **Test each checkout.** Run your reproducer (unit test, `make test`, smoke
+3. **Test each checkout.** Run your reproducer (unit test, project test runner, smoke
    script). Then:
    ```bash
    git bisect good   # this commit is fine

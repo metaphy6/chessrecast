@@ -1,6 +1,6 @@
 ---
 name: adr-writing
-description: "ADR writing. A code-level architectural decision was made and it's the kind of thing"
+description: "Record architectural decisions, alternatives and consequences in an ADR when future maintainers need the rationale."
 ---
 
 # ADR writing
@@ -16,7 +16,7 @@ async, deprecating a public API, picking a serialisation format.
 
 ## Procedure
 
-1. **Copy [`docs/design/ADR.template.md`](../../design/ADR.template.md)**
+1. **Copy [`docs/design/ADR.template.md`](../../../docs/design/ADR.template.md)**
    to `docs/design/ADR-NNNN-<short-slug>.md` (NNNN = next number).
 2. **Status: proposed** while reviewers chew on it; **accepted** once the
    decision is locked.

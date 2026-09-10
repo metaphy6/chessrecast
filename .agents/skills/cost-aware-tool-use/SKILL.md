@@ -1,6 +1,6 @@
 ---
 name: cost-aware-tool-use
-description: "Cost-Aware Tool Use. You are an AI agent that has access to tools with per-call costs (LLM API"
+description: "Reduce repeated or costly tool calls when processing large corpora or querying external services."
 ---
 
 # Cost-Aware Tool Use

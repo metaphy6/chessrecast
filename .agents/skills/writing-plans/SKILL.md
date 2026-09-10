@@ -1,6 +1,6 @@
 ---
 name: writing-plans
-description: "Writing plans. Before any non-trivial implementation. 'Non-trivial' = more than a single"
+description: "Plan implementation spanning multiple files or changing a public API before editing."
 ---
 
 # Writing plans
@@ -24,7 +24,7 @@ A good plan has **six sections** and fits on one screen:
 
 Save the plan to `docs/planning/` (for multi-day work) or paste in chat
 (for a single phase). The implementer drains every `[ ]` bullet — see
-[`phase-persistence`](phase-persistence.prompt.md).
+[`phase-persistence`](../phase-persistence/SKILL.md).
 
 ## Anti-patterns
 

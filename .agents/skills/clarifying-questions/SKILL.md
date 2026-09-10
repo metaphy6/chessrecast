@@ -1,6 +1,6 @@
 ---
 name: clarifying-questions
-description: "Clarifying questions. You hit **genuine doubt** — both:"
+description: "Resolve ambiguity when available context cannot settle it and a wrong choice would be expensive to undo."
 ---
 
 # Clarifying questions

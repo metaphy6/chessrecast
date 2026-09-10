@@ -1,6 +1,6 @@
 ---
 name: refactor-discipline
-description: "Refactor discipline. You want to change *shape* without changing *behaviour*. Renames,"
+description: "Preserve behavior while renaming, extracting or reorganizing code."
 ---
 
 # Refactor discipline

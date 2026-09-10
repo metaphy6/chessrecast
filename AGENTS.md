@@ -2,9 +2,8 @@
 AGENTS.md — model-agnostic master rulebook.
 
 Every AI coding assistant working in this repository reads THIS FILE FIRST.
-Vendor entry points (CLAUDE.md, GEMINI.md, CONVENTIONS.md,
-.github/copilot-instructions.md, .cursor/rules/, .codex-plugin/, .opencode/)
-all delegate here.
+Vendor entry points (CLAUDE.md, CONVENTIONS.md, and
+.github/copilot-instructions.md) all delegate here.
 
 Keep this file short, scannable, and authoritative. Project-specific
 rules belong in docs/project/ENGINE_RULES.md or .github/copilot-instructions.md,
@@ -17,8 +16,8 @@ session hygiene). Project files win for domain logic.
 
 # 🤖 AGENTS.md — operating rules for AI coding assistants
 
-You are an AI coding assistant (GitHub Copilot, Claude, Gemini, Codex CLI,
-Cursor, OpenCode, Aider, or a local model) working in this repository.
+You are an AI coding assistant (OpenAI Codex, GitHub Copilot, Claude, or a
+local model) working in this repository.
 
 The mental model: **act like a senior software engineer responsible for the
 long-term health of this codebase.** Stability, security, reliability,
@@ -70,7 +69,7 @@ of work, the agent:
 3. Stops. The human commits and pushes whenever they're ready:
 
 ```bash
-make git       # commit all staged changes (one commit per pending row) then push
+make git       # commit all staged changes (one commit per staging window; all pending run_ids ride its message) then push
 make git.dry   # preview what would be committed (read-only)
 ```
 
@@ -79,12 +78,19 @@ Every task must terminate in **exactly one** of these states:
 | State | When | What you do |
 |---|---|---|
 | `staged` | Gates green AND working tree has real changes | Append tracking row with `commit_sha=pending`, then `git add -A`. Report files staged + `run_id`. |
-| `reverted` | Any gate failed | `git restore .` (or `git reset --hard HEAD` if local-only). Append a tracking row with `action=revert`, `status=failed`. No staging. |
+| `reverted` | A gate cannot be repaired within scope and this task's edits can be safely isolated | Undo only this task's edits, preserving pre-existing and concurrent work. Append `action=revert`, `status=failed`. No staging. |
 | `no-op` | `git status -s` was already clean and no edits were needed | Say so in one line. |
 | `blocked` | A real blocker (rebase needed, decision required, scope outside allow-list) | Write `docs/tracking/state/checkpoint.json`, append `action=block`/`status=blocked` row, report. |
 
 You are **forbidden** from inventing a fifth state ("I'll let you review and
 commit"). If gates are green and the diff is real, **you stage**.
+
+A failed gate first enters the recovery loop in §5a; it does not authorize
+discarding work. Never use blanket restore/reset commands to recover from a
+test failure. If ownership is ambiguous, preserve the diff and report `blocked`.
+Inspect the complete staging set for unrelated work and secrets before `git add -A`.
+Delegated agents return evidence; only the coordinating parent tracks and stages.
+Read-only reviews need no artificial edits or completion commit row.
 
 **Forbidden git operations under all circumstances:** `git commit`,
 `git push`, `git push --force`, `git push --force-with-lease`,
@@ -268,6 +274,18 @@ The repo ships a curated, model-agnostic skill library at
 *when-to-use* trigger, read that skill file before proceeding. Skills are
 short — one read costs you nothing and saves entire rewrites.
 
+**CodeGraph-first rule.** This repository is indexed by CodeGraph. For any
+question about source code — how a symbol works, where it is defined, what
+calls it, or what it affects — use an appropriate CodeGraph tool advertised
+by the current session first. Tool names and availability vary by client. Do not start with
+`read_file` or `grep_search` for symbol lookup, call-graph questions, or
+understanding how code works when a healthy graph tool is available. Use raw
+reads/searches for unindexed files, stale results, or an unavailable server/index;
+report the limitation. Respect `--no-mcp`; never install or initialize a disabled
+integration automatically. See
+[`codegraph-management`](.agents/skills/codegraph-management/SKILL.md) for the
+tool-to-intent mapping and re-index rules.
+
 Especially load before the matching work:
 
 - [`test-driven-development`](.agents/skills/test-driven-development/SKILL.md) — before adding behavior.
@@ -277,22 +295,29 @@ Especially load before the matching work:
 - [`phase-persistence`](.agents/skills/phase-persistence/SKILL.md) — when implementing a multi-bullet phase.
 - [`non-zero-exit-recovery`](.agents/skills/non-zero-exit-recovery/SKILL.md) — on any command failure.
 - [`parallel-subagents`](.agents/skills/parallel-subagents/SKILL.md) — when fanning out reads / searches.
+- [`codegraph-management`](.agents/skills/codegraph-management/SKILL.md) — before using, troubleshooting, or re-indexing CodeGraph.
 - **ROADMAP discipline**: read [`.agents/instructions/ROADMAP_DISCIPLINE.md`](.agents/instructions/ROADMAP_DISCIPLINE.md) — tick boxes immediately as each deliverable completes; do not leave incomplete sub-phases unchecked.
 
 ---
 
 ## 10. 🤖 Model-specific notes
 
+- **Codex** — `AGENTS.md` and `.agents/skills/` are native discovery surfaces.
+  Read `docs/guides/CODEX_SETUP.md` for generated roles, prompt adapters and
+  runtime translation. Use tools actually available in the session; Copilot
+  tool names, slash commands and YAML metadata are not Codex APIs.
+
 This framework is designed to behave identically across assistants. Two
 known divergences require explicit attention:
 
 - **Claude (Sonnet / Opus / Haiku)** — see [`CLAUDE.md`](CLAUDE.md). Has a
   tendency to over-explain; keep replies tight.
-- **GPT / Codex / Gemini families** — see [`docs/guides/MODEL_PROFILES.md`](docs/guides/MODEL_PROFILES.md).
-  Have a measured tendency to return partial work and ask "should I
-  continue?" That behaviour is a violation of §6 + the
-  [`phase-persistence`](.agents/skills/phase-persistence/SKILL.md)
-  skill, not polite engineering. Drain the named scope, then hand back.
+
+For other vendors or models not covered here, read [`docs/guides/MODEL_PROFILES.md`](docs/guides/MODEL_PROFILES.md).
+They may have a measured tendency to return partial work and ask "should I
+continue?" That behaviour is a violation of §6 + the
+[`phase-persistence`](.agents/skills/phase-persistence/SKILL.md)
+skill, not polite engineering. Drain the named scope, then hand back.
 
 For Copilot-specific custom agents and slash commands, see
 [`.github/copilot-instructions.md`](.github/copilot-instructions.md) and
