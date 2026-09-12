@@ -1,6 +1,6 @@
 # chessrecast
 
-> _Describe what this project does in one sentence._
+> Experimental chess variants; same board, same pieces with new rules
 
 ## Quickstart
 
